@@ -166,8 +166,8 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 //  === pin assignments for dev kit board ===================================
 #ifdef ESP32
 #define ONEWIRE_PIN D32
-#define PM_SERIAL_RX D27
-#define PM_SERIAL_TX D33
+#define PM_SERIAL_RX 1
+#define PM_SERIAL_TX 10
 #define PIN_CS D13
 #define PM_RESTART 25
 
@@ -177,8 +177,8 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define GPS_SERIAL_RX D22
 #define GPS_SERIAL_TX D21
 #else
-#define I2C_PIN_SCL D22
-#define I2C_PIN_SDA D21
+#define I2C_PIN_SCL 0
+#define I2C_PIN_SDA 3
 #define GPS_SERIAL_RX D19
 #define GPS_SERIAL_TX D23
 #endif
@@ -245,7 +245,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define DHT_API_PIN 7
 
 // HTU21D, temperature, humidity
-#define HTU21D_READ 1
+#define HTU21D_READ 0
 #define HTU21D_API_PIN 7
 
 // PPD42NS, the cheaper version of the particle sensor
@@ -255,8 +255,9 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // Geiger Counter
 #define GC_READ 0
 
-// Becibel Meter
+// Noise Meters
 #define DBMETER_READ 0
+#define I2SNOISE_READ 0
 
 // SDS011, the more expensive version of the particle sensor
 #define SDS_READ 1

@@ -13,6 +13,7 @@ Bool		www_basicauth_enabled
 Bool		dht_read
 Bool		htu21d_read
 Bool		dbmeter_read
+Bool        i2snoise_read
 Bool		ppd_read
 Bool		sds_read
 Bool        gc_read

@@ -115,6 +115,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "./sps30_i2c.h"
 #include "./dnms_i2c.h"
 #include "./dbmeter_regs.h"
+#include "./i2s_noise/i2s_noise.h"
 
 #include "./intl.h"
 
@@ -164,6 +165,7 @@ namespace cfg {
 	bool dht_read = DHT_READ;
 	bool htu21d_read = HTU21D_READ;
 	bool dbmeter_read = DBMETER_READ;
+	bool i2snoise_read = I2SNOISE_READ;
 	bool ppd_read = PPD_READ;
 	bool sds_read = SDS_READ;
 	bool gc_read = GC_READ;
@@ -303,11 +305,15 @@ LiquidCrystal_I2C* lcd_2004 = nullptr;
  *****************************************************************/
 #if defined(ESP8266)
 SoftwareSerial serialSDS;
-SoftwareSerial* serialGPS;
+// SoftwareSerial* serialGPS;
 #endif
 #if defined(ESP32)
 #define serialSDS (Serial1)
-#define serialGPS (&(Serial2))
+// #include <HardwareSerial.h>
+
+// // Define Serial2 on UART2
+// HardwareSerial Serial2(2);
+// #define serialGPS (&(Serial2))
 #endif
 
 /*****************************************************************
@@ -692,12 +698,12 @@ static String SDS_version_date() {
  * disable unneeded NMEA sentences, TinyGPS++ needs GGA, RMC     *
  *****************************************************************/
 static void disable_unneeded_nmea() {
-	serialGPS->println(F("$PUBX,40,GLL,0,0,0,0*5C"));       // Geographic position, latitude / longitude
-//	serialGPS->println(F("$PUBX,40,GGA,0,0,0,0*5A"));       // Global Positioning System Fix Data
-	serialGPS->println(F("$PUBX,40,GSA,0,0,0,0*4E"));       // GPS DOP and active satellites
-//	serialGPS->println(F("$PUBX,40,RMC,0,0,0,0*47"));       // Recommended minimum specific GPS/Transit data
-	serialGPS->println(F("$PUBX,40,GSV,0,0,0,0*59"));       // GNSS satellites in view
-	serialGPS->println(F("$PUBX,40,VTG,0,0,0,0*5E"));       // Track made good and ground speed
+// 	serialGPS->println(F("$PUBX,40,GLL,0,0,0,0*5C"));       // Geographic position, latitude / longitude
+// //	serialGPS->println(F("$PUBX,40,GGA,0,0,0,0*5A"));       // Global Positioning System Fix Data
+// 	serialGPS->println(F("$PUBX,40,GSA,0,0,0,0*4E"));       // GPS DOP and active satellites
+// //	serialGPS->println(F("$PUBX,40,RMC,0,0,0,0*47"));       // Recommended minimum specific GPS/Transit data
+// 	serialGPS->println(F("$PUBX,40,GSV,0,0,0,0*59"));       // GNSS satellites in view
+// 	serialGPS->println(F("$PUBX,40,VTG,0,0,0,0*5E"));       // Track made good and ground speed
 }
 
 
@@ -1366,6 +1372,7 @@ static void webserver_config_send_body_get(String& page_content) {
 	add_form_checkbox_sensor(Config_dht_read, FPSTR(INTL_DHT22));
 	add_form_checkbox_sensor(Config_htu21d_read, FPSTR(INTL_HTU21D));
 	add_form_checkbox_sensor(Config_dbmeter_read, FPSTR(INTL_DBMETER));
+	add_form_checkbox_sensor(Config_i2snoise_read, FPSTR(INTL_I2SNOISE));
 	add_form_checkbox_sensor(Config_bmx280_read, FPSTR(INTL_BMX280));
 	add_form_checkbox_sensor(Config_sht3x_read, FPSTR(INTL_SHT3X));
 
@@ -1553,8 +1560,8 @@ static void sensor_restart() {
 #pragma GCC diagnostic pop
 
 		serialSDS.end();
-		digitalWrite(PM_RESTART, LOW);
-		debug_outln_info(F("Restart."));
+		// digitalWrite(PM_RESTART, LOW);
+		// debug_outln_info(F("Restart."));
 		delay(5000);
 		ESP.restart();
 		// should not be reached
@@ -1753,7 +1760,7 @@ static void webserver_values() {
 		add_table_h_value(FPSTR(SENSORS_HTU21D), FPSTR(INTL_HUMIDITY), last_value_HTU21D_H);
 		page_content += FPSTR(EMPTY_ROW);
 	}
-	if (cfg::dbmeter_read) {
+	if (cfg::dbmeter_read || cfg::i2snoise_read) {
 		add_table_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_NOISE), String(last_value_DBMETER), unit_DB);
 		add_table_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_NOISE_MAX), String(last_value_DBMETER_max), unit_DB);
 		add_table_value(FPSTR(SENSORS_DBMETER), FPSTR(INTL_NOISE_MEAN), String(last_value_DBMETER_mean), unit_DB);
@@ -2304,6 +2311,7 @@ static void wifiConfig() {
 	debug_outln_info_bool(F("DS18B20: "), cfg::ds18b20_read);
 	debug_outln_info_bool(F("HTU21D: "), cfg::htu21d_read);
 	debug_outln_info_bool(F("DBMETER: "), cfg::dbmeter_read);
+	debug_outln_info_bool(F("I2SNOISE: "), cfg::i2snoise_read);
 	debug_outln_info_bool(F("BMP: "), cfg::bmp_read);
 	debug_outln_info_bool(F("DNMS: "), cfg::dnms_read);
 	debug_outln_info_bool(F("CCS811: "), cfg::ccs811_read);
@@ -2757,6 +2765,39 @@ static void fetchSensorHTU21D(String& s) {
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_HTU21D));
+}
+
+/*****************************************************************
+ * read I2S Noise sensor values                                     *
+ *****************************************************************/
+static void fetchSensorI2sNoise(String& s) {
+	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_DBMETER));
+	if (is_SDS_running && cfg::sds_read) {
+		debug_outln_verbose(F("Don't measure noise: SDS is running"));
+	} else {
+		float db_mean;
+		fetchSensorI2sSound(&last_value_DBMETER, &db_mean);
+		if (last_value_DBMETER > last_value_DBMETER_max) {
+			last_value_DBMETER_max = last_value_DBMETER;
+		}
+		last_value_DBMETER_sum += db_mean;
+		last_value_DBMETER_count++;
+		last_value_DBMETER_mean = (float)last_value_DBMETER_sum / (float)last_value_DBMETER_count;
+	}
+	if (send_now) {
+		debug_outln_info(F("Noise sum: "), last_value_DBMETER_sum);
+		debug_outln_info(F("Noise count: "), last_value_DBMETER_count);
+		debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
+		debug_outln_info(F("Noise mean: "), last_value_DBMETER_mean);
+		debug_outln_info(FPSTR(DBG_TXT_SEP));
+		add_Value2Json(s, F("PCBA_noiseMax"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
+		add_Value2Json(s, F("PCBA_noiseAvg"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_mean);
+		last_value_DBMETER_max = 0;
+		last_value_DBMETER_mean = 0;
+		last_value_DBMETER_count = 0;
+		last_value_DBMETER_sum = 0;
+	}
+	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_DBMETER));
 }
 
 /*****************************************************************
@@ -4472,8 +4513,8 @@ static void powerOnTestSensors() {
 	}
 
 	if (cfg::sds_read) {
-		pinMode(PM_RESTART, OUTPUT);
-		digitalWrite(PM_RESTART, HIGH);
+		// pinMode(PM_RESTART, OUTPUT);
+		// digitalWrite(PM_RESTART, HIGH);
 		delay(500);
 		debug_outln_info(F("Read SDS...: "), SDS_version_date());
 		SDS_cmd(PmSensorCmd::ContinuousMode);
@@ -4590,6 +4631,11 @@ static void powerOnTestSensors() {
 	if (cfg::dbmeter_read) {
 		debug_outln_info(F("Read DB Meter..."));
 		initDBMeter();
+	}
+
+	if (cfg::i2snoise_read) {
+		debug_outln_info(F("Read I2S Sound..."));
+		initI2sSound();
 	}
 
 	if (cfg::bmp_read) {
@@ -4785,7 +4831,10 @@ static unsigned long sendDataToOptionalApis(const String &data) {
  *****************************************************************/
 
 void setup(void) {
-	Debug.begin(115200);		// Output to Serial at 115200 from web console 
+	delay(3000);
+	// Debug.begin(115200);		// Output to Serial at 115200 from web console 
+	Serial.begin(115200);
+	Serial.println("Start setup");
 #if defined (ESP8266)
 	serialSDS.begin(
 #if !NPM_READ
@@ -4851,13 +4900,13 @@ void setup(void) {
 	twoStageOTAUpdate();
 
 	if (cfg::gps_read) {
-#if defined(ESP8266)
-		serialGPS = new SoftwareSerial;
-		serialGPS->begin(9600, SWSERIAL_8N1, GPS_SERIAL_RX, GPS_SERIAL_TX, false, 128);
-#endif
-#if defined(ESP32)
-		serialGPS->begin(9600, SERIAL_8N1, GPS_SERIAL_RX, GPS_SERIAL_TX);
-#endif
+// #if defined(ESP8266)
+// 		serialGPS = new SoftwareSerial;
+// 		serialGPS->begin(9600, SWSERIAL_8N1, GPS_SERIAL_RX, GPS_SERIAL_TX, false, 128);
+// #endif
+// #if defined(ESP32)
+// 		serialGPS->begin(9600, SERIAL_8N1, GPS_SERIAL_RX, GPS_SERIAL_TX);
+// #endif
 		debug_outln_info(F("Read GPS..."));
 		disable_unneeded_nmea();
 	}
@@ -4948,6 +4997,9 @@ void loop(void) {
 		if (cfg::dbmeter_read && (! dbmeter_init_failed)) {
 			fetchSensorDBMeter(result_DB);
 		}
+		if (cfg::i2snoise_read) {
+			fetchSensorI2sNoise(result_DB);
+		}
 	}
 
 	if ((msSince(starttime_SDS) > SAMPLETIME_SDS_MS) || send_now) {
@@ -4972,9 +5024,9 @@ void loop(void) {
 	if (cfg::gps_read) {
 		// process serial GPS data..
 		if (!gps_init_failed) {
-			while (serialGPS->available() > 0) {
-				gps.encode(serialGPS->read());
-			}
+			// while (serialGPS->available() > 0) {
+			// 	gps.encode(serialGPS->read());
+			// }
 		}
 
 		if ((msSince(starttime_GPS) > SAMPLETIME_GPS_MS) || send_now) {
@@ -5011,7 +5063,7 @@ void loop(void) {
 			fetchSensorGC(result_GC);
 			data += result_GC;
 		}
-		if (cfg::dbmeter_read && (! dbmeter_init_failed)) {
+		if ((cfg::dbmeter_read && (! dbmeter_init_failed)) || cfg::i2snoise_read) {
 			data += result_DB;
 		}
 		if (((cfg::ccs811_read) || (cfg::ccs811_27_read)) && (! ccs811_init_failed)) {
