@@ -19,6 +19,8 @@
 
 */
 
+#ifdef ESP32
+
 #include "arduinoFFT.h"
 
 arduinoFFT::arduinoFFT(float *vReal, float *vImag, uint16_t samples, float samplingFrequency)
@@ -232,3 +234,4 @@ void arduinoFFT::Swap(float *x, float *y)
 	*y = temp;
 }
  
+#endif

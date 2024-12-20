@@ -19,7 +19,6 @@ Bool		sds_read
 Bool        gc_read
 Bool		ccs811_read
 Bool		ccs811_27_read
-Bool		file_write
 Bool		pms_read
 Bool		hpm_read
 Bool		npm_read
@@ -30,6 +29,8 @@ Bool		sht3x_read
 Bool		ds18b20_read
 Bool		dnms_read
 String		dnms_correction
+String		rws_owner
+String		private_key
 String		lat_gps
 String		lon_gps
 String		temp_correction
@@ -48,10 +49,6 @@ Bool		use_beta
 Bool		has_display
 Bool		has_sh1106
 Bool		has_flipped_display
-Bool		has_lcd1602
-Bool		has_lcd1602_27
-Bool		has_lcd2004
-Bool		has_lcd2004_27
 Bool		display_wifi_info
 Bool		display_device_info
 UInt		debug

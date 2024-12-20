@@ -41,6 +41,7 @@ const char INTL_DNMS[] PROGMEM = "DNMS ({l_a})";
 const char INTL_DNMS_CORRECTION[] PROGMEM = "поправка в dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Коррекция в °C";
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
+const char INTL_RWS_OWNER[] PROGMEM = "Адрес владельца подписки";
 const char INTL_COORD_LAT[] PROGMEM = "Широта";
 const char INTL_COORD_LON[] PROGMEM = "Долгота";
 const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентификацию для входа в интерфейс сенсора";
@@ -60,7 +61,6 @@ const char INTL_LCD2004_27[] PROGMEM = "LCD 2004 (I2C: 0x27)";
 const char INTL_LCD2004_3F[] PROGMEM = "LCD 2004 (I2C: 0x3F)";
 const char INTL_DISPLAY_WIFI_INFO[] PROGMEM = "Отображать информацию о WiFi";
 const char INTL_DISPLAY_DEVICE_INFO[] PROGMEM = "Отображать информацию об устройстве";
-const char INTL_FILE_WRITE[] PROGMEM = "Записывать данные в память контроллера";
 const char INTL_DEBUG_LEVEL[] PROGMEM = "Уровень&nbsp;отладки";
 const char INTL_MEASUREMENT_INTERVAL[] PROGMEM = "Измерительный интервал";
 const char INTL_DURATION_ROUTER_MODE[] PROGMEM = "Длительность режима маршрутизатора";
@@ -91,6 +91,7 @@ const char INTL_DEVICE_STATUS[] PROGMEM = "Состояние устройств
 #define INTL_RESTART "Перезапустить"
 const char INTL_SAVE_AND_RESTART[] PROGMEM = "Сохранить и перезапустить";
 #define INTL_FIRMWARE "Прошивка"
+#define INTL_ROBONOMICS_ADDR "Адрес в Робономике"
 const char INTL_DEBUG_SETTING_TO[] PROGMEM = "Настройки отладки";
 #define INTL_NONE "отключена"
 #define INTL_ERROR "только ошибки"

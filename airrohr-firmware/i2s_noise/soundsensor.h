@@ -16,6 +16,8 @@
  * \file SoundSensor.cpp
  * \author Marcel Meek, Remko Welling (remko@rfsee.nl)
  */
+
+#ifdef ESP32
  
 #ifndef __SOUND_SENSOR_H_
 #define __SOUND_SENSOR_H_
@@ -77,3 +79,5 @@ class SoundSensor {
 }; 
 
 #endif // __SOUND_SENSOR_H_
+
+#endif // ESP32

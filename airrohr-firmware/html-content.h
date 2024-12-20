@@ -80,9 +80,12 @@ const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='widt
 <a class='b' href='/' style='background:none;display:inline'>\
 <img src='" STATIC_PREFIX "?r=logo' alt='" INTL_BACK_TO_HOME "' style='float:left;margin:16px' width='100' height='89'/></a>";
 
-const char WEB_PAGE_HEADER_BODY[] PROGMEM = "<h3 style='margin:0 10px'>" INTL_PM_SENSOR "</h3>\
-<br/><small style='color:#fff;font-weight:700'>ID: {id} ({macid})<br/>" INTL_FIRMWARE ": " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>\
-</small></div><div class='content'><h4>" INTL_HOME " {n} {t}</h4>";
+const char WEB_PAGE_HEADER_BODY[] PROGMEM = 
+    "<h3 style='margin:0 10px'>" INTL_PM_SENSOR "</h3>\
+    <br/><small style='color:#fff;font-weight:700'>ID: {id} ({macid})<br/>" 
+    INTL_FIRMWARE ": " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>"
+	INTL_ROBONOMICS_ADDR ": {addr}<br/>\
+    </small></div><div class='content'><h4>" INTL_HOME " {n} {t}</h4>";
 
 const char BR_TAG[] PROGMEM = "<br/>";
 const char WEB_DIV_PANEL[] PROGMEM = "</div><div class='panel' id='panel{v}'>";

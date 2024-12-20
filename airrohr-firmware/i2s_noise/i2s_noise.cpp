@@ -23,6 +23,8 @@
   - TTN SF9 is the default and ADR is enabled
   --------------------------------------------------------------------*/
 
+#ifdef ESP32
+
 #include "i2s_noise.h"
 #include "soundsensor.h"
 #include "measurement.h"
@@ -58,3 +60,5 @@ void fetchSensorI2sSound(uint8_t *max_noise, float *mean_noise) {
     *mean_noise = aMeasurement.avg;
     *max_noise = static_cast<uint8_t>(aMeasurement.max);
 }
+
+#endif // ESP32

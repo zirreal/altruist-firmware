@@ -19,6 +19,8 @@
 
 #define LEN_FS_SSID 33				// credentials for sensor access point mode
 
+#define LEN_RWS_OWNER 100
+#define LEN_PRIVATE_KEY 65
 #define LEN_GPS_LAT 10
 #define LEN_GPS_LON 10
 #define LEN_DNMS_CORRECTION 8

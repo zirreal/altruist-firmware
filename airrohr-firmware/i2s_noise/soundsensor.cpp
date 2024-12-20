@@ -17,6 +17,8 @@
  * \author Marcel Meek, Remko Welling (remko@rfsee.nl)
  */
 
+#ifdef ESP32
+
 #include "soundsensor.h"
 #include "arduinoFFT.h"
 
@@ -215,3 +217,5 @@ static void generateSineWave( int32_t* samples, float amplitude, float freq) {
   }
 }
 */
+
+#endif // ESP32

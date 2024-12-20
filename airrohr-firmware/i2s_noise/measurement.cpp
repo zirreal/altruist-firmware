@@ -21,6 +21,9 @@
    # ToDo
    \todo RW Add documentation on hardware connections
 */
+
+#ifdef ESP32
+
 #include <float.h>
 #include <Arduino.h>
 #include "measurement.h"
@@ -80,3 +83,5 @@ void Measurement::print() {
     Serial.printf(" %.1f", spectrum[i]);
   Serial.println();
 }
+
+#endif // ESP32

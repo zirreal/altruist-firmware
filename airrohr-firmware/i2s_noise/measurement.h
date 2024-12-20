@@ -43,6 +43,8 @@
  * \todo RW Add documentation on hardware connections
  */
 
+#ifdef ESP32
+
 #ifndef __MEASUREMENT_H_
 #define __MEASUREMENT_H_
 
@@ -92,3 +94,5 @@ class Measurement {
 }; 
 
 #endif //__MEASUREMENT_H_
+
+#endif // ESP32

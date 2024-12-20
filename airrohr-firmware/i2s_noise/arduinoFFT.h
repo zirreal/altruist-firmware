@@ -19,6 +19,8 @@
 
 */
 
+#ifdef ESP32
+
 #ifndef arduinoFFT_h /* Prevent loading library twice */
 #define arduinoFFT_h
 #ifdef ARDUINO
@@ -97,3 +99,5 @@ private:
 };
 
 #endif
+
+#endif // ESP32
