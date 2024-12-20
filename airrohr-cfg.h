@@ -43,7 +43,6 @@ enum ConfigShapeId {
 	Config_gc_read,
 	Config_ccs811_read,
 	Config_ccs811_27_read,
-	Config_file_write,
 	Config_pms_read,
 	Config_hpm_read,
 	Config_npm_read,
@@ -54,6 +53,8 @@ enum ConfigShapeId {
 	Config_ds18b20_read,
 	Config_dnms_read,
 	Config_dnms_correction,
+	Config_rws_owner,
+	Config_private_key,
 	Config_lat_gps,
 	Config_lon_gps,
 	Config_temp_correction,
@@ -72,10 +73,6 @@ enum ConfigShapeId {
 	Config_has_display,
 	Config_has_sh1106,
 	Config_has_flipped_display,
-	Config_has_lcd1602,
-	Config_has_lcd1602_27,
-	Config_has_lcd2004,
-	Config_has_lcd2004_27,
 	Config_display_wifi_info,
 	Config_display_device_info,
 	Config_debug,
@@ -118,7 +115,6 @@ static constexpr char CFG_KEY_SDS_READ[] PROGMEM = "sds_read";
 static constexpr char CFG_KEY_GC_READ[] PROGMEM = "gc_read";
 static constexpr char CFG_KEY_CCS811_READ[] PROGMEM = "ccs811_read";
 static constexpr char CFG_KEY_CCS811_27_READ[] PROGMEM = "ccs811_27_read";
-static constexpr char CFG_KEY_FILE_WRITE[] PROGMEM = "file_write";
 static constexpr char CFG_KEY_PMS_READ[] PROGMEM = "pms_read";
 static constexpr char CFG_KEY_HPM_READ[] PROGMEM = "hpm_read";
 static constexpr char CFG_KEY_NPM_READ[] PROGMEM = "npm_read";
@@ -129,6 +125,8 @@ static constexpr char CFG_KEY_SHT3X_READ[] PROGMEM = "sht3x_read";
 static constexpr char CFG_KEY_DS18B20_READ[] PROGMEM = "ds18b20_read";
 static constexpr char CFG_KEY_DNMS_READ[] PROGMEM = "dnms_read";
 static constexpr char CFG_KEY_DNMS_CORRECTION[] PROGMEM = "dnms_correction";
+static constexpr char CFG_KEY_RWS_OWNER[] PROGMEM = "rws_owner";
+static constexpr char CFG_KEY_PRIVATE_KEY[] PROGMEM = "private_key";
 static constexpr char CFG_KEY_LAT_GPS[] PROGMEM = "lat_gps";
 static constexpr char CFG_KEY_LON_GPS[] PROGMEM = "lon_gps";
 static constexpr char CFG_KEY_TEMP_CORRECTION[] PROGMEM = "temp_correction";
@@ -147,10 +145,6 @@ static constexpr char CFG_KEY_USE_BETA[] PROGMEM = "use_beta";
 static constexpr char CFG_KEY_HAS_DISPLAY[] PROGMEM = "has_display";
 static constexpr char CFG_KEY_HAS_SH1106[] PROGMEM = "has_sh1106";
 static constexpr char CFG_KEY_HAS_FLIPPED_DISPLAY[] PROGMEM = "has_flipped_display";
-static constexpr char CFG_KEY_HAS_LCD1602[] PROGMEM = "has_lcd1602";
-static constexpr char CFG_KEY_HAS_LCD1602_27[] PROGMEM = "has_lcd1602_27";
-static constexpr char CFG_KEY_HAS_LCD2004[] PROGMEM = "has_lcd2004";
-static constexpr char CFG_KEY_HAS_LCD2004_27[] PROGMEM = "has_lcd2004_27";
 static constexpr char CFG_KEY_DISPLAY_WIFI_INFO[] PROGMEM = "display_wifi_info";
 static constexpr char CFG_KEY_DISPLAY_DEVICE_INFO[] PROGMEM = "display_device_info";
 static constexpr char CFG_KEY_DEBUG[] PROGMEM = "debug";
@@ -193,7 +187,6 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_GC_READ, &cfg::gc_read },
 	{ Config_Type_Bool, 0, CFG_KEY_CCS811_READ, &cfg::ccs811_read },
 	{ Config_Type_Bool, 0, CFG_KEY_CCS811_27_READ, &cfg::ccs811_27_read },
-	{ Config_Type_Bool, 0, CFG_KEY_FILE_WRITE, &cfg::file_write },
 	{ Config_Type_Bool, 0, CFG_KEY_PMS_READ, &cfg::pms_read },
 	{ Config_Type_Bool, 0, CFG_KEY_HPM_READ, &cfg::hpm_read },
 	{ Config_Type_Bool, 0, CFG_KEY_NPM_READ, &cfg::npm_read },
@@ -204,6 +197,8 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_DS18B20_READ, &cfg::ds18b20_read },
 	{ Config_Type_Bool, 0, CFG_KEY_DNMS_READ, &cfg::dnms_read },
 	{ Config_Type_String, sizeof(cfg::dnms_correction)-1, CFG_KEY_DNMS_CORRECTION, cfg::dnms_correction },
+	{ Config_Type_String, sizeof(cfg::rws_owner)-1, CFG_KEY_RWS_OWNER, cfg::rws_owner },
+	{ Config_Type_String, sizeof(cfg::private_key)-1, CFG_KEY_PRIVATE_KEY, cfg::private_key },
 	{ Config_Type_String, sizeof(cfg::lat_gps)-1, CFG_KEY_LAT_GPS, cfg::lat_gps },
 	{ Config_Type_String, sizeof(cfg::lon_gps)-1, CFG_KEY_LON_GPS, cfg::lon_gps },
 	{ Config_Type_String, sizeof(cfg::temp_correction)-1, CFG_KEY_TEMP_CORRECTION, cfg::temp_correction },
@@ -222,10 +217,6 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_HAS_DISPLAY, &cfg::has_display },
 	{ Config_Type_Bool, 0, CFG_KEY_HAS_SH1106, &cfg::has_sh1106 },
 	{ Config_Type_Bool, 0, CFG_KEY_HAS_FLIPPED_DISPLAY, &cfg::has_flipped_display },
-	{ Config_Type_Bool, 0, CFG_KEY_HAS_LCD1602, &cfg::has_lcd1602 },
-	{ Config_Type_Bool, 0, CFG_KEY_HAS_LCD1602_27, &cfg::has_lcd1602_27 },
-	{ Config_Type_Bool, 0, CFG_KEY_HAS_LCD2004, &cfg::has_lcd2004 },
-	{ Config_Type_Bool, 0, CFG_KEY_HAS_LCD2004_27, &cfg::has_lcd2004_27 },
 	{ Config_Type_Bool, 0, CFG_KEY_DISPLAY_WIFI_INFO, &cfg::display_wifi_info },
 	{ Config_Type_Bool, 0, CFG_KEY_DISPLAY_DEVICE_INFO, &cfg::display_device_info },
 	{ Config_Type_UInt, 0, CFG_KEY_DEBUG, &cfg::debug },
