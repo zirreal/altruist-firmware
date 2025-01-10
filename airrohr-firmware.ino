@@ -60,7 +60,7 @@
 #include <pgmspace.h>
 
 // increment on change
-#define SOFTWARE_VERSION_STR "R_2024-06"
+#define SOFTWARE_VERSION_STR "R_2025-01"
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
 /*****************************************************************
@@ -190,6 +190,7 @@ namespace cfg {
 	char private_key[LEN_PRIVATE_KEY] = "Not Set";
 	char lat_gps[LEN_GPS_LAT] = GPS_LAT;
 	char lon_gps[LEN_GPS_LON] = GPS_LON;
+	char coords_gps[LEN_GPS_COORDS] = GPS_COORDS;
 	bool gps_read = GPS_READ;
 	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
 
@@ -1151,8 +1152,9 @@ static void webserver_guest_send_body_get(String& page_content) {
 	page_content += FPSTR(BR_TAG);
 
 	page_content += FPSTR(TABLE_TAG_OPEN);
-	add_form_input(page_content, Config_lat_gps, FPSTR(INTL_COORD_LAT), LEN_GPS_LAT-1);
-	add_form_input(page_content, Config_lon_gps, FPSTR(INTL_COORD_LON), LEN_GPS_LON-1);
+	// add_form_input(page_content, Config_lat_gps, FPSTR(INTL_COORD_LAT), LEN_GPS_LAT-1);
+	// add_form_input(page_content, Config_lon_gps, FPSTR(INTL_COORD_LON), LEN_GPS_LON-1);
+	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 
 	// Paginate page after ~ 1500 Bytes
@@ -1389,8 +1391,9 @@ static void webserver_config_send_body_get(String& page_content) {
 	add_form_checkbox_sensor(Config_pms_read, FPSTR(INTL_PMS));
 	add_form_checkbox_sensor(Config_bmp_read, FPSTR(INTL_BMP180));
 	add_form_checkbox(Config_gps_read, FPSTR(INTL_NEO6M));
-	add_form_input(page_content, Config_lat_gps, FPSTR(INTL_COORD_LAT), LEN_GPS_LAT-1);
-	add_form_input(page_content, Config_lon_gps, FPSTR(INTL_COORD_LON), LEN_GPS_LON-1);
+	// add_form_input(page_content, Config_lat_gps, FPSTR(INTL_COORD_LAT), LEN_GPS_LAT-1);
+	// add_form_input(page_content, Config_lon_gps, FPSTR(INTL_COORD_LON), LEN_GPS_LON-1);
+	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 
 	// Paginate page after ~ 1500 Bytes
 	server.sendContent(page_content);
@@ -3543,8 +3546,9 @@ static __noinline void fetchSensorGPS(String& s) {
 			last_value_GPS_timestamp = F("1970-01-01T00:00:00.000");
 		}
 	} else {
-		last_value_GPS_lat = atof(cfg::lat_gps);
-		last_value_GPS_lon = atof(cfg::lon_gps);
+		// last_value_GPS_lat = atof(cfg::lat_gps);
+		// last_value_GPS_lon = atof(cfg::lon_gps);
+		sscanf(cfg::coords_gps, "%lf,%lf", &last_value_GPS_lat, &last_value_GPS_lon);
 	}
 	if (send_now) {
 

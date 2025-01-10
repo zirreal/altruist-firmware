@@ -44,6 +44,7 @@ const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "Адрес владельца подписки";
 const char INTL_COORD_LAT[] PROGMEM = "Широта";
 const char INTL_COORD_LON[] PROGMEM = "Долгота";
+const char INTL_COORDS[] PROGMEM = "Широта, Долгота (заданные координаты будут использованы, если GPS не подключен)";
 const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентификацию для входа в интерфейс сенсора";
 #define INTL_REPORT_ISSUE "Сообщить о проблеме"
 

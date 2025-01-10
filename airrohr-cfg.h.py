@@ -33,6 +33,7 @@ String		rws_owner
 String		private_key
 String		lat_gps
 String		lon_gps
+String		coords_gps
 String		temp_correction
 Bool		gps_read
 Bool		send2dusti

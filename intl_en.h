@@ -44,6 +44,7 @@ const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "RWS Owner Address";
 const char INTL_COORD_LAT[] PROGMEM = "Latitude";
 const char INTL_COORD_LON[] PROGMEM = "Longtitude";
+const char INTL_COORDS[] PROGMEM = "Latitude, Longtitude (will be used if no hardware GPS connected)";
 const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_REPORT_ISSUE "Report an issue"
 

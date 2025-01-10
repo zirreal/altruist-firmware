@@ -57,6 +57,7 @@ enum ConfigShapeId {
 	Config_private_key,
 	Config_lat_gps,
 	Config_lon_gps,
+	Config_coords_gps,
 	Config_temp_correction,
 	Config_gps_read,
 	Config_send2dusti,
@@ -129,6 +130,7 @@ static constexpr char CFG_KEY_RWS_OWNER[] PROGMEM = "rws_owner";
 static constexpr char CFG_KEY_PRIVATE_KEY[] PROGMEM = "private_key";
 static constexpr char CFG_KEY_LAT_GPS[] PROGMEM = "lat_gps";
 static constexpr char CFG_KEY_LON_GPS[] PROGMEM = "lon_gps";
+static constexpr char CFG_KEY_COORDS_GPS[] PROGMEM = "coords_gps";
 static constexpr char CFG_KEY_TEMP_CORRECTION[] PROGMEM = "temp_correction";
 static constexpr char CFG_KEY_GPS_READ[] PROGMEM = "gps_read";
 static constexpr char CFG_KEY_SEND2DUSTI[] PROGMEM = "send2dusti";
@@ -201,6 +203,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::private_key)-1, CFG_KEY_PRIVATE_KEY, cfg::private_key },
 	{ Config_Type_String, sizeof(cfg::lat_gps)-1, CFG_KEY_LAT_GPS, cfg::lat_gps },
 	{ Config_Type_String, sizeof(cfg::lon_gps)-1, CFG_KEY_LON_GPS, cfg::lon_gps },
+	{ Config_Type_String, sizeof(cfg::coords_gps)-1, CFG_KEY_COORDS_GPS, cfg::coords_gps },
 	{ Config_Type_String, sizeof(cfg::temp_correction)-1, CFG_KEY_TEMP_CORRECTION, cfg::temp_correction },
 	{ Config_Type_Bool, 0, CFG_KEY_GPS_READ, &cfg::gps_read },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2DUSTI, &cfg::send2dusti },

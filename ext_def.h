@@ -315,6 +315,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define GPS_API_PIN 9
 #define GPS_LAT "0.0"
 #define GPS_LON "0.0"
+#define GPS_COORDS "0.0,0.0"
 
 // MHZ19 CO2 sensor
 #define MHZ19_READ 0
