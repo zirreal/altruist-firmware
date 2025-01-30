@@ -43,22 +43,28 @@ static bool sound = false;
 
 static SoundSensor soundSensor;
 
-void initI2sSound() {
-  soundSensor.begin();
+bool initI2sSound() {
+  bool res = soundSensor.begin();
   soundSensor.offset( MIC_OFFSET );
+  return res;
 }
 
 void fetchSensorI2sSound(uint8_t *max_noise, float *mean_noise) {
-    if( !soundSensor.running())
-      soundSensor.start();
-    float* energy = soundSensor.readSamples();
+  if (!initI2sSound()) {
+    return;
+  }
+  if( !soundSensor.running())
+    soundSensor.start();
+  float* energy = soundSensor.readSamples();
 
-    aMeasurement.update( energy);
-    aMeasurement.calculate();
-    aMeasurement.print();
+  aMeasurement.update( energy);
+  aMeasurement.calculate();
+  // aMeasurement.print();
 
-    *mean_noise = aMeasurement.avg;
-    *max_noise = static_cast<uint8_t>(aMeasurement.max);
+  *mean_noise = aMeasurement.avg;
+  *max_noise = static_cast<uint8_t>(aMeasurement.max);
+  soundSensor.stop();
+  soundSensor.disable();
 }
 
 #endif // ESP32

@@ -43,9 +43,10 @@ class SoundSensor {
     ~SoundSensor();
 
     /// \brief Initialize Sound sensor class and start.
-    void begin();
+    bool begin();
     void start();
     void stop();
+    void disable();
     bool running()  { return _i2s; }
     
     // Read multiple samples at once and calculate the sound pressure

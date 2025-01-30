@@ -72,7 +72,7 @@ SoundSensor::~SoundSensor(){
   delete _fft;
 }
 
-void SoundSensor::begin(){
+bool SoundSensor::begin(){
   
   // Configuring the I2S driver and pins.
   // This function must be called before any I2S driver read/write operations.
@@ -80,30 +80,35 @@ void SoundSensor::begin(){
  // printf("_err=%d\n", _err);
 //  printf("%d, %d, %d, %d\n", pin_config.bck_io_num, pin_config.ws_io_num, pin_config.data_out_num, pin_config.data_in_num);
   if (_err != ESP_OK) {
-    Serial.printf("Failed installing I2S driver: %d\n", _err);
-    while (true);
+    Serial.printf("Failed installing I2S driver: %d\r\n", _err);
+    return false;
   }
   
   _err = i2s_set_pin(I2S_PORT, &pin_config);
   if (_err != ESP_OK) {
-    Serial.printf("Failed setting pin: %d\n", _err);
-    while (true);
+    Serial.printf("Failed setting pin: %d\r\n", _err);
+    return false;
   }
-  Serial.printf("I2S driver installed.\n");
+  // Serial.printf("I2S driver installed.\r\n");
   stop(); 
+  return true;
 }
 
 void SoundSensor::start() {
-  Serial.printf("i2s_start\n");
+  // Serial.printf("i2s_start\r\n");
   i2s_start( I2S_PORT);
   _i2s = true;
+  // Serial.printf("i2s_started\r\n");
 }
 
 void SoundSensor::stop() {
-  Serial.printf("i2s_stop\n");
+  // Serial.printf("i2s_stop\r\n");
   _i2s = false;
   i2s_stop( I2S_PORT);
- 
+}
+
+void SoundSensor::disable() {
+  i2s_driver_uninstall(  I2S_PORT);
 }
 
 float* SoundSensor::readSamples(){
@@ -119,7 +124,7 @@ float* SoundSensor::readSamples(){
   );    // no timeout
 
    if(_err != ESP_OK){
-    Serial.printf("%d err\n",_err);
+    Serial.printf("%d err\r\n",_err);
   }
  
   integerToFloat(_samples, _real, _imag, SAMPLES);
