@@ -115,7 +115,8 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include <StreamString.h>
 #include <DallasTemperature.h>
 #include <TinyGPS++.h>
-#include "./bmx280_i2c.h"
+#include "bmx280_i2c_idf.h"
+// #include "./bmx280_i2c.h"
 #include "./sps30_i2c.h"
 #include "./dnms_i2c.h"
 #include "./dbmeter_regs.h"
@@ -343,7 +344,7 @@ Adafruit_BMP085 bmp;
 /*****************************************************************
  * BMP/BME280 declaration                                        *
  *****************************************************************/
-BMX280 bmx280;
+// BMX280 bmx280;
 
 /*****************************************************************
  * SHT3x declaration                                             *
@@ -1773,12 +1774,13 @@ static void webserver_values() {
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::bmx280_read) {
-		const char* const sensor_name = (bmx280.sensorID() == BME280_SENSOR_ID) ? SENSORS_BME280 : SENSORS_BMP280;
+		// const char* const sensor_name = (bmx280.sensorID() == BME280_SENSOR_ID) ? SENSORS_BME280 : SENSORS_BMP280;
+		const char* const sensor_name = SENSORS_BME280;
 		add_table_t_value(FPSTR(sensor_name), FPSTR(INTL_TEMPERATURE), last_value_BMX280_T);
 		add_table_value(FPSTR(sensor_name), FPSTR(INTL_PRESSURE), check_display_value(last_value_BMX280_P / 100.0f, (-1 / 100.0f), 2, 0), unit_P);
-		if (bmx280.sensorID() == BME280_SENSOR_ID) {
+		// if (bmx280.sensorID() == BME280_SENSOR_ID) {
 			add_table_h_value(FPSTR(sensor_name), FPSTR(INTL_HUMIDITY), last_value_BME280_H);
-		}
+		// }
 		page_content += FPSTR(EMPTY_ROW);
 	}
 	if (cfg::sht3x_read) {
@@ -2756,6 +2758,7 @@ static void fetchSensorHTU21D(String& s) {
  *****************************************************************/
 #ifdef ESP32
 static void fetchSensorI2sNoise(String& s) {
+	// debug_outln_info(F("Fetch Noise..."));
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_DBMETER));
 	if (is_SDS_running && cfg::sds_read) {
 		debug_outln_verbose(F("Don't measure noise: SDS is running"));
@@ -2887,33 +2890,47 @@ static void fetchSensorSHT3x(String& s) {
  * read BMP280/BME280 sensor values                              *
  *****************************************************************/
 static void fetchSensorBMX280(String& s) {
-	const char* const sensor_name = (bmx280.sensorID() == BME280_SENSOR_ID) ? SENSORS_BME280 : SENSORS_BMP280;
+	const char* const sensor_name = SENSORS_BME280;
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(sensor_name));
-
-	bmx280.takeForcedMeasurement();
-	const auto t = bmx280.readTemperature();
-	const auto p = bmx280.readPressure();
-	const auto h = bmx280.readHumidity();
-	if (isnan(t) || isnan(p)) {
-		last_value_BMX280_T = -128.0;
-		last_value_BMX280_P = -1.0;
-		last_value_BME280_H = -1.0;
-		debug_outln_error(F("BMP/BME280 read failed"));
-	} else {
-		last_value_BMX280_T = t + readCorrectionOffset(cfg::temp_correction);
-		last_value_BMX280_P = p;
-		if (bmx280.sensorID() == BME280_SENSOR_ID) {
-			add_Value2Json(s, F("BME280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
-			add_Value2Json(s, F("BME280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
-			last_value_BME280_H = h;
-			add_Value2Json(s, F("BME280_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_BME280_H);
-		} else {
-			add_Value2Json(s, F("BMP280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
-			add_Value2Json(s, F("BMP280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
-		}
-	}
+	readDataBMX280(&last_value_BMX280_T, &last_value_BMX280_P, &last_value_BME280_H);
+	add_Value2Json(s, F("BME280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
+	add_Value2Json(s, F("BME280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
+	add_Value2Json(s, F("BME280_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_BME280_H);
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(sensor_name));
+
+
+	// if (!initBMX280(0x76) && !initBMX280(0x77)) {
+	// 	debug_outln_error(F("Check BMx280 wiring"));
+	// 	bmx280_init_failed = true;
+	// }
+	// const char* const sensor_name = (bmx280.sensorID() == BME280_SENSOR_ID) ? SENSORS_BME280 : SENSORS_BMP280;
+	// debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(sensor_name));
+
+	// bmx280.takeForcedMeasurement();
+	// const auto t = bmx280.readTemperature();
+	// const auto p = bmx280.readPressure();
+	// const auto h = bmx280.readHumidity();
+	// if (isnan(t) || isnan(p)) {
+	// 	last_value_BMX280_T = -128.0;
+	// 	last_value_BMX280_P = -1.0;
+	// 	last_value_BME280_H = -1.0;
+	// 	debug_outln_error(F("BMP/BME280 read failed"));
+	// } else {
+	// 	last_value_BMX280_T = t + readCorrectionOffset(cfg::temp_correction);
+	// 	last_value_BMX280_P = p;
+	// 	if (bmx280.sensorID() == BME280_SENSOR_ID) {
+	// 		add_Value2Json(s, F("BME280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
+	// 		add_Value2Json(s, F("BME280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
+	// 		last_value_BME280_H = h;
+	// 		add_Value2Json(s, F("BME280_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_BME280_H);
+	// 	} else {
+	// 		add_Value2Json(s, F("BMP280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
+	// 		add_Value2Json(s, F("BMP280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
+	// 	}
+	// }
+	// debug_outln_info(FPSTR(DBG_TXT_SEP));
+	// debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(sensor_name));
 }
 
 /*****************************************************************
@@ -4181,22 +4198,22 @@ static void twoStageOTAUpdate() {
 /*****************************************************************
  * Init BMP280/BME280                                            *
  *****************************************************************/
-static bool initBMX280(char addr) {
-	debug_out(String(F("Trying BMx280 sensor on ")) + String(addr, HEX), DEBUG_MIN_INFO);
+// static bool initBMX280(char addr) {
+// 	debug_outln_info(F("Trying BMx280 sensor on "), String(addr, HEX));
 
-	if (bmx280.begin(addr)) {
-		debug_outln_info(FPSTR(DBG_TXT_FOUND));
-		bmx280.setSampling(
-			BMX280::MODE_FORCED,
-			BMX280::SAMPLING_X1,
-			BMX280::SAMPLING_X1,
-			BMX280::SAMPLING_X1);
-		return true;
-	} else {
-		debug_outln_info(FPSTR(DBG_TXT_NOT_FOUND));
-		return false;
-	}
-}
+// 	if (bmx280.begin(addr)) {
+// 		debug_outln_info(FPSTR(DBG_TXT_FOUND));
+// 		bmx280.setSampling(
+// 			BMX280::MODE_FORCED,
+// 			BMX280::SAMPLING_X1,
+// 			BMX280::SAMPLING_X1,
+// 			BMX280::SAMPLING_X1);
+// 		return true;
+// 	} else {
+// 		debug_outln_info(FPSTR(DBG_TXT_NOT_FOUND));
+// 		return false;
+// 	}
+// }
 
 /*****************************************************************
    Init SPS30 PM Sensor
@@ -4307,6 +4324,15 @@ static void powerOnTestSensors() {
 		pinMode(PPD_PIN_PM1, INPUT_PULLUP);					// Listen at the designated PIN
 		pinMode(PPD_PIN_PM2, INPUT_PULLUP);					// Listen at the designated PIN
 		debug_outln_info(F("Read PPD..."));
+	}
+
+	if (cfg::bmx280_read) {
+		debug_outln_info(F("Read BMxE280..."));
+		// initSensorBMX280();
+		// if (!initBMX280(0x76) && !initBMX280(0x77)) {
+		// 	debug_outln_error(F("Check BMx280 wiring"));
+		// 	bmx280_init_failed = true;
+		// }
 	}
 
 	if (cfg::sds_read) {
@@ -4427,7 +4453,7 @@ static void powerOnTestSensors() {
 #ifdef ESP32
 	if (cfg::i2snoise_read) {
 		debug_outln_info(F("Read I2S Sound..."));
-		initI2sSound();
+		// initI2sSound();
 	}
 #endif
 	if (cfg::bmp_read) {
@@ -4435,14 +4461,6 @@ static void powerOnTestSensors() {
 		if (!bmp.begin()) {
 			debug_outln_error(F("No valid BMP085 sensor, check wiring!"));
 			bmp_init_failed = true;
-		}
-	}
-
-	if (cfg::bmx280_read) {
-		debug_outln_info(F("Read BMxE280..."));
-		if (!initBMX280(0x76) && !initBMX280(0x77)) {
-			debug_outln_error(F("Check BMx280 wiring"));
-			bmx280_init_failed = true;
 		}
 	}
 
@@ -4625,29 +4643,26 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 }
 
 static void formatDatalogString(const String &data, String &datalog_data) {
-	datalog_data  = "{";
-	const size_t capacity = JSON_ARRAY_SIZE(20) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + 370;
+	datalog_data  = "";
+	// const size_t capacity = JSON_ARRAY_SIZE(20) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + 370;
+	const size_t capacity = 2800;
 	DynamicJsonDocument doc(capacity);
 	DeserializationError error = deserializeJson(doc, data);
 	if (!error) {
 		JsonArray sensordatavalues = doc["sensordatavalues"];
-		for (JsonObject value : sensordatavalues) {
-			if (strcmp(value["value_type"], "GPS_height") != 0 &&
-				strcmp(value["value_type"], "GPS_timestamp") != 0 &&
-				strcmp(value["value_type"], "samples") != 0 &&
-				strcmp(value["value_type"], "min_micro") != 0 &&
-				strcmp(value["value_type"], "max_micro") != 0 &&
-				strcmp(value["value_type"], "interval") != 0 &&
-				strcmp(value["value_type"], "signal") != 0) {
-				datalog_data += "\"";
-				datalog_data += value["value_type"].as<char*>();
-				datalog_data += "\":";
-				datalog_data += value["value"].as<char*>();
-				datalog_data += "\",";
-			}
+		for (JsonObject v : sensordatavalues) {
+			String type = v["value_type"].as<String>();
+			String value = v["value"].as<String>();
+
+			if (type == "SDS_P1") datalog_data += "p1:" + value + ",";
+			else if (type == "SDS_P2") datalog_data += "p2:" + value + ",";
+			else if (type == "PCBA_noiseMax") datalog_data += "nm:" + value + ",";
+			else if (type == "PCBA_noiseAvg") datalog_data += "na:" + value + ",";
+			else if (type == "BME280_temperature") datalog_data += "t:" + value + ",";
+			else if (type == "BME280_pressure") datalog_data += "p:" + value + ",";
+			else if (type == "BME280_humidity") datalog_data += "h:" + value + ",";
 		}
 		datalog_data.remove(datalog_data.length() - 1);
-		datalog_data += "}";
 		debug_outln_info(F("Datalog data: "), datalog_data);
 	} else {
 		debug_outln_error(F("Can't load json data for Datalog"));
@@ -4660,9 +4675,11 @@ static void formatDatalogString(const String &data, String &datalog_data) {
 
 void setup(void) {
 	delay(3000);
-	Debug.begin(115200);		// Output to Serial at 115200 from web console 
-	// Serial.begin(115200);
-	// Serial.println("Start setup");
+	// Debug.begin(115200);		// Output to Serial at 115200 from web console 
+	// Debug.println("Start Setup");
+	// printf("Start Setup print");
+	Serial.begin(115200);
+	Serial.println("Start setup");
 #if defined (ESP8266)
 	serialSDS.begin(
 #if !NPM_READ
@@ -4692,7 +4709,7 @@ void setup(void) {
 	delay(50);
 	digitalWrite(RST_OLED, HIGH);
 #endif
-	Wire.begin(I2C_PIN_SDA, I2C_PIN_SCL);
+	// Wire.begin(I2C_PIN_SDA, I2C_PIN_SCL);
 
 #if defined(ESP8266)
 	esp_chipid = std::move(String(ESP.getChipId()));
@@ -4938,11 +4955,11 @@ void loop(void) {
 			// getting temperature, humidity and pressure (optional)
 			fetchSensorBMX280(result);
 			data += result;
-			if (bmx280.sensorID() == BME280_SENSOR_ID) {
+			// if (bmx280.sensorID() == BME280_SENSOR_ID) {
 				sum_send_time += sendSensorCommunity(result, BME280_API_PIN, FPSTR(SENSORS_BME280), "BME280_");
-			} else {
-				sum_send_time += sendSensorCommunity(result, BMP280_API_PIN, FPSTR(SENSORS_BMP280), "BMP280_");
-			}
+			// } else {
+			// 	sum_send_time += sendSensorCommunity(result, BMP280_API_PIN, FPSTR(SENSORS_BMP280), "BMP280_");
+			// }
 			result = emptyString;
 		}
 		if (cfg::sht3x_read && (! sht3x_init_failed )) {
