@@ -2504,10 +2504,10 @@ static int chooseRobonomicsServer(const LoggerEntry logger, bool onlyGlobal) {
 				int num = atoi(num_of_sensors);
 				debug_outln_info(F("Amount of sensors - "), num_of_sensors);
 				debug_outln_info(F("Sensor on server - "), on_server);
-				// if (on_server == "True") {
-				// 	num_of_robonomics_host = i;
-				// 	break;
-				// }
+				if (on_server == "True") {
+					num_of_robonomics_host = i;
+					break;
+				}
 				if (num < min_sensors) {
 					min_sensors = num;
 					num_of_robonomics_host = i;
@@ -2522,7 +2522,12 @@ static int chooseRobonomicsServer(const LoggerEntry logger, bool onlyGlobal) {
 			debug_outln_info(F("Failed connecting to "), s_Host);
 		}
 	}
-	debug_outln_info(F("Min sensors host - "), HOST_ROBONOMICS[num_of_robonomics_host][0]);
+	if (num_of_robonomics_host < numRobonomicsHosts) {
+		debug_outln_info(F("Min sensors host - "), HOST_ROBONOMICS[num_of_robonomics_host][0]);
+	} else {
+		debug_outln_info(F("No sutable host found"));
+	}
+	
 	return num_of_robonomics_host;
 }
 
