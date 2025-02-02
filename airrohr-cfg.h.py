@@ -30,6 +30,7 @@ Bool		ds18b20_read
 Bool		dnms_read
 String		dnms_correction
 String		rws_owner
+String      robonomics_public_node
 String		private_key
 String		lat_gps
 String		lon_gps
@@ -54,6 +55,7 @@ Bool		display_wifi_info
 Bool		display_device_info
 UInt		debug
 Time		sending_intervall_ms
+Time		datalog_sending_intervall_ms
 Time		time_for_wifi_config
 String		senseboxid
 Bool		send2custom

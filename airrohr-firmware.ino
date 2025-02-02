@@ -149,6 +149,7 @@ namespace cfg {
 
 	unsigned time_for_wifi_config = 600000;
 	unsigned sending_intervall_ms = 145000;
+	unsigned datalog_sending_intervall_ms = 600000;
 
 	char current_lang[3];
 	char current_reg[20];
@@ -188,6 +189,7 @@ namespace cfg {
 	bool dnms_read = DNMS_READ;
 	char dnms_correction[LEN_DNMS_CORRECTION] = DNMS_CORRECTION;
 	char rws_owner[LEN_RWS_OWNER] = "Not Set";
+	char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE] = ROBONOMICS_PUBLIC_NODE;
 	char private_key[LEN_PRIVATE_KEY] = "Not Set";
 	char lat_gps[LEN_GPS_LAT] = GPS_LAT;
 	char lon_gps[LEN_GPS_LON] = GPS_LON;
@@ -292,7 +294,7 @@ WebServer server(80);
  * Variables for Robonomics                                      *
  *****************************************************************/
 int num_of_robonomics_API = 0;
-String robonomics_host = "polkadot.rpc.robonomics.network";
+String last_datalog_data = "";
 Robonomics robonomics;
 
 /*****************************************************************
@@ -392,7 +394,9 @@ unsigned long lowpulseoccupancyP1 = 0;
 unsigned long lowpulseoccupancyP2 = 0;
 
 bool send_now = false;
+bool send_datalog_now = false;
 unsigned long starttime;
+unsigned long last_datalog_time;
 unsigned long time_point_device_start_ms;
 unsigned long starttime_SDS;
 unsigned long starttime_DB;
@@ -1414,6 +1418,8 @@ static void webserver_config_send_body_get(String& page_content) {
 	page_content += FPSTR(WEB_BRACE_BRE);
 	page_content += FPSTR(TABLE_TAG_OPEN);
 	add_form_input(page_content, Config_rws_owner, FPSTR(INTL_RWS_OWNER), LEN_RWS_OWNER-1);
+	add_form_input(page_content, Config_datalog_sending_intervall_ms, FPSTR(INTL_DATALOG_SENDING_INTERVAL), 5);
+	add_form_input(page_content, Config_robonomics_public_node, FPSTR(INTL_ROBONOMICS_PUBLIC_NODE), LEN_ROBONOMICS_PUBLIC_NODE-1);
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 	
 	add_form_checkbox(Config_send2csv, FPSTR(WEB_CSV));
@@ -2040,6 +2046,7 @@ static void webserver_removeConfig() {
 #pragma GCC diagnostic pop
 	}
 	end_html_page(page_content);
+	esp_restart();
 }
 
 /*****************************************************************
@@ -4281,7 +4288,7 @@ static void initRobonomics() {
 	} else {
 		robonomics.setPrivateKey(cfg::private_key);
 	}
-    robonomics.setup(robonomics_host);
+    robonomics.setup(cfg::robonomics_public_node);
 	debug_outln_info(F("Robonomics private key: "), String(robonomics.getPrivateKey()));
 }
 
@@ -4586,10 +4593,7 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
 		debug_outln_info(F("robonomics: "), data_4_robonomics);
 		if (strcmp(cfg::rws_owner, "Not Set") != 0) {
-			String datalog_data;
-			formatDatalogString(data, datalog_data);
-			const char* res = robonomics.sendRWSDatalogRecord(datalog_data.c_str(), cfg::rws_owner);
-			debug_outln_info(F("Datalog result: "), res);
+			formatDatalogString(data, last_datalog_data);
 		}
 		num_of_host = chooseRobonomicsServer(LoggerRobonomics, false);
 		if (num_of_host == 255) {
@@ -4778,6 +4782,7 @@ void setup(void) {
 	delay(50);
 
 	starttime = millis();									// store the start time
+	last_datalog_time = millis();
 	last_update_attempt = time_point_device_start_ms = starttime;
 	last_display_millis = starttime_SDS = starttime_DB = starttime;
 
@@ -4797,6 +4802,7 @@ void loop(void) {
 	act_micro = micros();
 	act_milli = millis();
 	send_now = msSince(starttime) > cfg::sending_intervall_ms;
+	send_datalog_now = msSince(last_datalog_time) > cfg::datalog_sending_intervall_ms;
 	// Wait at least 30s for each NTP server to sync
 
 	if (!sntp_time_set && send_now &&
@@ -5055,12 +5061,14 @@ void loop(void) {
 		starttime = millis();								// store the start time
 		count_sends++;
 	}
+	if (send_datalog_now && strcmp(cfg::rws_owner, "Not Set") != 0 && last_datalog_data != "") {
+		debug_outln_info(F("Start sending datalog: "), last_datalog_data);
+		const char* res = robonomics.sendRWSDatalogRecord(last_datalog_data.c_str(), cfg::rws_owner);
+		debug_outln_info(F("Datalog result: "), res);
+		last_datalog_time = millis();
+	}
 #if defined(ESP8266)
 	MDNS.update();
 	serialSDS.perform_work();
 #endif
-
-	if (sample_count % 500 == 0) {
-//		Serial.println(ESP.getFreeHeap(),DEC);
-	}
 }

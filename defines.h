@@ -20,6 +20,7 @@
 #define LEN_FS_SSID 33				// credentials for sensor access point mode
 
 #define LEN_RWS_OWNER 70
+#define LEN_ROBONOMICS_PUBLIC_NODE 70
 #define LEN_PRIVATE_KEY 65
 #define LEN_GPS_LAT 10
 #define LEN_GPS_LON 10

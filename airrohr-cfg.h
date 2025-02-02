@@ -54,6 +54,7 @@ enum ConfigShapeId {
 	Config_dnms_read,
 	Config_dnms_correction,
 	Config_rws_owner,
+	Config_robonomics_public_node,
 	Config_private_key,
 	Config_lat_gps,
 	Config_lon_gps,
@@ -78,6 +79,7 @@ enum ConfigShapeId {
 	Config_display_device_info,
 	Config_debug,
 	Config_sending_intervall_ms,
+	Config_datalog_sending_intervall_ms,
 	Config_time_for_wifi_config,
 	Config_senseboxid,
 	Config_send2custom,
@@ -127,6 +129,7 @@ static constexpr char CFG_KEY_DS18B20_READ[] PROGMEM = "ds18b20_read";
 static constexpr char CFG_KEY_DNMS_READ[] PROGMEM = "dnms_read";
 static constexpr char CFG_KEY_DNMS_CORRECTION[] PROGMEM = "dnms_correction";
 static constexpr char CFG_KEY_RWS_OWNER[] PROGMEM = "rws_owner";
+static constexpr char CFG_KEY_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "robonomics_public_node";
 static constexpr char CFG_KEY_PRIVATE_KEY[] PROGMEM = "private_key";
 static constexpr char CFG_KEY_LAT_GPS[] PROGMEM = "lat_gps";
 static constexpr char CFG_KEY_LON_GPS[] PROGMEM = "lon_gps";
@@ -151,6 +154,7 @@ static constexpr char CFG_KEY_DISPLAY_WIFI_INFO[] PROGMEM = "display_wifi_info";
 static constexpr char CFG_KEY_DISPLAY_DEVICE_INFO[] PROGMEM = "display_device_info";
 static constexpr char CFG_KEY_DEBUG[] PROGMEM = "debug";
 static constexpr char CFG_KEY_SENDING_INTERVALL_MS[] PROGMEM = "sending_intervall_ms";
+static constexpr char CFG_KEY_DATALOG_SENDING_INTERVALL_MS[] PROGMEM = "datalog_sending_intervall_ms";
 static constexpr char CFG_KEY_TIME_FOR_WIFI_CONFIG[] PROGMEM = "time_for_wifi_config";
 static constexpr char CFG_KEY_SENSEBOXID[] PROGMEM = "senseboxid";
 static constexpr char CFG_KEY_SEND2CUSTOM[] PROGMEM = "send2custom";
@@ -200,6 +204,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_DNMS_READ, &cfg::dnms_read },
 	{ Config_Type_String, sizeof(cfg::dnms_correction)-1, CFG_KEY_DNMS_CORRECTION, cfg::dnms_correction },
 	{ Config_Type_String, sizeof(cfg::rws_owner)-1, CFG_KEY_RWS_OWNER, cfg::rws_owner },
+	{ Config_Type_String, sizeof(cfg::robonomics_public_node)-1, CFG_KEY_ROBONOMICS_PUBLIC_NODE, cfg::robonomics_public_node },
 	{ Config_Type_String, sizeof(cfg::private_key)-1, CFG_KEY_PRIVATE_KEY, cfg::private_key },
 	{ Config_Type_String, sizeof(cfg::lat_gps)-1, CFG_KEY_LAT_GPS, cfg::lat_gps },
 	{ Config_Type_String, sizeof(cfg::lon_gps)-1, CFG_KEY_LON_GPS, cfg::lon_gps },
@@ -224,6 +229,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_DISPLAY_DEVICE_INFO, &cfg::display_device_info },
 	{ Config_Type_UInt, 0, CFG_KEY_DEBUG, &cfg::debug },
 	{ Config_Type_Time, 0, CFG_KEY_SENDING_INTERVALL_MS, &cfg::sending_intervall_ms },
+	{ Config_Type_Time, 0, CFG_KEY_DATALOG_SENDING_INTERVALL_MS, &cfg::datalog_sending_intervall_ms },
 	{ Config_Type_Time, 0, CFG_KEY_TIME_FOR_WIFI_CONFIG, &cfg::time_for_wifi_config },
 	{ Config_Type_String, sizeof(cfg::senseboxid)-1, CFG_KEY_SENSEBOXID, cfg::senseboxid },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2CUSTOM, &cfg::send2custom },

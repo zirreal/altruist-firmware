@@ -106,6 +106,7 @@ static const char URL_ROBONOMICS[] PROGMEM = "";
 static const char URL_ROBONOMICS[] PROGMEM = "/";
 #endif
 #define PORT_ROBONOMICS 65
+#define ROBONOMICS_PUBLIC_NODE "polkadot.rpc.robonomics.network"
 
 // Donated by
 static const char DONATED_BY[] PROGMEM = "";
