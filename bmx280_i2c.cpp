@@ -27,8 +27,44 @@
  */
 
 #include "bmx280_i2c.h"
+#include "driver/i2c.h"
 #include "Arduino.h"
 #include <Wire.h>
+
+// Define I2C master port and GPIO pins
+#define I2C_MASTER_SDA_IO          21      // adjust as needed
+#define I2C_MASTER_SCL_IO          22      // adjust as needed
+#define I2C_MASTER_FREQ_HZ         100000
+#define I2C_MASTER_TX_BUF_DISABLE  0
+#define I2C_MASTER_RX_BUF_DISABLE  0
+
+
+esp_err_t i2c_master_init(void) {
+    i2c_config_t conf;
+    memset(&conf, 0, sizeof(i2c_config_t));
+    conf.mode = I2C_MODE_MASTER;
+    conf.sda_io_num = 3;
+    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.scl_io_num = 0;
+    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
+    esp_err_t err = i2c_param_config(I2C_MASTER_NUM, &conf);
+    if (err != ESP_OK) {
+        return err;
+    }
+    return i2c_driver_install(I2C_MASTER_NUM, conf.mode,
+                              I2C_MASTER_RX_BUF_DISABLE,
+                              I2C_MASTER_TX_BUF_DISABLE, 0);
+}
+
+void deinit_i2c(void) {
+    esp_err_t ret = i2c_driver_delete(I2C_MASTER_NUM);
+    if (ret != ESP_OK) {
+        Serial.printf("i2c_driver_delete error: %s\r\n", esp_err_to_name(ret));
+    } else {
+        Serial.printf("I2C driver deleted successfully.\r\n");
+    }
+}
 
 /*!
  *  @brief Register addresses
@@ -76,10 +112,12 @@ enum {
  *   @param addr the I2C address the device can be found on
  *   @returns true on success, false otherwise
  */
-bool BMX280::begin(uint8_t addr) {
-  _i2caddr = addr;
-  _wire = &Wire;
-  return init();
+
+bool BMX280::begin(uint8_t addr, i2c_port_t i2c_port) {
+    _i2caddr = addr;
+    _i2c_port = i2c_port;
+    // It is assumed the I²C driver is already installed by i2c_master_init()
+    return init();
 }
 
 /*!
@@ -88,12 +126,14 @@ bool BMX280::begin(uint8_t addr) {
  */
 bool BMX280::init() {
   // I2C
-  _wire->begin();
+//   _wire->begin();
 
   // check if sensor, i.e. the chip ID is correct
   _sensorID = read8(BMX280_REGISTER_CHIPID);
-  if (_sensorID != BMP280_SENSOR_ID && _sensorID != BME280_SENSOR_ID)
+  if (_sensorID != BMP280_SENSOR_ID && _sensorID != BME280_SENSOR_ID) {
+    Serial.printf("Unexpected chip ID: 0x%02X\r\n", _sensorID);
     return false;
+  }
 
   // reset the device using soft-reset
   // this makes sure the IIR is off, etc.
@@ -161,10 +201,19 @@ void BMX280::setSampling(sensor_mode mode,
  *   @param value the value to write to the register
  */
 void BMX280::write8(uint8_t reg, uint8_t value) {
-  _wire->beginTransmission((uint8_t)_i2caddr);
-  _wire->write((uint8_t)reg);
-  _wire->write((uint8_t)value);
-  _wire->endTransmission();
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    // Start and send device address with write flag
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (_i2caddr << 1) | I2C_MASTER_WRITE, true);
+    // Write register address and value
+    i2c_master_write_byte(cmd, reg, true);
+    i2c_master_write_byte(cmd, value, true);
+    i2c_master_stop(cmd);
+    esp_err_t ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
+    i2c_cmd_link_delete(cmd);
+    if (ret != ESP_OK) {
+        Serial.printf("Error writing reg 0x%02X\r\n", reg);
+    }
 }
 
 /*!
@@ -172,24 +221,64 @@ void BMX280::write8(uint8_t reg, uint8_t value) {
  *   @param reg the register address to read from
  *   @returns the data byte read from the device
  */
+
 uint8_t BMX280::read8(uint8_t reg) {
-  _wire->beginTransmission((uint8_t)_i2caddr);
-  _wire->write((uint8_t)reg);
-  _wire->endTransmission();
-  _wire->requestFrom((uint8_t)_i2caddr, (uint8_t)1);
-  return _wire->read();
+    uint8_t data = 0;
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    // Write the register address we want to read
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (_i2caddr << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd, reg, true);
+    i2c_master_stop(cmd);
+    esp_err_t ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
+    i2c_cmd_link_delete(cmd);
+    if (ret != ESP_OK) {
+        Serial.printf("Error writing reg 0x%02X for read\r\n", reg);
+        return 0;
+    }
+    // Now read one byte
+    cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (_i2caddr << 1) | I2C_MASTER_READ, true);
+    i2c_master_read_byte(cmd, &data, I2C_MASTER_NACK);
+    i2c_master_stop(cmd);
+    ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
+    i2c_cmd_link_delete(cmd);
+    if (ret != ESP_OK) {
+        Serial.printf("Error reading reg 0x%02X\r\n", reg);
+        return 0;
+    }
+    return data;
 }
 
 uint16_t BMX280::read16_LE(uint8_t reg) {
-  uint16_t value;
-
-  _wire->beginTransmission((uint8_t)_i2caddr);
-  _wire->write((uint8_t)reg);
-  _wire->endTransmission();
-  _wire->requestFrom((uint8_t)_i2caddr, (uint8_t)2);
-  value = _wire->read();
-  value |= (uint16_t) _wire->read() << 8;
-  return value;
+    uint8_t data[2] = {0};
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    // Write register address
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (_i2caddr << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd, reg, true);
+    i2c_master_stop(cmd);
+    esp_err_t ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
+    i2c_cmd_link_delete(cmd);
+    if (ret != ESP_OK) {
+        Serial.printf("Error writing reg 0x%02X for read16\r\n", reg);
+        return 0;
+    }
+    // Now read 2 bytes
+    cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (_i2caddr << 1) | I2C_MASTER_READ, true);
+    i2c_master_read(cmd, data, 2, I2C_MASTER_LAST_NACK);
+    i2c_master_stop(cmd);
+    ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
+    i2c_cmd_link_delete(cmd);
+    if (ret != ESP_OK) {
+        Serial.printf("Error reading reg 0x%02X for read16\r\n", reg);
+        return 0;
+    }
+    // Return little‑endian value
+    return ((uint16_t)data[0]) | (((uint16_t)data[1]) << 8);
 }
 
 /*!
@@ -206,21 +295,34 @@ int16_t BMX280::readS16_LE(uint8_t reg) {
  *   @param reg the register address to read from
  *   @returns the 24 bit data value read from the device
  */
+
 uint32_t BMX280::read24(uint8_t reg) {
-  uint32_t value;
-
-  _wire->beginTransmission((uint8_t)_i2caddr);
-  _wire->write((uint8_t)reg);
-  _wire->endTransmission();
-  _wire->requestFrom((uint8_t)_i2caddr, (uint8_t)3);
-
-  value = _wire->read();
-  value <<= 8;
-  value |= _wire->read();
-  value <<= 8;
-  value |= _wire->read();
-
-  return value;
+    uint8_t data[3] = {0};
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    // Write the register address
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (_i2caddr << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd, reg, true);
+    i2c_master_stop(cmd);
+    esp_err_t ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
+    i2c_cmd_link_delete(cmd);
+    if (ret != ESP_OK) {
+        Serial.printf("Error writing reg 0x%02X for read24\r\n", reg);
+        return 0;
+    }
+    // Now read 3 bytes
+    cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (_i2caddr << 1) | I2C_MASTER_READ, true);
+    i2c_master_read(cmd, data, 3, I2C_MASTER_LAST_NACK);
+    i2c_master_stop(cmd);
+    ret = i2c_master_cmd_begin(_i2c_port, cmd, pdMS_TO_TICKS(1000));
+    i2c_cmd_link_delete(cmd);
+    if (ret != ESP_OK) {
+        Serial.printf("Error reading reg 0x%02X for read24\r\n", reg);
+        return 0;
+    }
+    return (((uint32_t)data[0]) << 16) | (((uint32_t)data[1]) << 8) | data[2];
 }
 
 /*!

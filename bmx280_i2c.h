@@ -22,7 +22,13 @@
 
 #include "Arduino.h"
 
-#include <Wire.h>
+// #include <Wire.h>
+#include "driver/i2c.h"
+
+#define I2C_MASTER_NUM             I2C_NUM_0
+
+esp_err_t i2c_master_init(void);
+void deinit_i2c(void);
 
 enum {
   BMP280_SENSOR_ID = 0x58,
@@ -75,7 +81,7 @@ public:
     STANDBY_MS_1000 = 0b101
   };
 
-  bool begin(uint8_t addr);
+  bool begin(uint8_t addr, i2c_port_t i2c_port);
   bool init();
 
   void setSampling(sensor_mode mode = MODE_NORMAL,
@@ -92,7 +98,7 @@ public:
   uint32_t sensorID(void) { return _sensorID; }
 
 protected:
-  TwoWire *_wire; //!< pointer to a TwoWire object
+//   TwoWire *_wire; //!< pointer to a TwoWire object
   void readCoefficients(void);
   bool isReadingCalibration(void);
 
@@ -129,6 +135,7 @@ protected:
   int8_t dig_H6;  ///< humidity compensation value
 
   uint8_t _i2caddr;  //!< I2C addr for the TwoWire interface
+  i2c_port_t _i2c_port;
   /**************************************************************************/
   /*!
       @brief  config register
