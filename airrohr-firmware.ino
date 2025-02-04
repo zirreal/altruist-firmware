@@ -2391,14 +2391,14 @@ static void connectWifi() {
 	wifi_set_country(&wifi);
 #endif
 
+#if defined(ESP32)
+	WiFi.setHostname(cfg::fs_ssid);
+#endif
+
 	WiFi.mode(WIFI_STA);
 
 #if defined(ESP8266)
 	WiFi.hostname(cfg::fs_ssid);
-#endif
-
-#if defined(ESP32)
-	WiFi.setHostname(cfg::fs_ssid);
 #endif
 
 	if (cfg::wlannopwd) {
