@@ -105,7 +105,7 @@ static const char URL_ROBONOMICS[] PROGMEM = "";
 #if defined(ESP32)
 static const char URL_ROBONOMICS[] PROGMEM = "/";
 #endif
-#define PORT_ROBONOMICS 65
+#define PORT_ROBONOMICS 31112
 #define ROBONOMICS_PUBLIC_NODE "polkadot.rpc.robonomics.network"
 
 // Donated by
