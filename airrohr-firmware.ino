@@ -60,7 +60,7 @@
 #include <pgmspace.h>
 
 // increment on change
-#define SOFTWARE_VERSION_STR "R_2025-01"
+#define SOFTWARE_VERSION_STR "R_2025-02"
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
 /*****************************************************************
@@ -2432,8 +2432,8 @@ static void connectWifi() {
 	last_signal_strength = WiFi.RSSI();
 
 	if (MDNS.begin(cfg::fs_ssid)) {
-		MDNS.addService("http", "tcp", 80);
-		MDNS.addServiceTxt("http", "tcp", "PATH", "/config");
+		MDNS.addService("altruist", "tcp", 80);
+		MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
 	}
 }
 
@@ -2498,7 +2498,7 @@ static int chooseRobonomicsServer(const LoggerEntry logger, bool onlyGlobal) {
 			const char * headerKeys[] = {"sensors-count", "on-server"} ;
 			const size_t numberOfHeaders = 2;
 			http.collectHeaders(headerKeys, numberOfHeaders);
-			http.addHeader("Sensor-id", String(esp_chipid));
+			http.addHeader("Sensor-id", robonomics.getSs58Address());
 
 			result = http.GET();
 			debug_outln_info(F("Result code - "), result);
@@ -4303,27 +4303,6 @@ static void saveRobonomicsPrivateKey() {
 		strncpy(c.cfg_val.as_str, robonomics.getPrivateKey(), c.cfg_len);
 		c.cfg_val.as_str[c.cfg_len] = '\0';
 		writeConfig();
-
-		// switch (c.cfg_type) {
-		// case Config_Type_UInt:
-		// 	*(c.cfg_val.as_uint) = server_arg.toInt();
-		// 	break;
-		// case Config_Type_Time:
-		// 	*(c.cfg_val.as_uint) = server_arg.toInt() * 1000;
-		// 	break;
-		// case Config_Type_Bool:
-		// 	*(c.cfg_val.as_bool) = (server_arg == "1");
-		// 	break;
-		// case Config_Type_String:
-		// 	strncpy(c.cfg_val.as_str, server_arg.c_str(), c.cfg_len);
-		// 	c.cfg_val.as_str[c.cfg_len] = '\0';
-		// 	break;
-		// case Config_Type_Password:
-		// 	if (server_arg.length()) {
-		// 		server_arg.toCharArray(c.cfg_val.as_str, LEN_CFG_PASSWORD);
-		// 	}
-		// 	break;
-		// }
 	}
 }
 
@@ -4343,17 +4322,12 @@ static void powerOnTestSensors() {
 
 	if (cfg::bmx280_read) {
 		debug_outln_info(F("Read BMxE280..."));
-		// readDataBMX280(&last_value_BMX280_T, &last_value_BMX280_P, &last_value_BME280_H);
-		// initSensorBMX280();
 		i2c_master_init();
 		if (!initBMX280(0x76) && !initBMX280(0x77)) {
 			debug_outln_error(F("Check BMx280 wiring"));
 			bmx280_init_failed = true;
 		}
 		deinit_i2c();
-		// delay(100);
-		// String k;
-		// fetchSensorBMX280(k);
 	}
 
 	if (cfg::sds_read) {
@@ -4583,23 +4557,35 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 	if (cfg::send2robonomics) {
 		int num_of_host;
 		String data_to_send = data;
-		data_to_send.remove(0, 1);
-		String data_4_robonomics(F("{\"esp8266id\": \""));
-		data_4_robonomics += esp_chipid;
-		data_4_robonomics += "\", \"donated_by\": \"";
-		data_4_robonomics += cfg::donated_by;
-		data_4_robonomics += "\", ";
-		data_4_robonomics += data_to_send;
 		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("robonomics: "));
-		debug_outln_info(F("robonomics: "), data_4_robonomics);
 		if (strcmp(cfg::rws_owner, "Not Set") != 0) {
 			formatDatalogString(data, last_datalog_data);
+			String signature;
+			addTimeAndSign(last_datalog_data, signature);
+			String data_4_robonomics(F("{\"robonomics_address\": \""));
+			data_4_robonomics += robonomics.getSs58Address();
+			data_4_robonomics += "\", \"donated_by\": \"";
+			data_4_robonomics += cfg::donated_by;
+			data_4_robonomics += "\", \"owner\": \"";
+			data_4_robonomics += cfg::rws_owner;
+			data_4_robonomics += "\", \"signature\": \"";
+			data_4_robonomics += signature;
+			data_4_robonomics += "\", \"GPS_lat\": \"";
+			data_4_robonomics += String(last_value_GPS_lat, 6);
+			data_4_robonomics += "\", \"GPS_lon\": \"";
+			data_4_robonomics += String(last_value_GPS_lon, 6);
+			data_4_robonomics += "\", \"sensordatavalues\": \"";
+			data_4_robonomics += last_datalog_data;
+			data_4_robonomics += "\"}";
+			debug_outln_info(F("robonomics: "), data_4_robonomics);
+			num_of_host = chooseRobonomicsServer(LoggerRobonomics, false);
+			if (num_of_host == 255) {
+				num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
+			}
+			if (num_of_host != 255) {
+				sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
+			}
 		}
-		num_of_host = chooseRobonomicsServer(LoggerRobonomics, false);
-		if (num_of_host == 255) {
-			num_of_host = chooseRobonomicsServer(LoggerRobonomics, true);
-		}
-		sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
 	}
 
 	if (cfg::send2madavi) {
@@ -4679,6 +4665,8 @@ static void formatDatalogString(const String &data, String &datalog_data) {
 			else if (type == "BME280_temperature") datalog_data += "t:" + value + ",";
 			else if (type == "BME280_pressure") datalog_data += "p:" + value + ",";
 			else if (type == "BME280_humidity") datalog_data += "h:" + value + ",";
+			// else if (type == "GPS_lat") datalog_data += "lat:" + value + ",";
+			// else if (type == "GPS_lon") datalog_data += "lon:" + value + ",";
 		}
 		datalog_data.remove(datalog_data.length() - 1);
 		debug_outln_info(F("Datalog data: "), datalog_data);
@@ -4686,6 +4674,42 @@ static void formatDatalogString(const String &data, String &datalog_data) {
 		debug_outln_error(F("Can't load json data for Datalog"));
 	}
 }
+// std::vector<uint8_t> doSign(Data data, uint8_t privateKey[32], uint8_t publicKey[32]) {
+
+//     uint8_t payload[data.size()];             
+//     uint8_t sig[SIGNATURE_SIZE];
+     
+void addTimeAndSign(const String &data, String &signature) {
+  // Get the local time.
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Failed to obtain time");
+    return;
+  }
+  
+  // Convert local time to a Unix timestamp.
+  time_t timestamp = mktime(&timeinfo);
+  String timestampStr = String(timestamp);
+  
+  // Remove the last two digits from the timestamp string.
+  if (timestampStr.length() > 2) {
+    timestampStr = timestampStr.substring(0, timestampStr.length() - 2);
+  }
+  
+  Serial.print("Modified Timestamp: ");
+  Serial.println(timestampStr);
+
+  String messageWithTimestamp = data + ",time:" + timestampStr;
+
+  Serial.print("Message to sign: ");
+  Serial.println(messageWithTimestamp);
+
+  robonomics.signMessage(messageWithTimestamp, signature);
+
+  Serial.print("Signature: ");
+  Serial.println(signature);
+}
+
 
 /*****************************************************************
  * The Setup                                                     *
@@ -4807,7 +4831,7 @@ void loop(void) {
 
 	if (!sntp_time_set && send_now &&
 			msSince(time_point_device_start_ms) < 1000 * 2 * 30 + 5000) {
-		debug_outln_info(F("NTP sync not finished yet, skipping send"));
+		debug_outln_info(F("NTP sync not finished yet, skipping send"), String(millis()));
 		send_now = false;
 		starttime = act_milli;
 	}
