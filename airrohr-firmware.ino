@@ -2432,8 +2432,8 @@ static void connectWifi() {
 	last_signal_strength = WiFi.RSSI();
 
 	if (MDNS.begin(cfg::fs_ssid)) {
-		MDNS.addService("http", "tcp", 80);
-		MDNS.addServiceTxt("http", "tcp", "PATH", "/config");
+		MDNS.addService("altruist", "tcp", 80);
+		MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
 	}
 }
 
@@ -2498,7 +2498,7 @@ static int chooseRobonomicsServer(const LoggerEntry logger, bool onlyGlobal) {
 			const char * headerKeys[] = {"sensors-count", "on-server"} ;
 			const size_t numberOfHeaders = 2;
 			http.collectHeaders(headerKeys, numberOfHeaders);
-			http.addHeader("Sensor-id", String(esp_chipid));
+			http.addHeader("Sensor-id", robonomics.getSs58Address());
 
 			result = http.GET();
 			debug_outln_info(F("Result code - "), result);
@@ -4571,9 +4571,9 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 			data_4_robonomics += "\", \"signature\": \"";
 			data_4_robonomics += signature;
 			data_4_robonomics += "\", \"GPS_lat\": \"";
-			data_4_robonomics += String(last_value_GPS_lat);
+			data_4_robonomics += String(last_value_GPS_lat, 6);
 			data_4_robonomics += "\", \"GPS_lon\": \"";
-			data_4_robonomics += String(last_value_GPS_lon);
+			data_4_robonomics += String(last_value_GPS_lon, 6);
 			data_4_robonomics += "\", \"sensordatavalues\": \"";
 			data_4_robonomics += last_datalog_data;
 			data_4_robonomics += "\"}";
