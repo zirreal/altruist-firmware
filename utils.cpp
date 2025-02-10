@@ -30,37 +30,6 @@
 #include "ca-root.h"
 
 
-/*****************************************************************
- * aircms.online helper functions                                *
- *****************************************************************/
-String sha1Hex(const String& s) {
-	char sha1sum_output[20];
-
-#if defined(ESP8266)
-	br_sha1_context sc;
-
-	br_sha1_init(&sc);
-	br_sha1_update(&sc, s.c_str(), s.length());
-	br_sha1_out(&sc, sha1sum_output);
-#endif
-#if defined(ESP32)
-	esp_sha(SHA1, (const unsigned char*) s.c_str(), s.length(), (unsigned char*)sha1sum_output);
-#endif
-	String r;
-	for (uint16_t i = 0; i < 20; i++) {
-		char hex[3];
-		snprintf(hex, sizeof(hex), "%02x", sha1sum_output[i]);
-		r += hex;
-	}
-	return r;
-}
-
-String hmac1(const String& secret, const String& s) {
-	String str = sha1Hex(s);
-	str = secret + str;
-	return sha1Hex(str);
-}
-
 String tmpl(const __FlashStringHelper* patt, const String& value) {
 	String s = patt;
 	s.replace("{v}", value);
@@ -547,20 +516,8 @@ void NPM_cmd(PmSensorCmd2 cmd) {
 const __FlashStringHelper* loggerDescription(unsigned i) {
     const __FlashStringHelper* logger = nullptr;
     switch (i) {
-        case LoggerSensorCommunity:
-            logger = F("Sensor.Community");
-            break;
-        case LoggerMadavi:
-            logger = F("Madavi.de");
-            break;
-        case LoggerSensemap:
-            logger = F("OpenSenseMap.org");
-            break;
         case LoggerFSapp:
             logger = F("Feinstaub-App");
-            break;
-        case Loggeraircms:
-            logger = F("aircms.online");
             break;
         case LoggerInflux:
             logger = F("InfluxDB");

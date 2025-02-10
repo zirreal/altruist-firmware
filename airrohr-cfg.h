@@ -61,14 +61,7 @@ enum ConfigShapeId {
 	Config_coords_gps,
 	Config_temp_correction,
 	Config_gps_read,
-	Config_send2dusti,
-	Config_ssl_dusti,
-	Config_send2madavi,
-	Config_ssl_madavi,
 	Config_send2robonomics,
-	Config_send2sensemap,
-	Config_send2fsapp,
-	Config_send2aircms,
 	Config_send2csv,
 	Config_auto_update,
 	Config_use_beta,
@@ -81,7 +74,6 @@ enum ConfigShapeId {
 	Config_sending_intervall_ms,
 	Config_datalog_sending_intervall_ms,
 	Config_time_for_wifi_config,
-	Config_senseboxid,
 	Config_send2custom,
 	Config_host_custom,
 	Config_url_custom,
@@ -136,14 +128,7 @@ static constexpr char CFG_KEY_LON_GPS[] PROGMEM = "lon_gps";
 static constexpr char CFG_KEY_COORDS_GPS[] PROGMEM = "coords_gps";
 static constexpr char CFG_KEY_TEMP_CORRECTION[] PROGMEM = "temp_correction";
 static constexpr char CFG_KEY_GPS_READ[] PROGMEM = "gps_read";
-static constexpr char CFG_KEY_SEND2DUSTI[] PROGMEM = "send2dusti";
-static constexpr char CFG_KEY_SSL_DUSTI[] PROGMEM = "ssl_dusti";
-static constexpr char CFG_KEY_SEND2MADAVI[] PROGMEM = "send2madavi";
-static constexpr char CFG_KEY_SSL_MADAVI[] PROGMEM = "ssl_madavi";
 static constexpr char CFG_KEY_SEND2ROBONOMICS[] PROGMEM = "send2robonomics";
-static constexpr char CFG_KEY_SEND2SENSEMAP[] PROGMEM = "send2sensemap";
-static constexpr char CFG_KEY_SEND2FSAPP[] PROGMEM = "send2fsapp";
-static constexpr char CFG_KEY_SEND2AIRCMS[] PROGMEM = "send2aircms";
 static constexpr char CFG_KEY_SEND2CSV[] PROGMEM = "send2csv";
 static constexpr char CFG_KEY_AUTO_UPDATE[] PROGMEM = "auto_update";
 static constexpr char CFG_KEY_USE_BETA[] PROGMEM = "use_beta";
@@ -156,7 +141,6 @@ static constexpr char CFG_KEY_DEBUG[] PROGMEM = "debug";
 static constexpr char CFG_KEY_SENDING_INTERVALL_MS[] PROGMEM = "sending_intervall_ms";
 static constexpr char CFG_KEY_DATALOG_SENDING_INTERVALL_MS[] PROGMEM = "datalog_sending_intervall_ms";
 static constexpr char CFG_KEY_TIME_FOR_WIFI_CONFIG[] PROGMEM = "time_for_wifi_config";
-static constexpr char CFG_KEY_SENSEBOXID[] PROGMEM = "senseboxid";
 static constexpr char CFG_KEY_SEND2CUSTOM[] PROGMEM = "send2custom";
 static constexpr char CFG_KEY_HOST_CUSTOM[] PROGMEM = "host_custom";
 static constexpr char CFG_KEY_URL_CUSTOM[] PROGMEM = "url_custom";
@@ -211,14 +195,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::coords_gps)-1, CFG_KEY_COORDS_GPS, cfg::coords_gps },
 	{ Config_Type_String, sizeof(cfg::temp_correction)-1, CFG_KEY_TEMP_CORRECTION, cfg::temp_correction },
 	{ Config_Type_Bool, 0, CFG_KEY_GPS_READ, &cfg::gps_read },
-	{ Config_Type_Bool, 0, CFG_KEY_SEND2DUSTI, &cfg::send2dusti },
-	{ Config_Type_Bool, 0, CFG_KEY_SSL_DUSTI, &cfg::ssl_dusti },
-	{ Config_Type_Bool, 0, CFG_KEY_SEND2MADAVI, &cfg::send2madavi },
-	{ Config_Type_Bool, 0, CFG_KEY_SSL_MADAVI, &cfg::ssl_madavi },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2ROBONOMICS, &cfg::send2robonomics },
-	{ Config_Type_Bool, 0, CFG_KEY_SEND2SENSEMAP, &cfg::send2sensemap },
-	{ Config_Type_Bool, 0, CFG_KEY_SEND2FSAPP, &cfg::send2fsapp },
-	{ Config_Type_Bool, 0, CFG_KEY_SEND2AIRCMS, &cfg::send2aircms },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2CSV, &cfg::send2csv },
 	{ Config_Type_Bool, 0, CFG_KEY_AUTO_UPDATE, &cfg::auto_update },
 	{ Config_Type_Bool, 0, CFG_KEY_USE_BETA, &cfg::use_beta },
@@ -231,7 +208,6 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Time, 0, CFG_KEY_SENDING_INTERVALL_MS, &cfg::sending_intervall_ms },
 	{ Config_Type_Time, 0, CFG_KEY_DATALOG_SENDING_INTERVALL_MS, &cfg::datalog_sending_intervall_ms },
 	{ Config_Type_Time, 0, CFG_KEY_TIME_FOR_WIFI_CONFIG, &cfg::time_for_wifi_config },
-	{ Config_Type_String, sizeof(cfg::senseboxid)-1, CFG_KEY_SENSEBOXID, cfg::senseboxid },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2CUSTOM, &cfg::send2custom },
 	{ Config_Type_String, sizeof(cfg::host_custom)-1, CFG_KEY_HOST_CUSTOM, cfg::host_custom },
 	{ Config_Type_String, sizeof(cfg::url_custom)-1, CFG_KEY_URL_CUSTOM, cfg::url_custom },

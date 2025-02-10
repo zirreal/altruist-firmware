@@ -37,14 +37,7 @@ String		lon_gps
 String		coords_gps
 String		temp_correction
 Bool		gps_read
-Bool		send2dusti
-Bool		ssl_dusti
-Bool		send2madavi
-Bool		ssl_madavi
 Bool		send2robonomics
-Bool		send2sensemap
-Bool		send2fsapp
-Bool		send2aircms
 Bool		send2csv
 Bool		auto_update
 Bool		use_beta
@@ -57,7 +50,6 @@ UInt		debug
 Time		sending_intervall_ms
 Time		datalog_sending_intervall_ms
 Time		time_for_wifi_config
-String		senseboxid
 Bool		send2custom
 String		host_custom
 String		url_custom

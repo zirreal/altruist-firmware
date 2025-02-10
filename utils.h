@@ -53,9 +53,6 @@ constexpr unsigned XLARGE_STR = 1024-1;
 #define UPDATE_MAX(MAX, SAMPLE) if (SAMPLE > MAX) { MAX = SAMPLE; }
 #define UPDATE_MIN_MAX(MIN, MAX, SAMPLE) { UPDATE_MIN(MIN, SAMPLE); UPDATE_MAX(MAX, SAMPLE); }
 
-extern String sha1Hex(const String& s);
-extern String hmac1(const String& secret, const String& s);
-
 extern String tmpl(const __FlashStringHelper* patt, const String& value);
 
 extern void add_table_row_from_value(String& page_content, const __FlashStringHelper* sensor, const __FlashStringHelper* param, const String& value, const String& unit);

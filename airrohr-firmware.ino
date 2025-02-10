@@ -199,12 +199,7 @@ namespace cfg {
 
 
 	// send to "APIs"
-	bool send2dusti = SEND2SENSORCOMMUNITY;
-	bool send2madavi = SEND2MADAVI;
 	bool send2robonomics = SEND2ROBONOMICS;
-	bool send2sensemap = SEND2SENSEMAP;
-	bool send2fsapp = SEND2FSAPP;
-	bool send2aircms = SEND2AIRCMS;
 	bool send2custom = SEND2CUSTOM;
 	bool send2influx = SEND2INFLUX;
 	bool send2csv = SEND2CSV;
@@ -223,11 +218,6 @@ namespace cfg {
 
 	bool display_wifi_info = DISPLAY_WIFI_INFO;
 	bool display_device_info = DISPLAY_DEVICE_INFO;
-
-	// API settings
-	bool ssl_madavi = SSL_MADAVI;
-	bool ssl_dusti = SSL_SENSORCOMMUNITY;
-	char senseboxid[LEN_SENSEBOXID] = SENSEBOXID;
 
 	char host_influx[LEN_HOST_INFLUX];
 	char url_influx[LEN_URL_INFLUX];
@@ -267,6 +257,8 @@ namespace cfg {
 }
 
 #define JSON_BUFFER_SIZE 2800
+
+bool first_loop = true;
 
 LoggerConfig loggerConfigs[LoggerCount];
 
@@ -778,11 +770,6 @@ static void readConfig(bool oldconfig = false) {
 		if (cfg::sending_intervall_ms < READINGTIME_SDS_MS) {
 			cfg::sending_intervall_ms = READINGTIME_SDS_MS;
 		}
-		if (strcmp_P(cfg::senseboxid, PSTR("00112233445566778899aabb")) == 0) {
-			cfg::senseboxid[0] = '\0';
-			cfg::send2sensemap = false;
-			rewriteConfig = true;
-		}
 		if (strlen(cfg::measurement_name_influx) == 0) {
 			strcpy_P(cfg::measurement_name_influx, MEASUREMENT_NAME_INFLUX);
 			rewriteConfig = true;
@@ -893,24 +880,8 @@ static void createLoggerConfigs() {
 #else
 	auto new_session = []() { return nullptr; };
 #endif
-	if (cfg::send2dusti) {
-		loggerConfigs[LoggerSensorCommunity].destport = 80;
-		if (cfg::ssl_dusti) {
-			loggerConfigs[LoggerSensorCommunity].destport = 443;
-			loggerConfigs[LoggerSensorCommunity].session = new_session();
-		}
-	}
-	loggerConfigs[LoggerMadavi].destport = PORT_MADAVI;
-	if (cfg::send2madavi && cfg::ssl_madavi) {
-		loggerConfigs[LoggerMadavi].destport = 443;
-		loggerConfigs[LoggerMadavi].session = new_session();
-	}
 	loggerConfigs[LoggerRobonomics].destport = PORT_ROBONOMICS;
-
-	loggerConfigs[LoggerSensemap].destport = PORT_SENSEMAP;
-	loggerConfigs[LoggerSensemap].session = new_session();
 	loggerConfigs[LoggerFSapp].destport = PORT_FSAPP;
-	loggerConfigs[Loggeraircms].destport = PORT_AIRCMS;
 	loggerConfigs[LoggerInflux].destport = cfg::port_influx;
 	if (cfg::send2influx && cfg::ssl_influx) {
 		loggerConfigs[LoggerInflux].session = new_session();
@@ -1406,14 +1377,6 @@ static void webserver_config_send_body_get(String& page_content) {
 
 	page_content += tmpl(FPSTR(INTL_SEND_TO), F("APIs"));
 	page_content += FPSTR(BR_TAG);
-	page_content += form_checkbox(Config_send2dusti, FPSTR(WEB_SENSORCOMMUNITY), false);
-	page_content += FPSTR(WEB_NBSP_NBSP_BRACE);
-	page_content += form_checkbox(Config_ssl_dusti, FPSTR(WEB_HTTPS), false);
-	page_content += FPSTR(WEB_BRACE_BR);
-	page_content += form_checkbox(Config_send2madavi, FPSTR(WEB_MADAVI), false);
-	page_content += FPSTR(WEB_NBSP_NBSP_BRACE);
-	page_content += form_checkbox(Config_ssl_madavi, FPSTR(WEB_HTTPS), false);
-	page_content += FPSTR(WEB_BRACE_BR);
 	page_content += form_checkbox(Config_send2robonomics, FPSTR(WEB_ROBONOMICS), false);
 	page_content += FPSTR(WEB_BRACE_BRE);
 	page_content += FPSTR(TABLE_TAG_OPEN);
@@ -1423,11 +1386,6 @@ static void webserver_config_send_body_get(String& page_content) {
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 	
 	add_form_checkbox(Config_send2csv, FPSTR(WEB_CSV));
-	add_form_checkbox(Config_send2fsapp, FPSTR(WEB_FEINSTAUB_APP));
-	add_form_checkbox(Config_send2aircms, FPSTR(WEB_AIRCMS));
-	add_form_checkbox(Config_send2sensemap, FPSTR(WEB_OPENSENSEMAP));
-	page_content += FPSTR(TABLE_TAG_OPEN);
-	add_form_input(page_content, Config_senseboxid, F("senseBox&nbsp;ID"), LEN_SENSEBOXID-1);
 
 	server.sendContent(page_content);
 	page_content = FPSTR(TABLE_TAG_CLOSE_BR);
@@ -2329,8 +2287,6 @@ static void wifiConfig() {
 	debug_outln_info_bool(F("CCS811: "), cfg::ccs811_read);
 	debug_outln_info_bool(F("CCS811_27: "), cfg::ccs811_27_read);
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
-	debug_outln_info_bool(F("SensorCommunity: "), cfg::send2dusti);
-	debug_outln_info_bool(F("Madavi: "), cfg::send2madavi);
 	debug_outln_info_bool(F("CSV: "), cfg::send2csv);
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_info_bool(F("Autoupdate: "), cfg::auto_update);
@@ -2449,7 +2405,6 @@ static WiFiClient* getNewLoggerWiFiClient(const LoggerEntry logger) {
 		static_cast<WiFiClientSecure*>(_client)->setSession(loggerConfigs[logger].session);
 		static_cast<WiFiClientSecure*>(_client)->setBufferSizes(1024, TCP_MSS > 1024 ? 2048 : 1024);
 		switch (logger) {
-		case Loggeraircms:
 		case LoggerInflux:
 		case LoggerCustom:
 		case LoggerFSapp:
@@ -2553,9 +2508,6 @@ static unsigned long sendData(const LoggerEntry logger, const String& data, cons
 	String s_url(FPSTR(url));
 
 	switch (logger) {
-	case Loggeraircms:
-		contentType = FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN);
-		break;
 	case LoggerInflux:
 		contentType = FPSTR(TXT_CONTENT_TYPE_INFLUXDB);
 		break;
@@ -2611,27 +2563,6 @@ static unsigned long sendData(const LoggerEntry logger, const String& data, cons
 	}
 
 	return millis() - start_send;
-}
-
-/*****************************************************************
- * send single sensor data to sensor.community api                *
- *****************************************************************/
-static unsigned long sendSensorCommunity(const String& data, const int pin, const __FlashStringHelper* sensorname, const char* replace_str) {
-	unsigned long sum_send_time = 0;
-
-	if (cfg::send2dusti && data.length()) {
-		RESERVE_STRING(data_sensorcommunity, LARGE_STR);
-		data_sensorcommunity = FPSTR(data_first_part);
-
-		debug_outln_info(F("## Sending to sensor.community - "), sensorname);
-		data_sensorcommunity += data;
-		data_sensorcommunity.remove(data_sensorcommunity.length() - 1);
-		data_sensorcommunity.replace(replace_str, emptyString);
-		data_sensorcommunity += "]}";
-		sum_send_time = sendData(LoggerSensorCommunity, data_sensorcommunity, pin, HOST_SENSORCOMMUNITY, URL_SENSORCOMMUNITY);
-	}
-
-	return sum_send_time;
 }
 
 /*****************************************************************
@@ -4484,17 +4415,6 @@ static void powerOnTestSensors() {
 
 static void logEnabledAPIs() {
 	debug_outln_info(F("Send to :"));
-	if (cfg::send2dusti) {
-		debug_outln_info(F("sensor.community"));
-	}
-
-	if (cfg::send2fsapp) {
-		debug_outln_info(F("Feinstaub-App"));
-	}
-
-	if (cfg::send2madavi) {
-		debug_outln_info(F("Madavi.de"));
-	}
 
 	if (cfg::send2csv) {
 		debug_outln_info(F("Serial as CSV"));
@@ -4506,10 +4426,6 @@ static void logEnabledAPIs() {
 
 	if (cfg::send2robonomics) {
 		debug_outln_info(F("robonomics API"));
-	}
-
-	if (cfg::send2aircms) {
-		debug_outln_info(F("aircms API"));
 	}
 
 	if (cfg::send2influx) {
@@ -4588,38 +4504,6 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 				sum_send_time += sendData(LoggerRobonomics, data_4_robonomics, 0, HOST_ROBONOMICS[num_of_host][0], URL_ROBONOMICS);
 			}
 		}
-	}
-
-	if (cfg::send2madavi) {
-		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("madavi.de_change: "));
-		sum_send_time += sendData(LoggerMadavi, data, 0, HOST_MADAVI, URL_MADAVI);
-	}
-
-	if (cfg::send2sensemap && (cfg::senseboxid[0] != '\0')) {
-		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("opensensemap: "));
-		String sensemap_path(tmpl(FPSTR(URL_SENSEMAP), cfg::senseboxid));
-		sum_send_time += sendData(LoggerSensemap, data, 0, HOST_SENSEMAP, sensemap_path.c_str());
-	}
-
-	if (cfg::send2fsapp) {
-		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("Server FS App: "));
-		sum_send_time += sendData(LoggerFSapp, data, 0, HOST_FSAPP, URL_FSAPP);
-	}
-
-	if (cfg::send2aircms) {
-		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("aircms.online: "));
-		unsigned long ts = millis() / 1000;
-		String token = WiFi.macAddress();
-		String aircms_data("L=");
-		aircms_data += esp_chipid;
-		aircms_data += "&t=";
-		aircms_data += String(ts, DEC);
-		aircms_data += F("&airrohr=");
-		aircms_data += data;
-		String aircms_url(FPSTR(URL_AIRCMS));
-		aircms_url += hmac1(sha1Hex(token), aircms_data + token);
-
-		sum_send_time += sendData(Loggeraircms, aircms_data, 0, HOST_AIRCMS, aircms_url.c_str());
 	}
 
 	if (cfg::send2influx) {
@@ -4827,12 +4711,12 @@ void loop(void) {
 
 	act_micro = micros();
 	act_milli = millis();
-	send_now = msSince(starttime) > cfg::sending_intervall_ms;
+	send_now = msSince(starttime) > cfg::sending_intervall_ms || first_loop;
 	send_datalog_now = msSince(last_datalog_time) > cfg::datalog_sending_intervall_ms;
 	// Wait at least 30s for each NTP server to sync
 
 	if (!sntp_time_set && send_now &&
-			msSince(time_point_device_start_ms) < 1000 * 2 * 30 + 5000) {
+			msSince(time_point_device_start_ms) < 1000 * 2 * 30 + 5000 && !first_loop) {
 		debug_outln_info(F("NTP sync not finished yet, skipping send"), String(millis()));
 		send_now = false;
 		starttime = act_milli;
@@ -4944,11 +4828,9 @@ void loop(void) {
 
 		if (cfg::ppd_read) {
 			data += result_PPD;
-			sum_send_time += sendSensorCommunity(result_PPD, PPD_API_PIN, FPSTR(SENSORS_PPD42NS), "PPD_");
 		}
 		if (cfg::sds_read) {
 			data += result_SDS;
-			sum_send_time += sendSensorCommunity(result_SDS, SDS_API_PIN, FPSTR(SENSORS_SDS011), "SDS_");
 		}
 		if (cfg::gc_read && (! gc_init_failed)) {
 			fetchSensorGC(result_GC);
@@ -4964,74 +4846,59 @@ void loop(void) {
 		}
 		if (cfg::pms_read) {
 			data += result_PMS;
-			sum_send_time += sendSensorCommunity(result_PMS, PMS_API_PIN, FPSTR(SENSORS_PMSx003), "PMS_");
 		}
 		if (cfg::hpm_read) {
 			data += result_HPM;
-			sum_send_time += sendSensorCommunity(result_HPM, HPM_API_PIN, FPSTR(SENSORS_HPM), "HPM_");
 		}
 		if (cfg::sps30_read && (! sps30_init_failed)) {
 			fetchSensorSPS30(result);
 			data += result;
-			sum_send_time += sendSensorCommunity(result, SPS30_API_PIN, FPSTR(SENSORS_SPS30), "SPS30_");
 			result = emptyString;
 		}
 		if (cfg::dht_read) {
 			// getting temperature and humidity (optional)
 			fetchSensorDHT(result);
 			data += result;
-			sum_send_time += sendSensorCommunity(result, DHT_API_PIN, FPSTR(SENSORS_DHT22), "DHT_");
 			result = emptyString;
 		}
 		if (cfg::htu21d_read && (! htu21d_init_failed)) {
 			// getting temperature and humidity (optional)
 			fetchSensorHTU21D(result);
 			data += result;
-			sum_send_time += sendSensorCommunity(result, HTU21D_API_PIN, FPSTR(SENSORS_HTU21D), "HTU21D_");
 			result = emptyString;
 		}
 		if (cfg::bmp_read && (! bmp_init_failed)) {
 			// getting temperature and pressure (optional)
 			fetchSensorBMP(result);
 			data += result;
-			sum_send_time += sendSensorCommunity(result, BMP_API_PIN, FPSTR(SENSORS_BMP180), "BMP_");
 			result = emptyString;
 		}
 		if (cfg::bmx280_read && (! bmx280_init_failed)) {
 			// getting temperature, humidity and pressure (optional)
 			fetchSensorBMX280(result);
 			data += result;
-			// if (bmx280.sensorID() == BME280_SENSOR_ID) {
-				sum_send_time += sendSensorCommunity(result, BME280_API_PIN, FPSTR(SENSORS_BME280), "BME280_");
-			// } else {
-			// 	sum_send_time += sendSensorCommunity(result, BMP280_API_PIN, FPSTR(SENSORS_BMP280), "BMP280_");
-			// }
 			result = emptyString;
 		}
 		if (cfg::sht3x_read && (! sht3x_init_failed )) {
 			// getting temperature and humidity (optional)
 			fetchSensorSHT3x(result);
 			data += result;
-			sum_send_time += sendSensorCommunity(result, SHT3X_API_PIN, FPSTR(SENSORS_SHT3X), "SHT3X_");
 			result = emptyString;
 		}
 		if (cfg::ds18b20_read) {
 			// getting temperature (optional)
 			fetchSensorDS18B20(result);
 			data += result;
-			sum_send_time += sendSensorCommunity(result, DS18B20_API_PIN, FPSTR(SENSORS_DS18B20), "DS18B20_");
 			result = emptyString;
 		}
 		if (cfg::dnms_read && (! dnms_init_failed)) {
 			// getting noise measurement values from dnms (optional)
 			fetchSensorDNMS(result);
 			data += result;
-			sum_send_time += sendSensorCommunity(result, DNMS_API_PIN, FPSTR(SENSORS_DNMS), "DNMS_");
 			result = emptyString;
 		}
 		if (cfg::gps_read) {
 			data += result_GPS;
-			// sum_send_time += sendSensorCommunity(result_GPS, GPS_API_PIN, F("GPS"), "GPS_");
 			result = emptyString;
 		}
 
@@ -5048,7 +4915,8 @@ void loop(void) {
 
 		yield();
 
-		sum_send_time += sendDataToOptionalApis(data);
+		if (!first_loop) sum_send_time += sendDataToOptionalApis(data);
+		first_loop = false;
 
 		// https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
 		sending_time = (3 * sending_time + sum_send_time) / 4;
