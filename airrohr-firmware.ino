@@ -60,7 +60,7 @@
 #include <pgmspace.h>
 
 // increment on change
-#define SOFTWARE_VERSION_STR "R_2025-01"
+#define SOFTWARE_VERSION_STR "R_2025-02"
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
 /*****************************************************************
