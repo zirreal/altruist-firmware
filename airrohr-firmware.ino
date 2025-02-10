@@ -2095,6 +2095,8 @@ static void webserver_data_json() {
 	}
 	String s2 = F(", \"age\":\"");
 	s2 += String((long)((age + 500) / 1000));
+	s2 += F("\", \"sensor_id\":\"");
+	s2 += esp_chipid;
 	s2 += F("\", \"sensordatavalues\"");
 	s1.replace(F(", \"sensordatavalues\""), s2);
 	server.send(200, FPSTR(TXT_CONTENT_TYPE_JSON), s1);
