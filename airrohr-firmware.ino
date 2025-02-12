@@ -93,7 +93,6 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "sha/sha_parallel_engine.h"
 #include <WebServer.h>
 #include <ESPmDNS.h>
-#include "./i2s_noise/i2s_noise.h"
 #include <MD5Builder.h>
 #include <Update.h>
 #endif
@@ -115,8 +114,6 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include <StreamString.h>
 #include <DallasTemperature.h>
 #include <TinyGPS++.h>
-// #include "bmx280_i2c_idf.h"
-#include "./bmx280_i2c.h"
 #include "./sps30_i2c.h"
 #include "./dnms_i2c.h"
 #include "./dbmeter_regs.h"
@@ -132,6 +129,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "CG_RadSens.h"
 #include <Robonomics.h>
 #include <Ed25519.h>
+#include "sensors/sensor_factory.h"
 //#include "radSens1v2.h"
 
 
@@ -335,10 +333,6 @@ Adafruit_HTU21DF htu21d;
  *****************************************************************/
 Adafruit_BMP085 bmp;
 
-/*****************************************************************
- * BMP/BME280 declaration                                        *
- *****************************************************************/
-BMX280 bmx280;
 
 /*****************************************************************
  * SHT3x declaration                                             *
@@ -569,8 +563,6 @@ struct struct_wifiInfo {
 struct struct_wifiInfo *wifiInfo;
 uint8_t count_wifiInfo;
 
-#define msSince(timestamp_before) (act_milli - (timestamp_before))
-
 const char data_first_part[] PROGMEM = "{\"software_version\": \"" SOFTWARE_VERSION_STR "\", \"sensordatavalues\":[";
 const char JSON_SENSOR_DATA_VALUES[] PROGMEM = "sensordatavalues";
 
@@ -648,40 +640,6 @@ static void initDBMeter() {
 		debug_outln_info(F("Check DB Meter wiring..."));
 		dbmeter_init_failed = true;
 	}
-}
-
-/*****************************************************************
- * read SDS011 sensor serial and firmware date                   *
- *****************************************************************/
-static String SDS_version_date() {
-
-	if (cfg::sds_read && !last_value_SDS_version.length()) {
-		debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(DBG_TXT_SDS011_VERSION_DATE));
-		is_SDS_running = SDS_cmd(PmSensorCmd::Start);
-		delay(250);
-#if defined(ESP8266)
-		serialSDS.perform_work();
-#endif
-		serialSDS.flush();
-		// Query Version/Date
-		SDS_rawcmd(0x07, 0x00, 0x00);
-		delay(400);
-		const constexpr uint8_t header_cmd_response[2] = { 0xAA, 0xC5 };
-		while (serialSDS.find(header_cmd_response, sizeof(header_cmd_response))) {
-			uint8_t data[8];
-			unsigned r = serialSDS.readBytes(data, sizeof(data));
-			if (r == sizeof(data) && data[0] == 0x07 && SDS_checksum_valid(data)) {
-				char tmp[20];
-				snprintf_P(tmp, sizeof(tmp), PSTR("%02d-%02d-%02d(%02x%02x)"),
-					data[1], data[2], data[3], data[4], data[5]);
-				last_value_SDS_version = tmp;
-				break;
-			}
-		}
-		debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(DBG_TXT_SDS011_VERSION_DATE));
-	}
-
-	return last_value_SDS_version;
 }
 
 /*****************************************************************
@@ -2699,42 +2657,6 @@ static void fetchSensorHTU21D(String& s) {
 }
 
 /*****************************************************************
- * read I2S Noise sensor values                                     *
- *****************************************************************/
-#ifdef ESP32
-static void fetchSensorI2sNoise(String& s) {
-	// debug_outln_info(F("Fetch Noise..."));
-	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_DBMETER));
-	if (is_SDS_running && cfg::sds_read) {
-		debug_outln_verbose(F("Don't measure noise: SDS is running"));
-	} else {
-		float db_mean;
-		fetchSensorI2sSound(&last_value_DBMETER, &db_mean);
-		if (last_value_DBMETER > last_value_DBMETER_max) {
-			last_value_DBMETER_max = last_value_DBMETER;
-		}
-		last_value_DBMETER_sum += db_mean;
-		last_value_DBMETER_count++;
-		last_value_DBMETER_mean = (float)last_value_DBMETER_sum / (float)last_value_DBMETER_count;
-	}
-	if (send_now) {
-		debug_outln_info(F("Noise sum: "), last_value_DBMETER_sum);
-		debug_outln_info(F("Noise count: "), last_value_DBMETER_count);
-		debug_outln_info(F("Noise max: "), last_value_DBMETER_max);
-		debug_outln_info(F("Noise mean: "), last_value_DBMETER_mean);
-		debug_outln_info(FPSTR(DBG_TXT_SEP));
-		add_Value2Json(s, F("PCBA_noiseMax"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_max);
-		add_Value2Json(s, F("PCBA_noiseAvg"), FPSTR(DBG_TXT_DECIBEL), last_value_DBMETER_mean);
-		last_value_DBMETER_max = 0;
-		last_value_DBMETER_mean = 0;
-		last_value_DBMETER_count = 0;
-		last_value_DBMETER_sum = 0;
-	}
-	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_DBMETER));
-}
-#endif
-
-/*****************************************************************
  * read DB meter sensor values                                     *
  *****************************************************************/
 static void fetchSensorDBMeter(String& s) {
@@ -2832,55 +2754,6 @@ static void fetchSensorSHT3x(String& s) {
 }
 
 /*****************************************************************
- * read BMP280/BME280 sensor values                              *
- *****************************************************************/
-static void fetchSensorBMX280(String& s) {
-	// const char* const sensor_name = SENSORS_BME280;
-	// debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(sensor_name));
-	// readDataBMX280(&last_value_BMX280_T, &last_value_BMX280_P, &last_value_BME280_H);
-	// add_Value2Json(s, F("BME280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
-	// add_Value2Json(s, F("BME280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
-	// add_Value2Json(s, F("BME280_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_BME280_H);
-	// debug_outln_info(FPSTR(DBG_TXT_SEP));
-	// debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(sensor_name));
-
-	i2c_master_init();
-	if (!initBMX280(0x76) && !initBMX280(0x77)) {
-		debug_outln_error(F("Check BMx280 wiring"));
-		bmx280_init_failed = true;
-	}
-	delay(100);
-	const char* const sensor_name = (bmx280.sensorID() == BME280_SENSOR_ID) ? SENSORS_BME280 : SENSORS_BMP280;
-	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(sensor_name));
-
-	bmx280.takeForcedMeasurement();
-	const auto t = bmx280.readTemperature();
-	const auto p = bmx280.readPressure();
-	const auto h = bmx280.readHumidity();
-	if (isnan(t) || isnan(p)) {
-		last_value_BMX280_T = -128.0;
-		last_value_BMX280_P = -1.0;
-		last_value_BME280_H = -1.0;
-		debug_outln_error(F("BMP/BME280 read failed"));
-	} else {
-		last_value_BMX280_T = t + readCorrectionOffset(cfg::temp_correction);
-		last_value_BMX280_P = p;
-		if (bmx280.sensorID() == BME280_SENSOR_ID) {
-			add_Value2Json(s, F("BME280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
-			add_Value2Json(s, F("BME280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
-			last_value_BME280_H = h;
-			add_Value2Json(s, F("BME280_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_BME280_H);
-		} else {
-			add_Value2Json(s, F("BMP280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
-			add_Value2Json(s, F("BMP280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
-		}
-	}
-	debug_outln_info(FPSTR(DBG_TXT_SEP));
-	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(sensor_name));
-	deinit_i2c();
-}
-
-/*****************************************************************
  * read DS18B20 sensor values                                    *
  *****************************************************************/
 static void fetchSensorDS18B20(String& s) {
@@ -2940,88 +2813,6 @@ static void fetchSensorCCS811(String& s) {
 }
 
 /*****************************************************************
- * read SDS011 sensor values                                     *
- *****************************************************************/
-static void fetchSensorSDS(String& s) {
-	if (cfg::sending_intervall_ms > (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS) &&
-		msSince(starttime) < (cfg::sending_intervall_ms - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
-		if (is_SDS_running) {
-			is_SDS_running = SDS_cmd(PmSensorCmd::Stop);
-		}
-	} else {
-		if (! is_SDS_running) {
-			is_SDS_running = SDS_cmd(PmSensorCmd::Start);
-			SDS_waiting_for = SDS_REPLY_HDR;
-		}
-
-		while (serialSDS.available() >= SDS_waiting_for) {
-			const uint8_t constexpr hdr_measurement[2] = { 0xAA, 0xC0 };
-			uint8_t data[8];
-
-			switch (SDS_waiting_for) {
-			case SDS_REPLY_HDR:
-				if (serialSDS.find(hdr_measurement, sizeof(hdr_measurement)))
-					SDS_waiting_for = SDS_REPLY_BODY;
-				break;
-			case SDS_REPLY_BODY:
-				debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_SDS011));
-				if (serialSDS.readBytes(data, sizeof(data)) == sizeof(data) && SDS_checksum_valid(data)) {
-					uint32_t pm25_serial = data[0] | (data[1] << 8);
-					uint32_t pm10_serial = data[2] | (data[3] << 8);
-
-					if (msSince(starttime) > (cfg::sending_intervall_ms - READINGTIME_SDS_MS)) {
-						sds_pm10_sum += pm10_serial;
-						sds_pm25_sum += pm25_serial;
-						UPDATE_MIN_MAX(sds_pm10_min, sds_pm10_max, pm10_serial);
-						UPDATE_MIN_MAX(sds_pm25_min, sds_pm25_max, pm25_serial);
-						debug_outln_verbose(F("PM10 (sec.) : "), String(pm10_serial / 10.0f));
-						debug_outln_verbose(F("PM2.5 (sec.): "), String(pm25_serial / 10.0f));
-						sds_val_count++;
-					}
-				}
-				debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_SDS011));
-				SDS_waiting_for = SDS_REPLY_HDR;
-				break;
-			}
-		}
-	}
-	if (send_now) {
-		last_value_SDS_P1 = -1;
-		last_value_SDS_P2 = -1;
-		if (sds_val_count > 2) {
-			sds_pm10_sum = sds_pm10_sum - sds_pm10_min - sds_pm10_max;
-			sds_pm25_sum = sds_pm25_sum - sds_pm25_min - sds_pm25_max;
-			sds_val_count = sds_val_count - 2;
-		}
-		if (sds_val_count > 0) {
-			last_value_SDS_P1 = float(sds_pm10_sum) / (sds_val_count * 10.0f);
-			last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
-			add_Value2Json(s, F("SDS_P1"), F("PM10:  "), last_value_SDS_P1);
-			add_Value2Json(s, F("SDS_P2"), F("PM2.5: "), last_value_SDS_P2);
-			debug_outln_info(FPSTR(DBG_TXT_SEP));
-			if (sds_val_count < 3) {
-				SDS_error_count++;
-			}
-		} else {
-			SDS_error_count++;
-		}
-		sds_pm10_sum = 0;
-		sds_pm25_sum = 0;
-		sds_val_count = 0;
-		sds_pm10_max = 0;
-		sds_pm10_min = 20000;
-		sds_pm25_max = 0;
-		sds_pm25_min = 20000;
-		if ((cfg::sending_intervall_ms > (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
-
-			if (is_SDS_running) {
-				is_SDS_running = SDS_cmd(PmSensorCmd::Stop);
-			}
-		}
-	}
-}
-
-/*****************************************************************
  * read Cajoe Geiger Counter sensor values                                     *
  *****************************************************************/
 
@@ -3043,278 +2834,278 @@ static void fetchSensorGC(String& s) {
 /*****************************************************************
  * read Plantronic PM sensor sensor values                       *
  *****************************************************************/
-static __noinline void fetchSensorPMS(String& s) {
-	char buffer;
-	int value;
-	int len = 0;
-	int pm1_serial = 0;
-	int pm10_serial = 0;
-	int pm25_serial = 0;
-	int checksum_is = 0;
-	int checksum_should = 0;
-	bool checksum_ok = false;
-	int frame_len = 24;				// min. frame length
+// static __noinline void fetchSensorPMS(String& s) {
+// 	char buffer;
+// 	int value;
+// 	int len = 0;
+// 	int pm1_serial = 0;
+// 	int pm10_serial = 0;
+// 	int pm25_serial = 0;
+// 	int checksum_is = 0;
+// 	int checksum_should = 0;
+// 	bool checksum_ok = false;
+// 	int frame_len = 24;				// min. frame length
 
-	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_PMSx003));
-	if (msSince(starttime) < (cfg::sending_intervall_ms - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
-		if (is_PMS_running) {
-			is_PMS_running = PMS_cmd(PmSensorCmd::Stop);
-		}
-	} else {
-		if (! is_PMS_running) {
-			is_PMS_running = PMS_cmd(PmSensorCmd::Start);
-		}
+// 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_PMSx003));
+// 	if (msSince(starttime) < (cfg::sending_intervall_ms - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
+// 		if (is_PMS_running) {
+// 			is_PMS_running = PMS_cmd(PmSensorCmd::Stop);
+// 		}
+// 	} else {
+// 		if (! is_PMS_running) {
+// 			is_PMS_running = PMS_cmd(PmSensorCmd::Start);
+// 		}
 
-		while (serialSDS.available() > 0) {
-			buffer = serialSDS.read();
-			debug_outln(String(len) + " - " + String(buffer, DEC) + " - " + String(buffer, HEX) + " - " + int(buffer) + " .", DEBUG_MAX_INFO);
-//			"aa" = 170, "ab" = 171, "c0" = 192
-			value = int(buffer);
-			switch (len) {
-			case 0:
-				if (value != 66) {
-					len = -1;
-				};
-				break;
-			case 1:
-				if (value != 77) {
-					len = -1;
-				};
-				break;
-			case 2:
-				checksum_is = value;
-				break;
-			case 3:
-				frame_len = value + 4;
-				break;
-			case 10:
-				pm1_serial += ( value << 8);
-				break;
-			case 11:
-				pm1_serial += value;
-				break;
-			case 12:
-				pm25_serial = ( value << 8);
-				break;
-			case 13:
-				pm25_serial += value;
-				break;
-			case 14:
-				pm10_serial = ( value << 8);
-				break;
-			case 15:
-				pm10_serial += value;
-				break;
-			case 22:
-				if (frame_len == 24) {
-					checksum_should = ( value << 8 );
-				};
-				break;
-			case 23:
-				if (frame_len == 24) {
-					checksum_should += value;
-				};
-				break;
-			case 30:
-				checksum_should = ( value << 8 );
-				break;
-			case 31:
-				checksum_should += value;
-				break;
-			}
-			if ((len > 2) && (len < (frame_len - 2))) { checksum_is += value; }
-			len++;
-			if (len == frame_len) {
-				debug_outln_verbose(FPSTR(DBG_TXT_CHECKSUM_IS), String(checksum_is + 143));
-				debug_outln_verbose(FPSTR(DBG_TXT_CHECKSUM_SHOULD), String(checksum_should));
-				if (checksum_should == (checksum_is + 143)) {
-					checksum_ok = true;
-				} else {
-					len = 0;
-				};
-				if (checksum_ok && (msSince(starttime) > (cfg::sending_intervall_ms - READINGTIME_SDS_MS))) {
-					if ((! isnan(pm1_serial)) && (! isnan(pm10_serial)) && (! isnan(pm25_serial))) {
-						pms_pm1_sum += pm1_serial;
-						pms_pm10_sum += pm10_serial;
-						pms_pm25_sum += pm25_serial;
-						UPDATE_MIN_MAX(pms_pm1_min, pms_pm1_max, pm1_serial);
-						UPDATE_MIN_MAX(pms_pm25_min, pms_pm25_max, pm25_serial);
-						UPDATE_MIN_MAX(pms_pm10_min, pms_pm10_max, pm10_serial);
-						debug_outln_verbose(F("PM1 (sec.): "), String(pm1_serial));
-						debug_outln_verbose(F("PM2.5 (sec.): "), String(pm25_serial));
-						debug_outln_verbose(F("PM10 (sec.) : "), String(pm10_serial));
-						pms_val_count++;
-					}
-					len = 0;
-					checksum_ok = false;
-					pm1_serial = 0;
-					pm10_serial = 0;
-					pm25_serial = 0;
-					checksum_is = 0;
-				}
-			}
-			yield();
-		}
-	}
+// 		while (serialSDS.available() > 0) {
+// 			buffer = serialSDS.read();
+// 			debug_outln(String(len) + " - " + String(buffer, DEC) + " - " + String(buffer, HEX) + " - " + int(buffer) + " .", DEBUG_MAX_INFO);
+// //			"aa" = 170, "ab" = 171, "c0" = 192
+// 			value = int(buffer);
+// 			switch (len) {
+// 			case 0:
+// 				if (value != 66) {
+// 					len = -1;
+// 				};
+// 				break;
+// 			case 1:
+// 				if (value != 77) {
+// 					len = -1;
+// 				};
+// 				break;
+// 			case 2:
+// 				checksum_is = value;
+// 				break;
+// 			case 3:
+// 				frame_len = value + 4;
+// 				break;
+// 			case 10:
+// 				pm1_serial += ( value << 8);
+// 				break;
+// 			case 11:
+// 				pm1_serial += value;
+// 				break;
+// 			case 12:
+// 				pm25_serial = ( value << 8);
+// 				break;
+// 			case 13:
+// 				pm25_serial += value;
+// 				break;
+// 			case 14:
+// 				pm10_serial = ( value << 8);
+// 				break;
+// 			case 15:
+// 				pm10_serial += value;
+// 				break;
+// 			case 22:
+// 				if (frame_len == 24) {
+// 					checksum_should = ( value << 8 );
+// 				};
+// 				break;
+// 			case 23:
+// 				if (frame_len == 24) {
+// 					checksum_should += value;
+// 				};
+// 				break;
+// 			case 30:
+// 				checksum_should = ( value << 8 );
+// 				break;
+// 			case 31:
+// 				checksum_should += value;
+// 				break;
+// 			}
+// 			if ((len > 2) && (len < (frame_len - 2))) { checksum_is += value; }
+// 			len++;
+// 			if (len == frame_len) {
+// 				debug_outln_verbose(FPSTR(DBG_TXT_CHECKSUM_IS), String(checksum_is + 143));
+// 				debug_outln_verbose(FPSTR(DBG_TXT_CHECKSUM_SHOULD), String(checksum_should));
+// 				if (checksum_should == (checksum_is + 143)) {
+// 					checksum_ok = true;
+// 				} else {
+// 					len = 0;
+// 				};
+// 				if (checksum_ok && (msSince(starttime) > (cfg::sending_intervall_ms - READINGTIME_SDS_MS))) {
+// 					if ((! isnan(pm1_serial)) && (! isnan(pm10_serial)) && (! isnan(pm25_serial))) {
+// 						pms_pm1_sum += pm1_serial;
+// 						pms_pm10_sum += pm10_serial;
+// 						pms_pm25_sum += pm25_serial;
+// 						UPDATE_MIN_MAX(pms_pm1_min, pms_pm1_max, pm1_serial);
+// 						UPDATE_MIN_MAX(pms_pm25_min, pms_pm25_max, pm25_serial);
+// 						UPDATE_MIN_MAX(pms_pm10_min, pms_pm10_max, pm10_serial);
+// 						debug_outln_verbose(F("PM1 (sec.): "), String(pm1_serial));
+// 						debug_outln_verbose(F("PM2.5 (sec.): "), String(pm25_serial));
+// 						debug_outln_verbose(F("PM10 (sec.) : "), String(pm10_serial));
+// 						pms_val_count++;
+// 					}
+// 					len = 0;
+// 					checksum_ok = false;
+// 					pm1_serial = 0;
+// 					pm10_serial = 0;
+// 					pm25_serial = 0;
+// 					checksum_is = 0;
+// 				}
+// 			}
+// 			yield();
+// 		}
+// 	}
 
-	if (send_now) {
-		last_value_PMS_P0 = -1;
-		last_value_PMS_P1 = -1;
-		last_value_PMS_P2 = -1;
-		if (pms_val_count > 2) {
-			pms_pm1_sum = pms_pm1_sum - pms_pm1_min - pms_pm1_max;
-			pms_pm10_sum = pms_pm10_sum - pms_pm10_min - pms_pm10_max;
-			pms_pm25_sum = pms_pm25_sum - pms_pm25_min - pms_pm25_max;
-			pms_val_count = pms_val_count - 2;
-		}
-		if (pms_val_count > 0) {
-			last_value_PMS_P0 = float(pms_pm1_sum) / float(pms_val_count);
-			last_value_PMS_P1 = float(pms_pm10_sum) / float(pms_val_count);
-			last_value_PMS_P2 = float(pms_pm25_sum) / float(pms_val_count);
-			add_Value2Json(s, F("PMS_P0"), F("PM1:   "), last_value_PMS_P0);
-			add_Value2Json(s, F("PMS_P1"), F("PM10:  "), last_value_PMS_P1);
-			add_Value2Json(s, F("PMS_P2"), F("PM2.5: "), last_value_PMS_P2);
-			debug_outln_info(FPSTR(DBG_TXT_SEP));
-		}
-		pms_pm1_sum = 0;
-		pms_pm10_sum = 0;
-		pms_pm25_sum = 0;
-		pms_val_count = 0;
-		pms_pm1_max = 0;
-		pms_pm1_min = 20000;
-		pms_pm10_max = 0;
-		pms_pm10_min = 20000;
-		pms_pm25_max = 0;
-		pms_pm25_min = 20000;
-		if (cfg::sending_intervall_ms > (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS)) {
-			is_PMS_running = PMS_cmd(PmSensorCmd::Stop);
-		}
-	}
+// 	if (send_now) {
+// 		last_value_PMS_P0 = -1;
+// 		last_value_PMS_P1 = -1;
+// 		last_value_PMS_P2 = -1;
+// 		if (pms_val_count > 2) {
+// 			pms_pm1_sum = pms_pm1_sum - pms_pm1_min - pms_pm1_max;
+// 			pms_pm10_sum = pms_pm10_sum - pms_pm10_min - pms_pm10_max;
+// 			pms_pm25_sum = pms_pm25_sum - pms_pm25_min - pms_pm25_max;
+// 			pms_val_count = pms_val_count - 2;
+// 		}
+// 		if (pms_val_count > 0) {
+// 			last_value_PMS_P0 = float(pms_pm1_sum) / float(pms_val_count);
+// 			last_value_PMS_P1 = float(pms_pm10_sum) / float(pms_val_count);
+// 			last_value_PMS_P2 = float(pms_pm25_sum) / float(pms_val_count);
+// 			add_Value2Json(s, F("PMS_P0"), F("PM1:   "), last_value_PMS_P0);
+// 			add_Value2Json(s, F("PMS_P1"), F("PM10:  "), last_value_PMS_P1);
+// 			add_Value2Json(s, F("PMS_P2"), F("PM2.5: "), last_value_PMS_P2);
+// 			debug_outln_info(FPSTR(DBG_TXT_SEP));
+// 		}
+// 		pms_pm1_sum = 0;
+// 		pms_pm10_sum = 0;
+// 		pms_pm25_sum = 0;
+// 		pms_val_count = 0;
+// 		pms_pm1_max = 0;
+// 		pms_pm1_min = 20000;
+// 		pms_pm10_max = 0;
+// 		pms_pm10_min = 20000;
+// 		pms_pm25_max = 0;
+// 		pms_pm25_min = 20000;
+// 		if (cfg::sending_intervall_ms > (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS)) {
+// 			is_PMS_running = PMS_cmd(PmSensorCmd::Stop);
+// 		}
+// 	}
 
-	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_PMSx003));
-}
+// 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_PMSx003));
+// }
 
-/*****************************************************************
- * read Honeywell PM sensor sensor values                        *
- *****************************************************************/
-static __noinline void fetchSensorHPM(String& s) {
-	char buffer;
-	int value;
-	int len = 0;
-	int pm10_serial = 0;
-	int pm25_serial = 0;
-	int checksum_is = 0;
-	int checksum_should = 0;
-	bool checksum_ok = false;
+// /*****************************************************************
+//  * read Honeywell PM sensor sensor values                        *
+//  *****************************************************************/
+// static __noinline void fetchSensorHPM(String& s) {
+// 	char buffer;
+// 	int value;
+// 	int len = 0;
+// 	int pm10_serial = 0;
+// 	int pm25_serial = 0;
+// 	int checksum_is = 0;
+// 	int checksum_should = 0;
+// 	bool checksum_ok = false;
 
-	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_HPM));
-	if (msSince(starttime) < (cfg::sending_intervall_ms - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
-		if (is_HPM_running) {
-			is_HPM_running = HPM_cmd(PmSensorCmd::Stop);
-		}
-	} else {
-		if (! is_HPM_running) {
-			is_HPM_running = HPM_cmd(PmSensorCmd::Start);
-		}
+// 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_HPM));
+// 	if (msSince(starttime) < (cfg::sending_intervall_ms - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
+// 		if (is_HPM_running) {
+// 			is_HPM_running = HPM_cmd(PmSensorCmd::Stop);
+// 		}
+// 	} else {
+// 		if (! is_HPM_running) {
+// 			is_HPM_running = HPM_cmd(PmSensorCmd::Start);
+// 		}
 
-		while (serialSDS.available() > 0) {
-			buffer = serialSDS.read();
-			debug_outln(String(len) + " - " + String(buffer, DEC) + " - " + String(buffer, HEX) + " - " + int(buffer) + " .", DEBUG_MAX_INFO);
-//			"aa" = 170, "ab" = 171, "c0" = 192
-			value = int(buffer);
-			switch (len) {
-			case 0:
-				if (value != 66) {
-					len = -1;
-				};
-				break;
-			case 1:
-				if (value != 77) {
-					len = -1;
-				};
-				break;
-			case 2:
-				checksum_is = value;
-				break;
-			case 6:
-				pm25_serial += ( value << 8);
-				break;
-			case 7:
-				pm25_serial += value;
-				break;
-			case 8:
-				pm10_serial = ( value << 8);
-				break;
-			case 9:
-				pm10_serial += value;
-				break;
-			case 30:
-				checksum_should = ( value << 8 );
-				break;
-			case 31:
-				checksum_should += value;
-				break;
-			}
-			if (len > 2 && len < 30) { checksum_is += value; }
-			len++;
-			if (len == 32) {
-				debug_outln_verbose(FPSTR(DBG_TXT_CHECKSUM_IS), String(checksum_is + 143));
-				debug_outln_verbose(FPSTR(DBG_TXT_CHECKSUM_SHOULD), String(checksum_should));
-				if (checksum_should == (checksum_is + 143)) {
-					checksum_ok = true;
-				} else {
-					len = 0;
-				};
-				if (checksum_ok && (long(msSince(starttime)) > (long(cfg::sending_intervall_ms) - long(READINGTIME_SDS_MS)))) {
-					if ((! isnan(pm10_serial)) && (! isnan(pm25_serial))) {
-						hpm_pm10_sum += pm10_serial;
-						hpm_pm25_sum += pm25_serial;
-						UPDATE_MIN_MAX(hpm_pm10_min, hpm_pm10_max, pm10_serial);
-						UPDATE_MIN_MAX(hpm_pm25_min, hpm_pm25_max, pm25_serial);
-						debug_outln_verbose(F("PM2.5 (sec.): "), String(pm25_serial));
-						debug_outln_verbose(F("PM10 (sec.) : "), String(pm10_serial));
-						hpm_val_count++;
-					}
-					len = 0;
-					checksum_ok = false;
-					pm10_serial = 0;
-					pm25_serial = 0;
-					checksum_is = 0;
-				}
-			}
-			yield();
-		}
+// 		while (serialSDS.available() > 0) {
+// 			buffer = serialSDS.read();
+// 			debug_outln(String(len) + " - " + String(buffer, DEC) + " - " + String(buffer, HEX) + " - " + int(buffer) + " .", DEBUG_MAX_INFO);
+// //			"aa" = 170, "ab" = 171, "c0" = 192
+// 			value = int(buffer);
+// 			switch (len) {
+// 			case 0:
+// 				if (value != 66) {
+// 					len = -1;
+// 				};
+// 				break;
+// 			case 1:
+// 				if (value != 77) {
+// 					len = -1;
+// 				};
+// 				break;
+// 			case 2:
+// 				checksum_is = value;
+// 				break;
+// 			case 6:
+// 				pm25_serial += ( value << 8);
+// 				break;
+// 			case 7:
+// 				pm25_serial += value;
+// 				break;
+// 			case 8:
+// 				pm10_serial = ( value << 8);
+// 				break;
+// 			case 9:
+// 				pm10_serial += value;
+// 				break;
+// 			case 30:
+// 				checksum_should = ( value << 8 );
+// 				break;
+// 			case 31:
+// 				checksum_should += value;
+// 				break;
+// 			}
+// 			if (len > 2 && len < 30) { checksum_is += value; }
+// 			len++;
+// 			if (len == 32) {
+// 				debug_outln_verbose(FPSTR(DBG_TXT_CHECKSUM_IS), String(checksum_is + 143));
+// 				debug_outln_verbose(FPSTR(DBG_TXT_CHECKSUM_SHOULD), String(checksum_should));
+// 				if (checksum_should == (checksum_is + 143)) {
+// 					checksum_ok = true;
+// 				} else {
+// 					len = 0;
+// 				};
+// 				if (checksum_ok && (long(msSince(starttime)) > (long(cfg::sending_intervall_ms) - long(READINGTIME_SDS_MS)))) {
+// 					if ((! isnan(pm10_serial)) && (! isnan(pm25_serial))) {
+// 						hpm_pm10_sum += pm10_serial;
+// 						hpm_pm25_sum += pm25_serial;
+// 						UPDATE_MIN_MAX(hpm_pm10_min, hpm_pm10_max, pm10_serial);
+// 						UPDATE_MIN_MAX(hpm_pm25_min, hpm_pm25_max, pm25_serial);
+// 						debug_outln_verbose(F("PM2.5 (sec.): "), String(pm25_serial));
+// 						debug_outln_verbose(F("PM10 (sec.) : "), String(pm10_serial));
+// 						hpm_val_count++;
+// 					}
+// 					len = 0;
+// 					checksum_ok = false;
+// 					pm10_serial = 0;
+// 					pm25_serial = 0;
+// 					checksum_is = 0;
+// 				}
+// 			}
+// 			yield();
+// 		}
 
-	}
-	if (send_now) {
-		last_value_HPM_P1 = -1.0f;
-		last_value_HPM_P2 = -1.0f;
-		if (hpm_val_count > 2) {
-			hpm_pm10_sum = hpm_pm10_sum - hpm_pm10_min - hpm_pm10_max;
-			hpm_pm25_sum = hpm_pm25_sum - hpm_pm25_min - hpm_pm25_max;
-			hpm_val_count = hpm_val_count - 2;
-		}
-		if (hpm_val_count > 0) {
-			last_value_HPM_P1 = float(hpm_pm10_sum) / float(hpm_val_count);
-			last_value_HPM_P2 = float(hpm_pm25_sum) / float(hpm_val_count);
-			add_Value2Json(s, F("HPM_P1"), F("PM2.5: "), last_value_HPM_P1);
-			add_Value2Json(s, F("HPM_P2"), F("PM10:  "), last_value_HPM_P2);
-			debug_outln_info(FPSTR(DBG_TXT_SEP));
-		}
-		hpm_pm10_sum = 0;
-		hpm_pm25_sum = 0;
-		hpm_val_count = 0;
-		hpm_pm10_max = 0;
-		hpm_pm10_min = 20000;
-		hpm_pm25_max = 0;
-		hpm_pm25_min = 20000;
-		if (cfg::sending_intervall_ms > (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS)) {
-			is_HPM_running = HPM_cmd(PmSensorCmd::Stop);
-		}
-	}
+// 	}
+// 	if (send_now) {
+// 		last_value_HPM_P1 = -1.0f;
+// 		last_value_HPM_P2 = -1.0f;
+// 		if (hpm_val_count > 2) {
+// 			hpm_pm10_sum = hpm_pm10_sum - hpm_pm10_min - hpm_pm10_max;
+// 			hpm_pm25_sum = hpm_pm25_sum - hpm_pm25_min - hpm_pm25_max;
+// 			hpm_val_count = hpm_val_count - 2;
+// 		}
+// 		if (hpm_val_count > 0) {
+// 			last_value_HPM_P1 = float(hpm_pm10_sum) / float(hpm_val_count);
+// 			last_value_HPM_P2 = float(hpm_pm25_sum) / float(hpm_val_count);
+// 			add_Value2Json(s, F("HPM_P1"), F("PM2.5: "), last_value_HPM_P1);
+// 			add_Value2Json(s, F("HPM_P2"), F("PM10:  "), last_value_HPM_P2);
+// 			debug_outln_info(FPSTR(DBG_TXT_SEP));
+// 		}
+// 		hpm_pm10_sum = 0;
+// 		hpm_pm25_sum = 0;
+// 		hpm_val_count = 0;
+// 		hpm_pm10_max = 0;
+// 		hpm_pm10_min = 20000;
+// 		hpm_pm25_max = 0;
+// 		hpm_pm25_min = 20000;
+// 		if (cfg::sending_intervall_ms > (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS)) {
+// 			is_HPM_running = HPM_cmd(PmSensorCmd::Stop);
+// 		}
+// 	}
 
-	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_HPM));
-}
+// 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_HPM));
+// }
 
 /*****************************************************************
  * read PPD42NS sensor values                                    *
@@ -3553,8 +3344,8 @@ static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostr
 	agent += "/";
 	agent += esp_mac_id;
 	agent += ' ';
-	agent += SDS_version_date();
-	agent += ' ';
+	// agent += SDS_version_date();
+	// agent += ' ';
 	agent += String(cfg::current_lang);
 	agent += ' ';
 	agent += String(CURRENT_LANG);
@@ -4143,27 +3934,6 @@ static void twoStageOTAUpdate() {
 // }
 
 /*****************************************************************
- * Init BMP280/BME280                                            *
- *****************************************************************/
-static bool initBMX280(char addr) {
-	debug_outln_info(F("Trying BMx280 sensor on "), String(addr, HEX));
-
-	if (bmx280.begin(addr, I2C_MASTER_NUM)) {
-	// if (bmx280.begin(addr)) {
-		debug_outln_info(FPSTR(DBG_TXT_FOUND));
-		bmx280.setSampling(
-			BMX280::MODE_FORCED,
-			BMX280::SAMPLING_X1,
-			BMX280::SAMPLING_X1,
-			BMX280::SAMPLING_X1);
-		return true;
-	} else {
-		debug_outln_info(FPSTR(DBG_TXT_NOT_FOUND));
-		return false;
-	}
-}
-
-/*****************************************************************
    Init SPS30 PM Sensor
  *****************************************************************/
 static void initSPS30() {
@@ -4239,177 +4009,192 @@ static void saveRobonomicsPrivateKey() {
 	}
 }
 
+const int maxSensors = 10;
+Sensor* activeSensors[maxSensors];
+int activeSensorsCount = 0;
+
 static void powerOnTestSensors() {
 
 	debug_outln_info(F("Current reg: "), cfg::current_reg);
 
-	if (cfg::gc_read) {
-		init_GS();
-	}
-
-	if (cfg::ppd_read) {
-		pinMode(PPD_PIN_PM1, INPUT_PULLUP);					// Listen at the designated PIN
-		pinMode(PPD_PIN_PM2, INPUT_PULLUP);					// Listen at the designated PIN
-		debug_outln_info(F("Read PPD..."));
-	}
-
-	if (cfg::bmx280_read) {
-		debug_outln_info(F("Read BMxE280..."));
-		i2c_master_init();
-		if (!initBMX280(0x76) && !initBMX280(0x77)) {
-			debug_outln_error(F("Check BMx280 wiring"));
-			bmx280_init_failed = true;
-		}
-		deinit_i2c();
-	}
-
-	if (cfg::sds_read) {
-		// pinMode(PM_RESTART, OUTPUT);
-		// digitalWrite(PM_RESTART, HIGH);
-		delay(500);
-		debug_outln_info(F("Read SDS...: "), SDS_version_date());
-		SDS_cmd(PmSensorCmd::ContinuousMode);
-		delay(100);
-		debug_outln_info(F("Stopping SDS011..."));
-		is_SDS_running = SDS_cmd(PmSensorCmd::Stop);
-	}
-
-	if (cfg::pms_read) {
-		debug_outln_info(F("Read PMS(1,3,5,6,7)003..."));
-		PMS_cmd(PmSensorCmd::Start);
-		delay(100);
-		PMS_cmd(PmSensorCmd::ContinuousMode);
-		delay(100);
-		debug_outln_info(F("Stopping PMS..."));
-		is_PMS_running = PMS_cmd(PmSensorCmd::Stop);
-	}
-
-	if (cfg::hpm_read) {
-		debug_outln_info(F("Read HPM..."));
-		HPM_cmd(PmSensorCmd::Start);
-		delay(100);
-		HPM_cmd(PmSensorCmd::ContinuousMode);
-		delay(100);
-		debug_outln_info(F("Stopping HPM..."));
-		is_HPM_running = HPM_cmd(PmSensorCmd::Stop);
-	}
-#if NPM_READ
-	if (cfg::npm_read) {
-
-		const uint8_t constexpr answer_sleep[4] = { 0x81, 0x16, 0x01, 0x68 };
-		const uint8_t constexpr answer_power[4] = { 0x81, 0x16, 0x00, 0x69 };
-		uint8_t data[4];
-
-		debug_outln_info(F("State NPM..."));
-		serialSDS.flush();
-		NPM_cmd(PmSensorCmd2::State);
-		while (!serialSDS.available()) {debug_outln_info(F("Wait for Serial..."));}
-
-		while (serialSDS.available() > 0) {
-			unsigned r = serialSDS.readBytes(data, sizeof(data));
-
-			if (r == sizeof(data) && NPM_checksum_valid_4(data)) {
-
-
-				String reader = "Read: ";
-
-				for (int i = 0; i < sizeof(data); i++) {
-					reader += "0x";
-					if (data[i] < 0x10) {
-						reader += "0";
-					}
-					reader += String(data[i], HEX);
-					if (i != (sizeof(data) - 1)) {
-						reader += ", ";
-					}
-				}
-
-				debug_outln(reader, DEBUG_MAX_INFO);
-
-				if (memcmp(data, answer_sleep, 4) == 0) {
-					serialSDS.flush();
-					is_NPM_running = false;
-					debug_outln_info(F("Next PM Sleep..."));
-				} else if (memcmp(data, answer_power, 4) == 0) {
-					serialSDS.flush();
-					is_NPM_running = true;
-					debug_outln_info(F("Next PM Power On..."));
-				} else {
-					//digitalWrite(PIN_CS, HIGH);
-					delay(500);
-					//digitalWrite(PIN_CS, LOW);
-					is_NPM_running = true;
-					debug_outln_info(F("Next PM Reboot..."));
-				}
-
-				break;
-
-			}
-		}
-	}
-#endif
-
-	if (cfg::sps30_read) {
-		debug_outln_info(F("Read SPS30..."));
-		initSPS30();
-	}
-
-	if ((cfg::ccs811_read) || (cfg::ccs811_27_read)) {
-		debug_outln_info(F("Read CCS811..."));
-		initSensorCCS811();
-	}
-
-	if (cfg::dht_read) {
-		dht.begin();										// Start DHT
-		debug_outln_info(F("Read DHT..."));
-	}
-
-	if (cfg::htu21d_read) {
-		debug_outln_info(F("Read HTU21D..."));
-		// begin() might return false when using Si7021
-		// so validate reading via Humidity (will return 0.0 when failed)
-		if (!htu21d.begin() && htu21d.readHumidity() < 1.0f) {
-			debug_outln_error(F("Check HTU21D wiring"));
-			htu21d_init_failed = true;
+	for (int i = 0; i < sizeof(supported_sensor_names) / sizeof(supported_sensor_names[0]); i++) {
+		Sensor* new_sensor = createSensor(supported_sensor_names[i], cfg::sending_intervall_ms);
+		if (new_sensor->begin()) {
+			activeSensors[activeSensorsCount] = new_sensor;
+			activeSensorsCount++;
+			debug_outln_info(F("Sensor was added: "), supported_sensor_names[i]);
+		} else {
+			debug_outln_info(F("Sensor was not added: "), supported_sensor_names[i]);
 		}
 	}
 
-	if (cfg::dbmeter_read) {
-		debug_outln_info(F("Read DB Meter..."));
-		initDBMeter();
-	}
-#ifdef ESP32
-	if (cfg::i2snoise_read) {
-		debug_outln_info(F("Read I2S Sound..."));
-		// initI2sSound();
-	}
-#endif
-	if (cfg::bmp_read) {
-		debug_outln_info(F("Read BMP..."));
-		if (!bmp.begin()) {
-			debug_outln_error(F("No valid BMP085 sensor, check wiring!"));
-			bmp_init_failed = true;
-		}
-	}
+// 	if (cfg::gc_read) {
+// 		init_GS();
+// 	}
 
-	if (cfg::sht3x_read) {
-		debug_outln_info(F("Read SHT3x..."));
-		if (!sht3x.begin()) {
-			debug_outln_error(F("Check SHT3x wiring"));
-			sht3x_init_failed = true;
-		}
-	}
+// 	if (cfg::ppd_read) {
+// 		pinMode(PPD_PIN_PM1, INPUT_PULLUP);					// Listen at the designated PIN
+// 		pinMode(PPD_PIN_PM2, INPUT_PULLUP);					// Listen at the designated PIN
+// 		debug_outln_info(F("Read PPD..."));
+// 	}
 
-	if (cfg::ds18b20_read) {
-		oneWire.begin(ONEWIRE_PIN);
-		ds18b20.begin();									// Start DS18B20
-		debug_outln_info(F("Read DS18B20..."));
-	}
+// 	if (cfg::bmx280_read) {
+// 		debug_outln_info(F("Read BMxE280..."));
+// 		i2c_master_init();
+// 		if (!initBMX280(0x76) && !initBMX280(0x77)) {
+// 			debug_outln_error(F("Check BMx280 wiring"));
+// 			bmx280_init_failed = true;
+// 		}
+// 		deinit_i2c();
+// 	}
 
-	if (cfg::dnms_read) {
-		debug_outln_info(F("Read DNMS..."));
-		initDNMS();
-	}
+// 	if (cfg::sds_read) {
+// 		// pinMode(PM_RESTART, OUTPUT);
+// 		// digitalWrite(PM_RESTART, HIGH);
+// 		delay(500);
+// 		debug_outln_info(F("Read SDS...: "), SDS_version_date());
+// 		SDS_cmd(PmSensorCmd::ContinuousMode);
+// 		delay(100);
+// 		debug_outln_info(F("Stopping SDS011..."));
+// 		is_SDS_running = SDS_cmd(PmSensorCmd::Stop);
+// 	}
+
+// 	if (cfg::pms_read) {
+// 		debug_outln_info(F("Read PMS(1,3,5,6,7)003..."));
+// 		PMS_cmd(PmSensorCmd::Start);
+// 		delay(100);
+// 		PMS_cmd(PmSensorCmd::ContinuousMode);
+// 		delay(100);
+// 		debug_outln_info(F("Stopping PMS..."));
+// 		is_PMS_running = PMS_cmd(PmSensorCmd::Stop);
+// 	}
+
+// 	if (cfg::hpm_read) {
+// 		debug_outln_info(F("Read HPM..."));
+// 		HPM_cmd(PmSensorCmd::Start);
+// 		delay(100);
+// 		HPM_cmd(PmSensorCmd::ContinuousMode);
+// 		delay(100);
+// 		debug_outln_info(F("Stopping HPM..."));
+// 		is_HPM_running = HPM_cmd(PmSensorCmd::Stop);
+// 	}
+// #if NPM_READ
+// 	if (cfg::npm_read) {
+
+// 		const uint8_t constexpr answer_sleep[4] = { 0x81, 0x16, 0x01, 0x68 };
+// 		const uint8_t constexpr answer_power[4] = { 0x81, 0x16, 0x00, 0x69 };
+// 		uint8_t data[4];
+
+// 		debug_outln_info(F("State NPM..."));
+// 		serialSDS.flush();
+// 		NPM_cmd(PmSensorCmd2::State);
+// 		while (!serialSDS.available()) {debug_outln_info(F("Wait for Serial..."));}
+
+// 		while (serialSDS.available() > 0) {
+// 			unsigned r = serialSDS.readBytes(data, sizeof(data));
+
+// 			if (r == sizeof(data) && NPM_checksum_valid_4(data)) {
+
+
+// 				String reader = "Read: ";
+
+// 				for (int i = 0; i < sizeof(data); i++) {
+// 					reader += "0x";
+// 					if (data[i] < 0x10) {
+// 						reader += "0";
+// 					}
+// 					reader += String(data[i], HEX);
+// 					if (i != (sizeof(data) - 1)) {
+// 						reader += ", ";
+// 					}
+// 				}
+
+// 				debug_outln(reader, DEBUG_MAX_INFO);
+
+// 				if (memcmp(data, answer_sleep, 4) == 0) {
+// 					serialSDS.flush();
+// 					is_NPM_running = false;
+// 					debug_outln_info(F("Next PM Sleep..."));
+// 				} else if (memcmp(data, answer_power, 4) == 0) {
+// 					serialSDS.flush();
+// 					is_NPM_running = true;
+// 					debug_outln_info(F("Next PM Power On..."));
+// 				} else {
+// 					//digitalWrite(PIN_CS, HIGH);
+// 					delay(500);
+// 					//digitalWrite(PIN_CS, LOW);
+// 					is_NPM_running = true;
+// 					debug_outln_info(F("Next PM Reboot..."));
+// 				}
+
+// 				break;
+
+// 			}
+// 		}
+// 	}
+// #endif
+
+// 	if (cfg::sps30_read) {
+// 		debug_outln_info(F("Read SPS30..."));
+// 		initSPS30();
+// 	}
+
+// 	if ((cfg::ccs811_read) || (cfg::ccs811_27_read)) {
+// 		debug_outln_info(F("Read CCS811..."));
+// 		initSensorCCS811();
+// 	}
+
+// 	if (cfg::dht_read) {
+// 		dht.begin();										// Start DHT
+// 		debug_outln_info(F("Read DHT..."));
+// 	}
+
+// 	if (cfg::htu21d_read) {
+// 		debug_outln_info(F("Read HTU21D..."));
+// 		// begin() might return false when using Si7021
+// 		// so validate reading via Humidity (will return 0.0 when failed)
+// 		if (!htu21d.begin() && htu21d.readHumidity() < 1.0f) {
+// 			debug_outln_error(F("Check HTU21D wiring"));
+// 			htu21d_init_failed = true;
+// 		}
+// 	}
+
+// 	if (cfg::dbmeter_read) {
+// 		debug_outln_info(F("Read DB Meter..."));
+// 		initDBMeter();
+// 	}
+// #ifdef ESP32
+// 	if (cfg::i2snoise_read) {
+// 		debug_outln_info(F("Read I2S Sound..."));
+// 		// initI2sSound();
+// 	}
+// #endif
+// 	if (cfg::bmp_read) {
+// 		debug_outln_info(F("Read BMP..."));
+// 		if (!bmp.begin()) {
+// 			debug_outln_error(F("No valid BMP085 sensor, check wiring!"));
+// 			bmp_init_failed = true;					// Set flag for BMP sensor
+// 		}
+// 	}
+
+// 	if (cfg::sht3x_read) {
+// 		debug_outln_info(F("Read SHT3x..."));
+// 		if (!sht3x.begin()) {
+// 			debug_outln_error(F("Check SHT3x wiring"));
+// 			sht3x_init_failed = true;
+// 		}
+// 	}
+
+// 	if (cfg::ds18b20_read) {
+// 		oneWire.begin(ONEWIRE_PIN);
+// 		ds18b20.begin();									// Start DS18B20
+// 		debug_outln_info(F("Read DS18B20..."));
+// 	}
+
+// 	if (cfg::dnms_read) {
+// 		debug_outln_info(F("Read DNMS..."));
+// 		initDNMS();
+// 	}
 
 }
 
@@ -4560,10 +4345,6 @@ static void formatDatalogString(const String &data, String &datalog_data) {
 		debug_outln_error(F("Can't load json data for Datalog"));
 	}
 }
-// std::vector<uint8_t> doSign(Data data, uint8_t privateKey[32], uint8_t publicKey[32]) {
-
-//     uint8_t payload[data.size()];             
-//     uint8_t sig[SIGNATURE_SIZE];
      
 void addTimeAndSign(const String &data, String &signature) {
   // Get the local time.
@@ -4608,27 +4389,27 @@ void setup(void) {
 	// printf("Start Setup print");
 	Serial.begin(115200);
 	Serial.println("Start setup");
-#if defined (ESP8266)
-	serialSDS.begin(
-#if !NPM_READ
-		9600, SWSERIAL_8N1,
-#else
-		115200, SWSERIAL_8E1,
-#endif
-		PM_SERIAL_RX, PM_SERIAL_TX);
-	serialSDS.enableIntTx(true);
-#endif
+// #if defined (ESP8266)
+// 	serialSDS.begin(
+// #if !NPM_READ
+// 		9600, SWSERIAL_8N1,
+// #else
+// 		115200, SWSERIAL_8E1,
+// #endif
+// 		PM_SERIAL_RX, PM_SERIAL_TX);
+// 	serialSDS.enableIntTx(true);
+// #endif
 
-#if defined(ESP32) && !NPM_READ
-	serialSDS.begin(9600, SERIAL_8N1, PM_SERIAL_RX, PM_SERIAL_TX);
-#endif
-#if defined(ESP32) && NPM_READ
-	serialSDS.begin(115200, SERIAL_8E1, PM_SERIAL_RX, PM_SERIAL_TX);
-	Debug.println("SERIAL_8E1");
-	pinMode(PIN_CS, OUTPUT);
-	digitalWrite(PIN_CS, LOW);
-#endif
-	serialSDS.setTimeout((4 * 12 * 1000) / 9600);
+// #if defined(ESP32) && !NPM_READ
+// 	serialSDS.begin(9600, SERIAL_8N1, PM_SERIAL_RX, PM_SERIAL_TX);
+// #endif
+// #if defined(ESP32) && NPM_READ
+// 	serialSDS.begin(115200, SERIAL_8E1, PM_SERIAL_RX, PM_SERIAL_TX);
+// 	Debug.println("SERIAL_8E1");
+// 	pinMode(PIN_CS, OUTPUT);
+// 	digitalWrite(PIN_CS, LOW);
+// #endif
+// 	serialSDS.setTimeout((4 * 12 * 1000) / 9600);
 
 #if defined(WIFI_LoRa_32_V2)
 	// reset the OLED display, e.g. of the heltec_wifi_lora_32 board
@@ -4697,6 +4478,7 @@ void setup(void) {
 	last_display_millis = starttime_SDS = starttime_DB = starttime;
 
 	// debug_outln_info(F("Sending to "), FPSTR(HOST_ROBONOMICS[num_of_robonomics_API]));
+	debug_outln_info(F("Active Sensors count: "), activeSensorsCount);
 
 }
 
@@ -4704,263 +4486,277 @@ void setup(void) {
  * And action                                                    *
  *****************************************************************/
 void loop(void) {
-	String result_PPD, result_SDS, result_PMS, result_HPM, result_CCS;
-	String result_GPS, result_DNMS, result_GC, result_DB;
-
-	unsigned sum_send_time = 0;
-
-	act_micro = micros();
-	act_milli = millis();
-	send_now = msSince(starttime) > cfg::sending_intervall_ms || first_loop;
-	send_datalog_now = msSince(last_datalog_time) > cfg::datalog_sending_intervall_ms;
-	// Wait at least 30s for each NTP server to sync
-
-	if (!sntp_time_set && send_now &&
-			msSince(time_point_device_start_ms) < 1000 * 2 * 30 + 5000 && !first_loop) {
-		debug_outln_info(F("NTP sync not finished yet, skipping send"), String(millis()));
-		send_now = false;
-		starttime = act_milli;
-	}
-
-	sample_count++;
-	if (last_micro != 0) {
-		unsigned long diff_micro = act_micro - last_micro;
-		UPDATE_MIN_MAX(min_micro, max_micro, diff_micro);
-	}
-	last_micro = act_micro;
-
-	if (cfg::sps30_read && ( !sps30_init_failed)) {
-		if ((msSince(starttime) - SPS30_read_timer) > SPS30_WAITING_AFTER_LAST_READ) {
-			struct sps30_measurement sps30_values;
-			int16_t ret_SPS30;
-
-			SPS30_read_timer = msSince(starttime);
-
-			ret_SPS30 = sps30_read_measurement(&sps30_values);
-			++SPS30_read_counter;
-			if (ret_SPS30 < 0) {
-				debug_outln_info(F("SPS30 error reading measurement"));
-				SPS30_read_error_counter++;
-			} else {
-				if (SPS_IS_ERR_STATE(ret_SPS30)) {
-					debug_outln_info(F("SPS30 measurements may not be accurate"));
-					SPS30_read_error_counter++;
-				}
-				value_SPS30_P0 += sps30_values.mc_1p0;
-				value_SPS30_P2 += sps30_values.mc_2p5;
-				value_SPS30_P4 += sps30_values.mc_4p0;
-				value_SPS30_P1 += sps30_values.mc_10p0;
-				value_SPS30_N05 += sps30_values.nc_0p5;
-				value_SPS30_N1 += sps30_values.nc_1p0;
-				value_SPS30_N25 += sps30_values.nc_2p5;
-				value_SPS30_N4 += sps30_values.nc_4p0;
-				value_SPS30_N10 += sps30_values.nc_10p0;
-				value_SPS30_TS += sps30_values.tps;
-				++SPS30_measurement_count;
-			}
+	StaticJsonDocument<256> data;
+	bool isSDSRunning = false;
+	for (int i = 0; i < activeSensorsCount; i++) {
+		if (activeSensors[i]->sensor_name == "SDS011") {
+			isSDSRunning = static_cast<SDS011Sensor*>(activeSensors[i])->getIsSDSRunning();
+		}
+		if (activeSensors[i]->sensor_name == "Noise Sensor") {
+			static_cast<I2SNoiseSensor*>(activeSensors[i])->setSDSRunning(isSDSRunning);
+		}
+		if (activeSensors[i]->isTimeToFetch()) {
+			activeSensors[i]->fetch(data);
 		}
 	}
 
-	if (cfg::ppd_read) {
-		fetchSensorPPD(result_PPD);
-	}
+// 	String result_PPD, result_SDS, result_PMS, result_HPM, result_CCS;
+// 	String result_GPS, result_DNMS, result_GC, result_DB;
 
-	if ((msSince(starttime_DB) > SAMPLETIME_DBMETER_MS) || send_now) {
-		starttime_DB = act_milli;
-		if (cfg::dbmeter_read && (! dbmeter_init_failed)) {
-			fetchSensorDBMeter(result_DB);
-		}
-#ifdef ESP32
-		if (cfg::i2snoise_read) {
-			fetchSensorI2sNoise(result_DB);
-		}
-#endif
-	}
+// 	unsigned sum_send_time = 0;
 
-	if ((msSince(starttime_SDS) > SAMPLETIME_SDS_MS) || send_now) {
-		starttime_SDS = act_milli;
-		if (cfg::sds_read) {
-			fetchSensorSDS(result_SDS);
-		}
+// 	act_micro = micros();
+// 	act_milli = millis();
+// 	send_now = msSince(starttime) > cfg::sending_intervall_ms || first_loop;
+// 	send_datalog_now = msSince(last_datalog_time) > cfg::datalog_sending_intervall_ms;
+// 	// Wait at least 30s for each NTP server to sync
 
-		if ((cfg::ccs811_read) || (cfg::ccs811_27_read)) {
-			fetchSensorCCS811(result_CCS);
-		}
+// 	if (!sntp_time_set && send_now &&
+// 			msSince(time_point_device_start_ms) < 1000 * 2 * 30 + 5000 && !first_loop) {
+// 		debug_outln_info(F("NTP sync not finished yet, skipping send"), String(millis()));
+// 		send_now = false;
+// 		starttime = act_milli;
+// 	}
 
-		if (cfg::pms_read) {
-			fetchSensorPMS(result_PMS);
-		}
+// 	sample_count++;
+// 	if (last_micro != 0) {
+// 		unsigned long diff_micro = act_micro - last_micro;
+// 		UPDATE_MIN_MAX(min_micro, max_micro, diff_micro);
+// 	}
+// 	last_micro = act_micro;
 
-		if (cfg::hpm_read) {
-			fetchSensorHPM(result_HPM);
-		}
-	}
+// 	if (cfg::sps30_read && ( !sps30_init_failed)) {
+// 		if ((msSince(starttime) - SPS30_read_timer) > SPS30_WAITING_AFTER_LAST_READ) {
+// 			struct sps30_measurement sps30_values;
+// 			int16_t ret_SPS30;
 
-	if (cfg::gps_read) {
-		// process serial GPS data..
-		if (!gps_init_failed) {
-			// while (serialGPS->available() > 0) {
-			// 	gps.encode(serialGPS->read());
-			// }
-		}
+// 			SPS30_read_timer = msSince(starttime);
 
-		if ((msSince(starttime_GPS) > SAMPLETIME_GPS_MS) || send_now) {
-			// getting GPS coordinates
-			fetchSensorGPS(result_GPS);
-			starttime_GPS = act_milli;
-		}
-	}
+// 			ret_SPS30 = sps30_read_measurement(&sps30_values);
+// 			++SPS30_read_counter;
+// 			if (ret_SPS30 < 0) {
+// 				debug_outln_info(F("SPS30 error reading measurement"));
+// 				SPS30_read_error_counter++;
+// 			} else {
+// 				if (SPS_IS_ERR_STATE(ret_SPS30)) {
+// 					debug_outln_info(F("SPS30 measurements may not be accurate"));
+// 					SPS30_read_error_counter++;
+// 				}
+// 				value_SPS30_P0 += sps30_values.mc_1p0;
+// 				value_SPS30_P2 += sps30_values.mc_2p5;
+// 				value_SPS30_P4 += sps30_values.mc_4p0;
+// 				value_SPS30_P1 += sps30_values.mc_10p0;
+// 				value_SPS30_N05 += sps30_values.nc_0p5;
+// 				value_SPS30_N1 += sps30_values.nc_1p0;
+// 				value_SPS30_N25 += sps30_values.nc_2p5;
+// 				value_SPS30_N4 += sps30_values.nc_4p0;
+// 				value_SPS30_N10 += sps30_values.nc_10p0;
+// 				value_SPS30_TS += sps30_values.tps;
+// 				++SPS30_measurement_count;
+// 			}
+// 		}
+// 	}
 
-	// if ((msSince(last_display_millis) > DISPLAY_UPDATE_INTERVAL_MS) &&
-	// 		(cfg::has_display || cfg::has_sh1106 || lcd_1602 || lcd_2004)) {
-	// 	display_values();
-	// 	last_display_millis = act_milli;
-	// }
+// 	if (cfg::ppd_read) {
+// 		fetchSensorPPD(result_PPD);
+// 	}
 
-	server.handleClient();
-	yield();
+// 	if ((msSince(starttime_DB) > SAMPLETIME_DBMETER_MS) || send_now) {
+// 		starttime_DB = act_milli;
+// 		if (cfg::dbmeter_read && (! dbmeter_init_failed)) {
+// 			fetchSensorDBMeter(result_DB);
+// 		}
+// #ifdef ESP32
+// 		if (cfg::i2snoise_read) {
+// 			fetchSensorI2sNoise(result_DB);
+// 		}
+// #endif
+// 	}
 
-	if (send_now) {
-		last_signal_strength = WiFi.RSSI();
-		RESERVE_STRING(data, LARGE_STR);
-		data = FPSTR(data_first_part);
-		RESERVE_STRING(result, MED_STR);
+// 	if ((msSince(starttime_SDS) > SAMPLETIME_SDS_MS) || send_now) {
+// 		starttime_SDS = act_milli;
+// 		if (cfg::sds_read) {
+// 			fetchSensorSDS(result_SDS);
+// 		}
 
-		if (cfg::ppd_read) {
-			data += result_PPD;
-		}
-		if (cfg::sds_read) {
-			data += result_SDS;
-		}
-		if (cfg::gc_read && (! gc_init_failed)) {
-			fetchSensorGC(result_GC);
-			data += result_GC;
-		}
-#ifdef ESP32
-		if ((cfg::dbmeter_read && (! dbmeter_init_failed)) || cfg::i2snoise_read) {
-			data += result_DB;
-		}
-#endif
-		if (((cfg::ccs811_read) || (cfg::ccs811_27_read)) && (! ccs811_init_failed)) {
-			data += result_CCS;
-		}
-		if (cfg::pms_read) {
-			data += result_PMS;
-		}
-		if (cfg::hpm_read) {
-			data += result_HPM;
-		}
-		if (cfg::sps30_read && (! sps30_init_failed)) {
-			fetchSensorSPS30(result);
-			data += result;
-			result = emptyString;
-		}
-		if (cfg::dht_read) {
-			// getting temperature and humidity (optional)
-			fetchSensorDHT(result);
-			data += result;
-			result = emptyString;
-		}
-		if (cfg::htu21d_read && (! htu21d_init_failed)) {
-			// getting temperature and humidity (optional)
-			fetchSensorHTU21D(result);
-			data += result;
-			result = emptyString;
-		}
-		if (cfg::bmp_read && (! bmp_init_failed)) {
-			// getting temperature and pressure (optional)
-			fetchSensorBMP(result);
-			data += result;
-			result = emptyString;
-		}
-		if (cfg::bmx280_read && (! bmx280_init_failed)) {
-			// getting temperature, humidity and pressure (optional)
-			fetchSensorBMX280(result);
-			data += result;
-			result = emptyString;
-		}
-		if (cfg::sht3x_read && (! sht3x_init_failed )) {
-			// getting temperature and humidity (optional)
-			fetchSensorSHT3x(result);
-			data += result;
-			result = emptyString;
-		}
-		if (cfg::ds18b20_read) {
-			// getting temperature (optional)
-			fetchSensorDS18B20(result);
-			data += result;
-			result = emptyString;
-		}
-		if (cfg::dnms_read && (! dnms_init_failed)) {
-			// getting noise measurement values from dnms (optional)
-			fetchSensorDNMS(result);
-			data += result;
-			result = emptyString;
-		}
-		if (cfg::gps_read) {
-			data += result_GPS;
-			result = emptyString;
-		}
+// 		if ((cfg::ccs811_read) || (cfg::ccs811_27_read)) {
+// 			fetchSensorCCS811(result_CCS);
+// 		}
 
-		add_Value2Json(data, F("samples"), String(sample_count));
-		add_Value2Json(data, F("min_micro"), String(min_micro));
-		add_Value2Json(data, F("max_micro"), String(max_micro));
-		add_Value2Json(data, F("interval"), String(cfg::sending_intervall_ms));
-		add_Value2Json(data, F("signal"), String(last_signal_strength));
+// 		if (cfg::pms_read) {
+// 			fetchSensorPMS(result_PMS);
+// 		}
 
-		if ((unsigned)(data.lastIndexOf(',') + 1) == data.length()) {
-			data.remove(data.length() - 1);
-		}
-		data += "]}";
+// 		if (cfg::hpm_read) {
+// 			fetchSensorHPM(result_HPM);
+// 		}
+// 	}
 
-		yield();
+// 	if (cfg::gps_read) {
+// 		// process serial GPS data..
+// 		if (!gps_init_failed) {
+// 			// while (serialGPS->available() > 0) {
+// 			// 	gps.encode(serialGPS->read());
+// 			// }
+// 		}
 
-		if (!first_loop) sum_send_time += sendDataToOptionalApis(data);
-		first_loop = false;
+// 		if ((msSince(starttime_GPS) > SAMPLETIME_GPS_MS) || send_now) {
+// 			// getting GPS coordinates
+// 			fetchSensorGPS(result_GPS);
+// 			starttime_GPS = act_milli;
+// 		}
+// 	}
 
-		// https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
-		sending_time = (3 * sending_time + sum_send_time) / 4;
-		if (sum_send_time > 0) {
-			debug_outln_info(F("Time for Sending (ms): "), String(sending_time));
-		}
+// 	// if ((msSince(last_display_millis) > DISPLAY_UPDATE_INTERVAL_MS) &&
+// 	// 		(cfg::has_display || cfg::has_sh1106 || lcd_1602 || lcd_2004)) {
+// 	// 	display_values();
+// 	// 	last_display_millis = act_milli;
+// 	// }
 
-		// reconnect to WiFi if disconnected
-		if (WiFi.status() != WL_CONNECTED) {
-			debug_outln_info(F("Connection lost, reconnecting "));
-			WiFi_error_count++;
-			WiFi.reconnect();
-			waitForWifiToConnect(20);
-		}
+// 	server.handleClient();
+// 	yield();
 
-		// only do a restart after finishing sending
-		if (msSince(time_point_device_start_ms) > DURATION_BEFORE_FORCED_RESTART_MS) {
-			sensor_restart();
-		}
+// 	if (send_now) {
+// 		last_signal_strength = WiFi.RSSI();
+// 		RESERVE_STRING(data, LARGE_STR);
+// 		data = FPSTR(data_first_part);
+// 		RESERVE_STRING(result, MED_STR);
 
-		// time for a OTA attempt?
-		if (msSince(last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
-			twoStageOTAUpdate();
-			last_update_attempt = act_milli;
-		}
+// 		if (cfg::ppd_read) {
+// 			data += result_PPD;
+// 		}
+// 		if (cfg::sds_read) {
+// 			data += result_SDS;
+// 		}
+// 		if (cfg::gc_read && (! gc_init_failed)) {
+// 			fetchSensorGC(result_GC);
+// 			data += result_GC;
+// 		}
+// #ifdef ESP32
+// 		if ((cfg::dbmeter_read && (! dbmeter_init_failed)) || cfg::i2snoise_read) {
+// 			data += result_DB;
+// 		}
+// #endif
+// 		if (((cfg::ccs811_read) || (cfg::ccs811_27_read)) && (! ccs811_init_failed)) {
+// 			data += result_CCS;
+// 		}
+// 		if (cfg::pms_read) {
+// 			data += result_PMS;
+// 		}
+// 		if (cfg::hpm_read) {
+// 			data += result_HPM;
+// 		}
+// 		if (cfg::sps30_read && (! sps30_init_failed)) {
+// 			fetchSensorSPS30(result);
+// 			data += result;
+// 			result = emptyString;
+// 		}
+// 		if (cfg::dht_read) {
+// 			// getting temperature and humidity (optional)
+// 			fetchSensorDHT(result);
+// 			data += result;
+// 			result = emptyString;
+// 		}
+// 		if (cfg::htu21d_read && (! htu21d_init_failed)) {
+// 			// getting temperature and humidity (optional)
+// 			fetchSensorHTU21D(result);
+// 			data += result;
+// 			result = emptyString;
+// 		}
+// 		if (cfg::bmp_read && (! bmp_init_failed)) {
+// 			// getting temperature and pressure (optional)
+// 			fetchSensorBMP(result);
+// 			data += result;
+// 			result = emptyString;
+// 		}
+// 		if (cfg::bmx280_read && (! bmx280_init_failed)) {
+// 			// getting temperature, humidity and pressure (optional)
+// 			fetchSensorBMX280(result);
+// 			data += result;
+// 			result = emptyString;
+// 		}
+// 		if (cfg::sht3x_read && (! sht3x_init_failed )) {
+// 			// getting temperature and humidity (optional)
+// 			fetchSensorSHT3x(result);
+// 			data += result;
+// 			result = emptyString;
+// 		}
+// 		if (cfg::ds18b20_read) {
+// 			// getting temperature (optional)
+// 			fetchSensorDS18B20(result);
+// 			data += result;
+// 			result = emptyString;
+// 		}
+// 		if (cfg::dnms_read && (! dnms_init_failed)) {
+// 			// getting noise measurement values from dnms (optional)
+// 			fetchSensorDNMS(result);
+// 			data += result;
+// 			result = emptyString;
+// 		}
+// 		if (cfg::gps_read) {
+// 			data += result_GPS;
+// 			result = emptyString;
+// 		}
 
-		// Resetting for next sampling
-		last_data_string = std::move(data);
-		lowpulseoccupancyP1 = 0;
-		lowpulseoccupancyP2 = 0;
-		sample_count = 0;
-		last_micro = 0;
-		min_micro = 1000000000;
-		max_micro = 0;
-		sum_send_time = 0;
-		starttime = millis();								// store the start time
-		count_sends++;
-	}
-	if (send_datalog_now && strcmp(cfg::rws_owner, "Not Set") != 0 && last_datalog_data != "") {
-		debug_outln_info(F("Start sending datalog: "), last_datalog_data);
-		const char* res = robonomics.sendRWSDatalogRecord(last_datalog_data.c_str(), cfg::rws_owner);
-		debug_outln_info(F("Datalog result: "), res);
-		last_datalog_time = millis();
-	}
+// 		add_Value2Json(data, F("samples"), String(sample_count));
+// 		add_Value2Json(data, F("min_micro"), String(min_micro));
+// 		add_Value2Json(data, F("max_micro"), String(max_micro));
+// 		add_Value2Json(data, F("interval"), String(cfg::sending_intervall_ms));
+// 		add_Value2Json(data, F("signal"), String(last_signal_strength));
+
+// 		if ((unsigned)(data.lastIndexOf(',') + 1) == data.length()) {
+// 			data.remove(data.length() - 1);
+// 		}
+// 		data += "]}";
+
+// 		yield();
+
+// 		if (!first_loop) sum_send_time += sendDataToOptionalApis(data);
+// 		first_loop = false;
+
+// 		// https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
+// 		sending_time = (3 * sending_time + sum_send_time) / 4;
+// 		if (sum_send_time > 0) {
+// 			debug_outln_info(F("Time for Sending (ms): "), String(sending_time));
+// 		}
+
+// 		// reconnect to WiFi if disconnected
+// 		if (WiFi.status() != WL_CONNECTED) {
+// 			debug_outln_info(F("Connection lost, reconnecting "));
+// 			WiFi_error_count++;
+// 			WiFi.reconnect();
+// 			waitForWifiToConnect(20);
+// 		}
+
+// 		// only do a restart after finishing sending
+// 		if (msSince(time_point_device_start_ms) > DURATION_BEFORE_FORCED_RESTART_MS) {
+// 			sensor_restart();
+// 		}
+
+// 		// time for a OTA attempt?
+// 		if (msSince(last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
+// 			twoStageOTAUpdate();
+// 			last_update_attempt = act_milli;
+// 		}
+
+// 		// Resetting for next sampling
+// 		last_data_string = std::move(data);
+// 		lowpulseoccupancyP1 = 0;
+// 		lowpulseoccupancyP2 = 0;
+// 		sample_count = 0;
+// 		last_micro = 0;
+// 		min_micro = 1000000000;
+// 		max_micro = 0;
+// 		sum_send_time = 0;
+// 		starttime = millis();								// store the start time
+// 		count_sends++;
+// 	}
+// 	if (send_datalog_now && strcmp(cfg::rws_owner, "Not Set") != 0 && last_datalog_data != "") {
+// 		debug_outln_info(F("Start sending datalog: "), last_datalog_data);
+// 		const char* res = robonomics.sendRWSDatalogRecord(last_datalog_data.c_str(), cfg::rws_owner);
+// 		debug_outln_info(F("Datalog result: "), res);
+// 		last_datalog_time = millis();
+// 	}
 #if defined(ESP8266)
 	MDNS.update();
 	serialSDS.perform_work();

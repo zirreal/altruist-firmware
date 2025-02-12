@@ -42,10 +42,33 @@
 #include <freertos/queue.h>
 #endif
 
+const char DBG_TXT_TEMPERATURE[] PROGMEM = "Temperature (°C): ";
+const char DBG_TXT_DECIBEL[] PROGMEM = "Noise Level (DB): ";
+const char DBG_TXT_HUMIDITY[] PROGMEM = "Humidity (%): ";
+const char DBG_TXT_PRESSURE[] PROGMEM = "Pressure (hPa): ";
+const char DBG_TXT_START_READING[] PROGMEM = "R/ ";
+const char DBG_TXT_END_READING[] PROGMEM = "/R ";
+const char DBG_TXT_CHECKSUM_IS[] PROGMEM = "Checksum is: ";
+const char DBG_TXT_CHECKSUM_SHOULD[] PROGMEM = "Checksum should: ";
+const char DBG_TXT_DATA_READ_FAILED[] PROGMEM = "Data read failed";
+const char DBG_TXT_UPDATE[] PROGMEM = "[update] ";
+const char DBG_TXT_UPDATE_FAILED[] PROGMEM = "Update failed.";
+const char DBG_TXT_UPDATE_NO_UPDATE[] PROGMEM = "No update.";
+const char DBG_TXT_SENDING_TO[] PROGMEM = "## Sending to ";
+const char DBG_TXT_SDS011_VERSION_DATE[] PROGMEM = "SDS011 version date";
+const char DBG_TXT_CONNECTING_TO[] PROGMEM = "Connecting to ";
+const char DBG_TXT_FOUND[] PROGMEM = " ... found";
+const char DBG_TXT_NOT_FOUND[] PROGMEM = " ... not found";
+const char DBG_TXT_SEP[] PROGMEM = "----";
+
+const char JSON_DATA_VALUES[] PROGMEM = "values";
+
 constexpr unsigned SMALL_STR = 64-1;
 constexpr unsigned MED_STR = 256-1;
 constexpr unsigned LARGE_STR = 512-1;
 constexpr unsigned XLARGE_STR = 1024-1;
+
+#define msSince(timestamp_before) (millis() - (timestamp_before))
 
 #define RESERVE_STRING(name, size) String name((const char*)nullptr); name.reserve(size)
 
@@ -86,11 +109,11 @@ extern SoftwareSerial serialSDS;
 #define serialSDS (Serial1)
 #endif
 
-enum class PmSensorCmd {
-	Start,
-	Stop,
-	ContinuousMode
-};
+// enum class PmSensorCmd {
+// 	Start,
+// 	Stop,
+// 	ContinuousMode
+// };
 
 enum class PmSensorCmd2 { // for NPM
 	State,
@@ -137,10 +160,10 @@ extern void debug_outln_info_bool(const __FlashStringHelper* text, const bool op
 
 extern bool SDS_checksum_valid(const uint8_t (&data)[8]);
 extern void SDS_rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3);
-extern bool SDS_cmd(PmSensorCmd cmd);
-extern bool PMS_cmd(PmSensorCmd cmd);
-extern bool HPM_cmd(PmSensorCmd cmd);
-extern void NPM_cmd(PmSensorCmd2 cmd);
+// extern bool SDS_cmd(PmSensorCmd cmd);
+// extern bool PMS_cmd(PmSensorCmd cmd);
+// extern bool HPM_cmd(PmSensorCmd cmd);
+// extern void NPM_cmd(PmSensorCmd2 cmd);
 extern bool NPM_checksum_valid_4(const uint8_t (&data)[4]);
 extern bool NPM_checksum_valid_16(const uint8_t (&data)[16]);
 

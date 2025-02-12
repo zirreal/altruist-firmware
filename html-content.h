@@ -5,25 +5,6 @@ const char TXT_CONTENT_TYPE_TEXT_CSS[] PROGMEM = "text/css";
 const char TXT_CONTENT_TYPE_TEXT_PLAIN[] PROGMEM = "text/plain";
 const char TXT_CONTENT_TYPE_IMAGE_PNG[] PROGMEM = "image/png";
 
-const char DBG_TXT_TEMPERATURE[] PROGMEM = "Temperature (°C): ";
-const char DBG_TXT_DECIBEL[] PROGMEM = "Noise Level (DB): ";
-const char DBG_TXT_HUMIDITY[] PROGMEM = "Humidity (%): ";
-const char DBG_TXT_PRESSURE[] PROGMEM = "Pressure (hPa): ";
-const char DBG_TXT_START_READING[] PROGMEM = "R/ ";
-const char DBG_TXT_END_READING[] PROGMEM = "/R ";
-const char DBG_TXT_CHECKSUM_IS[] PROGMEM = "Checksum is: ";
-const char DBG_TXT_CHECKSUM_SHOULD[] PROGMEM = "Checksum should: ";
-const char DBG_TXT_DATA_READ_FAILED[] PROGMEM = "Data read failed";
-const char DBG_TXT_UPDATE[] PROGMEM = "[update] ";
-const char DBG_TXT_UPDATE_FAILED[] PROGMEM = "Update failed.";
-const char DBG_TXT_UPDATE_NO_UPDATE[] PROGMEM = "No update.";
-const char DBG_TXT_SENDING_TO[] PROGMEM = "## Sending to ";
-const char DBG_TXT_SDS011_VERSION_DATE[] PROGMEM = "SDS011 version date";
-const char DBG_TXT_CONNECTING_TO[] PROGMEM = "Connecting to ";
-const char DBG_TXT_FOUND[] PROGMEM = " ... found";
-const char DBG_TXT_NOT_FOUND[] PROGMEM = " ... not found";
-const char DBG_TXT_SEP[] PROGMEM = "----";
-
 const char SENSORS_SDS011[] PROGMEM = "SDS011";
 const char SENSORS_GC[] PROGMEM = "Geiger Counter";
 const char SENSORS_CCS811[] PROGMEM = "CCS811";
