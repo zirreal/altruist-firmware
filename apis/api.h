@@ -6,33 +6,47 @@
 
 class API {
 protected:
-  unsigned long sending_timeout;  // Private variable for sending timeout
-  unsigned long timeout;  // Private variable for API timeout
-  unsigned long last_send_time;
+    unsigned long timeout;  // Private variable for API timeout
+    unsigned long last_send_time;
+    time_t last_send_time_t;
+    unsigned long count_sends = 0;
+    bool is_ok = true;
 
-  void updateSendTime() {
-    last_send_time = millis();
-  }
+    void updateSendTime() {
+        last_send_time = millis();
+        if (is_ok) {
+            last_send_time_t = time(nullptr);
+            count_sends++;
+        }
+    }
+    virtual void _send(JsonDocument &data) = 0;
 
-  void send(JsonDocument &data) {
-    _send(data);
-    updateSendTime();
-  };
 
 public:
-  // Constructor with a default timeout value (e.g., 1000 milliseconds)
-  API(unsigned long sending_timeout = 1000UL) : sending_timeout(sending_timeout) {}
 
-  virtual ~API() {}
+    virtual ~API() {}
+    virtual void setup() = 0;
 
-  const char* api_name;
+    const char* api_name;
 
-  virtual void _send(JsonDocument &data) = 0;
+    void updateDeviceStatus(device_status_t &deviceStatus) {
+        if (deviceStatus.apis_status.find("new_api") == deviceStatus.apis_status.end()) {
+            api_status_t new_api_status;
+            deviceStatus.apis_status[api_name] = new_api_status;
+        }
+        deviceStatus.apis_status[api_name].count_sends = count_sends;
+        deviceStatus.apis_status[api_name].last_send_time = last_send_time_t;
+        deviceStatus.apis_status[api_name].is_ok = is_ok;
+    }
+    
+    bool isTimeToSend() const {
+        return (millis() - last_send_time > timeout);
+    }
 
-  // Optional getter for the timeout.
-  bool isTimeToSend() const {
-    return (millis() - last_send_time > timeout);
-  }
+    void send(JsonDocument &data) {
+        _send(data);
+        updateSendTime();
+    };
 };
 
-#endif  // API_H
+#endif  // API_

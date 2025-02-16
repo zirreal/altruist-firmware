@@ -1,3 +1,6 @@
+#ifndef __EXT_DEF_H__
+#define __EXT_DEF_H__
+
 // Language config
 #define CURRENT_LANG INTL_LANG
 
@@ -68,12 +71,6 @@ static const char URL_CUSTOM[] PROGMEM = "";
 // Robonomics
 #include "./intl.h"
 static const char CURRENT_REG[] PROGMEM = "Global";
-#if defined(ESP8266)
-static const char URL_ROBONOMICS[] PROGMEM = "";
-#endif
-#if defined(ESP32)
-static const char URL_ROBONOMICS[] PROGMEM = "/";
-#endif
 // #define PORT_ROBONOMICS 31112
 #define PORT_ROBONOMICS 65
 #define ROBONOMICS_PUBLIC_NODE "polkadot.rpc.robonomics.network"
@@ -326,3 +323,5 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 
 // Set debug level for serial output?
 #define DEBUG 3
+
+#endif // __EXT_DEF_H__

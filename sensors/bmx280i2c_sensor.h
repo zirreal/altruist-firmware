@@ -26,7 +26,7 @@
 
 // #include <Wire.h>
 #include "driver/i2c.h"
-#include "helpers/i2c.h"
+#include "drivers/i2c.h"
 
 enum {
   BMP280_SENSOR_ID = 0x58,

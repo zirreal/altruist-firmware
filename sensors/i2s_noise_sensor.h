@@ -10,13 +10,6 @@ public:
     I2SNoiseSensor(unsigned long sending_timeout = 1000UL);
 
     bool begin() override;
-    void reset_values()
-    {
-        last_value_DBMETER_max = 0;
-        last_value_DBMETER_mean = 0;
-        last_value_DBMETER_count = 0;
-        last_value_DBMETER_sum = 0;
-    }
     void setSDSRunning(bool running) { is_SDS_running = running; }
 
 private:
@@ -27,6 +20,8 @@ private:
     uint32_t last_value_DBMETER_sum = 0;
     uint8_t last_value_DBMETER_count = 0;
     float last_value_DBMETER_mean = 0;
+    unsigned long last_send_time = 0;
+    void reset_values();
 };
 
 #endif // __I2SNOISE_H__

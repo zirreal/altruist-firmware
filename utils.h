@@ -25,6 +25,7 @@
 #define utils_h
 
 #include <WString.h>
+#include <map>
 
 #if defined(ESP8266)
 #include <Hash.h>
@@ -76,23 +77,37 @@ constexpr unsigned XLARGE_STR = 1024-1;
 #define UPDATE_MAX(MAX, SAMPLE) if (SAMPLE > MAX) { MAX = SAMPLE; }
 #define UPDATE_MIN_MAX(MIN, MAX, SAMPLE) { UPDATE_MIN(MIN, SAMPLE); UPDATE_MAX(MAX, SAMPLE); }
 
-extern String tmpl(const __FlashStringHelper* patt, const String& value);
+struct api_status_t {
+	bool is_ok = true;
+	unsigned long count_sends = 0;
+	time_t last_send_time;
+};
 
-extern void add_table_row_from_value(String& page_content, const __FlashStringHelper* sensor, const __FlashStringHelper* param, const String& value, const String& unit);
-extern void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit = nullptr);
+struct device_status_t {
+	unsigned long last_update_attempt;
+	unsigned long time_point_device_start_ms;
+	int last_update_returncode;
+	unsigned long count_sends = 0;
+	std::map<std::string, api_status_t> apis_status;
+};
 
-extern int32_t calcWiFiSignalQuality(int32_t rssi);
 
-extern String add_sensor_type(const String& sensor_text);
-extern String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);
-extern String delayToString(unsigned time_ms);
+String tmpl(const __FlashStringHelper* patt, const String& value);
+
+void add_table_row_from_value(String& page_content, const __FlashStringHelper* sensor, const __FlashStringHelper* param, const String& value, const String& unit);
+void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit = nullptr);
+void add_table_row_from_value(String& page_content, const String& param, const String& value, const char* unit = nullptr);
+
+String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);
+String delayToString(unsigned time_ms);
+
+void sensor_restart();
 
 extern String check_display_value(double value, double undef, uint8_t len, uint8_t str_len);
 extern void add_Value2Json(String& res, const __FlashStringHelper* type, const String& value);
 extern void add_Value2Json(String& res, const __FlashStringHelper* type, const __FlashStringHelper* debug_type, const float& value);
 
 #if defined(ESP8266)
-extern void configureCACertTrustAnchor(WiFiClientSecure* client);
 extern bool launchUpdateLoader(const String& md5);
 #endif
 

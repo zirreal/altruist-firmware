@@ -36,47 +36,6 @@ String tmpl(const __FlashStringHelper* patt, const String& value) {
 	return s;
 }
 
-void add_table_row_from_value(String& page_content, const __FlashStringHelper* sensor, const __FlashStringHelper* param, const String& value, const String& unit) {
-	RESERVE_STRING(s, MED_STR);
-	s = F("<tr><td>{s}</td><td>{p}</td><td class='r'>{v}&nbsp;{u}</td></tr>");
-	s.replace("{s}", sensor);
-	s.replace("{p}", param);
-	s.replace("{v}", value);
-	s.replace("{u}", unit);
-	page_content += s;
-}
-
-void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit) {
-	RESERVE_STRING(s, MED_STR);
-	s = F("<tr><td>{p}</td><td class='r'>{v}&nbsp;{u}</td></tr>");
-	s.replace("{p}", param);
-	s.replace("{v}", value);
-	s.replace("{u}", String(unit));
-	page_content += s;
-}
-
-int32_t calcWiFiSignalQuality(int32_t rssi) {
-	// Treat 0 or positive values as 0%
-	if (rssi >= 0 || rssi < -100) {
-		rssi = -100;
-	}
-	if (rssi > -50) {
-		rssi = -50;
-	}
-	return (rssi + 100) * 2;
-}
-
-String add_sensor_type(const String& sensor_text) {
-	RESERVE_STRING(s, SMALL_STR);
-	s = sensor_text;
-	s.replace("{pm}", FPSTR(INTL_PARTICULATE_MATTER));
-	s.replace("{t}", FPSTR(INTL_TEMPERATURE));
-	s.replace("{h}", FPSTR(INTL_HUMIDITY));
-	s.replace("{p}", FPSTR(INTL_PRESSURE));
-	s.replace("{l_a}", FPSTR(INTL_LEQ_A));
-	return s;
-}
-
 String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi) {
 	String s = F(	"<tr>"
 					"<td>"
@@ -128,21 +87,6 @@ String delayToString(unsigned time_ms) {
 }
 
 #if defined(ESP8266)
-BearSSL::X509List x509_dst_root_ca(dst_root_ca_x3);
-
-void configureCACertTrustAnchor(WiFiClientSecure* client) {
-	constexpr time_t fw_built_year = (__DATE__[ 7] - '0') * 1000 + \
-							  (__DATE__[ 8] - '0') *  100 + \
-							  (__DATE__[ 9] - '0') *   10 + \
-							  (__DATE__[10] - '0');
-	if (time(nullptr) < (fw_built_year - 1970) * 365 * 24 * 3600) {
-		debug_outln_info(F("Time incorrect; Disabling CA verification."));
-		client->setInsecure();
-	}
-	else {
-		client->setTrustAnchors(&x509_dst_root_ca);
-	}
-}
 
 bool launchUpdateLoader(const String& md5) {
 
@@ -178,6 +122,29 @@ bool launchUpdateLoader(const String& md5) {
 }
 
 #endif
+
+void sensor_restart() {
+#if defined(ESP8266)
+		WiFi.disconnect();
+		WiFi.mode(WIFI_OFF);
+		delay(100);
+#endif
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored  "-Wdeprecated-declarations"
+
+		SPIFFS.end();
+
+#pragma GCC diagnostic pop
+
+		serialSDS.end();
+		// digitalWrite(PM_RESTART, LOW);
+		// debug_outln_info(F("Restart."));
+		delay(5000);
+		ESP.restart();
+		// should not be reached
+		while(true) { yield(); }
+}
 
 
 /*****************************************************************

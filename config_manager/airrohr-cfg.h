@@ -1,7 +1,11 @@
 
+#ifndef __CONFIG_H__
+#define __CONFIG_H__
 
 // This file is generated, please do not edit.
 // Change airrohr-cfg.h.py instead.
+
+#include "config_defaults.h"
 
 enum ConfigEntryType : unsigned short {
 	Config_Type_Bool,
@@ -92,6 +96,7 @@ enum ConfigShapeId {
 	Config_donated_by,
 	Config_current_reg,
 };
+
 static constexpr char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 static constexpr char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
 static constexpr char CFG_KEY_WLANPWD[] PROGMEM = "wlanpwd";
@@ -226,3 +231,5 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::donated_by)-1, CFG_KEY_DONATED_BY, cfg::donated_by },
 	{ Config_Type_String, sizeof(cfg::current_reg)-1, CFG_KEY_CURRENT_REG, cfg::current_reg },
 };
+          
+#endif // __CONFIG_H__

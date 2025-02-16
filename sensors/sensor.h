@@ -16,7 +16,7 @@ protected:
     last_fetch_time = millis();
   }
 
-  void addValueToJSON(JsonDocument &data, const String &meas_id, float &value, const char* intl_name, const String &units) {
+  void addValueToJSON(JsonDocument &data, const String &meas_id, String &value, const char* intl_name, const String &units) {
     data[sensor_name][meas_id][F("value")] = value;
     data[sensor_name][meas_id][F("intl_name")] = intl_name;
     data[sensor_name][meas_id][F("units")] = units;
@@ -38,8 +38,6 @@ public:
 
   // Pure virtual function to attempt sensor initialization.
   virtual bool begin() = 0;
-
-  virtual void reset_values() {}
 
   void fetch(JsonDocument &data) {
     _fetch(data);

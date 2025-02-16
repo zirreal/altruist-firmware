@@ -30,6 +30,7 @@
 #include "Arduino.h"
 #include "../utils.h"
 #include "../intl.h"
+#include "sensor_names.h"
 
 #define BMX_SENSOR_MIN_TIMEOUT     300000UL
 
@@ -91,10 +92,12 @@ bool BMX280Sensor::begin() {
         debug_outln_error(F("Check BMx280 wiring"));
         res = false;
     } else {
-        sensor_name = (sensorID() == BME280_SENSOR_ID) ? "BME280" : "BMP280";
+        sensor_name = (sensorID() == BME280_SENSOR_ID) ? BME_SENSOR_NAME : BMP_SENSOR_NAME;
         res = true;
+        debug_outln_info(F("BMx280 started with fetch interval (sec): "), String(timeout/1000));
     }
     deinit_i2c();
+    last_fetch_time = millis() - timeout;
     return res;
 }
 
@@ -123,14 +126,23 @@ void BMX280Sensor::_fetch(JsonDocument &data) {
 	} else {
 		temperature = t + readCorrectionOffset("0.0");
 		pressure = p;
+        String temperature_str(temperature, 1);
+        String humidity_str(humidity, 1);
+        String pressure_str(pressure, 1);
 		if (sensorID() == BME280_SENSOR_ID) {
             humidity = h;
-            addValueToJSON(data, F("humidity"), humidity, INTL_HUMIDITY, F("%"));
+            addValueToJSON(data, F("humidity"), humidity_str, INTL_HUMIDITY, F("%"));
         }
-        addValueToJSON(data, F("temperature"), temperature, INTL_TEMPERATURE, F("°C"));
-        addValueToJSON(data, F("pressure"), pressure, INTL_PRESSURE, F("hPa"));
+        addValueToJSON(data, F("temperature"), temperature_str, INTL_TEMPERATURE, F("°C"));
+        addValueToJSON(data, F("pressure"), pressure_str, INTL_PRESSURE, F("hPa"));
 
 	}
+    debug_outln_info(F("BME temperature: "), String(temperature));
+    debug_outln_info(F("BME humidity: "), String(humidity));
+    debug_outln_info(F("BME pressure: "), String(pressure));
+    serializeJson(data, Serial);
+	Serial.println();
+	Serial.println();
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(sensor_name));
 	deinit_i2c();

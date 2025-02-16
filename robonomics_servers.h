@@ -1,3 +1,5 @@
+#ifndef __ROBONOMICS_SERVERS_H__
+#define __ROBONOMICS_SERVERS_H__
 
 #include "./intl.h"
 
@@ -17,3 +19,4 @@ static const char* const HOST_ROBONOMICS[][2] PROGMEM = {
 
 
 
+#endif // __ROBONOMICS_SERVERS_H__  

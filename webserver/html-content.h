@@ -1,3 +1,9 @@
+#ifndef _HTML_CONTENT_H
+#define _HTML_CONTENT_H
+
+#include "../intl.h"
+#include "../defines.h"
+
 const char TXT_CONTENT_TYPE_JSON[] PROGMEM = "application/json";
 const char TXT_CONTENT_TYPE_INFLUXDB[] PROGMEM = "application/x-www-form-urlencoded";
 const char TXT_CONTENT_TYPE_TEXT_HTML[] PROGMEM = "text/html; charset=utf-8";
@@ -63,7 +69,7 @@ const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='widt
 
 const char WEB_PAGE_HEADER_BODY[] PROGMEM = 
     "<h3 style='margin:0 10px'>" INTL_PM_SENSOR "</h3>\
-    <br/><small style='color:#fff;font-weight:700'>ID: {id} ({macid})<br/>" 
+    <br/><small style='color:#fff;font-weight:700'>ID: {id}<br/>" 
     INTL_FIRMWARE ": " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>"
 	INTL_ROBONOMICS_ADDR ": {addr}<br/>\
     </small></div><div class='content'><h4>" INTL_HOME " {n} {t}</h4>";
@@ -87,7 +93,7 @@ const char WEB_ROOT_PAGE_CONTENT[] PROGMEM = "<a class='b' href='/values'>{t}</a
 <a class='b' href='https://sensors.social/' target='_blank' rel='noreferrer'>" INTL_ACTIVE_SENSORS_MAP "</a><br/>\
 <a class='b' href='/config'>{conf}</a><br/>\
 <a class='b' href='/removeConfig'>" INTL_CONFIGURATION_DELETE "</a><br/>\
-<a class='b' href='/reset'>{restart}</a><br/>\
+<a class='b' href='/restart'>{restart}</a><br/>\
 <a class='b' href='/debug'>{debug}</a><br/>\
 ";
 
@@ -140,3 +146,5 @@ const char WEB_NC4k0[] PROGMEM = "NC4.0";
 const char WEB_NC10[] PROGMEM = "NC10";
 const char WEB_TPS[] PROGMEM = "TPS";
 const char WEB_GPS[] PROGMEM = "GPS";
+
+#endif // _HTML_CONTENT_H

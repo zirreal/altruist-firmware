@@ -1,6 +1,7 @@
 #include "sds011_sensor.h"
 #include "../utils.h"
 #include "../ext_def.h"
+#include "sensor_names.h"
 
 #define serialSDS (Serial1)
 #define sds_SENSOR_MIN_TIMEOUT     300000UL
@@ -11,13 +12,14 @@ enum {
 } SDS_waiting_for;
 
 SDS011Sensor::SDS011Sensor(unsigned long sending_timeout)
-    : Sensor(sending_timeout) {
-    if (sending_timeout > sds_SENSOR_MIN_TIMEOUT) {
-    timeout = sending_timeout;
-    } else {
-    timeout = sds_SENSOR_MIN_TIMEOUT;
-    }
-    sensor_name = "SDS011";
+	: Sensor(sending_timeout) {
+	if (sending_timeout > sds_SENSOR_MIN_TIMEOUT) {
+		this->sending_timeout = sending_timeout;
+	} else {
+		this->sending_timeout = sds_SENSOR_MIN_TIMEOUT;
+	}
+	timeout = SAMPLETIME_SDS_MS;
+	sensor_name = SDS_SENSOR_NAME;
 }
 
 bool SDS011Sensor::begin() {
@@ -29,20 +31,23 @@ bool SDS011Sensor::begin() {
     delay(100);
     debug_outln_info(F("Stopping SDS011..."));
     is_SDS_running = cmd(PmSensorCmd::Stop);
-    starttime = millis();
+    last_measure_time = millis() - (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS));
+    debug_outln_info(F("SDS011 started with fetch interval (sec): "), String(sending_timeout/1000));
     return last_value_SDS_version.length() > 0;
 }
 
 void SDS011Sensor::_fetch(JsonDocument &data) {
-	if (msSince(starttime) < (timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
+	if (msSince(last_measure_time) < (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
 		if (is_SDS_running) {
 			is_SDS_running = cmd(PmSensorCmd::Stop);
+            debug_outln_info(F("SDS011 stopped"));
 		}
         return;
 	} else {
 		if (! is_SDS_running) {
 			is_SDS_running = cmd(PmSensorCmd::Start);
 			SDS_waiting_for = SDS_REPLY_HDR;
+            debug_outln_info(F("SDS011 started"));
 		}
 
 		while (serialSDS.available() >= SDS_waiting_for) {
@@ -60,7 +65,7 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
 					uint32_t pm25_serial = data[0] | (data[1] << 8);
 					uint32_t pm10_serial = data[2] | (data[3] << 8);
 
-					if (msSince(starttime) > (timeout - READINGTIME_SDS_MS)) {
+					if (msSince(last_measure_time) > (sending_timeout - READINGTIME_SDS_MS)) {
 						sds_pm10_sum += pm10_serial;
 						sds_pm25_sum += pm25_serial;
 						UPDATE_MIN_MAX(sds_pm10_min, sds_pm10_max, pm10_serial);
@@ -76,33 +81,41 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
 			}
 		}
 	}
-    float last_value_SDS_P1 = -1;
-    float last_value_SDS_P2 = -1;
-    if (sds_val_count > 2) {
-        sds_pm10_sum = sds_pm10_sum - sds_pm10_min - sds_pm10_max;
-        sds_pm25_sum = sds_pm25_sum - sds_pm25_min - sds_pm25_max;
-        sds_val_count = sds_val_count - 2;
-    }
-    if (sds_val_count > 0) {
-        last_value_SDS_P1 = float(sds_pm10_sum) / (sds_val_count * 10.0f);
-        last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
-        addValueToJSON(data, F("pm10"), last_value_SDS_P1, "PM10", F("ppm"));
-        addValueToJSON(data, F("pm25"), last_value_SDS_P2, "PM2.5", F("ppm"));
-        debug_outln_info(FPSTR(DBG_TXT_SEP));
-        if (sds_val_count < 3) {
+    if (msSince(last_measure_time) > sending_timeout) {
+        debug_outln_verbose(F("SDS011 measure finished"));
+        last_measure_time = millis();
+        float last_value_SDS_P1 = -1;
+        float last_value_SDS_P2 = -1;
+        if (sds_val_count > 2) {
+            sds_pm10_sum = sds_pm10_sum - sds_pm10_min - sds_pm10_max;
+            sds_pm25_sum = sds_pm25_sum - sds_pm25_min - sds_pm25_max;
+            sds_val_count = sds_val_count - 2;
+        }
+        if (sds_val_count > 0) {
+            last_value_SDS_P1 = float(sds_pm10_sum) / (sds_val_count * 10.0f);
+            last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
+            String p1_str(last_value_SDS_P1, 2);
+            String p2_str(last_value_SDS_P2, 2);
+            addValueToJSON(data, F("P1"), p1_str, "PM10", F("ppm"));
+            addValueToJSON(data, F("P2"), p2_str, "PM2.5", F("ppm"));
+            debug_outln_info(F("PM10: "), last_value_SDS_P1);
+            debug_outln_info(F("PM2.5: "), last_value_SDS_P2);
+            serializeJson(data, Serial);
+            Serial.println();
+            Serial.println();
+            if (sds_val_count < 3) {
+                SDS_error_count++;
+            }
+        } else {
             SDS_error_count++;
         }
-    } else {
-        SDS_error_count++;
-    }
-    sds_pm10_sum = 0;
-    sds_pm25_sum = 0;
-    sds_val_count = 0;
-    sds_pm10_max = 0;
-    sds_pm10_min = 20000;
-    sds_pm25_max = 0;
-    sds_pm25_min = 20000;
-    if ((timeout > (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
+        sds_pm10_sum = 0;
+        sds_pm25_sum = 0;
+        sds_val_count = 0;
+        sds_pm10_max = 0;
+        sds_pm10_min = 20000;
+        sds_pm25_max = 0;
+        sds_pm25_min = 20000;
 
         if (is_SDS_running) {
             is_SDS_running = cmd(PmSensorCmd::Stop);

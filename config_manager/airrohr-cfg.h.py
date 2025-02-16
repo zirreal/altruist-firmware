@@ -71,6 +71,8 @@ String      current_reg
 
 with open("airrohr-cfg.h", "w") as h:
     print("""
+#ifndef __CONFIG_H__
+#define __CONFIG_H__
 
 // This file is generated, please do not edit.
 // Change airrohr-cfg.h.py instead.
@@ -116,4 +118,6 @@ enum ConfigShapeId {""", file=h)
               ", CFG_KEY_", cfgkey.upper(),
               ", ", "" if cfgtype in ('String', 'Password') else "&",
               "cfg::", cfgkey, " },", sep='', file=h)
-    print("};", file=h)
+    print("""};
+          
+#endif // __CONFIG_H__""", file=h)

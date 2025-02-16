@@ -1,3 +1,9 @@
+#ifndef __DEFINES_H__
+#define __DEFINES_H__
+
+// increment on change
+#define SOFTWARE_VERSION_STR "R_2025-02"
+
 #if defined(ESP8266)
 #define SENSOR_BASENAME "esp8266-"
 #define OTA_BASENAME "/airrohr"
@@ -149,3 +155,5 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #define CLIENT_ADDRESS 2
 #define SERVER_ADDRESS 100
 #endif
+
+#endif // __DEFINES_H__

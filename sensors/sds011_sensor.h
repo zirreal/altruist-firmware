@@ -5,6 +5,7 @@
 
 constexpr const unsigned long WARMUPTIME_SDS_MS = 15000;  // time needed to "warm up" the sensor before we can take the first measurement
 constexpr const unsigned long READINGTIME_SDS_MS = 5000;  // how long we read data from the PM sensors
+constexpr const unsigned long SAMPLETIME_SDS_MS = 1000;
 
 enum class PmSensorCmd {
 	Start,
@@ -30,7 +31,7 @@ private:
     uint32_t sds_pm10_min = 20000;
     uint32_t sds_pm25_max = 0;
     uint32_t sds_pm25_min = 20000;
-    unsigned long starttime;
+    unsigned long last_measure_time;
     bool is_SDS_running = false;
     String last_value_SDS_version;
     bool checksum_valid(const uint8_t (&data)[8]);

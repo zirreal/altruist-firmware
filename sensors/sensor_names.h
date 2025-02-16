@@ -1,0 +1,10 @@
+#ifndef __SENSORS_NAMES_H__
+#define __SENSORS_NAMES_H__
+
+#define SDS_SENSOR_NAME "SDS"
+#define BME_SENSOR_NAME "BME280"
+#define BMP_SENSOR_NAME "BMP280"
+#define I2S_NOISE_SENSOR_NAME "PCBA"
+
+
+#endif // __SENSORS_NAMES_H__
