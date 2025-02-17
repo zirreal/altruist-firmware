@@ -62,16 +62,12 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	"<input class='radio' id='r1' name='group' type='radio' checked>"
     "<input class='radio' id='r2' name='group' type='radio'>"
     "<input class='radio' id='r3' name='group' type='radio'>"
-    "<input class='radio' id='r4' name='group' type='radio'>"
     "<div class='tabs'>"
 	"<label class='tab' id='tab1' for='r1'>" INTL_WIFI_SETTINGS "</label>"
 	"<label class='tab' id='tab2' for='r2'>");
 	page_content += FPSTR(INTL_MORE_SETTINGS);
 	page_content += F("</label>"
-		"<label class='tab' id='tab3' for='r3'>");
-	page_content += FPSTR(INTL_SENSORS);
-	page_content += F("</label>"
-		"<label class='tab' id='tab4' for='r4'>APIs"
+		"<label class='tab' id='tab3' for='r3'>APIs"
 		"</label></div><div class='panels'>"
 		"<div class='panel' id='panel1'>");
 
@@ -122,10 +118,6 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	server.sendContent(page_content);
 	page_content = emptyString;
 
-	add_form_checkbox(Config_display_wifi_info, FPSTR(INTL_DISPLAY_WIFI_INFO));
-	add_form_checkbox(Config_display_device_info, FPSTR(INTL_DISPLAY_DEVICE_INFO));
-
-	server.sendContent(page_content);
 	page_content = FPSTR(WEB_BR_LF_B);
 	page_content += F(INTL_FIRMWARE "</b>&nbsp;");
 	add_form_checkbox(Config_auto_update, FPSTR(INTL_AUTO_UPDATE));
@@ -152,50 +144,17 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_input(page_content, Config_time_for_wifi_config, FPSTR(INTL_DURATION_ROUTER_MODE), 5);
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 
-	server.sendContent(page_content);
+	page_content += FPSTR(WEB_GPS);
+	page_content += FPSTR(WEB_B_BR);
+	page_content += FPSTR(BR_TAG);
 
-	page_content = tmpl(FPSTR(WEB_DIV_PANEL), String(3));
-	add_form_checkbox_sensor(Config_sds_read, FPSTR(INTL_SDS011));
-	add_form_checkbox_sensor(Config_hpm_read, FPSTR(INTL_HPM));
-	add_form_checkbox_sensor(Config_sps30_read, FPSTR(INTL_SPS30));
-	add_form_checkbox_sensor(Config_gc_read, FPSTR(INTL_GC));
-	add_form_checkbox(Config_ccs811_27_read, FPSTR(INTL_CCS811_27));
-	add_form_checkbox(Config_ccs811_read, FPSTR(INTL_CCS811_3F));
-
-	// Paginate page after ~ 1500 Bytes
-	server.sendContent(page_content);
-	page_content = emptyString;
-
-	add_form_checkbox_sensor(Config_dht_read, FPSTR(INTL_DHT22));
-	add_form_checkbox_sensor(Config_htu21d_read, FPSTR(INTL_HTU21D));
-	add_form_checkbox_sensor(Config_dbmeter_read, FPSTR(INTL_DBMETER));
-	add_form_checkbox_sensor(Config_i2snoise_read, FPSTR(INTL_I2SNOISE));
-	add_form_checkbox_sensor(Config_bmx280_read, FPSTR(INTL_BMX280));
-	add_form_checkbox_sensor(Config_sht3x_read, FPSTR(INTL_SHT3X));
-
-	// Paginate page after ~ 1500 Bytes
-	server.sendContent(page_content);
-	page_content = emptyString;
-
-	add_form_checkbox_sensor(Config_dnms_read, FPSTR(INTL_DNMS));
 	page_content += FPSTR(TABLE_TAG_OPEN);
-	add_form_input(page_content, Config_dnms_correction, FPSTR(INTL_DNMS_CORRECTION), LEN_DNMS_CORRECTION-1);
-	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
+	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 
-	page_content += FPSTR(WEB_BR_LF_B);
-	page_content += FPSTR(INTL_MORE_SENSORS);
-	page_content += FPSTR(WEB_B_BR);
-
-	add_form_checkbox_sensor(Config_ds18b20_read, FPSTR(INTL_DS18B20));
-	add_form_checkbox_sensor(Config_pms_read, FPSTR(INTL_PMS));
-	add_form_checkbox_sensor(Config_bmp_read, FPSTR(INTL_BMP180));
-	add_form_checkbox(Config_gps_read, FPSTR(INTL_NEO6M));
-	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
-
 	// Paginate page after ~ 1500 Bytes
 	server.sendContent(page_content);
-	page_content = tmpl(FPSTR(WEB_DIV_PANEL), String(4));
+	page_content = tmpl(FPSTR(WEB_DIV_PANEL), String(3));
 
 	page_content += tmpl(FPSTR(INTL_SEND_TO), F("APIs"));
 	page_content += FPSTR(BR_TAG);

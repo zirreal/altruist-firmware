@@ -13,8 +13,8 @@
 #define OTA_BASENAME "/airrohr/esp32"
 #endif
 
-#define SSID_BASENAME "AltruistSensor-"
-#define HOSTNAME_BASE "AltruistSensor-"
+#define SSID_BASENAME "Altruist-"
+#define HOSTNAME_BASE "Altruist-"
 
 #define LEN_CFG_STRING 65
 #define LEN_CFG_PASSWORD 65
