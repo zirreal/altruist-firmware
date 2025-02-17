@@ -175,14 +175,6 @@ void readConfig(bool oldconfig) {
 			cfg::send2influx = false;
 			rewriteConfig = true;
 		}
-		if (boolFromJSON(json, F("pm24_read")) || boolFromJSON(json, F("pms32_read"))) {
-			cfg::pms_read = true;
-			rewriteConfig = true;
-		}
-		if (boolFromJSON(json, F("bmp280_read")) || boolFromJSON(json, F("bme280_read"))) {
-			cfg::bmx280_read = true;
-			rewriteConfig = true;
-		}
 	} else {
 		debug_outln_error(F("failed to load json config"));
 

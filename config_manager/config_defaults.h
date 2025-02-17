@@ -27,34 +27,10 @@ namespace cfg {
 	extern char fs_ssid[LEN_FS_SSID];
 	extern char fs_pwd[LEN_CFG_PASSWORD];
 
-	// (in)active sensors
-	extern bool dht_read;
-	extern bool htu21d_read;
-	extern bool dbmeter_read;
-	extern bool i2snoise_read;
-	extern bool ppd_read;
-	extern bool sds_read;
-	extern bool gc_read;
-	extern bool ccs811_27_read;
-	extern bool ccs811_read;
-	extern bool pms_read;
-	extern bool hpm_read;
-	extern bool npm_read;
-	extern bool sps30_read;
-	extern bool bmp_read;
-	extern bool bmx280_read;
-	extern bool sht3x_read;
-	extern bool ds18b20_read;
-	extern bool dnms_read;
-	extern char dnms_correction[LEN_DNMS_CORRECTION];
 	extern char rws_owner[LEN_RWS_OWNER];
 	extern char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE];
 	extern char private_key[LEN_PRIVATE_KEY];
-	extern char lat_gps[LEN_GPS_LAT];
-	extern char lon_gps[LEN_GPS_LON];
 	extern char coords_gps[LEN_GPS_COORDS];
-	extern bool gps_read;
-	extern char temp_correction[LEN_TEMP_CORRECTION];
 
 	// send to "APIs"
 	extern bool send2robonomics;
@@ -69,9 +45,6 @@ namespace cfg {
 	extern bool has_display;
 	extern bool has_sh1106;
 	extern bool has_flipped_display;
-
-	extern bool display_wifi_info;
-	extern bool display_device_info;
 
 	extern char host_influx[LEN_HOST_INFLUX];
 	extern char url_influx[LEN_URL_INFLUX];

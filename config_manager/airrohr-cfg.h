@@ -38,33 +38,10 @@ enum ConfigShapeId {
 	Config_fs_ssid,
 	Config_fs_pwd,
 	Config_www_basicauth_enabled,
-	Config_dht_read,
-	Config_htu21d_read,
-	Config_dbmeter_read,
-	Config_i2snoise_read,
-	Config_ppd_read,
-	Config_sds_read,
-	Config_gc_read,
-	Config_ccs811_read,
-	Config_ccs811_27_read,
-	Config_pms_read,
-	Config_hpm_read,
-	Config_npm_read,
-	Config_sps30_read,
-	Config_bmp_read,
-	Config_bmx280_read,
-	Config_sht3x_read,
-	Config_ds18b20_read,
-	Config_dnms_read,
-	Config_dnms_correction,
 	Config_rws_owner,
 	Config_robonomics_public_node,
 	Config_private_key,
-	Config_lat_gps,
-	Config_lon_gps,
 	Config_coords_gps,
-	Config_temp_correction,
-	Config_gps_read,
 	Config_send2robonomics,
 	Config_send2csv,
 	Config_auto_update,
@@ -72,8 +49,6 @@ enum ConfigShapeId {
 	Config_has_display,
 	Config_has_sh1106,
 	Config_has_flipped_display,
-	Config_display_wifi_info,
-	Config_display_device_info,
 	Config_debug,
 	Config_sending_intervall_ms,
 	Config_datalog_sending_intervall_ms,
@@ -96,7 +71,6 @@ enum ConfigShapeId {
 	Config_donated_by,
 	Config_current_reg,
 };
-
 static constexpr char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 static constexpr char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
 static constexpr char CFG_KEY_WLANPWD[] PROGMEM = "wlanpwd";
@@ -106,33 +80,10 @@ static constexpr char CFG_KEY_WWW_PASSWORD[] PROGMEM = "www_password";
 static constexpr char CFG_KEY_FS_SSID[] PROGMEM = "fs_ssid";
 static constexpr char CFG_KEY_FS_PWD[] PROGMEM = "fs_pwd";
 static constexpr char CFG_KEY_WWW_BASICAUTH_ENABLED[] PROGMEM = "www_basicauth_enabled";
-static constexpr char CFG_KEY_DHT_READ[] PROGMEM = "dht_read";
-static constexpr char CFG_KEY_HTU21D_READ[] PROGMEM = "htu21d_read";
-static constexpr char CFG_KEY_DBMETER_READ[] PROGMEM = "dbmeter_read";
-static constexpr char CFG_KEY_I2SNOISE_READ[] PROGMEM = "i2snoise_read";
-static constexpr char CFG_KEY_PPD_READ[] PROGMEM = "ppd_read";
-static constexpr char CFG_KEY_SDS_READ[] PROGMEM = "sds_read";
-static constexpr char CFG_KEY_GC_READ[] PROGMEM = "gc_read";
-static constexpr char CFG_KEY_CCS811_READ[] PROGMEM = "ccs811_read";
-static constexpr char CFG_KEY_CCS811_27_READ[] PROGMEM = "ccs811_27_read";
-static constexpr char CFG_KEY_PMS_READ[] PROGMEM = "pms_read";
-static constexpr char CFG_KEY_HPM_READ[] PROGMEM = "hpm_read";
-static constexpr char CFG_KEY_NPM_READ[] PROGMEM = "npm_read";
-static constexpr char CFG_KEY_SPS30_READ[] PROGMEM = "sps30_read";
-static constexpr char CFG_KEY_BMP_READ[] PROGMEM = "bmp_read";
-static constexpr char CFG_KEY_BMX280_READ[] PROGMEM = "bmx280_read";
-static constexpr char CFG_KEY_SHT3X_READ[] PROGMEM = "sht3x_read";
-static constexpr char CFG_KEY_DS18B20_READ[] PROGMEM = "ds18b20_read";
-static constexpr char CFG_KEY_DNMS_READ[] PROGMEM = "dnms_read";
-static constexpr char CFG_KEY_DNMS_CORRECTION[] PROGMEM = "dnms_correction";
 static constexpr char CFG_KEY_RWS_OWNER[] PROGMEM = "rws_owner";
 static constexpr char CFG_KEY_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "robonomics_public_node";
 static constexpr char CFG_KEY_PRIVATE_KEY[] PROGMEM = "private_key";
-static constexpr char CFG_KEY_LAT_GPS[] PROGMEM = "lat_gps";
-static constexpr char CFG_KEY_LON_GPS[] PROGMEM = "lon_gps";
 static constexpr char CFG_KEY_COORDS_GPS[] PROGMEM = "coords_gps";
-static constexpr char CFG_KEY_TEMP_CORRECTION[] PROGMEM = "temp_correction";
-static constexpr char CFG_KEY_GPS_READ[] PROGMEM = "gps_read";
 static constexpr char CFG_KEY_SEND2ROBONOMICS[] PROGMEM = "send2robonomics";
 static constexpr char CFG_KEY_SEND2CSV[] PROGMEM = "send2csv";
 static constexpr char CFG_KEY_AUTO_UPDATE[] PROGMEM = "auto_update";
@@ -140,8 +91,6 @@ static constexpr char CFG_KEY_USE_BETA[] PROGMEM = "use_beta";
 static constexpr char CFG_KEY_HAS_DISPLAY[] PROGMEM = "has_display";
 static constexpr char CFG_KEY_HAS_SH1106[] PROGMEM = "has_sh1106";
 static constexpr char CFG_KEY_HAS_FLIPPED_DISPLAY[] PROGMEM = "has_flipped_display";
-static constexpr char CFG_KEY_DISPLAY_WIFI_INFO[] PROGMEM = "display_wifi_info";
-static constexpr char CFG_KEY_DISPLAY_DEVICE_INFO[] PROGMEM = "display_device_info";
 static constexpr char CFG_KEY_DEBUG[] PROGMEM = "debug";
 static constexpr char CFG_KEY_SENDING_INTERVALL_MS[] PROGMEM = "sending_intervall_ms";
 static constexpr char CFG_KEY_DATALOG_SENDING_INTERVALL_MS[] PROGMEM = "datalog_sending_intervall_ms";
@@ -173,33 +122,10 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::fs_ssid)-1, CFG_KEY_FS_SSID, cfg::fs_ssid },
 	{ Config_Type_Password, sizeof(cfg::fs_pwd)-1, CFG_KEY_FS_PWD, cfg::fs_pwd },
 	{ Config_Type_Bool, 0, CFG_KEY_WWW_BASICAUTH_ENABLED, &cfg::www_basicauth_enabled },
-	{ Config_Type_Bool, 0, CFG_KEY_DHT_READ, &cfg::dht_read },
-	{ Config_Type_Bool, 0, CFG_KEY_HTU21D_READ, &cfg::htu21d_read },
-	{ Config_Type_Bool, 0, CFG_KEY_DBMETER_READ, &cfg::dbmeter_read },
-	{ Config_Type_Bool, 0, CFG_KEY_I2SNOISE_READ, &cfg::i2snoise_read },
-	{ Config_Type_Bool, 0, CFG_KEY_PPD_READ, &cfg::ppd_read },
-	{ Config_Type_Bool, 0, CFG_KEY_SDS_READ, &cfg::sds_read },
-	{ Config_Type_Bool, 0, CFG_KEY_GC_READ, &cfg::gc_read },
-	{ Config_Type_Bool, 0, CFG_KEY_CCS811_READ, &cfg::ccs811_read },
-	{ Config_Type_Bool, 0, CFG_KEY_CCS811_27_READ, &cfg::ccs811_27_read },
-	{ Config_Type_Bool, 0, CFG_KEY_PMS_READ, &cfg::pms_read },
-	{ Config_Type_Bool, 0, CFG_KEY_HPM_READ, &cfg::hpm_read },
-	{ Config_Type_Bool, 0, CFG_KEY_NPM_READ, &cfg::npm_read },
-	{ Config_Type_Bool, 0, CFG_KEY_SPS30_READ, &cfg::sps30_read },
-	{ Config_Type_Bool, 0, CFG_KEY_BMP_READ, &cfg::bmp_read },
-	{ Config_Type_Bool, 0, CFG_KEY_BMX280_READ, &cfg::bmx280_read },
-	{ Config_Type_Bool, 0, CFG_KEY_SHT3X_READ, &cfg::sht3x_read },
-	{ Config_Type_Bool, 0, CFG_KEY_DS18B20_READ, &cfg::ds18b20_read },
-	{ Config_Type_Bool, 0, CFG_KEY_DNMS_READ, &cfg::dnms_read },
-	{ Config_Type_String, sizeof(cfg::dnms_correction)-1, CFG_KEY_DNMS_CORRECTION, cfg::dnms_correction },
 	{ Config_Type_String, sizeof(cfg::rws_owner)-1, CFG_KEY_RWS_OWNER, cfg::rws_owner },
 	{ Config_Type_String, sizeof(cfg::robonomics_public_node)-1, CFG_KEY_ROBONOMICS_PUBLIC_NODE, cfg::robonomics_public_node },
 	{ Config_Type_String, sizeof(cfg::private_key)-1, CFG_KEY_PRIVATE_KEY, cfg::private_key },
-	{ Config_Type_String, sizeof(cfg::lat_gps)-1, CFG_KEY_LAT_GPS, cfg::lat_gps },
-	{ Config_Type_String, sizeof(cfg::lon_gps)-1, CFG_KEY_LON_GPS, cfg::lon_gps },
 	{ Config_Type_String, sizeof(cfg::coords_gps)-1, CFG_KEY_COORDS_GPS, cfg::coords_gps },
-	{ Config_Type_String, sizeof(cfg::temp_correction)-1, CFG_KEY_TEMP_CORRECTION, cfg::temp_correction },
-	{ Config_Type_Bool, 0, CFG_KEY_GPS_READ, &cfg::gps_read },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2ROBONOMICS, &cfg::send2robonomics },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2CSV, &cfg::send2csv },
 	{ Config_Type_Bool, 0, CFG_KEY_AUTO_UPDATE, &cfg::auto_update },
@@ -207,8 +133,6 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_HAS_DISPLAY, &cfg::has_display },
 	{ Config_Type_Bool, 0, CFG_KEY_HAS_SH1106, &cfg::has_sh1106 },
 	{ Config_Type_Bool, 0, CFG_KEY_HAS_FLIPPED_DISPLAY, &cfg::has_flipped_display },
-	{ Config_Type_Bool, 0, CFG_KEY_DISPLAY_WIFI_INFO, &cfg::display_wifi_info },
-	{ Config_Type_Bool, 0, CFG_KEY_DISPLAY_DEVICE_INFO, &cfg::display_device_info },
 	{ Config_Type_UInt, 0, CFG_KEY_DEBUG, &cfg::debug },
 	{ Config_Type_Time, 0, CFG_KEY_SENDING_INTERVALL_MS, &cfg::sending_intervall_ms },
 	{ Config_Type_Time, 0, CFG_KEY_DATALOG_SENDING_INTERVALL_MS, &cfg::datalog_sending_intervall_ms },
