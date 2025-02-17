@@ -51,6 +51,8 @@ with open("airrohr-cfg.h", "w") as h:
 
 // This file is generated, please do not edit.
 // Change airrohr-cfg.h.py instead.
+          
+#include "config_defaults.h"
 
 enum ConfigEntryType : unsigned short {
 	Config_Type_Bool,
