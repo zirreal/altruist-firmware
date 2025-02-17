@@ -413,26 +413,11 @@ unsigned long SDS_error_count;
 unsigned long WiFi_error_count;
 
 
-bool wificonfig_loop = false;
 uint8_t sntp_time_set;
 
 unsigned long count_sends = 0;
 unsigned long last_display_millis = 0;
 uint8_t next_display_count = 0;
-
-struct struct_wifiInfo {
-	char ssid[LEN_WLANSSID];
-	uint8_t encryptionType;
-	int32_t RSSI;
-	int32_t channel;
-#if defined(ESP8266)
-	bool isHidden;
-	uint8_t unused[3];
-#endif
-};
-
-struct struct_wifiInfo *wifiInfo;
-uint8_t count_wifiInfo;
 
 const char data_first_part[] PROGMEM = "{\"software_version\": \"" SOFTWARE_VERSION_STR "\", \"sensordatavalues\":[";
 const char JSON_SENSOR_DATA_VALUES[] PROGMEM = "sensordatavalues";
@@ -1547,9 +1532,20 @@ void loop(void) {
 			sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
 			activeAPIs[i]->send(sensors_data);
 			activeAPIs[i]->updateDeviceStatus(deviceStatus);
+			Serial.println(F("Device Status:"));
+			for (const auto& [api_name, status] : deviceStatus.apis_status) {
+				Serial.print(F("API Name: "));
+				Serial.println(api_name.c_str());
+				Serial.print(F("  Count Sends: "));
+				Serial.println(status.count_sends);
+				Serial.print(F("  Last Send Time: "));
+				Serial.println(ctime(&status.last_send_time));
+				Serial.print(F("  Is OK: "));
+				Serial.println(status.is_ok ? F("Yes") : F("No"));
+			}
 		}
 	}
 	webserver.handleClient();
 	yield();
-	delay(100);
+	// delay(100);
 }

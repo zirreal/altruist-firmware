@@ -16,8 +16,6 @@ public:
 
   void setup() override;
 
-  const char* api_name = "Robonomics Map";
-
 private:
     String rws_owner;
     String private_key;

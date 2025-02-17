@@ -1,6 +1,5 @@
 #include "webserver.h"
 #include "pages/pages.h"
-#include "../utils.h"
 #include "html-content.h"
 #include "../config_manager/config_helpers.h"
 
@@ -49,7 +48,7 @@ void SensorWebServer::_webserver_status() {
     server.sendContent(page_content);
     page_content = FPSTR(EMPTY_ROW);
     webserver_status_part2(page_content, deviceStatus);
-    server.sendContent(page_content);
+    // server.sendContent(page_content);
 
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 	end_html_page(page_content);
@@ -155,6 +154,7 @@ void SensorWebServer::_webserver_values() {
 		{ return; }
     RESERVE_STRING(page_content, XLARGE_STR);
     start_html_page(page_content, FPSTR(INTL_CURRENT_DATA));
+	server.sendContent(page_content);
     webserver_values(sensors_data, page_content);
     end_html_page(page_content);
 }

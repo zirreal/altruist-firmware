@@ -9,7 +9,7 @@
  * Webserver wifi: show available wifi networks                  *
  *****************************************************************/
 
-static void webserver_wifi(struct_wifiInfo* wifiInfo, uint8_t count_wifiInfo, String &page_content) {
+void webserver_wifi(struct_wifiInfo* wifiInfo, uint8_t count_wifiInfo, String &page_content) {
 
 	debug_outln_info(F("wifi networks found: "), String(count_wifiInfo));
 	if (count_wifiInfo == 0) {

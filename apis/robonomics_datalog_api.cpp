@@ -4,6 +4,7 @@
 #include "../utils.h"
 
 void RobonomicsDatalogAPI::setup() {
+    api_name = "Robonomics Datalog";
     timeout = getConfigUintValue("datalog_sending_intervall_ms");
     rws_owner = getConfigStringValue("rws_owner");
     private_key = getConfigStringValue("private_key");

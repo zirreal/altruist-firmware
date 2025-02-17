@@ -2,9 +2,14 @@
 #define __WEBSERVER_UTILS_H__
 
 #include <WebServer.h>
+#include "../config_manager/config_helpers.h"
 
-void add_table_row_from_value(String& page_content, String& sensor, String& param, const String& value, const String& unit);
-void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit);
+void add_table_row_from_value(String& page_content, const String& sensor, const String& param, const String& value, const String& unit);
+void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit = nullptr);
+void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const __FlashStringHelper* value, const char* unit = nullptr);
+void add_table_row_from_value(String& page_content, const String& param, const String& value, const char* unit = nullptr);
+
+
 int32_t calcWiFiSignalQuality(int32_t rssi);
 String add_sensor_type(const String& sensor_text);
 String form_checkbox(const ConfigShapeId cfgid, const String& info, const bool linebreak);

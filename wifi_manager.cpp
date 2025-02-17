@@ -10,78 +10,22 @@ bool wificonfig_loop;
 struct struct_wifiInfo *wifiInfo;
 uint8_t count_wifiInfo;
 
-/*****************************************************************
- * WiFi auto connecting script                                   *
- *****************************************************************/
+static int selectChannelForAp() {
+	std::array<int, 14> channels_rssi;
+	std::fill(channels_rssi.begin(), channels_rssi.end(), -100);
 
-#if defined(ESP8266)
-static WiFiEventHandler disconnectEventHandler;
-#endif
-#if defined(ESP32)
-static WiFiEventId_t disconnectEventHandler;
-#endif
-
-void connectWifi(SensorWebServer &webserver) {
-	if (WiFi.getAutoConnect()) {
-		WiFi.setAutoConnect(false);
-	}
-	if (!WiFi.getAutoReconnect()) {
-		WiFi.setAutoReconnect(true);
-	}
-
-	// Use 13 channels if locale is not "EN"
-	wifi_country_t wifi;
-	wifi.policy = WIFI_COUNTRY_POLICY_MANUAL;
-	strcpy(wifi.cc, INTL_LANG);
-	wifi.nchan = (INTL_LANG[0] == 'E' && INTL_LANG[1] == 'N') ? 11 : 13;
-	wifi.schan = 1;
-
-#if defined(ESP8266)
-	wifi_set_country(&wifi);
-#endif
-
-#if defined(ESP32)
-	WiFi.setHostname(cfg::fs_ssid);
-#endif
-
-	WiFi.mode(WIFI_STA);
-
-#if defined(ESP8266)
-	WiFi.hostname(cfg::fs_ssid);
-#endif
-
-	if (cfg::wlannopwd) {
-		debug_outln_info(F("No password"));
-		WiFi.begin(cfg::wlanssid);
-	} else {
-		WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
-	} // Start WiFI
-
-	debug_outln_info(FPSTR(DBG_TXT_CONNECTING_TO), cfg::wlanssid);
-
-	waitForWifiToConnect(40);
-	debug_outln_info(emptyString);
-	if (WiFi.status() != WL_CONNECTED) {
-		String fss(cfg::fs_ssid);
-		// display_debug(fss.substring(0, 16), fss.substring(16));
-
-		wifi.policy = WIFI_COUNTRY_POLICY_AUTO;
-
-#if defined(ESP8266)
-		wifi_set_country(&wifi);
-#endif
-
-		wifiConfig(webserver);
-		if (WiFi.status() != WL_CONNECTED) {
-			waitForWifiToConnect(20);
-			debug_outln_info(emptyString);
+	for (unsigned i = 0; i < std::min((uint8_t) 14, count_wifiInfo); i++) {
+		if (wifiInfo[i].RSSI > channels_rssi[wifiInfo[i].channel]) {
+			channels_rssi[wifiInfo[i].channel] = wifiInfo[i].RSSI;
 		}
 	}
-	debug_outln_info(F("WiFi connected, IP is: "), WiFi.localIP().toString());
 
-	if (MDNS.begin(cfg::fs_ssid)) {
-		MDNS.addService("altruist", "tcp", 80);
-		MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
+	if ((channels_rssi[1] < channels_rssi[6]) && (channels_rssi[1] < channels_rssi[11])) {
+		return 1;
+	} else if ((channels_rssi[6] < channels_rssi[1]) && (channels_rssi[6] < channels_rssi[11])) {
+		return 6;
+	} else {
+		return 11;
 	}
 }
 
@@ -206,21 +150,78 @@ static void waitForWifiToConnect(int maxRetries) {
 	}
 }
 
-static int selectChannelForAp() {
-	std::array<int, 14> channels_rssi;
-	std::fill(channels_rssi.begin(), channels_rssi.end(), -100);
+/*****************************************************************
+ * WiFi auto connecting script                                   *
+ *****************************************************************/
 
-	for (unsigned i = 0; i < std::min((uint8_t) 14, count_wifiInfo); i++) {
-		if (wifiInfo[i].RSSI > channels_rssi[wifiInfo[i].channel]) {
-			channels_rssi[wifiInfo[i].channel] = wifiInfo[i].RSSI;
+#if defined(ESP8266)
+static WiFiEventHandler disconnectEventHandler;
+#endif
+#if defined(ESP32)
+static WiFiEventId_t disconnectEventHandler;
+#endif
+
+void connectWifi(SensorWebServer &webserver) {
+	if (WiFi.getAutoConnect()) {
+		WiFi.setAutoConnect(false);
+	}
+	if (!WiFi.getAutoReconnect()) {
+		WiFi.setAutoReconnect(true);
+	}
+
+	// Use 13 channels if locale is not "EN"
+	wifi_country_t wifi;
+	wifi.policy = WIFI_COUNTRY_POLICY_MANUAL;
+	strcpy(wifi.cc, INTL_LANG);
+	wifi.nchan = (INTL_LANG[0] == 'E' && INTL_LANG[1] == 'N') ? 11 : 13;
+	wifi.schan = 1;
+
+#if defined(ESP8266)
+	wifi_set_country(&wifi);
+#endif
+
+#if defined(ESP32)
+	WiFi.setHostname(cfg::fs_ssid);
+#endif
+
+	WiFi.mode(WIFI_STA);
+
+#if defined(ESP8266)
+	WiFi.hostname(cfg::fs_ssid);
+#endif
+
+	if (cfg::wlannopwd) {
+		debug_outln_info(F("No password"));
+		WiFi.begin(cfg::wlanssid);
+	} else {
+		WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+	} // Start WiFI
+
+	debug_outln_info(FPSTR(DBG_TXT_CONNECTING_TO), cfg::wlanssid);
+
+	waitForWifiToConnect(40);
+	debug_outln_info(emptyString);
+	if (WiFi.status() != WL_CONNECTED) {
+		String fss(cfg::fs_ssid);
+		// display_debug(fss.substring(0, 16), fss.substring(16));
+
+		wifi.policy = WIFI_COUNTRY_POLICY_AUTO;
+
+#if defined(ESP8266)
+		wifi_set_country(&wifi);
+#endif
+
+		wifiConfig(webserver);
+		if (WiFi.status() != WL_CONNECTED) {
+			waitForWifiToConnect(20);
+			debug_outln_info(emptyString);
 		}
 	}
+	debug_outln_info(F("WiFi connected, IP is: "), WiFi.localIP().toString());
 
-	if ((channels_rssi[1] < channels_rssi[6]) && (channels_rssi[1] < channels_rssi[11])) {
-		return 1;
-	} else if ((channels_rssi[6] < channels_rssi[1]) && (channels_rssi[6] < channels_rssi[11])) {
-		return 6;
-	} else {
-		return 11;
+	if (MDNS.begin(cfg::fs_ssid)) {
+		MDNS.addService("altruist", "tcp", 80);
+		MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
 	}
 }
+

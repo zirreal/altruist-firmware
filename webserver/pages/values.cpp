@@ -10,7 +10,14 @@
  * Webserver root: show latest values                            *
  *****************************************************************/
 void webserver_values(JsonDocument &data, String &page_content) {
+	debug_outln_info(F("ws: values ..."));
     uint8_t signal_strength;
+
+	// page_content = "<b>";
+	// page_content += FPSTR(WEB_B_BR_BR);
+
+	page_content = F("<table cellspacing='0' cellpadding='5' class='v'>\n"
+			"<thead><tr><th>" INTL_SENSOR "</th><th> " INTL_PARAMETER "</th><th>" INTL_VALUE "</th></tr></thead>");
 
 	for (JsonPair sensor : data.as<JsonObject>())  {
         String sensor_name = sensor.key().c_str();
@@ -28,12 +35,12 @@ void webserver_values(JsonDocument &data, String &page_content) {
             String intl_param = measurementData["intl_name"].as<String>();
             String units = measurementData["units"].as<String>();
 
-            add_table_row_from_value(page_content, sensor_name, intl_param, value, units);
+			add_table_row_from_value(page_content, sensor_name, intl_param, value, units.c_str());
         }
+		page_content += FPSTR(EMPTY_ROW);
     }
 
 	const int signal_quality = calcWiFiSignalQuality(signal_strength);
-	debug_outln_info(F("ws: values ..."));
 	// if (!count_sends) {
 	// 	page_content += F("<b style='color:red'>");
 	// 	add_warning_first_cycle(page_content);

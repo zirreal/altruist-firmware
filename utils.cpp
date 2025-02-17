@@ -26,28 +26,12 @@
 #include "./utils.h"
 #include "./defines.h"
 #include "./ext_def.h"
-
-#include "ca-root.h"
+#include <SPIFFS.h>
 
 
 String tmpl(const __FlashStringHelper* patt, const String& value) {
 	String s = patt;
 	s.replace("{v}", value);
-	return s;
-}
-
-String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi) {
-	String s = F(	"<tr>"
-					"<td>"
-					"<a href='#wlanpwd' onclick='setSSID(this)' class='wifi'>{n}</a>&nbsp;{e}"
-					"</td>"
-					"<td style='width:80%;vertical-align:middle;'>"
-					"{v}%"
-					"</td>"
-					"</tr>");
-	s.replace("{n}", ssid);
-	s.replace("{e}", encryption);
-	s.replace("{v}", String(calcWiFiSignalQuality(rssi)));
 	return s;
 }
 

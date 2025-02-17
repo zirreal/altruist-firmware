@@ -209,7 +209,6 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	
 	add_form_checkbox(Config_send2csv, FPSTR(WEB_CSV));
 
-	server.sendContent(page_content);
 	page_content += FPSTR(BR_TAG);
 	page_content += form_checkbox(Config_send2custom, FPSTR(INTL_SEND_TO_OWN_API), false);
 	page_content += FPSTR(WEB_NBSP_NBSP_BRACE);

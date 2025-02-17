@@ -5,20 +5,20 @@
 #include "../config_manager/config_helpers.h"
 
 void RobonomicsHTTPAPI::setup() {
+	api_name = "Robonomics Map";
     _client = new WiFiClient();
     uint64_t chipid_num;
 	chipid_num = ESP.getEfuseMac();
 	esp_chipid = String((uint16_t)(chipid_num >> 32), HEX);
 	esp_chipid += String((uint32_t)chipid_num, HEX);
-    donated_by = getConfigStringValue("donated_by");
-    rws_owner = getConfigStringValue("rws_owner");
+    donated_by = cfg::donated_by;
+    rws_owner = cfg::rws_owner;
+	current_reg = cfg::current_reg;
 	timeout = getConfigUintValue("sending_intervall_ms");
 	debug_outln_info(F("Robonomics HTTP API is ready with sending interval (sec): "), String(timeout/1000));
 }
 
 void RobonomicsHTTPAPI::_send(JsonDocument &data) {
-    float GPS_lat = data["GPS"]["latitude"]["value"].as<float>();
-    float GPS_lon = data["GPS"]["longitude"]["value"].as<float>();
     int num_of_host;
     String datalog_data;
     formatRobonomicsString(data, datalog_data);
@@ -33,9 +33,9 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data) {
     data_to_send += "\", \"signature\": \"";
     data_to_send += signature;
     data_to_send += "\", \"GPS_lat\": \"";
-    data_to_send += String(GPS_lat, 6);
+    data_to_send += cfg::lat_gps;
     data_to_send += "\", \"GPS_lon\": \"";
-    data_to_send += String(GPS_lon, 6);
+    data_to_send += cfg::lon_gps;
     data_to_send += "\", \"sensordatavalues\": \"";
     data_to_send += datalog_data;
     data_to_send += "\"}";
@@ -79,10 +79,12 @@ void RobonomicsHTTPAPI::addTimeAndSign(const String &data, String &signature) {
 }
 
 void RobonomicsHTTPAPI::POSTRequest(const String& data, const char* host) {
+	HTTPClient _http;
 	String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
     int result = 0;
     String s_Host(FPSTR(host));
 	String s_url(FPSTR(URL_ROBONOMICS));
+	debug_outln_info(F("Start POST to "), s_Host);
     _http.setTimeout(20 * 1000);
 	_http.setUserAgent(SOFTWARE_VERSION + '/' + esp_chipid);
     _http.setReuse(false);
@@ -96,6 +98,9 @@ void RobonomicsHTTPAPI::POSTRequest(const String& data, const char* host) {
 		} else if (result >= HTTP_CODE_BAD_REQUEST) {
 			debug_outln_info(F("Request failed with error: "), String(result));
 			debug_outln_info(F("Details:"), _http.getString());
+		} else {
+			debug_outln_info(F("Request failed with error: "), String(result));
+			debug_outln_info(F("Details:"), _http.getString());
 		}
         _http.end();
     } else {
@@ -104,13 +109,14 @@ void RobonomicsHTTPAPI::POSTRequest(const String& data, const char* host) {
 }
 
 int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal) {
-
+	HTTPClient _http;
 	int num_of_robonomics_host = 255;
 	int min_sensors = 255;
 	int result = 0;
 	String s_url = FPSTR(URL_ROBONOMICS);
 	int numRobonomicsHosts = sizeof(HOST_ROBONOMICS) / sizeof(HOST_ROBONOMICS[0]);
 	debug_outln_info(F("Number of hosts - "), numRobonomicsHosts);
+	debug_outln_info(F("current reg - "), current_reg.c_str());
 
 	for (int i = 0; i < numRobonomicsHosts; i++) {
 		if (onlyGlobal) {

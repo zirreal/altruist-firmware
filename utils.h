@@ -94,10 +94,6 @@ struct device_status_t {
 
 String tmpl(const __FlashStringHelper* patt, const String& value);
 
-void add_table_row_from_value(String& page_content, const __FlashStringHelper* sensor, const __FlashStringHelper* param, const String& value, const String& unit);
-void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit = nullptr);
-void add_table_row_from_value(String& page_content, const String& param, const String& value, const char* unit = nullptr);
-
 String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);
 String delayToString(unsigned time_ms);
 

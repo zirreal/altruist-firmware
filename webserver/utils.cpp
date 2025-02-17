@@ -3,10 +3,10 @@
 #include "../utils.h"
 #include "../intl.h"
 #include <ArduinoJson.h>
-#include "../config_manager/config_helpers.h"
 
 
-void add_table_row_from_value(String& page_content, String& sensor, String& param, const String& value, const String& unit) {
+
+void add_table_row_from_value(String& page_content, const String& sensor, const String& param, const String& value, const String& unit) {
 	RESERVE_STRING(s, MED_STR);
 	s = F("<tr><td>{s}</td><td>{p}</td><td class='r'>{v}&nbsp;{u}</td></tr>");
 	s.replace("{s}", sensor);
@@ -25,7 +25,16 @@ void add_table_row_from_value(String& page_content, const __FlashStringHelper* p
 	page_content += s;
 }
 
-void add_table_row_from_value(String& page_content, const String& param, const String& value, const char* unit = nullptr) {
+void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const __FlashStringHelper* value, const char* unit) {
+	RESERVE_STRING(s, MED_STR);
+	s = F("<tr><td>{p}</td><td class='r'>{v}&nbsp;{u}</td></tr>");
+	s.replace("{p}", param);
+	s.replace("{v}", value);
+	s.replace("{u}", String(unit));
+	page_content += s;
+}
+
+void add_table_row_from_value(String& page_content, const String& param, const String& value, const char* unit) {
     RESERVE_STRING(s, MED_STR);
 	s = F("<tr><td>{p}</td><td class='r'>{v}&nbsp;{u}</td></tr>");
 	s.replace("{p}", param);
@@ -43,6 +52,21 @@ int32_t calcWiFiSignalQuality(int32_t rssi) {
 		rssi = -50;
 	}
 	return (rssi + 100) * 2;
+}
+
+String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi) {
+	String s = F(	"<tr>"
+					"<td>"
+					"<a href='#wlanpwd' onclick='setSSID(this)' class='wifi'>{n}</a>&nbsp;{e}"
+					"</td>"
+					"<td style='width:80%;vertical-align:middle;'>"
+					"{v}%"
+					"</td>"
+					"</tr>");
+	s.replace("{n}", ssid);
+	s.replace("{e}", encryption);
+	s.replace("{v}", String(calcWiFiSignalQuality(rssi)));
+	return s;
 }
 
 String add_sensor_type(const String& sensor_text) {

@@ -4,6 +4,7 @@
 #include <ArduinoJson.h>
 #include <WebServer.h>
 #include "../wifi_info.h"
+#include "../utils.h"
 
 class SensorWebServer {
 

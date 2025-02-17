@@ -18,11 +18,9 @@ public:
   void setRobonomcis(Robonomics* robonomics) {
     this->robonomics = robonomics;
   }
-  const char* api_name = "Robonomics Map";
 
 private:
     WiFiClient* _client;
-    HTTPClient _http;
     String esp_chipid;
     String current_reg;
     String donated_by;
