@@ -13,8 +13,8 @@ void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
             JsonObject measurementData = measurement.value().as<JsonObject>();
             String value = measurementData["value"].as<String>();
 
-            if (type == "pm10") datalog_data += "p1:" + value + ",";
-            else if (type == "pm25") datalog_data += "p2:" + value + ",";
+            if (type == "P1") datalog_data += "p1:" + value + ",";
+            else if (type == "P2") datalog_data += "p2:" + value + ",";
             else if (type == "noiseMax") datalog_data += "nm:" + value + ",";
             else if (type == "noiseAvg") datalog_data += "na:" + value + ",";
             else if (type == "temperature") datalog_data += "t:" + value + ",";
