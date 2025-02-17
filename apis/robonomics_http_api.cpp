@@ -21,6 +21,9 @@ void RobonomicsHTTPAPI::setup() {
 void RobonomicsHTTPAPI::_send(JsonDocument &data) {
     int num_of_host;
     String datalog_data;
+	double last_value_GPS_lat;
+	double last_value_GPS_lon;
+	sscanf(cfg::coords_gps, "%lf,%lf", &last_value_GPS_lat, &last_value_GPS_lon);
     formatRobonomicsString(data, datalog_data);
     String signature;
 	addTimeAndSign(datalog_data, signature);
@@ -33,9 +36,9 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data) {
     data_to_send += "\", \"signature\": \"";
     data_to_send += signature;
     data_to_send += "\", \"GPS_lat\": \"";
-    data_to_send += cfg::lat_gps;
+    data_to_send += String(last_value_GPS_lat, 6);
     data_to_send += "\", \"GPS_lon\": \"";
-    data_to_send += cfg::lon_gps;
+    data_to_send += String(last_value_GPS_lon, 6);
     data_to_send += "\", \"sensordatavalues\": \"";
     data_to_send += datalog_data;
     data_to_send += "\"}";
