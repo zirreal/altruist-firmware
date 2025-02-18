@@ -99,14 +99,18 @@ void SensorWebServer::_webserver_restart() {
     if (!webserver_request_auth())
 	{ return; }
 
-	RESERVE_STRING(page_content, LARGE_STR);
-	start_html_page(page_content, FPSTR(INTL_DELETE_CONFIG));
-    bool is_HTTP_GET = server.method() == HTTP_GET;
-    webserver_removeConfig(page_content, is_HTTP_GET);
-    end_html_page(page_content);
-    if (!is_HTTP_GET) {
-        esp_restart();
-    }
+	String page_content;
+	page_content.reserve(512);
+
+	start_html_page(page_content, FPSTR(INTL_RESTART_SENSOR));
+	debug_outln_info(F("ws: reset ..."));
+
+	if (server.method() == HTTP_GET) {
+		page_content += FPSTR(WEB_RESET_CONTENT);
+	} else {
+		sensor_restart();
+	}
+	end_html_page(page_content);
 }
 
 void SensorWebServer::_webserver_removeConfig() {
