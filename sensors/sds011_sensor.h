@@ -31,6 +31,8 @@ private:
     uint32_t sds_pm10_min = 20000;
     uint32_t sds_pm25_max = 0;
     uint32_t sds_pm25_min = 20000;
+    String last_p1_str;
+    String last_p2_str;
     unsigned long last_measure_time;
     bool is_SDS_running = false;
     String last_value_SDS_version;

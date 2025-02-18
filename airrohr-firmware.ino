@@ -88,7 +88,7 @@
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
 
-StaticJsonDocument<1024> sensors_data;
+DynamicJsonDocument sensors_data(2048);
 device_status_t deviceStatus;
 
 SensorWebServer webserver(sensors_data, deviceStatus);
@@ -416,17 +416,6 @@ void setup(void) {
 	debug_outln_info(F("\nChipId: "), esp_chipid);
 	twoStageOTAUpdate(deviceStatus);
 
-	if (cfg::gps_read) {
-// #if defined(ESP8266)
-// 		serialGPS = new SoftwareSerial;
-// 		serialGPS->begin(9600, SWSERIAL_8N1, GPS_SERIAL_RX, GPS_SERIAL_TX, false, 128);
-// #endif
-// #if defined(ESP32)
-// 		serialGPS->begin(9600, SERIAL_8N1, GPS_SERIAL_RX, GPS_SERIAL_TX);
-// #endif
-		debug_outln_info(F("Read GPS..."));
-	}
-
 	powerOnTestSensors();
 
 	sensors_data["service_data"]["robonomics_address"] = robonomics.getSs58Address();
@@ -479,6 +468,7 @@ void loop(void) {
 				Serial.print(F("  Is OK: "));
 				Serial.println(status.is_ok ? F("Yes") : F("No"));
 			}
+			sensors_data.shrinkToFit();
 		}
 	}
 	webserver.handleClient();

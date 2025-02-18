@@ -126,21 +126,22 @@ void BMX280Sensor::_fetch(JsonDocument &data) {
 	} else {
 		temperature = t + readCorrectionOffset("0.0");
 		pressure = p;
-        String temperature_str(temperature, 1);
-        String humidity_str(humidity, 1);
-        String pressure_str(pressure, 1);
+    last_temperature_str = String(temperature, 1);
+    last_humidity_str = String(humidity, 1);
+    last_pressure_str = String(pressure, 1);
 		if (sensorID() == BME280_SENSOR_ID) {
             humidity = h;
-            addValueToJSON(data, F("humidity"), humidity_str, INTL_HUMIDITY, F("%"));
+            addValueToJSON(data, F("humidity"), humidity, INTL_HUMIDITY, F("%"));
         }
-        addValueToJSON(data, F("temperature"), temperature_str, INTL_TEMPERATURE, F("°C"));
-        addValueToJSON(data, F("pressure"), pressure_str, INTL_PRESSURE, F("hPa"));
+        addValueToJSON(data, F("temperature"), temperature, INTL_TEMPERATURE, F("°C"));
+        addValueToJSON(data, F("pressure"), pressure, INTL_PRESSURE, F("hPa"));
 
 	}
     debug_outln_info(F("BME temperature: "), String(temperature));
     debug_outln_info(F("BME humidity: "), String(humidity));
     debug_outln_info(F("BME pressure: "), String(pressure));
     serializeJson(data, Serial);
+    debug_outln_info(F("\r\nJSON memory usage: "), data.memoryUsage());
 	Serial.println();
 	Serial.println();
 	debug_outln_info(FPSTR(DBG_TXT_SEP));

@@ -11,7 +11,14 @@ void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
         for (JsonPair measurement : sensorData) {
             String type = measurement.key().c_str();
             JsonObject measurementData = measurement.value().as<JsonObject>();
-            String value = measurementData["value"].as<String>();
+            String value;
+			if (measurementData["value"].is<uint8_t>()) {
+				value = String(measurementData["value"].as<uint8_t>());
+			}else if (measurementData["value"].is<float>()) {
+				value = String(measurementData["value"].as<float>(), 2);
+			} else {
+				value = measurementData["value"].as<String>();
+			}
 
             if (type == "P1") datalog_data += "p1:" + value + ",";
             else if (type == "P2") datalog_data += "p2:" + value + ",";

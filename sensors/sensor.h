@@ -3,6 +3,7 @@
 
 #include "Arduino.h"
 #include <ArduinoJson.h>
+#include "../utils.h"
 
 class Sensor {
 protected:
@@ -16,16 +17,44 @@ protected:
     last_fetch_time = millis();
   }
 
-  void addValueToJSON(JsonDocument &data, const String &meas_id, String &value, const char* intl_name, const String &units) {
-    data[sensor_name][meas_id][F("value")] = value;
-    data[sensor_name][meas_id][F("intl_name")] = intl_name;
-    data[sensor_name][meas_id][F("units")] = units;
+  void addValueToJSON(JsonDocument &data, const String &meas_id, const float value, const char* intl_name, const String &units) {
+    // Ensure sensor_name object exists
+    // debug_outln_info(F("Meas_id: "), meas_id);
+    // debug_outln_info(F("Value: "), value);
+    JsonObject sensorObj = data[sensor_name];  
+    if (!sensorObj) {
+        sensorObj = data.createNestedObject(sensor_name);
+    }
+
+    // Ensure measurement object exists
+    JsonObject measObj = sensorObj[meas_id];  
+    if (!measObj) {
+        measObj = sensorObj.createNestedObject(meas_id);
+    }
+
+    // Directly update values without removing objects
+    measObj[F("value")] = value;
+    measObj[F("intl_name")] = intl_name;
+    measObj[F("units")] = units;
   }
 
-  void addValueToJSON(JsonDocument &data, const String &meas_id, uint8_t &value, const char* intl_name, const String &units) {
-    data[sensor_name][meas_id][F("value")] = value;
-    data[sensor_name][meas_id][F("intl_name")] = intl_name;
-    data[sensor_name][meas_id][F("units")] = units;
+  void addValueToJSON(JsonDocument &data, const String &meas_id, const uint8_t &value, const char* intl_name, const String &units) {
+    // Ensure sensor_name object exists
+    JsonObject sensorObj = data[sensor_name];  
+    if (!sensorObj) {
+        sensorObj = data.createNestedObject(sensor_name);
+    }
+
+    // Ensure measurement object exists
+    JsonObject measObj = sensorObj[meas_id];  
+    if (!measObj) {
+        measObj = sensorObj.createNestedObject(meas_id);
+    }
+
+    // Directly update values without removing objects
+    measObj[F("value")] = value;
+    measObj[F("intl_name")] = intl_name;
+    measObj[F("units")] = units;
   }
 
 public:

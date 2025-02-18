@@ -11,7 +11,7 @@
  *****************************************************************/
 void webserver_values(JsonDocument &data, String &page_content) {
 	debug_outln_info(F("ws: values ..."));
-    uint8_t signal_strength;
+    int8_t signal_strength;
 
 	// page_content = "<b>";
 	// page_content += FPSTR(WEB_B_BR_BR);
@@ -24,14 +24,22 @@ void webserver_values(JsonDocument &data, String &page_content) {
         JsonObject sensorData = sensor.value().as<JsonObject>();
 
         if (sensor_name == "service_data") {
-            signal_strength = sensorData["signal_strength"].as<uint8_t>();
+            signal_strength = sensorData["signal_strength"].as<int8_t>();
+			debug_outln_info(F("Signal strength: "), signal_strength);
             continue;
         }
 
         for (JsonPair measurement : sensorData) {
             String type = measurement.key().c_str();
             JsonObject measurementData = measurement.value().as<JsonObject>();
-            String value = measurementData["value"].as<String>();
+			String value;
+			if (measurementData["value"].is<uint8_t>()) {
+				value = String(measurementData["value"].as<uint8_t>());
+			}else if (measurementData["value"].is<float>()) {
+				value = String(measurementData["value"].as<float>(), 2);
+			} else {
+				value = measurementData["value"].as<String>();
+			}
             String intl_param = measurementData["intl_name"].as<String>();
             String units = measurementData["units"].as<String>();
 

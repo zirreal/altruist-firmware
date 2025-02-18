@@ -47,6 +47,10 @@ public:
 
 protected:
     void _fetch(JsonDocument &data) override;
+
+    String last_temperature_str;
+    String last_humidity_str;
+    String last_pressure_str;
   /**************************************************************************/
   /*!
       @brief  sampling rates
