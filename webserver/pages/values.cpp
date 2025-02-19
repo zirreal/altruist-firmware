@@ -35,13 +35,25 @@ void webserver_values(JsonDocument &data, String &page_content) {
 			String value;
 			if (measurementData["value"].is<uint8_t>()) {
 				value = String(measurementData["value"].as<uint8_t>());
-			}else if (measurementData["value"].is<float>()) {
-				value = String(measurementData["value"].as<float>(), 2);
+			} else if (measurementData["value"].is<float>()) {
+				float floatValue = measurementData["value"].as<float>();
+				if (type == "pressure") {
+					floatValue = floatValue * 0.750062 * 0.01; // Convert hPa to mm Hg
+					value = String(floatValue, 0);
+				} else {
+					value = String(floatValue, 2);
+				}
+				
 			} else {
 				value = measurementData["value"].as<String>();
 			}
             String intl_param = measurementData["intl_name"].as<String>();
-            String units = measurementData["units"].as<String>();
+			String units;
+			if (type == "pressure") {
+				units = "mm Hg";
+			} else {
+            	units = measurementData["units"].as<String>();
+			}
 
 			add_table_row_from_value(page_content, sensor_name, intl_param, value, units.c_str());
         }

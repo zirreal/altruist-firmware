@@ -5,7 +5,7 @@
 #define CURRENT_LANG INTL_LANG
 
 // Wifi config
-const char WLANSSID[] PROGMEM = "Freifunk-disabled";
+const char WLANSSID[] PROGMEM = "Not Set";
 const char WLANPWD[] PROGMEM = "";
 #define WLANNOPWD 0
 

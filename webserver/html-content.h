@@ -3,6 +3,7 @@
 
 #include "../intl.h"
 #include "../defines.h"
+#include "css-styles.h"
 
 const char TXT_CONTENT_TYPE_JSON[] PROGMEM = "application/json";
 const char TXT_CONTENT_TYPE_INFLUXDB[] PROGMEM = "application/x-www-form-urlencoded";
@@ -34,58 +35,57 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 <meta charset='utf-8'/>\
 <title>{t}</title>";
 
-const char WEB_PAGE_STATIC_CSS[] PROGMEM = "\
-body{font-family:Arial,sans-serif;margin:0}\
-.content{margin:10px}\
-.footer{height:48px;background:#f5f5f5;width:100%}\
-.r{text-align:right}\
-td{vertical-align:top}\
-.v>tbody>tr:nth-child(odd){background:#efefef}\
-.b{text-decoration:none;padding:10px;background:#2a9;color:#fff;display:block;width:auto;border-radius:5px;}\
-.wifi{background:0 0;color:#00f;padding:5px;display:inline;border:0;}\
-input[type=text]{width:100%}\
-input[type=password]{width:100%}\
-input[type=submit]{color:#fff;text-align:left;cursor:pointer;border-radius:5px;font-size:medium;background:#b33;padding:9px!important;width:100%;border-style:none}\
-input[type=submit]:hover{background:#d44}\
-.s_green{padding:9px !important;width:100%;border-style:none;background:#3ba;color:#fff;text-align:left}\
-.tabs{display:flex;flex-direction:row;align-items:stretch;align-content:flex-end;justify-content:flex-start}\
-.tab{padding:10px 20px;display:inline-block;color:#333}\
-.panels{min-height:200px;overflow:hidden;padding:20px;border:2px solid #3ba;margin-bottom:1em;}\
-.radio{display:none}.panel{display:none}\
-.canvas{min-height:118px;background:#3ba;margin-bottom:20px;}\
-#r4:checked~.panels>#panel4,#r1:checked~.panels>#panel1,#r3:checked~.panels>#panel3,#r2:checked~.panels>#panel2{display:block}\
-#r4:checked~.tabs>#tab4,#r1:checked~.tabs>#tab1,#r3:checked~.tabs>#tab3,#r2:checked~.tabs>#tab2{background:#3ba;color:#fff}\
-";
-
 #define STATIC_PREFIX "/" INTL_LANG "_s1"
 
 const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>\
-<link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
-</style>\
-</head><body>\
-<div class='canvas'>\
-<a class='b' href='/' style='background:none;display:inline'>\
-<img src='" STATIC_PREFIX "?r=logo' alt='" INTL_BACK_TO_HOME "' style='float:left;margin:16px' width='100' height='89'/></a>";
+    <link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
+    </style>\
+    </head><body>\
+    <div class='canvas'>\
+    <a class='b' href='/' style='background:none;display:inline'>\
+    <img src='" STATIC_PREFIX "?r=logo' alt='" INTL_BACK_TO_HOME "' style='float:left;margin:16px' width='100' height='89'/></a>";
 
-const char WEB_PAGE_HEADER_BODY[] PROGMEM = 
-    "<h3 style='margin:0 10px'>" INTL_PM_SENSOR "</h3>\
-    <br/><small style='color:#fff;font-weight:700'>ID: {id}<br/>" 
-    INTL_FIRMWARE ": " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>"
-	INTL_ROBONOMICS_ADDR ": {addr}<br/>\
-    </small></div><div class='content'><h4>" INTL_HOME " {n} {t}</h4>";
+const char WEB_PAGE_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
+    <h3>" INTL_PM_SENSOR "</h3>\
+    <small>\
+    <span>ID</span>: {id}<br />\
+    <span>" INTL_FIRMWARE "</span>: " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>\
+    <span>" INTL_ROBONOMICS_ADDR "</span>: {addr}\
+    </small>\
+    </div>\
+    </div><div class='content'><h4 class='content-subtitle'>" INTL_HOME " {n} {t}</h4>";
+
+const char WEB_PAGE_DEBUG_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
+    <h3>" INTL_PM_SENSOR "</h3>\
+    <small>\
+    <span>ID</span>: {id}<br />\
+    <span>" INTL_FIRMWARE "</span>: " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>\
+    <span>" INTL_ROBONOMICS_ADDR "</span>: {addr}\
+    </small>\
+    </div>\
+    </div><div class='content content-debug'><h4 class='content-subtitle'>" INTL_HOME " {n} {t}</h4>";
+
+const char WEB_PAGE_CONFIG_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
+    <h3>" INTL_PM_SENSOR "</h3>\
+    <small>\
+    <span>ID: {id}<br />\
+    <span>" INTL_FIRMWARE ": " SOFTWARE_VERSION_STR "/" INTL_LANG " (" __DATE__ ")\
+    <span>" INTL_ROBONOMICS_ADDR ": {addr}\
+    </small>\
+    <div class='content content-config'><h4 class='content-subtitle'>" INTL_HOME " {n} {t}</h4>";
+
+
 
 const char BR_TAG[] PROGMEM = "<br/>";
 const char WEB_DIV_PANEL[] PROGMEM = "</div><div class='panel' id='panel{v}'>";
-const char TABLE_TAG_OPEN[] PROGMEM = "<table>";
+const char TABLE_TAG_OPEN[] PROGMEM = "<table class='content-table'>";
 const char TABLE_TAG_CLOSE_BR[] PROGMEM = "</table>";
 const char EMPTY_ROW[] PROGMEM = "<tr><td colspan='3'>&nbsp;</td></tr>";
 
 const char WEB_PAGE_FOOTER[] PROGMEM = "<br/><br/>"
-                "<a class='b' href='/' style='display:inline;'>" INTL_BACK_TO_HOME "</a><br/><br/><br/>"
+                "<a class='b' href='/'>" INTL_BACK_TO_HOME "</a><br/><br/><br/>"
 		"</div><footer class='footer'><div style='padding:16px'>"
-		"<a href='https://codefor.de/stuttgart/' target='_blank' rel='noreferrer' style='color:#3ba;'>"
-		"&copy; Open Knowledge Lab Stuttgart a.o. (Code for Germany)</a>&nbsp;&nbsp("
-                "<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer'>" INTL_REPORT_ISSUE "</a>"
+		"<a href='https://codefor.de/stuttgart/' target='_blank' rel='noreferrer' style='color:#fff;'>© Open Knowledge Lab Stuttgart a.o. (Code for Germany)</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a>"
 		")</div></footer></body></html>\r\n";
 
 const char WEB_ROOT_PAGE_CONTENT[] PROGMEM = "<a class='b' href='/values'>{t}</a><br/>\

@@ -40,6 +40,7 @@ private:
     void rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3);
     bool cmd(PmSensorCmd cmd);
     String version_date();
+    bool first_fetch = true;
 };
 
 #endif // __SDS011_H__

@@ -183,7 +183,12 @@ void connectWifi(SensorWebServer &webserver) {
 
 	debug_outln_info(FPSTR(DBG_TXT_CONNECTING_TO), cfg::wlanssid);
 
-	waitForWifiToConnect(40);
+	if (strcmp(cfg::wlanssid, WLANSSID) == 0) {
+		waitForWifiToConnect(20);
+	} else {
+		waitForWifiToConnect(120);
+	}
+	
 	debug_outln_info(emptyString);
 	if (WiFi.status() != WL_CONNECTED) {
 		String fss(cfg::fs_ssid);

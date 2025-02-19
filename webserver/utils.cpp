@@ -82,10 +82,11 @@ String add_sensor_type(const String& sensor_text) {
 
 String form_checkbox(const ConfigShapeId cfgid, const String& info, const bool linebreak) {
 	RESERVE_STRING(s, MED_STR);
-	s = F("<label for='{n}'>"
+	s = F("<div class='form-group'><label for='{n}'>"
 	"<input type='checkbox' name='{n}' value='1' id='{n}' {c}/>"
 	"<input type='hidden' name='{n}' value='0'/>"
-	"{i}</label><br/>");
+	"{i}</label></div><br/>");
+
 	if (*configShape[cfgid].cfg_val.as_bool) {
 		s.replace("{c}", F(" checked='checked'"));
 	} else {
@@ -100,27 +101,21 @@ String form_checkbox(const ConfigShapeId cfgid, const String& info, const bool l
 }
 
 String form_submit(const String& value) {
-	String s = F(	"<tr>"
-					"<td>&nbsp;</td>"
-					"<td>"
-					"<input type='submit' name='submit' value='{v}' />"
-					"</td>"
-					"</tr>");
+	String s = F(	"<button type='submit' class='submit-btn'>Save configuration and restart</button>");
 	s.replace("{v}", value);
 	return s;
 }
 
 String form_select_lang() {
 	String s_select = F(" selected='selected'");
-	String s = F(	"<tr>"
-					"<td>" INTL_LANGUAGE ":&nbsp;</td>"
-					"<td>"
-					"<select id='current_lang' name='current_lang'>"
-					"<option value='EN'>English (EN)</option>"
-					"<option value='RU'>Русский (RU)</option>"
-					"</select>"
-					"</td>"
-					"</tr>");
+	//INTL_LANGUAGE
+	String s = F("<div class='form-group'>"
+		"<label for='current_lang'>" INTL_LANGUAGE "</label>"
+		"<select id='current_lang' name='current_lang'>"
+				"<option value='EN'>English (EN)</option>"
+				"<option value='RU'>Русский (RU)</option>"
+		"</select>"
+		"</div>");
 
 	s.replace("'" + String(cfg::current_lang) + "'>", "'" + String(cfg::current_lang) + "'" + s_select + ">");
 	return s;
@@ -128,9 +123,8 @@ String form_select_lang() {
 
 String form_select_reg() {
 	String s_select = F(" selected='selected'");
-	String s = F(	"<tr>"
-					"<td>" INTL_REGION ":&nbsp;</td>"
-					"<td>"
+	String s = F(	"<div class='form-group'>"
+					"<label for='current_reg'>" INTL_REGION ":&nbsp</label>"
 					"<select id='current_reg' name='current_reg'>"
 					"<option value='" INTL_REGION_GLOBAL "'>" INTL_REGION_GLOBAL "</option>"
 					"<option value='" INTL_REGION_EU "'>" INTL_REGION_EU "</option>"
@@ -140,8 +134,7 @@ String form_select_reg() {
 					"<option value='" INTL_REGION_NA "'>" INTL_REGION_NA "</option>"
 					"<option value='" INTL_REGION_SA "'>" INTL_REGION_SA "</option>"
 					"</select>"
-					"</td>"
-					"</tr>");
+					"</div>");
 
 	s.replace("'" + String(cfg::current_reg) + "'>", "'" + String(cfg::current_reg) + "'" + s_select + ">");
 	return s;
@@ -149,11 +142,10 @@ String form_select_reg() {
 
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length) {
 	RESERVE_STRING(s, MED_STR);
-	s = F("<tr>"
-			"<td title='[&lt;= {l}]'>{i}:&nbsp;</td>"
-			"<td style='width:{l}em'>"
+	s = F("<div class='form-group'>"
+			"<label for='{n}'>{i}</label>"
 			"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'/>"
-			"</td></tr>");
+			"</div>");
 	String t_value;
 	ConfigShapeEntry c;
 	memcpy_P(&c, &configShape[cfgid], sizeof(ConfigShapeEntry));

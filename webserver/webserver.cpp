@@ -283,7 +283,13 @@ void SensorWebServer::start_html_page(String& page_content, const String& title)
 
 	server.sendContent_P(WEB_PAGE_HEADER_HEAD);
 
-	s = FPSTR(WEB_PAGE_HEADER_BODY);
+	if (title.indexOf("Debug") != -1) {
+		s = FPSTR(WEB_PAGE_DEBUG_HEADER_BODY);
+	} if (title.indexOf("Configuration") != -1) {
+		s = FPSTR(WEB_PAGE_CONFIG_HEADER_BODY);
+	} else {
+		s = FPSTR(WEB_PAGE_HEADER_BODY);
+	}
 	s.replace("{addr}", robonomics_address);
 	s.replace("{t}", title);
 	if (title != " ") {

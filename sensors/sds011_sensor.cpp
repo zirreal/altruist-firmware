@@ -37,6 +37,11 @@ bool SDS011Sensor::begin() {
 }
 
 void SDS011Sensor::_fetch(JsonDocument &data) {
+	if (first_fetch) {
+		first_fetch = false;
+		addValueToJSON(data, F("P1"), (float)-1.0, "PM10", F("ppm"));
+        addValueToJSON(data, F("P2"), (float)-1.0, "PM2.5", F("ppm"));
+	}
 	if (msSince(last_measure_time) < (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
 		if (is_SDS_running) {
 			is_SDS_running = cmd(PmSensorCmd::Stop);
@@ -94,8 +99,6 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
         if (sds_val_count > 0) {
             last_value_SDS_P1 = float(sds_pm10_sum) / (sds_val_count * 10.0f);
             last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
-            // last_p1_str = String(last_value_SDS_P1, 2);
-            // last_p2_str = String(last_value_SDS_P2, 2);
             addValueToJSON(data, F("P1"), last_value_SDS_P1, "PM10", F("ppm"));
             addValueToJSON(data, F("P2"), last_value_SDS_P2, "PM2.5", F("ppm"));
             debug_outln_info(F("PM10: "), last_value_SDS_P1);
