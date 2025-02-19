@@ -68,11 +68,12 @@ const char WEB_PAGE_DEBUG_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
 const char WEB_PAGE_CONFIG_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
     <h3>" INTL_PM_SENSOR "</h3>\
     <small>\
-    <span>ID: {id}<br />\
-    <span>" INTL_FIRMWARE ": " SOFTWARE_VERSION_STR "/" INTL_LANG " (" __DATE__ ")\
-    <span>" INTL_ROBONOMICS_ADDR ": {addr}\
+    <span>ID</span>: {id}<br />\
+    <span>" INTL_FIRMWARE "</span>: " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>\
+    <span>" INTL_ROBONOMICS_ADDR "</span>: {addr}\
     </small>\
-    <div class='content content-config'><h4 class='content-subtitle'>" INTL_HOME " {n} {t}</h4>";
+    </div>\
+    </div><div class='content content-config'><h4 class='content-subtitle'>" INTL_HOME " {n} {t}</h4>";
 
 
 
@@ -80,7 +81,7 @@ const char BR_TAG[] PROGMEM = "<br/>";
 const char WEB_DIV_PANEL[] PROGMEM = "</div><div class='panel' id='panel{v}'>";
 const char TABLE_TAG_OPEN[] PROGMEM = "<table class='content-table'>";
 const char TABLE_TAG_CLOSE_BR[] PROGMEM = "</table>";
-const char EMPTY_ROW[] PROGMEM = "<tr><td colspan='3'>&nbsp;</td></tr>";
+const char EMPTY_ROW[] PROGMEM = "<tr><td colspan='3' style='background: #f4f4f4;'>&nbsp;</td></tr>";
 
 const char WEB_PAGE_FOOTER[] PROGMEM = "<br/><br/>"
                 "<a class='b' href='/'>" INTL_BACK_TO_HOME "</a><br/><br/><br/>"
@@ -92,8 +93,8 @@ const char WEB_ROOT_PAGE_CONTENT[] PROGMEM = "<a class='b' href='/values'>{t}</a
 <a class='b' href='/status'>{s}</a><br/>\
 <a class='b' href='https://sensors.social/' target='_blank' rel='noreferrer'>" INTL_ACTIVE_SENSORS_MAP "</a><br/>\
 <a class='b' href='/config'>{conf}</a><br/>\
-<a class='b' href='/removeConfig'>" INTL_CONFIGURATION_DELETE "</a><br/>\
-<a class='b' href='/restart'>{restart}</a><br/>\
+<a class='b danger' href='/removeConfig'>" INTL_CONFIGURATION_DELETE "</a><br/>\
+<a class='b danger' href='/restart'>{restart}</a><br/>\
 <a class='b' href='/debug'>{debug}</a><br/>\
 ";
 
@@ -103,15 +104,16 @@ function load_wifi_list(){var x=new XMLHttpRequest();x.open('GET','/wifi');x.onl
 </script>";
 
 const char WEB_REMOVE_CONFIG_CONTENT[] PROGMEM = "<h3>" INTL_CONFIGURATION_REALLY_DELETE "</h3>\
-<table><tr><td><form method='POST' action='/removeConfig'>\
+<table class='content-table delete-table'><tr><td><form method='POST' action='/removeConfig'>\
 <input type='submit' class='s_red' name='submit' value='" INTL_DELETE "'/></form></td>\
 <td><a class='b' href='/'>" INTL_CANCEL "</a></td></tr></table>\
 ";
 
 const char WEB_RESET_CONTENT[] PROGMEM = "<h3>" INTL_REALLY_RESTART_SENSOR "</h3>" \
-"<table><tr><td><form method='POST' action'/reset'>" \
+"<table class='content-table delete-table'><tr><td><form method='POST' action'/reset'>" \
 "<input type='submit' class='s_red' name='submit' value='" INTL_RESTART "'/>"\
 "</form></td><td><a class='b' href='/'>" INTL_CANCEL "</a></td></tr></table>";
+
 
 const char WEB_IOS_REDIRECT[] PROGMEM = "<html><body>Redirecting...\
 <script type=\"text/javascript\">\
