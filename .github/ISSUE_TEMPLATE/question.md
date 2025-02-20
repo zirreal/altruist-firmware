@@ -2,8 +2,9 @@
 name: Question
 about: Use this template to ask a question about the project
 title: ''
-labels: ''
+labels: question
 assignees: LoSk-p
+
 ---
 
 **Question**
