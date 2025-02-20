@@ -62,6 +62,8 @@ namespace cfg {
 	extern char pwd_custom[LEN_CFG_PASSWORD];
 	extern char donated_by[LEN_DONATED_BY];
 
+	extern char temp_correction[LEN_TEMP_CORRECTION];
+
 	extern void initNonTrivials(const char* id);
 }
 

@@ -61,6 +61,8 @@ namespace cfg {
 	char pwd_custom[LEN_CFG_PASSWORD] = PWD_CUSTOM;
 	char donated_by[LEN_DONATED_BY];
 
+	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
+
 	void initNonTrivials(const char* id) {
 		strcpy(cfg::current_lang, CURRENT_LANG);
 		strcpy(cfg::current_reg, CURRENT_REG);

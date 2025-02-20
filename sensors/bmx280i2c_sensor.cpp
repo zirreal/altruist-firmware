@@ -31,6 +31,7 @@
 #include "../utils.h"
 #include "../intl.h"
 #include "sensor_names.h"
+#include "../config_manager/config_helpers.h"
 
 #define BMX_SENSOR_MIN_TIMEOUT     300000UL
 
@@ -124,7 +125,7 @@ void BMX280Sensor::_fetch(JsonDocument &data) {
 		pressure = -1.0;
 		debug_outln_error(F("BMP/BME280 read failed"));
 	} else {
-		temperature = t + readCorrectionOffset("0.0");
+		temperature = t + readCorrectionOffset(cfg::temp_correction);
 		pressure = p;
     last_temperature_str = String(temperature, 1);
     last_humidity_str = String(humidity, 1);

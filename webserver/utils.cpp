@@ -80,12 +80,19 @@ String add_sensor_type(const String& sensor_text) {
 	return s;
 }
 
-String form_checkbox(const ConfigShapeId cfgid, const String& info, const bool linebreak) {
+String form_checkbox(const ConfigShapeId cfgid, const String& info, const bool linebreak, bool enabled) {
 	RESERVE_STRING(s, MED_STR);
-	s = F("<div class='form-group'><label for='{n}'>"
-	"<input type='checkbox' name='{n}' value='1' id='{n}' {c}/>"
-	"<input type='hidden' name='{n}' value='0'/>"
-	"{i}</label></div><br/>");
+	if (enabled) {
+		s = F("<div class='form-group'><label for='{n}'>"
+		"<input type='checkbox' name='{n}' value='1' id='{n}' {c}/>"
+		"<input type='hidden' name='{n}' value='0'/>"
+		"{i}</label></div><br/>");
+	} else {
+		s = F("<div class='form-group'><label for='{n}'>"
+		"<input type='checkbox' name='{n}' value='1' id='{n}' {c} disabled/>"
+		"<input type='hidden' name='{n}' value='0'/>"
+		"{i}</label></div><br/>");
+	}
 
 	if (*configShape[cfgid].cfg_val.as_bool) {
 		s.replace("{c}", F(" checked='checked'"));
@@ -140,12 +147,19 @@ String form_select_reg() {
 	return s;
 }
 
-void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length) {
+void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length, bool enabled) {
 	RESERVE_STRING(s, MED_STR);
-	s = F("<div class='form-group'>"
+	if (enabled) {
+		s = F("<div class='form-group'>"
+				"<label for='{n}'>{i}</label>"
+				"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'/>"
+				"</div>");
+	} else {
+		s = F("<div class='form-group'>"
 			"<label for='{n}'>{i}</label>"
-			"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'/>"
+			"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}' disabled/>"
 			"</div>");
+	}
 	String t_value;
 	ConfigShapeEntry c;
 	memcpy_P(&c, &configShape[cfgid], sizeof(ConfigShapeEntry));

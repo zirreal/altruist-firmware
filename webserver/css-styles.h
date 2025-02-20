@@ -26,20 +26,21 @@ a {
 }
 
 .canvas {
-  background: linear-gradient(135deg, #2949d3, #1f3aa6);
+  background: #2344ce;
   color: white;
   padding: 20px;
   display: flex;
   align-items: center;
-  gap: 20px 50px;
+  gap: 0 50px;
   text-align: left;
   flex-wrap: wrap;
-  border-bottom: 5px solid #1f3aa6;
+  border-bottom: 3px solid #1f3aa6;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-.canvas .logo img {
-  max-width: 80px;
+.canvas img {
+  max-width: 110px;
+  width: 100%;
   border-radius: 8px;
 }
 
@@ -197,6 +198,7 @@ th {
   color: white;
   margin-top: auto;
   font-size: 14px;
+  text-align: center;
 }
 
 .footer a {
@@ -259,6 +261,8 @@ label {
 }
 
 .submit-btn {
+  display: block;
+  margin: 0 auto;
   background-color: #2949d3;
   color: white;
   padding: 14px 20px;
@@ -300,7 +304,7 @@ label {
   align-items: center;
   gap: 20px;
   justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 40px;
 }
 
 .tab {

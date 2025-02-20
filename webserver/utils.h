@@ -12,11 +12,11 @@ void add_table_row_from_value(String& page_content, const String& param, const S
 
 int32_t calcWiFiSignalQuality(int32_t rssi);
 String add_sensor_type(const String& sensor_text);
-String form_checkbox(const ConfigShapeId cfgid, const String& info, const bool linebreak);
+String form_checkbox(const ConfigShapeId cfgid, const String& info, const bool linebreak, bool enabled = true);
 String form_submit(const String& value);
 String form_select_lang();
 String form_select_reg();
-void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length);
+void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length, bool enabled = true);
 
 #endif // __WEBSERVER_UTILS_H__
 
