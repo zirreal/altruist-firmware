@@ -35,6 +35,7 @@ private:
     void sendHttpRedirect();
     void start_html_page(String& page_content, const String& title);
     void end_html_page(String& page_content);
+    void end_html_page_root(String& page_content);
     
     // Web Pages
     void _webserver_guest();

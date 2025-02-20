@@ -116,4 +116,3 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Qualitéit";
 #define INTL_PARAMETER "Parameter"
 #define INTL_VALUE "Wäert"
 
-#include "./airrohr-logo-common.h"

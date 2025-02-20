@@ -84,18 +84,25 @@ const char TABLE_TAG_CLOSE_BR[] PROGMEM = "</table>";
 const char EMPTY_ROW[] PROGMEM = "<tr><td colspan='3' style='background: #f4f4f4;'>&nbsp;</td></tr>";
 
 const char WEB_PAGE_FOOTER[] PROGMEM = "<br/><br/>"
-                "<a class='b' href='/'>" INTL_BACK_TO_HOME "</a><br/><br/><br/>"
+	"<a class='b home-btn' href='/'>" INTL_BACK_TO_HOME "</a><br/><br/><br/>"
+	"</div><footer class='footer'><div style='padding:16px'>"
+	"<a href='https://codefor.de/stuttgart/' target='_blank' rel='noreferrer' style='color:#fff;'>© Open Knowledge Lab Stuttgart a.o. (Code for Germany)</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a>"
+	")</div></footer></body></html>\r\n";
+
+
+const char WEB_PAGE_ROOT_FOOTER[] PROGMEM = "<br/><br/>"
 		"</div><footer class='footer'><div style='padding:16px'>"
 		"<a href='https://codefor.de/stuttgart/' target='_blank' rel='noreferrer' style='color:#fff;'>© Open Knowledge Lab Stuttgart a.o. (Code for Germany)</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a>"
 		")</div></footer></body></html>\r\n";
 
-const char WEB_ROOT_PAGE_CONTENT[] PROGMEM = "<a class='b' href='/values'>{t}</a><br/>\
-<a class='b' href='/status'>{s}</a><br/>\
-<a class='b' href='https://sensors.social/' target='_blank' rel='noreferrer'>" INTL_ACTIVE_SENSORS_MAP "</a><br/>\
-<a class='b' href='/config'>{conf}</a><br/>\
-<a class='b danger' href='/removeConfig'>" INTL_CONFIGURATION_DELETE "</a><br/>\
-<a class='b danger' href='/restart'>{restart}</a><br/>\
-<a class='b' href='/debug'>{debug}</a><br/>\
+
+const char WEB_ROOT_PAGE_CONTENT[] PROGMEM = "<a class='b' href='/values'>{t}</a>\
+<a class='b' href='/status'>{s}</a>\
+<a class='b' href='https://sensors.social/' target='_blank' rel='noreferrer'>" INTL_ACTIVE_SENSORS_MAP "</a>\
+<a class='b' href='/config'>{conf}</a>\
+<a class='b danger' href='/removeConfig'>" INTL_CONFIGURATION_DELETE "</a>\
+<a class='b danger' href='/restart'>{restart}</a>\
+<a class='b' href='/debug'>{debug}</a>\
 ";
 
 const char WEB_CONFIG_SCRIPT[] PROGMEM = "<script>\

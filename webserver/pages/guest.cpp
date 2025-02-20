@@ -12,11 +12,7 @@
 void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig_loop) {
 
 	debug_outln_info(F("begin webserver_config_body_get ..."));
-	page_content += F("<form method='POST' action='/guest' style='width:100%;'>\n"
-	"<input class='radio' id='r1' name='group' type='radio' checked>"
-    "<input class='radio' id='r2' name='group' type='radio'>"
-    "<input class='radio' id='r3' name='group' type='radio'>"
-    "<input class='radio' id='r4' name='group' type='radio'>");
+	page_content += F("<form method='POST' action='/guest' style='width:100%;'>\n");
 
 	if (wificonfig_loop) {  // scan for wlan ssids
 		page_content += F("<div id='wifilist'>" INTL_WIFI_NETWORKS "</div><br/>");

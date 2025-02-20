@@ -115,5 +115,3 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Jelminőség";
 #define INTL_SENSOR "Szenzor"
 #define INTL_PARAMETER "Paraméter"
 #define INTL_VALUE "Érték"
-
-#include "./airrohr-logo-common.h"

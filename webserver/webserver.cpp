@@ -2,6 +2,7 @@
 #include "pages/pages.h"
 #include "html-content.h"
 #include "../config_manager/config_helpers.h"
+#include "robonomics-logo-common.h"
 
 
 void SensorWebServer::setup() {
@@ -78,7 +79,7 @@ void SensorWebServer::_webserver_static() {
 
 	if (server.arg(String('r')) == F("logo")) {
 		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG,
-			LUFTDATEN_INFO_LOGO_PNG, LUFTDATEN_INFO_LOGO_PNG_SIZE);
+			ROBONOMICS_INFO_LOGO_PNG, ROBONOMICS_INFO_LOGO_PNG_SIZE);
 	}
 	else if (server.arg(String('r')) == F("css")) {
 		server.send_P(200, TXT_CONTENT_TYPE_TEXT_CSS,
@@ -92,7 +93,7 @@ void SensorWebServer::_webserver_favicon() {
 	server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
 
 	server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG,
-		LUFTDATEN_INFO_LOGO_PNG, LUFTDATEN_INFO_LOGO_PNG_SIZE);
+		ROBONOMICS_INFO_LOGO_PNG, ROBONOMICS_INFO_LOGO_PNG_SIZE);
 }
 
 void SensorWebServer::_webserver_restart() {
@@ -255,7 +256,7 @@ void SensorWebServer::_webserver_root() {
     start_html_page(page_content, emptyString);
     debug_outln_info(F("ws: root ..."));
     webserver_root(page_content);
-    end_html_page(page_content);
+    end_html_page_root(page_content);
 }
 
 bool SensorWebServer::webserver_request_auth() {
@@ -285,7 +286,7 @@ void SensorWebServer::start_html_page(String& page_content, const String& title)
 
 	if (title.indexOf("Debug") != -1) {
 		s = FPSTR(WEB_PAGE_DEBUG_HEADER_BODY);
-	} if (title.indexOf("Configuration") != -1) {
+	} else if (title.indexOf("Configuration") != -1) {
 		s = FPSTR(WEB_PAGE_CONFIG_HEADER_BODY);
 	} else {
 		s = FPSTR(WEB_PAGE_HEADER_BODY);
@@ -307,4 +308,11 @@ void SensorWebServer::end_html_page(String& page_content) {
 		server.sendContent(page_content);
 	}
 	server.sendContent_P(WEB_PAGE_FOOTER);
+}
+
+void SensorWebServer::end_html_page_root(String& page_content) {
+	if (page_content.length()) {
+		server.sendContent(page_content);
+	}
+	server.sendContent_P(WEB_PAGE_ROOT_FOOTER);
 }

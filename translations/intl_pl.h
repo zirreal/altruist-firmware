@@ -115,5 +115,3 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Jakość sygnału";
 #define INTL_SENSOR "Czujnik"
 #define INTL_PARAMETER "Parametr"
 #define INTL_VALUE "Wartość"
-
-#include "./airrohr-logo-common.h"
