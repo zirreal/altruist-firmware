@@ -26,6 +26,7 @@
 
 #include <WString.h>
 #include <map>
+#include <vector>
 
 #if defined(ESP8266)
 #include <Hash.h>
@@ -89,6 +90,7 @@ struct device_status_t {
 	int last_update_returncode;
 	unsigned long count_sends = 0;
 	std::map<std::string, api_status_t> apis_status;
+	std::vector<std::string> sensor_names;
 };
 
 

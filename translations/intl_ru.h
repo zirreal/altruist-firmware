@@ -10,8 +10,9 @@
 #define INTL_LANG "RU"
 #define INTL_PM_SENSOR "Датчик твердых мелкодисперсных частиц"
 const char INTL_CONFIGURATION[] PROGMEM = "Конфигурация";
-#define INTL_WIFI_SETTINGS "Доступы к локальной сети Wi-Fi"
+#define INTL_COMMON_SETTINGS "Стандартные настройки"
 #define INTL_WIFI_NETWORKS "Загрузить сети Wi-Fi ..."
+#define INTL_APIS_SETTINGS "Дополнительные APIs"
 #define INTL_LANGUAGE "Язык"
 #define INTL_NO_WLAN_PWD "Сеть WiFi без пароля"
 const char INTL_NO_NETWORKS[] PROGMEM =  "Cетей не найдено";
@@ -45,13 +46,24 @@ const char INTL_RWS_OWNER[] PROGMEM = "Адрес владельца подпи�
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Адрес публичной ноды Робономики";
 const char INTL_COORD_LAT[] PROGMEM = "Широта";
 const char INTL_COORD_LON[] PROGMEM = "Долгота";
-const char INTL_COORDS[] PROGMEM = "Широта, Долгота (заданные координаты будут использованы, если GPS не подключен)";
+const char INTL_COORDS[] PROGMEM = "GPS: Широта, Долгота";
 const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентификацию для входа в интерфейс сенсора";
 #define INTL_REPORT_ISSUE "Сообщить о проблеме"
 
+#define INTL_PANEL_TITLE_WIFI "Настройка WiFi"
+#define INTL_PANEL_TITLE_ROBONOMICS "Robonomics"
+#define INTL_PANEL_TITLE_GPS "GPS & Коррекция температуры"
+#define INTL_PANEL_TITLE_AUTH "Аутентификация"
+#define INTL_PANEL_TITLE_DEBUG "Уровень отладки"
+#define INTL_PANEL_TITLE_FIRMWARE "Версия Прошивки"
+#define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi в режиме настройки"
+#define INTL_PANEL_TITLE_CVS "CVS"
+#define INTL_PANEL_TITLE_CUSTOMAPI "Пользовательский API"
+#define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
+
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "Название WiFi устройства в режиме конфигурации";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Имя";
-const char INTL_MORE_SETTINGS[] PROGMEM = "Дополнительные настройки";
+const char INTL_MORE_SETTINGS[] PROGMEM = "Продвинутые настройки";
 const char INTL_AUTO_UPDATE[] PROGMEM = "Автоматическое обновление";
 const char INTL_USE_BETA[] PROGMEM = "Загружать бета-версии";
 const char INTL_DISPLAY[] PROGMEM = "OLED SSD1306";

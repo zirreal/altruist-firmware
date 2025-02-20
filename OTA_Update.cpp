@@ -31,9 +31,6 @@ static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostr
 	agent += ' ';
 	agent += String(CURRENT_LANG);
 	agent += ' ';
-	if (cfg::use_beta) {
-		agent += F("BETA");
-	}
 
 	http.setUserAgent(agent);
 	http.setReuse(false);
@@ -131,7 +128,12 @@ void twoStageOTAUpdate(device_status_t &deviceStatus) {
 #if defined(ESP32)
 	String fetch_name(F("/latest32c3_"));
 #endif
-	fetch_name += lang_variant;
+	if (cfg::use_beta) {
+		fetch_name += F("beta");
+	} else {
+		fetch_name += lang_variant;
+	}
+
 	fetch_name += F(".bin");
 
 	WiFiClient client;

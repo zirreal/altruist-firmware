@@ -10,7 +10,8 @@
 #define INTL_LANG "EN"
 #define INTL_PM_SENSOR "Particulate matter sensor"
 const char INTL_CONFIGURATION[] PROGMEM = "Configuration";
-#define INTL_WIFI_SETTINGS "WiFi Settings"
+#define INTL_COMMON_SETTINGS "Common Settings"
+#define INTL_APIS_SETTINGS "Optional APIs"
 #define INTL_WIFI_NETWORKS "Loading wifi networks ..."
 #define INTL_LANGUAGE "Language"
 #define INTL_NO_WLAN_PWD "Check it if WiFi network has no password"
@@ -45,13 +46,24 @@ const char INTL_RWS_OWNER[] PROGMEM = "RWS Owner Address";
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Robonomics Public Node";
 const char INTL_COORD_LAT[] PROGMEM = "Latitude";
 const char INTL_COORD_LON[] PROGMEM = "Longtitude";
-const char INTL_COORDS[] PROGMEM = "Latitude, Longtitude (will be used if no hardware GPS connected)";
+const char INTL_COORDS[] PROGMEM = "GPS: Latitude, Longtitude";
 const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_REPORT_ISSUE "Report an issue"
 
+#define INTL_PANEL_TITLE_WIFI "WiFi Credentials"
+#define INTL_PANEL_TITLE_ROBONOMICS "Robonomics"
+#define INTL_PANEL_TITLE_GPS "GPS & Temperature Correction"
+#define INTL_PANEL_TITLE_AUTH "Authentication"
+#define INTL_PANEL_TITLE_DEBUG "Debug Level"
+#define INTL_PANEL_TITLE_FIRMWARE "Firmware Version"
+#define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi in Configuration Mode"
+#define INTL_PANEL_TITLE_CVS "CVS"
+#define INTL_PANEL_TITLE_CUSTOMAPI "Custom API"
+#define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
+
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "WiFi Sensor in configuration mode";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Network name";
-const char INTL_MORE_SETTINGS[] PROGMEM = "More settings";
+const char INTL_MORE_SETTINGS[] PROGMEM = "Advanced Settings";
 const char INTL_AUTO_UPDATE[] PROGMEM = "Auto update firmware";
 const char INTL_USE_BETA[] PROGMEM = "Load beta firmware";
 const char INTL_DISPLAY[] PROGMEM = "OLED SSD1306";
@@ -139,3 +151,4 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_REGION_AU "Australia"
 #define INTL_REGION_NA "North America"
 #define INTL_REGION_SA "South America"
+

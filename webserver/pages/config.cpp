@@ -58,62 +58,84 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	debug_outln_info(F("begin webserver_config_body_get ..."));
 	page_content += F("<form method='POST' action='/config' style='width:100%;'>\n"
   "<div class='tabs'>"
-	"<div class='tab' onclick='showPanel(1)'>" INTL_WIFI_SETTINGS "</div>"
+	"<div class='tab' onclick='showPanel(1)'>" INTL_COMMON_SETTINGS "</div>"
 	"<div class='tab' onclick='showPanel(2)'>");
 	page_content += FPSTR(INTL_MORE_SETTINGS);
 	page_content += F("</div>"
-		"<div class='tab' onclick='showPanel(3)'>APIs"
-		"</div></div>"
+		"<div class='tab' onclick='showPanel(3)'>" INTL_APIS_SETTINGS "</div></div>"
 		"<div class='panel' id='panel1'>");
 
-	if (wificonfig_loop) {  // scan for wlan ssids
-		page_content += F("<div id='wifilist'>" INTL_WIFI_NETWORKS "</div><br/>");
-	}
-	page_content += "<div class='panel-container'>";
+	// if (wificonfig_loop) {  // scan for wlan ssids
+	// 	page_content += F("<div id='wifilist'>" INTL_WIFI_NETWORKS "</div><br/>");
+	// }
+
+	// WiFi Settings (tab 1)
+
+	page_content += F("<div class='panel-container'>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_WIFI "</h3>");
 	add_form_input(page_content, Config_wlanssid, FPSTR(INTL_FS_WIFI_NAME), LEN_WLANSSID-1);
 	add_form_input(page_content, Config_wlanpwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
 	page_content += form_checkbox(Config_wlannopwd, FPSTR(INTL_NO_WLAN_PWD), false);
-	page_content += "</div>";
-	page_content += "<div class='panel-container'>";
-	page_content += "<span class='text-small'><b>";
-	page_content += FPSTR(INTL_AB_HIER_NUR_ANDERN);
-	page_content += "</b></span>";
+	page_content += F("</div>");
 
-	// Paginate page after ~ 1500 Bytes
 	server.sendContent(page_content);
 	page_content = emptyString;
+
+	// Robonomics Settings (tab 1)
+
+	page_content += F("<div class='panel-container'>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_ROBONOMICS "</h3>");
+	// page_content += form_checkbox(Config_send2robonomics, FPSTR(WEB_ROBONOMICS), false);
+	add_form_input(page_content, Config_rws_owner, FPSTR(INTL_RWS_OWNER), LEN_RWS_OWNER-1);
+	add_form_input(page_content, Config_datalog_sending_intervall_ms, FPSTR(INTL_DATALOG_SENDING_INTERVAL), 5);
+	add_form_input(page_content, Config_robonomics_public_node, FPSTR(INTL_ROBONOMICS_PUBLIC_NODE), LEN_ROBONOMICS_PUBLIC_NODE-1);
+	page_content += F("</div>");
+
+	server.sendContent(page_content);
+	page_content = emptyString;
+
+	// GPS Settings (tab 1)
+
+	page_content += F("<div class='panel-container'>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_GPS "</h3>");
+	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
+	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
+	page_content += F("</div>");
+
+	server.sendContent(page_content);
+	page_content = emptyString;
+
+	// Authentication  (tab 2)
+	page_content = tmpl(FPSTR(WEB_DIV_PANEL), String(2));
+
+	page_content += F("<div class='panel-container'>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_AUTH "</h3>");
+
 	add_form_checkbox(Config_www_basicauth_enabled, FPSTR(INTL_BASICAUTH), true);
 	add_form_input(page_content, Config_www_username, FPSTR(INTL_USER), LEN_WWW_USERNAME-1);
 	add_form_input(page_content, Config_www_password, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
-	page_content += "</div>";
 
-	// Paginate page after ~ 1500 Bytes
-	server.sendContent(page_content);
+	page_content += F("</div>");
 
-	if (! wificonfig_loop) {
-		page_content = "<div class='panel-container'>";
-		page_content += "<span class='text-small'>";
-		page_content += FPSTR(INTL_FS_WIFI_DESCRIPTION);
-		page_content += "</span>";
-
-		add_form_input(page_content, Config_fs_ssid, FPSTR(INTL_FS_WIFI_NAME), LEN_FS_SSID-1);
-		add_form_input(page_content, Config_fs_pwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
-		page_content += "</div>";
-
-		// Paginate page after ~ 1500 Bytes
-		server.sendContent(page_content);
-	}
-
-	page_content = tmpl(FPSTR(WEB_DIV_PANEL), String(2));
-
-	// Paginate page after ~ 1500 Bytes
 	server.sendContent(page_content);
 	page_content = emptyString;
 
-	page_content += "<div class='panel-container'>";
-	page_content += "<span class='text-small'><b>";
-	page_content += F(INTL_FIRMWARE "</b>");
-	page_content += "</span>";
+	// Debug Level (tab 2)
+
+	page_content += F("<div class='panel-container'>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_DEBUG "</h3>");
+	add_form_input(page_content, Config_debug, FPSTR(INTL_DEBUG_LEVEL), 1);
+	add_form_input(page_content, Config_sending_intervall_ms, FPSTR(INTL_MEASUREMENT_INTERVAL), 5);
+	add_form_input(page_content, Config_time_for_wifi_config, FPSTR(INTL_DURATION_ROUTER_MODE), 5);
+	page_content += F("</div>");
+
+	server.sendContent(page_content);
+	page_content = emptyString;
+
+	// Firmware Version (tab 2)
+
+	page_content += F("<div class='panel-container'>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_FIRMWARE "</h3>");
 	add_form_checkbox(Config_auto_update, FPSTR(INTL_AUTO_UPDATE), true);
 	add_form_checkbox(Config_use_beta, FPSTR(INTL_USE_BETA), true);
 
@@ -142,51 +164,42 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 			"</script>");
 
 	page_content += "</div>";
-	page_content += "<div class='panel-container'>";
-	add_form_input(page_content, Config_debug, FPSTR(INTL_DEBUG_LEVEL), 1);
-	add_form_input(page_content, Config_sending_intervall_ms, FPSTR(INTL_MEASUREMENT_INTERVAL), 5);
-	add_form_input(page_content, Config_time_for_wifi_config, FPSTR(INTL_DURATION_ROUTER_MODE), 5);
-	page_content += "</div>";
-
-	page_content += "<div class='panel-container'>";
-	page_content += "<span class='text-small'>";
-	page_content += FPSTR(WEB_GPS);
-	page_content += "</span>";
-	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
-	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
-	page_content += "</div>";
-
-	// Paginate page after ~ 1500 Bytes
-	server.sendContent(page_content);
-	page_content = tmpl(FPSTR(WEB_DIV_PANEL), String(3));
-
-	page_content += "<div class='panel-container'>";
-	page_content += "<span class='text-small'>";
-	page_content += tmpl(FPSTR(INTL_SEND_TO), F("APIs"));
-	page_content += "</span>";
-	page_content += form_checkbox(Config_send2robonomics, FPSTR(WEB_ROBONOMICS), false);
-	add_form_input(page_content, Config_rws_owner, FPSTR(INTL_RWS_OWNER), LEN_RWS_OWNER-1);
-	add_form_input(page_content, Config_datalog_sending_intervall_ms, FPSTR(INTL_DATALOG_SENDING_INTERVAL), 5);
-	add_form_input(page_content, Config_robonomics_public_node, FPSTR(INTL_ROBONOMICS_PUBLIC_NODE), LEN_ROBONOMICS_PUBLIC_NODE-1);
-	add_form_checkbox(Config_send2csv, FPSTR(WEB_CSV), false);
-	page_content += "</div>";
-
-
-	page_content += "<div class='panel-container'>";
-	page_content += form_checkbox(Config_send2custom, FPSTR(INTL_SEND_TO_OWN_API), false, false);
-	page_content += form_checkbox(Config_ssl_custom, FPSTR(WEB_HTTPS), false, false);
 
 	server.sendContent(page_content);
 	page_content = emptyString;
+
+	// WiFi Sensor in configuration mode (tab 2)
+
+	page_content = F("<div class='panel-container'>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_WIFI_CONFIG "</h3>");
+	add_form_input(page_content, Config_fs_ssid, FPSTR(INTL_FS_WIFI_NAME), LEN_FS_SSID-1);
+	add_form_input(page_content, Config_fs_pwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
+	page_content += F("</div>");
+
+	server.sendContent(page_content);
+	page_content = emptyString;
+
+	page_content = tmpl(FPSTR(WEB_DIV_PANEL), String(3));
+
+	// Custom API (tab 3)
+
+	page_content += F("<div class='panel-container'>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CUSTOMAPI "</h3>");
+	page_content += form_checkbox(Config_send2custom, FPSTR(INTL_SEND_TO_OWN_API), false, false);
+	page_content += form_checkbox(Config_ssl_custom, FPSTR(WEB_HTTPS), false, false);
+
 	add_form_input(page_content, Config_host_custom, FPSTR(INTL_SERVER), LEN_HOST_CUSTOM-1, false);
 	add_form_input(page_content, Config_url_custom, FPSTR(INTL_PATH), LEN_URL_CUSTOM-1, false);
 	add_form_input(page_content, Config_port_custom, FPSTR(INTL_PORT), MAX_PORT_DIGITS, false);
 	add_form_input(page_content, Config_user_custom, FPSTR(INTL_USER), LEN_USER_CUSTOM-1, false);
 	add_form_input(page_content, Config_pwd_custom, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1, false);
-	page_content += "</div>";
+	page_content += F("</div>");
 	server.sendContent(page_content);
+
+	// Influx DB (tab 3)
 	
-	page_content = "<div class='panel-container'>";
+	page_content = F("<div class='panel-container'>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_INFLUX "</h3>");
 	page_content += form_checkbox(Config_send2influx, tmpl(FPSTR(INTL_SEND_TO), F("InfluxDB")), false, false);
 
 	page_content += form_checkbox(Config_ssl_influx, FPSTR(WEB_HTTPS), false, false);
@@ -197,6 +210,17 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_input(page_content, Config_pwd_influx, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1, false);
 	add_form_input(page_content, Config_measurement_name_influx, FPSTR(INTL_MEASUREMENT), LEN_MEASUREMENT_NAME_INFLUX-1, false);
 	page_content += "</div>";
+
+	server.sendContent(page_content);
+	page_content = emptyString;
+
+	// CSV (tab 3)
+
+	page_content += F("<div class='panel-container'>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CVS "</h3>");
+	add_form_checkbox(Config_send2csv, FPSTR(WEB_CSV), false);
+	page_content += F("</div>");
+
 	page_content += F("</span></div>");
 	page_content += form_submit(FPSTR(INTL_SAVE_AND_RESTART));
 	page_content += FPSTR(BR_TAG);

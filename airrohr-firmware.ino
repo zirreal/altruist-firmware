@@ -330,6 +330,7 @@ static void powerOnTestSensors() {
 		if (new_sensor->begin()) {
 			activeSensors[activeSensorsCount] = new_sensor;
 			activeSensorsCount++;
+			deviceStatus.sensor_names.push_back(new_sensor->sensor_name);
 			debug_outln_info(F("Sensor was added: "), supported_sensor_names[i]);
 		} else {
 			debug_outln_info(F("Sensor was not added: "), supported_sensor_names[i]);
@@ -424,6 +425,13 @@ void setup(void) {
 	delay(50);
 
 	debug_outln_info(F("Active Sensors count: "), activeSensorsCount);
+
+	Serial.print(F("Sensors: "));
+    for (const auto &sensor : deviceStatus.sensor_names) {
+        Serial.print(sensor.c_str());
+        Serial.print(F(" "));
+    }
+    Serial.println();
 
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
 
