@@ -411,13 +411,12 @@ void setup(void) {
 	// init_display();
 	setupNetworkTime();
 	setupEnabledAPIs();
+	powerOnTestSensors();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
 	connectWifi(webserver);
 	webserver.setup();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
 	twoStageOTAUpdate(deviceStatus);
-
-	powerOnTestSensors();
 
 	sensors_data["service_data"]["robonomics_address"] = robonomics.getSs58Address();
 	sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();

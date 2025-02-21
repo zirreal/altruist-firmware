@@ -181,7 +181,7 @@ void SensorWebServer::_webserver_guest() {
 	}
 
 	if (server.method() == HTTP_GET) {
-		webserver_guest_create_body_get_part1(page_content, wificonfig_loop);
+		webserver_guest_create_body_get_part1(page_content, wificonfig_loop, deviceStatus);
         // Paginate page after ~ 1500 Bytes
         server.sendContent(page_content);
 	    page_content = emptyString;

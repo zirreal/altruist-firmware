@@ -25,6 +25,20 @@ a {
   text-decoration: none;
 }
 
+ul {
+  margin: 0;
+  padding: 0 20px;
+}
+
+li {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+li:not(:last-child) {
+  margin-bottom: 10px;
+}
+
 .canvas {
   background: #2344ce;
   color: white;
@@ -245,7 +259,7 @@ input[type="checkbox"] {
 }
 
 label {
-  font-size: 16px;
+  font-size: 16px;;
   margin-bottom: 4px;
   display: inline-block;
 }
@@ -374,6 +388,22 @@ label {
   text-align: left;
 }
 
+
+.guest-subtitle {
+  display: inline-block;
+  text-align: left;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  background: #333;
+  color: #ffffff;
+  margin-bottom: 20px;
+}
+
+.guest-subtitle:not(:first-of-type) {
+  margin-top: 40px;
+}
+
+
 @media screen and (max-width: 990px) {
   .panel.active {
     flex-direction: column;
@@ -396,6 +426,7 @@ label {
     gap: 10px;
   }
 }
+
 
 
 )rawliteral";

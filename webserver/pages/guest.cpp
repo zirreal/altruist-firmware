@@ -9,42 +9,46 @@
  * Webserver config: show guest page                            *
  *****************************************************************/
 
-void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig_loop) {
+void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig_loop, device_status_t &deviceStatus) {
 
 	debug_outln_info(F("begin webserver_config_body_get ..."));
-	page_content += F("<form method='POST' action='/guest' style='width:100%;'>\n");
+	page_content += F("<form class='guest-form' method='POST' action='/guest' style='width:100%;'>\n");
 
 	if (wificonfig_loop) {  // scan for wlan ssids
 		page_content += F("<div id='wifilist'>" INTL_WIFI_NETWORKS "</div><br/>");
 	}
-	page_content += FPSTR(TABLE_TAG_OPEN);
+
+	page_content += F("<h3 class='guest-subtitle'>");
+	page_content += F("Wifi Settings");
+	page_content += F("</h3>");
+
 	add_form_input(page_content, Config_wlanssid, FPSTR(INTL_FS_WIFI_NAME), LEN_WLANSSID-1);
 	add_form_input(page_content, Config_wlanpwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
-	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 	page_content += form_checkbox(Config_wlannopwd, FPSTR(INTL_NO_WLAN_PWD), false);
-	page_content += F("<hr/>\n<br/><b>");
 
+	page_content += F("<h3 class='guest-subtitle'>");
 	page_content += F("Robonomics Settings");
-	page_content += FPSTR(WEB_B_BR);
-	page_content += FPSTR(BR_TAG);
-
-	page_content += FPSTR(TABLE_TAG_OPEN);
+	page_content += F("</h3>");
 	add_form_input(page_content, Config_rws_owner, FPSTR(INTL_RWS_OWNER), LEN_RWS_OWNER-1);
-	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
-
-	page_content += FPSTR(TABLE_TAG_OPEN);
 	page_content += form_select_reg();
-	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 
-	page_content += F("<br/><b>");
-
-	page_content += FPSTR(WEB_GPS);
-	page_content += FPSTR(WEB_B_BR);
-	page_content += FPSTR(BR_TAG);
-
-	page_content += FPSTR(TABLE_TAG_OPEN);
+	page_content += F("<h3 class='guest-subtitle'>");
+	page_content += F("GPS Settings");
+	page_content += F("</h3>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
-	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
+
+	page_content += F("<h3 class='guest-subtitle'>");
+	page_content += F("Connected Sensors");
+	page_content += F("</h3>");
+
+	page_content += F("<ul class='list'>");
+
+	for (const auto &sensor : deviceStatus.sensor_names) {
+		page_content += F("<li class='list-item'>");
+		page_content += sensor.c_str();
+		page_content += F("</li>");
+    }
+	page_content += F("</ul>");
 }
 
 void webserver_guest_create_body_get_part2(String& page_content, bool wificonfig_loop) {
