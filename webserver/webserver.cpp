@@ -284,9 +284,9 @@ void SensorWebServer::start_html_page(String& page_content, const String& title)
 
 	server.sendContent_P(WEB_PAGE_HEADER_HEAD);
 
-	if (title.indexOf("Debug") != -1) {
+	if (title.indexOf(INTL_DEBUG_LEVEL) != -1) {
 		s = FPSTR(WEB_PAGE_DEBUG_HEADER_BODY);
-	} else if (title.indexOf("Configuration") != -1) {
+	} else if (title.indexOf(INTL_CONFIGURATION) != -1) {
 		s = FPSTR(WEB_PAGE_CONFIG_HEADER_BODY);
 	} else {
 		s = FPSTR(WEB_PAGE_HEADER_BODY);
