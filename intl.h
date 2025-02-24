@@ -1,6 +1,14 @@
 #ifndef intl_h
 #define intl_h
 
+#define REGION_GLOBAL "Global"
+#define REGION_EU "Europe"
+#define REGION_AS "Asia"
+#define REGION_AF "Africa"
+#define REGION_AU "Australia"
+#define REGION_NA "NorthAmerica"
+#define REGION_SA "SouthAmerica"
+
 #if defined(INTL_BG)
 #include "translations/intl_bg.h"
 #elif defined(INTL_CZ)
