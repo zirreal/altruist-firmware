@@ -1,8 +1,11 @@
+#ifndef __EXT_DEF_H__
+#define __EXT_DEF_H__
+
 // Language config
 #define CURRENT_LANG INTL_LANG
 
 // Wifi config
-const char WLANSSID[] PROGMEM = "Freifunk-disabled";
+const char WLANSSID[] PROGMEM = "Not Set";
 const char WLANPWD[] PROGMEM = "";
 #define WLANNOPWD 0
 
@@ -16,32 +19,18 @@ const char WWW_PASSWORD[] PROGMEM = "";
 #define FS_PWD ""
 
 // Where to send the data?
-#define SEND2SENSORCOMMUNITY 1
-#define SSL_SENSORCOMMUNITY 0
-#define SEND2MADAVI 1
-#define SSL_MADAVI 0
 #define SEND2ROBONOMICS 1
 #define SSL_ROBONOMICS 0
-#define SEND2SENSEMAP 0
-#define SEND2FSAPP 0
 #define SSL_FSAPP 0
-#define SEND2AIRCMS 0
 #define SEND2MQTT 0
 #define SEND2INFLUX 0
 #define SEND2LORA 0
 #define SEND2CSV 0
 #define SEND2CUSTOM 0
 
-// OpenSenseMap
-#define SENSEBOXID ""
-
 enum LoggerEntry {
-    LoggerSensorCommunity,
-    LoggerMadavi,
     LoggerRobonomics,
-    LoggerSensemap,
     LoggerFSapp,
-    Loggeraircms,
     LoggerInflux,
     LoggerCustom,
     LoggerCount
@@ -58,27 +47,10 @@ struct LoggerConfig {
 };
 
 // IMPORTANT: NO MORE CHANGES TO VARIABLE NAMES NEEDED FOR EXTERNAL APIS
-static const char HOST_MADAVI[] PROGMEM = "api-rrd.madavi.de";
-static const char URL_MADAVI[] PROGMEM = "/data.php";
-#define PORT_MADAVI 80
-
-static const char HOST_SENSORCOMMUNITY[] PROGMEM = "api.sensor.community";
-static const char URL_SENSORCOMMUNITY[] PROGMEM = "/v1/push-sensor-data/";
-#define PORT_SENSORCOMMUNITY 80
-
-static const char HOST_SENSEMAP[] PROGMEM = "ingress.opensensemap.org";
-static const char URL_SENSEMAP[] PROGMEM = "/boxes/{v}/data?luftdaten=1";
-#define PORT_SENSEMAP 443
 
 static const char HOST_FSAPP[] PROGMEM = "server.chillibits.com";
 static const char URL_FSAPP[] PROGMEM = "/data.php";
 #define PORT_FSAPP 80
-
-static const char HOST_AIRCMS[] PROGMEM = "doiot.ru";
-static const char URL_AIRCMS[] PROGMEM = "/php/sensors.php?h=";
-// As of 2019/09 uses invalid certificates on ssl/port 443 and does not support Maximum Fragment Length Negotiation (MFLN)
-// So we can not use SSL
-#define PORT_AIRCMS 80
 
 static const char FW_DOWNLOAD_HOST[] PROGMEM = "upd.sensors.robonomics.network";
 #define FW_DOWNLOAD_PORT 80
@@ -99,12 +71,6 @@ static const char URL_CUSTOM[] PROGMEM = "";
 // Robonomics
 #include "./intl.h"
 static const char CURRENT_REG[] PROGMEM = "Global";
-#if defined(ESP8266)
-static const char URL_ROBONOMICS[] PROGMEM = "";
-#endif
-#if defined(ESP32)
-static const char URL_ROBONOMICS[] PROGMEM = "/";
-#endif
 // #define PORT_ROBONOMICS 31112
 #define PORT_ROBONOMICS 65
 #define ROBONOMICS_PUBLIC_NODE "polkadot.rpc.robonomics.network"
@@ -357,3 +323,5 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 
 // Set debug level for serial output?
 #define DEBUG 3
+
+#endif // __EXT_DEF_H__

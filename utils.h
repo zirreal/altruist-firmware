@@ -25,6 +25,8 @@
 #define utils_h
 
 #include <WString.h>
+#include <map>
+#include <vector>
 
 #if defined(ESP8266)
 #include <Hash.h>
@@ -42,10 +44,33 @@
 #include <freertos/queue.h>
 #endif
 
+const char DBG_TXT_TEMPERATURE[] PROGMEM = "Temperature (°C): ";
+const char DBG_TXT_DECIBEL[] PROGMEM = "Noise Level (DB): ";
+const char DBG_TXT_HUMIDITY[] PROGMEM = "Humidity (%): ";
+const char DBG_TXT_PRESSURE[] PROGMEM = "Pressure (hPa): ";
+const char DBG_TXT_START_READING[] PROGMEM = "R/ ";
+const char DBG_TXT_END_READING[] PROGMEM = "/R ";
+const char DBG_TXT_CHECKSUM_IS[] PROGMEM = "Checksum is: ";
+const char DBG_TXT_CHECKSUM_SHOULD[] PROGMEM = "Checksum should: ";
+const char DBG_TXT_DATA_READ_FAILED[] PROGMEM = "Data read failed";
+const char DBG_TXT_UPDATE[] PROGMEM = "[update] ";
+const char DBG_TXT_UPDATE_FAILED[] PROGMEM = "Update failed.";
+const char DBG_TXT_UPDATE_NO_UPDATE[] PROGMEM = "No update.";
+const char DBG_TXT_SENDING_TO[] PROGMEM = "## Sending to ";
+const char DBG_TXT_SDS011_VERSION_DATE[] PROGMEM = "SDS011 version date";
+const char DBG_TXT_CONNECTING_TO[] PROGMEM = "Connecting to ";
+const char DBG_TXT_FOUND[] PROGMEM = " ... found";
+const char DBG_TXT_NOT_FOUND[] PROGMEM = " ... not found";
+const char DBG_TXT_SEP[] PROGMEM = "----";
+
+const char JSON_DATA_VALUES[] PROGMEM = "values";
+
 constexpr unsigned SMALL_STR = 64-1;
 constexpr unsigned MED_STR = 256-1;
 constexpr unsigned LARGE_STR = 512-1;
 constexpr unsigned XLARGE_STR = 1024-1;
+
+#define msSince(timestamp_before) (millis() - (timestamp_before))
 
 #define RESERVE_STRING(name, size) String name((const char*)nullptr); name.reserve(size)
 
@@ -53,26 +78,34 @@ constexpr unsigned XLARGE_STR = 1024-1;
 #define UPDATE_MAX(MAX, SAMPLE) if (SAMPLE > MAX) { MAX = SAMPLE; }
 #define UPDATE_MIN_MAX(MIN, MAX, SAMPLE) { UPDATE_MIN(MIN, SAMPLE); UPDATE_MAX(MAX, SAMPLE); }
 
-extern String sha1Hex(const String& s);
-extern String hmac1(const String& secret, const String& s);
+struct api_status_t {
+	bool is_ok = true;
+	unsigned long count_sends = 0;
+	time_t last_send_time;
+};
 
-extern String tmpl(const __FlashStringHelper* patt, const String& value);
+struct device_status_t {
+	unsigned long last_update_attempt;
+	unsigned long time_point_device_start_ms;
+	int last_update_returncode;
+	unsigned long count_sends = 0;
+	std::map<std::string, api_status_t> apis_status;
+	std::vector<std::string> sensor_names;
+};
 
-extern void add_table_row_from_value(String& page_content, const __FlashStringHelper* sensor, const __FlashStringHelper* param, const String& value, const String& unit);
-extern void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit = nullptr);
 
-extern int32_t calcWiFiSignalQuality(int32_t rssi);
+String tmpl(const __FlashStringHelper* patt, const String& value);
 
-extern String add_sensor_type(const String& sensor_text);
-extern String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);
-extern String delayToString(unsigned time_ms);
+String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);
+String delayToString(unsigned time_ms);
+
+void sensor_restart();
 
 extern String check_display_value(double value, double undef, uint8_t len, uint8_t str_len);
 extern void add_Value2Json(String& res, const __FlashStringHelper* type, const String& value);
 extern void add_Value2Json(String& res, const __FlashStringHelper* type, const __FlashStringHelper* debug_type, const float& value);
 
 #if defined(ESP8266)
-extern void configureCACertTrustAnchor(WiFiClientSecure* client);
 extern bool launchUpdateLoader(const String& md5);
 #endif
 
@@ -89,11 +122,11 @@ extern SoftwareSerial serialSDS;
 #define serialSDS (Serial1)
 #endif
 
-enum class PmSensorCmd {
-	Start,
-	Stop,
-	ContinuousMode
-};
+// enum class PmSensorCmd {
+// 	Start,
+// 	Stop,
+// 	ContinuousMode
+// };
 
 enum class PmSensorCmd2 { // for NPM
 	State,
@@ -140,10 +173,10 @@ extern void debug_outln_info_bool(const __FlashStringHelper* text, const bool op
 
 extern bool SDS_checksum_valid(const uint8_t (&data)[8]);
 extern void SDS_rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3);
-extern bool SDS_cmd(PmSensorCmd cmd);
-extern bool PMS_cmd(PmSensorCmd cmd);
-extern bool HPM_cmd(PmSensorCmd cmd);
-extern void NPM_cmd(PmSensorCmd2 cmd);
+// extern bool SDS_cmd(PmSensorCmd cmd);
+// extern bool PMS_cmd(PmSensorCmd cmd);
+// extern bool HPM_cmd(PmSensorCmd cmd);
+// extern void NPM_cmd(PmSensorCmd2 cmd);
 extern bool NPM_checksum_valid_4(const uint8_t (&data)[4]);
 extern bool NPM_checksum_valid_16(const uint8_t (&data)[16]);
 

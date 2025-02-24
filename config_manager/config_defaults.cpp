@@ -1,0 +1,85 @@
+#include <Arduino.h>
+#include "config_defaults.h"
+
+namespace cfg {
+	unsigned debug = DEBUG;
+
+	unsigned time_for_wifi_config = 600000;
+	unsigned sending_intervall_ms = 30000;
+	unsigned datalog_sending_intervall_ms = 600000;
+
+	char current_lang[3];
+	char current_reg[20];
+
+	// credentials for basic auth of internal web server
+	bool www_basicauth_enabled = WWW_BASICAUTH_ENABLED;
+	char www_username[LEN_WWW_USERNAME];
+	char www_password[LEN_CFG_PASSWORD];
+
+	// wifi credentials
+	char wlanssid[LEN_WLANSSID];
+	char wlanpwd[LEN_CFG_PASSWORD];
+	bool wlannopwd = WLANNOPWD;
+
+	// credentials of the sensor in access point mode
+	char fs_ssid[LEN_FS_SSID] = FS_SSID;
+	char fs_pwd[LEN_CFG_PASSWORD] = FS_PWD;
+
+	char rws_owner[LEN_RWS_OWNER] = "Not Set";
+	char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE] = ROBONOMICS_PUBLIC_NODE;
+	char private_key[LEN_PRIVATE_KEY] = "Not Set";
+	char coords_gps[LEN_GPS_COORDS] = GPS_COORDS;
+
+
+	// send to "APIs"
+	bool send2robonomics = SEND2ROBONOMICS;
+	bool send2custom = SEND2CUSTOM;
+	bool send2influx = SEND2INFLUX;
+	bool send2csv = SEND2CSV;
+
+	bool auto_update = AUTO_UPDATE;
+	bool use_beta = USE_BETA;
+
+	// (in)active displays
+	bool has_display = HAS_DISPLAY;											// OLED with SSD1306 and I2C
+	bool has_sh1106 = HAS_SH1106;
+	bool has_flipped_display = HAS_FLIPPED_DISPLAY;
+
+	char host_influx[LEN_HOST_INFLUX];
+	char url_influx[LEN_URL_INFLUX];
+	unsigned port_influx = PORT_INFLUX;
+	char user_influx[LEN_USER_INFLUX] = USER_INFLUX;
+	char pwd_influx[LEN_CFG_PASSWORD] = PWD_INFLUX;
+	char measurement_name_influx[LEN_MEASUREMENT_NAME_INFLUX];
+	bool ssl_influx = SSL_INFLUX;
+
+	char host_custom[LEN_HOST_CUSTOM];
+	char url_custom[LEN_URL_CUSTOM];
+	bool ssl_custom = SSL_CUSTOM;
+	unsigned port_custom = PORT_CUSTOM;
+	char user_custom[LEN_USER_CUSTOM] = USER_CUSTOM;
+	char pwd_custom[LEN_CFG_PASSWORD] = PWD_CUSTOM;
+	char donated_by[LEN_DONATED_BY];
+
+	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
+
+	void initNonTrivials(const char* id) {
+		strcpy(cfg::current_lang, CURRENT_LANG);
+		strcpy(cfg::current_reg, CURRENT_REG);
+		strcpy_P(www_username, WWW_USERNAME);
+		strcpy_P(www_password, WWW_PASSWORD);
+		strcpy_P(wlanssid, WLANSSID);
+		strcpy_P(wlanpwd, WLANPWD);
+		strcpy_P(host_custom, HOST_CUSTOM);
+		strcpy_P(url_custom, URL_CUSTOM);
+		strcpy_P(host_influx, HOST_INFLUX);
+		strcpy_P(url_influx, URL_INFLUX);
+		strcpy_P(measurement_name_influx, MEASUREMENT_NAME_INFLUX);
+		strcpy_P(donated_by, DONATED_BY);
+
+		if (!*fs_ssid) {
+			strcpy(fs_ssid, SSID_BASENAME);
+			strcat(fs_ssid, id);
+		}
+	}
+}

@@ -26,100 +26,12 @@
 #include "./utils.h"
 #include "./defines.h"
 #include "./ext_def.h"
+#include <SPIFFS.h>
 
-#include "ca-root.h"
-
-
-/*****************************************************************
- * aircms.online helper functions                                *
- *****************************************************************/
-String sha1Hex(const String& s) {
-	char sha1sum_output[20];
-
-#if defined(ESP8266)
-	br_sha1_context sc;
-
-	br_sha1_init(&sc);
-	br_sha1_update(&sc, s.c_str(), s.length());
-	br_sha1_out(&sc, sha1sum_output);
-#endif
-#if defined(ESP32)
-	esp_sha(SHA1, (const unsigned char*) s.c_str(), s.length(), (unsigned char*)sha1sum_output);
-#endif
-	String r;
-	for (uint16_t i = 0; i < 20; i++) {
-		char hex[3];
-		snprintf(hex, sizeof(hex), "%02x", sha1sum_output[i]);
-		r += hex;
-	}
-	return r;
-}
-
-String hmac1(const String& secret, const String& s) {
-	String str = sha1Hex(s);
-	str = secret + str;
-	return sha1Hex(str);
-}
 
 String tmpl(const __FlashStringHelper* patt, const String& value) {
 	String s = patt;
 	s.replace("{v}", value);
-	return s;
-}
-
-void add_table_row_from_value(String& page_content, const __FlashStringHelper* sensor, const __FlashStringHelper* param, const String& value, const String& unit) {
-	RESERVE_STRING(s, MED_STR);
-	s = F("<tr><td>{s}</td><td>{p}</td><td class='r'>{v}&nbsp;{u}</td></tr>");
-	s.replace("{s}", sensor);
-	s.replace("{p}", param);
-	s.replace("{v}", value);
-	s.replace("{u}", unit);
-	page_content += s;
-}
-
-void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit) {
-	RESERVE_STRING(s, MED_STR);
-	s = F("<tr><td>{p}</td><td class='r'>{v}&nbsp;{u}</td></tr>");
-	s.replace("{p}", param);
-	s.replace("{v}", value);
-	s.replace("{u}", String(unit));
-	page_content += s;
-}
-
-int32_t calcWiFiSignalQuality(int32_t rssi) {
-	// Treat 0 or positive values as 0%
-	if (rssi >= 0 || rssi < -100) {
-		rssi = -100;
-	}
-	if (rssi > -50) {
-		rssi = -50;
-	}
-	return (rssi + 100) * 2;
-}
-
-String add_sensor_type(const String& sensor_text) {
-	RESERVE_STRING(s, SMALL_STR);
-	s = sensor_text;
-	s.replace("{pm}", FPSTR(INTL_PARTICULATE_MATTER));
-	s.replace("{t}", FPSTR(INTL_TEMPERATURE));
-	s.replace("{h}", FPSTR(INTL_HUMIDITY));
-	s.replace("{p}", FPSTR(INTL_PRESSURE));
-	s.replace("{l_a}", FPSTR(INTL_LEQ_A));
-	return s;
-}
-
-String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi) {
-	String s = F(	"<tr>"
-					"<td>"
-					"<a href='#wlanpwd' onclick='setSSID(this)' class='wifi'>{n}</a>&nbsp;{e}"
-					"</td>"
-					"<td style='width:80%;vertical-align:middle;'>"
-					"{v}%"
-					"</td>"
-					"</tr>");
-	s.replace("{n}", ssid);
-	s.replace("{e}", encryption);
-	s.replace("{v}", String(calcWiFiSignalQuality(rssi)));
 	return s;
 }
 
@@ -159,21 +71,6 @@ String delayToString(unsigned time_ms) {
 }
 
 #if defined(ESP8266)
-BearSSL::X509List x509_dst_root_ca(dst_root_ca_x3);
-
-void configureCACertTrustAnchor(WiFiClientSecure* client) {
-	constexpr time_t fw_built_year = (__DATE__[ 7] - '0') * 1000 + \
-							  (__DATE__[ 8] - '0') *  100 + \
-							  (__DATE__[ 9] - '0') *   10 + \
-							  (__DATE__[10] - '0');
-	if (time(nullptr) < (fw_built_year - 1970) * 365 * 24 * 3600) {
-		debug_outln_info(F("Time incorrect; Disabling CA verification."));
-		client->setInsecure();
-	}
-	else {
-		client->setTrustAnchors(&x509_dst_root_ca);
-	}
-}
 
 bool launchUpdateLoader(const String& md5) {
 
@@ -210,6 +107,29 @@ bool launchUpdateLoader(const String& md5) {
 
 #endif
 
+void sensor_restart() {
+#if defined(ESP8266)
+		WiFi.disconnect();
+		WiFi.mode(WIFI_OFF);
+		delay(100);
+#endif
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored  "-Wdeprecated-declarations"
+
+		SPIFFS.end();
+
+#pragma GCC diagnostic pop
+
+		serialSDS.end();
+		// digitalWrite(PM_RESTART, LOW);
+		// debug_outln_info(F("Restart."));
+		delay(5000);
+		ESP.restart();
+		// should not be reached
+		while(true) { yield(); }
+}
+
 
 /*****************************************************************
  * check display values, return '-' if undefined                 *
@@ -245,7 +165,7 @@ float readCorrectionOffset(const char* correction) {
 	// Avoiding atof() here as this adds a lot (~ 9kb) of code size
 	float r = float(strtol(correction, &pEnd, 10));
 	if (pEnd && pEnd[0] == '.' && pEnd[1] >= '0' && pEnd[1] <= '9') {
-		r += (r >= 0.0f ? 1.0f : -1.0f) * ((pEnd[1] - '0') / 10.0f);
+		r += (correction[0] == '-' ? -1.0f : 1.0f) * ((pEnd[1] - '0') / 10.0f);
 	}
 	return r;
 }
@@ -393,112 +313,112 @@ template<typename T, std::size_t N> constexpr std::size_t array_num_elements(con
 	return N;
 }
 
-bool SDS_checksum_valid(const uint8_t (&data)[8]) {
-    uint8_t checksum_is = 0;
-    for (unsigned i = 0; i < 6; ++i) {
-        checksum_is += data[i];
-    }
-    return (data[7] == 0xAB && checksum_is == data[6]);
-}
+// bool SDS_checksum_valid(const uint8_t (&data)[8]) {
+//     uint8_t checksum_is = 0;
+//     for (unsigned i = 0; i < 6; ++i) {
+//         checksum_is += data[i];
+//     }
+//     return (data[7] == 0xAB && checksum_is == data[6]);
+// }
 
-void SDS_rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3) {
-	constexpr uint8_t cmd_len = 19;
+// void SDS_rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3) {
+// 	constexpr uint8_t cmd_len = 19;
 
-	uint8_t buf[cmd_len];
-	buf[0] = 0xAA;
-	buf[1] = 0xB4;
-	buf[2] = cmd_head1;
-	buf[3] = cmd_head2;
-	buf[4] = cmd_head3;
-	for (unsigned i = 5; i < 15; ++i) {
-		buf[i] = 0x00;
-	}
-	buf[15] = 0xFF;
-	buf[16] = 0xFF;
-	buf[17] = cmd_head1 + cmd_head2 + cmd_head3 - 2;
-	buf[18] = 0xAB;
-	serialSDS.write(buf, cmd_len);
-}
+// 	uint8_t buf[cmd_len];
+// 	buf[0] = 0xAA;
+// 	buf[1] = 0xB4;
+// 	buf[2] = cmd_head1;
+// 	buf[3] = cmd_head2;
+// 	buf[4] = cmd_head3;
+// 	for (unsigned i = 5; i < 15; ++i) {
+// 		buf[i] = 0x00;
+// 	}
+// 	buf[15] = 0xFF;
+// 	buf[16] = 0xFF;
+// 	buf[17] = cmd_head1 + cmd_head2 + cmd_head3 - 2;
+// 	buf[18] = 0xAB;
+// 	serialSDS.write(buf, cmd_len);
+// }
 
-bool SDS_cmd(PmSensorCmd cmd) {
-	switch (cmd) {
-	case PmSensorCmd::Start:
-		SDS_rawcmd(0x06, 0x01, 0x01);
-		break;
-	case PmSensorCmd::Stop:
-		SDS_rawcmd(0x06, 0x01, 0x00);
-		break;
-	case PmSensorCmd::ContinuousMode:
-		// TODO: Check mode first before (re-)setting it
-		SDS_rawcmd(0x08, 0x01, 0x00);
-		SDS_rawcmd(0x02, 0x01, 0x00);
-		break;
-	}
+// bool SDS_cmd(PmSensorCmd cmd) {
+// 	switch (cmd) {
+// 	case PmSensorCmd::Start:
+// 		SDS_rawcmd(0x06, 0x01, 0x01);
+// 		break;
+// 	case PmSensorCmd::Stop:
+// 		SDS_rawcmd(0x06, 0x01, 0x00);
+// 		break;
+// 	case PmSensorCmd::ContinuousMode:
+// 		// TODO: Check mode first before (re-)setting it
+// 		SDS_rawcmd(0x08, 0x01, 0x00);
+// 		SDS_rawcmd(0x02, 0x01, 0x00);
+// 		break;
+// 	}
 
-	return cmd != PmSensorCmd::Stop;
-}
+// 	return cmd != PmSensorCmd::Stop;
+// }
 
-/*****************************************************************
- * send Plantower PMS sensor command start, stop, cont. mode     *
- *****************************************************************/
-bool PMS_cmd(PmSensorCmd cmd) {
-	static constexpr uint8_t start_cmd[] PROGMEM = {
-		0x42, 0x4D, 0xE4, 0x00, 0x01, 0x01, 0x74
-	};
-	static constexpr uint8_t stop_cmd[] PROGMEM = {
-		0x42, 0x4D, 0xE4, 0x00, 0x00, 0x01, 0x73
-	};
-	static constexpr uint8_t continuous_mode_cmd[] PROGMEM = {
-		0x42, 0x4D, 0xE1, 0x00, 0x01, 0x01, 0x71
-	};
-	constexpr uint8_t cmd_len = array_num_elements(start_cmd);
+// /*****************************************************************
+//  * send Plantower PMS sensor command start, stop, cont. mode     *
+//  *****************************************************************/
+// bool PMS_cmd(PmSensorCmd cmd) {
+// 	static constexpr uint8_t start_cmd[] PROGMEM = {
+// 		0x42, 0x4D, 0xE4, 0x00, 0x01, 0x01, 0x74
+// 	};
+// 	static constexpr uint8_t stop_cmd[] PROGMEM = {
+// 		0x42, 0x4D, 0xE4, 0x00, 0x00, 0x01, 0x73
+// 	};
+// 	static constexpr uint8_t continuous_mode_cmd[] PROGMEM = {
+// 		0x42, 0x4D, 0xE1, 0x00, 0x01, 0x01, 0x71
+// 	};
+// 	constexpr uint8_t cmd_len = array_num_elements(start_cmd);
 
-	uint8_t buf[cmd_len];
-	switch (cmd) {
-	case PmSensorCmd::Start:
-		memcpy_P(buf, start_cmd, cmd_len);
-		break;
-	case PmSensorCmd::Stop:
-		memcpy_P(buf, stop_cmd, cmd_len);
-		break;
-	case PmSensorCmd::ContinuousMode:
-		memcpy_P(buf, continuous_mode_cmd, cmd_len);
-		break;
-	}
-	serialSDS.write(buf, cmd_len);
-	return cmd != PmSensorCmd::Stop;
-}
+// 	uint8_t buf[cmd_len];
+// 	switch (cmd) {
+// 	case PmSensorCmd::Start:
+// 		memcpy_P(buf, start_cmd, cmd_len);
+// 		break;
+// 	case PmSensorCmd::Stop:
+// 		memcpy_P(buf, stop_cmd, cmd_len);
+// 		break;
+// 	case PmSensorCmd::ContinuousMode:
+// 		memcpy_P(buf, continuous_mode_cmd, cmd_len);
+// 		break;
+// 	}
+// 	serialSDS.write(buf, cmd_len);
+// 	return cmd != PmSensorCmd::Stop;
+// }
 
-/*****************************************************************
- * send Honeywell PMS sensor command start, stop, cont. mode     *
- *****************************************************************/
-bool HPM_cmd(PmSensorCmd cmd) {
-	static constexpr uint8_t start_cmd[] PROGMEM = {
-		0x68, 0x01, 0x01, 0x96
-	};
-	static constexpr uint8_t stop_cmd[] PROGMEM = {
-		0x68, 0x01, 0x02, 0x95
-	};
-	static constexpr uint8_t continuous_mode_cmd[] PROGMEM = {
-		0x68, 0x01, 0x40, 0x57
-	};
-	constexpr uint8_t cmd_len = array_num_elements(start_cmd);
+// /*****************************************************************
+//  * send Honeywell PMS sensor command start, stop, cont. mode     *
+//  *****************************************************************/
+// bool HPM_cmd(PmSensorCmd cmd) {
+// 	static constexpr uint8_t start_cmd[] PROGMEM = {
+// 		0x68, 0x01, 0x01, 0x96
+// 	};
+// 	static constexpr uint8_t stop_cmd[] PROGMEM = {
+// 		0x68, 0x01, 0x02, 0x95
+// 	};
+// 	static constexpr uint8_t continuous_mode_cmd[] PROGMEM = {
+// 		0x68, 0x01, 0x40, 0x57
+// 	};
+// 	constexpr uint8_t cmd_len = array_num_elements(start_cmd);
 
-	uint8_t buf[cmd_len];
-	switch (cmd) {
-	case PmSensorCmd::Start:
-		memcpy_P(buf, start_cmd, cmd_len);
-		break;
-	case PmSensorCmd::Stop:
-		memcpy_P(buf, stop_cmd, cmd_len);
-		break;
-	case PmSensorCmd::ContinuousMode:
-		memcpy_P(buf, continuous_mode_cmd, cmd_len);
-		break;
-	}
-	serialSDS.write(buf, cmd_len);
-	return cmd != PmSensorCmd::Stop;
-}
+// 	uint8_t buf[cmd_len];
+// 	switch (cmd) {
+// 	case PmSensorCmd::Start:
+// 		memcpy_P(buf, start_cmd, cmd_len);
+// 		break;
+// 	case PmSensorCmd::Stop:
+// 		memcpy_P(buf, stop_cmd, cmd_len);
+// 		break;
+// 	case PmSensorCmd::ContinuousMode:
+// 		memcpy_P(buf, continuous_mode_cmd, cmd_len);
+// 		break;
+// 	}
+// 	serialSDS.write(buf, cmd_len);
+// 	return cmd != PmSensorCmd::Stop;
+// }
 
 /*****************************************************************
  * send Tera Sensor Next PM sensor command start, stop, cont. mode     *
@@ -547,20 +467,8 @@ void NPM_cmd(PmSensorCmd2 cmd) {
 const __FlashStringHelper* loggerDescription(unsigned i) {
     const __FlashStringHelper* logger = nullptr;
     switch (i) {
-        case LoggerSensorCommunity:
-            logger = F("Sensor.Community");
-            break;
-        case LoggerMadavi:
-            logger = F("Madavi.de");
-            break;
-        case LoggerSensemap:
-            logger = F("OpenSenseMap.org");
-            break;
         case LoggerFSapp:
             logger = F("Feinstaub-App");
-            break;
-        case Loggeraircms:
-            logger = F("aircms.online");
             break;
         case LoggerInflux:
             logger = F("InfluxDB");

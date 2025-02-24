@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+
+configshape_in = """
+String		current_lang
+String		wlanssid
+Password		wlanpwd
+Bool        wlannopwd
+String		www_username
+Password		www_password
+String		fs_ssid
+Password		fs_pwd
+Bool		www_basicauth_enabled
+String		rws_owner
+String      robonomics_public_node
+String		private_key
+String		coords_gps
+Bool		send2robonomics
+Bool		send2csv
+Bool		auto_update
+Bool		use_beta
+Bool		has_display
+Bool		has_sh1106
+Bool		has_flipped_display
+UInt		debug
+Time		sending_intervall_ms
+Time		datalog_sending_intervall_ms
+Time		time_for_wifi_config
+Bool		send2custom
+String		host_custom
+String		url_custom
+UInt		port_custom
+String		user_custom
+Password		pwd_custom
+Bool		ssl_custom
+Bool		send2influx
+String		host_influx
+String		url_influx
+UInt		port_influx
+String		user_influx
+Password		pwd_influx
+String		measurement_name_influx
+Bool		ssl_influx
+String      donated_by
+String      current_reg
+String      temp_correction
+"""
+
+with open("airrohr-cfg.h", "w") as h:
+    print("""
+#ifndef __CONFIG_H__
+#define __CONFIG_H__
+
+// This file is generated, please do not edit.
+// Change airrohr-cfg.h.py instead.
+          
+#include "config_defaults.h"
+
+enum ConfigEntryType : unsigned short {
+	Config_Type_Bool,
+	Config_Type_UInt,
+	Config_Type_Time,
+	Config_Type_String,
+	Config_Type_Password
+};
+
+struct ConfigShapeEntry {
+	enum ConfigEntryType cfg_type;
+	unsigned short cfg_len;
+	const char* _cfg_key;
+	union {
+		void* as_void;
+		bool* as_bool;
+		unsigned int* as_uint;
+		char* as_str;
+	} cfg_val;
+	const __FlashStringHelper* cfg_key() const { return FPSTR(_cfg_key); }
+};
+
+enum ConfigShapeId {""", file=h)
+
+    for cfgentry in configshape_in.strip().split('\n'):
+        print("\tConfig_", cfgentry.split()[1], ",", sep='', file=h)
+    print("};", file=h)
+
+    for cfgentry in configshape_in.strip().split('\n'):
+        _, cfgkey = cfgentry.split()
+        print("static constexpr char CFG_KEY_", cfgkey.upper(),
+              "[] PROGMEM = \"", cfgkey, "\";", sep='', file=h)
+
+    print("static constexpr ConfigShapeEntry configShape[] PROGMEM = {",
+          file=h)
+    for cfgentry in configshape_in.strip().split('\n'):
+        cfgtype, cfgkey = cfgentry.split()
+        print("\t{ Config_Type_", cfgtype,
+              ", sizeof(cfg::" + cfgkey + ")-1" if cfgtype in ('String', 'Password') else ", 0",
+              ", CFG_KEY_", cfgkey.upper(),
+              ", ", "" if cfgtype in ('String', 'Password') else "&",
+              "cfg::", cfgkey, " },", sep='', file=h)
+    print("""};
+          
+#endif // __CONFIG_H__""", file=h)

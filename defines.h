@@ -1,3 +1,9 @@
+#ifndef __DEFINES_H__
+#define __DEFINES_H__
+
+// increment on change
+#define SOFTWARE_VERSION_STR "R_2025-02.1"
+
 #if defined(ESP8266)
 #define SENSOR_BASENAME "esp8266-"
 #define OTA_BASENAME "/airrohr"
@@ -7,8 +13,8 @@
 #define OTA_BASENAME "/airrohr/esp32"
 #endif
 
-#define SSID_BASENAME "AltruistSensor-"
-#define HOSTNAME_BASE "AltruistSensor-"
+#define SSID_BASENAME "Altruist-"
+#define HOSTNAME_BASE "Altruist-"
 
 #define LEN_CFG_STRING 65
 #define LEN_CFG_PASSWORD 65
@@ -27,8 +33,6 @@
 #define LEN_GPS_COORDS 21
 #define LEN_DNMS_CORRECTION 8
 #define LEN_TEMP_CORRECTION 8
-
-#define LEN_SENSEBOXID 30
 
 #define LEN_HOST_INFLUX 100
 #define LEN_URL_INFLUX 100
@@ -53,9 +57,9 @@
  * Constants                                                      *
  ******************************************************************/
 constexpr const unsigned long SAMPLETIME_MS = 30000;									// time between two measurements of the PPD42NS
-constexpr const unsigned long SAMPLETIME_SDS_MS = 1000;								// time between two measurements of the SDS011, PMSx003, Honeywell PM sensor
-constexpr const unsigned long WARMUPTIME_SDS_MS = 15000;								// time needed to "warm up" the sensor before we can take the first measurement
-constexpr const unsigned long READINGTIME_SDS_MS = 5000;								// how long we read data from the PM sensors
+// constexpr const unsigned long SAMPLETIME_SDS_MS = 1000;								// time between two measurements of the SDS011, PMSx003, Honeywell PM sensor
+// constexpr const unsigned long WARMUPTIME_SDS_MS = 15000;								// time needed to "warm up" the sensor before we can take the first measurement
+// constexpr const unsigned long READINGTIME_SDS_MS = 5000;								// how long we read data from the PM sensors
 constexpr const unsigned long SAMPLETIME_NPM_MS = 1000;
 constexpr const unsigned long WARMUPTIME_NPM_MS = 15000;
 constexpr const unsigned long READINGTIME_NPM_MS = 15000;                // how long we read data from the PM sensors
@@ -151,3 +155,5 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #define CLIENT_ADDRESS 2
 #define SERVER_ADDRESS 100
 #endif
+
+#endif // __DEFINES_H__
