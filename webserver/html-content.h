@@ -35,7 +35,7 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 <meta charset='utf-8'/>\
 <title>{t}</title>";
 
-#define STATIC_PREFIX "/" INTL_LANG "_s1"
+#define STATIC_PREFIX "/" INTL_LANG "_s1.2"
 
 const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>\
     <link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
@@ -86,14 +86,13 @@ const char EMPTY_ROW[] PROGMEM = "<tr><td colspan='3' style='background: #f4f4f4
 const char WEB_PAGE_FOOTER[] PROGMEM = "<br/><br/>"
 	"<a class='b home-btn' href='/'>" INTL_BACK_TO_HOME "</a><br/><br/><br/>"
 	"</div><footer class='footer'><div style='padding:16px'>"
-	"<a href='https://codefor.de/stuttgart/' target='_blank' rel='noreferrer' style='color:#fff;'>© Open Knowledge Lab Stuttgart a.o. (Code for Germany)</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a>"
-	")</div></footer></body></html>\r\n";
-
+	"<a href='https://robonomics.network/' target='_blank' rel='noreferrer' style='color:#fff;'>© Robonomics Network</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a>)<br/><span class='footer-polkadot'>Secured by</span>"
+	"</div></footer></body></html>\r\n";
 
 const char WEB_PAGE_ROOT_FOOTER[] PROGMEM = "<br/><br/>"
-		"</div><footer class='footer'><div style='padding:16px'>"
-		"<a href='https://codefor.de/stuttgart/' target='_blank' rel='noreferrer' style='color:#fff;'>© Open Knowledge Lab Stuttgart a.o. (Code for Germany)</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a>"
-		")</div></footer></body></html>\r\n";
+    "</div><footer class='footer'><div style='padding:16px'>"
+    "<a href='https://robonomics.network/' target='_blank' rel='noreferrer' style='color:#fff;'>© Robonomics Network</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a><br/><span class='footer-polkadot'>Secured by</span>"
+    ")</div></footer></body></html>\r\n";
 
 
 const char WEB_ROOT_PAGE_CONTENT[] PROGMEM = "<a class='b' href='/values'>{t}</a>\
