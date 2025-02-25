@@ -91,8 +91,8 @@ const char WEB_PAGE_FOOTER[] PROGMEM = "<br/><br/>"
 
 const char WEB_PAGE_ROOT_FOOTER[] PROGMEM = "<br/><br/>"
     "</div><footer class='footer'><div style='padding:16px'>"
-    "<a href='https://robonomics.network/' target='_blank' rel='noreferrer' style='color:#fff;'>© Robonomics Network</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a><br/><span class='footer-polkadot'>Secured by</span>"
-    ")</div></footer></body></html>\r\n";
+    "<a href='https://robonomics.network/' target='_blank' rel='noreferrer' style='color:#fff;'>© Robonomics Network</a>&nbsp;&nbsp;(<a href='https://github.com/airalab/sensors-connectivity/issues' target='_blank' rel='noreferrer' style='color:#fff;'>" INTL_REPORT_ISSUE "</a>)<br/><span class='footer-polkadot'>Secured by</span>"
+    "</div></footer></body></html>\r\n";
 
 
 const char WEB_ROOT_PAGE_CONTENT[] PROGMEM = "<a class='b' href='/values'>{t}</a>\
