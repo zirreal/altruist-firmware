@@ -18,7 +18,7 @@ private:
     uint8_t last_value_DBMETER = 0;
     uint8_t last_value_DBMETER_max = 0;
     uint32_t last_value_DBMETER_sum = 0;
-    uint8_t last_value_DBMETER_count = 0;
+    uint32_t last_value_DBMETER_count = 0;
     float last_value_DBMETER_mean = 0;
     unsigned long last_send_time = 0;
     void reset_values();
