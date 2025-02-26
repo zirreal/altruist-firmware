@@ -11,7 +11,7 @@ void RobonomicsDatalogAPI::setup() {
     robonomics_public_node = getConfigStringValue("robonomics_public_node");
     if (strcmp(private_key.c_str(), "Not Set") == 0) {
 		robonomics->generateAndSetPrivateKey();
-		saveRobonomicsPrivateKey(private_key.c_str());
+		saveRobonomicsPrivateKey(robonomics->getPrivateKey());
 	} else {
 		robonomics->setPrivateKey(private_key.c_str());
 	}
