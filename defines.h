@@ -2,7 +2,7 @@
 #define __DEFINES_H__
 
 // increment on change
-#define SOFTWARE_VERSION_STR "R_2025-02.1"
+#define SOFTWARE_VERSION_STR "R_2025-02.2"
 
 #if defined(ESP8266)
 #define SENSOR_BASENAME "esp8266-"
