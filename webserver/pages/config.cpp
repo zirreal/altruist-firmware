@@ -101,7 +101,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
 	page_content += F("<div class='map-container'><div id='map'></div>");
-	page_content += F("<span class='map-text'> <em>The marker on the map shows approximate location to make sure you have the right hemisphere</em> </span></div>");
+	page_content += F("</div><span class='map-text'> <em>The marker on the map shows approximate location to make sure you have the right hemisphere</em></span>");
 	page_content += F("</div>");
 
 	server.sendContent(page_content);

@@ -1,6 +1,7 @@
 #include "webserver.h"
 #include "pages/pages.h"
 #include "html-content.h"
+#include "script-js.h"
 #include "../config_manager/config_helpers.h"
 #include "robonomics-logo-common.h"
 
