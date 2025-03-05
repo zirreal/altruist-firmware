@@ -58,11 +58,11 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	debug_outln_info(F("begin webserver_config_body_get ..."));
 	page_content += F("<form method='POST' action='/config' style='width:100%;'>\n"
   "<div class='tabs'>"
-	"<div class='tab' onclick='showPanel(1)'>" INTL_COMMON_SETTINGS "</div>"
-	"<div class='tab' onclick='showPanel(2)'>");
+	"<div class='tab'>" INTL_COMMON_SETTINGS "</div>"
+	"<div class='tab'>");
 	page_content += FPSTR(INTL_MORE_SETTINGS);
 	page_content += F("</div>"
-		"<div class='tab' onclick='showPanel(3)'>" INTL_APIS_SETTINGS "</div></div>"
+		"<div class='tab'>" INTL_APIS_SETTINGS "</div></div>"
 		"<div class='panel' id='panel1'>");
 
 	// if (wificonfig_loop) {  // scan for wlan ssids
