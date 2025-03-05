@@ -382,11 +382,55 @@ label {
   font-size: 14px;
 }
 
-.panel-container,
-.panel-container {
+.map-container {
+  overflow: auto;
+  min-width: 420px;
+}
+
+#map {
+  height: 350px;
   width: 100%;
 }
 
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+}
+
+.leaflet-map-pane svg  { z-index: 200; }
+
+.leaflet-container {
+  position: relative;
+}
+
+.leaflet-control {
+  display: none;
+}
+
+.map-text {
+  position: relative;
+  display: block;
+  margin-top: 40px;
+  margin-bottom: 20px;
+  font-size: 10px;
+  color: #6e6e6e;
+  text-align: center;
+  z-index: 10;
+}
+
+.panel-container {
+  width: 100%;
+}
 
 #panel1 .panel-container:not(:last-of-type),
 #panel2 .panel-container:not(:last-of-type) {
