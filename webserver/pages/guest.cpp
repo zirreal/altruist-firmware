@@ -36,6 +36,8 @@ void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig
 	page_content += F("GPS Settings");
 	page_content += F("</h3>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
+	page_content += F("<div class='map-container  map-container--guest'><div id='map'></div>");
+	page_content += F("</div><span class='map-text'> <em>The marker on the map shows approximate location to make sure you have the right hemisphere</em></span>");
 
 	page_content += F("<h3 class='guest-subtitle'>");
 	page_content += F("Connected Sensors");
