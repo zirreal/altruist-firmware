@@ -1,6 +1,7 @@
 #include "webserver.h"
 #include "pages/pages.h"
 #include "html-content.h"
+#include "script-js.h"
 #include "../config_manager/config_helpers.h"
 #include "robonomics-logo-common.h"
 
@@ -84,6 +85,9 @@ void SensorWebServer::_webserver_static() {
 	else if (server.arg(String('r')) == F("css")) {
 		server.send_P(200, TXT_CONTENT_TYPE_TEXT_CSS,
 			WEB_PAGE_STATIC_CSS, sizeof(WEB_PAGE_STATIC_CSS)-1);
+	} else if (server.arg(String('r')) == F("js")) {
+		server.send_P(200, TXT_CONTENT_TYPE_TEXT_JS,
+			WEB_PAGE_STATIC_JS_CONFIG, sizeof(WEB_PAGE_STATIC_JS_CONFIG)-1);
 	} else {
 		_webserver_not_found();
 	}
@@ -282,7 +286,11 @@ void SensorWebServer::start_html_page(String& page_content, const String& title)
 	server.setContentLength(CONTENT_LENGTH_UNKNOWN);
 	server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), s);
 
-	server.sendContent_P(WEB_PAGE_HEADER_HEAD);
+	if(title.indexOf(INTL_CONFIGURATION) != -1) {
+		server.sendContent_P(WEB_PAGE_HEADER_CONFIG_HEAD);
+	} else {
+		server.sendContent_P(WEB_PAGE_HEADER_HEAD);
+	}
 
 	if (title.indexOf(INTL_DEBUG_LEVEL) != -1) {
 		s = FPSTR(WEB_PAGE_DEBUG_HEADER_BODY);
