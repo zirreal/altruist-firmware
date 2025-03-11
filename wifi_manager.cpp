@@ -86,9 +86,9 @@ static void wifiConfig(SensorWebServer &webserver) {
 
 	webserver.setup();
 
-	// 10 minutes timeout for wifi config
-	unsigned long last_page_load = millis();
-	while ((millis() - last_page_load) < cfg::time_for_wifi_config + 500) {
+	// // 10 minutes timeout for wifi config
+	// unsigned long last_page_load = millis();
+	while (true) {
 		dnsServer.processNextRequest();
 		webserver.handleClient();
 #if defined(ESP8266)

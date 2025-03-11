@@ -3,13 +3,10 @@
 
 #include <stdint.h>
 
-#if defined(ARDUINO)
 #include <Arduino.h>
-#include <Wire.h>
-#elif defined(__arm__)
-#include <wiringPiI2C.h>
-#include <stdio.h>
-#endif
+#include "driver/i2c.h"
+
+#include "../../i2c.h"
 
 #define RS_REG_COUNT 21
 
@@ -84,15 +81,16 @@ private:
 #if defined(__arm__)
     int _fd = 0;
 #endif
-    uint8_t _sensor_address;
+    uint8_t _sensor_address = RS_DEFAULT_I2C_ADDRESS;
     uint8_t _chip_id = 0;
     uint8_t _firmware_ver = 0;
     uint32_t _pulse_cnt = 0;
-    bool i2c_read(uint8_t RegAddr, uint8_t *dest, uint8_t num);
+    bool i2c_read(uint8_t reg_addr, uint8_t *data, size_t len);
+    bool i2c_write(const uint8_t *data, size_t len);
     void updatePulses();
 
 public:
-    CG_RadSens(uint8_t sensorAddress);
+    CG_RadSens();
     ~CG_RadSens();
     bool init();
     uint8_t getChipId();

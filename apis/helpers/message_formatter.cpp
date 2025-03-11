@@ -26,7 +26,8 @@ void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
             else if (type == "noiseAvg") datalog_data += "na:" + value + ",";
             else if (type == "temperature") datalog_data += "t:" + value + ",";
             else if (type == "pressure") datalog_data += "p:" + value + ",";
-            else if (type == "humidity") datalog_data += "h:" + value + ",";  
+            else if (type == "humidity") datalog_data += "h:" + value + ",";
+            else if (type == "radiation") datalog_data += "gc:" + value + ",";  
         }
     }
     datalog_data.remove(datalog_data.length() - 1);

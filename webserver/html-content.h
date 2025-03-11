@@ -49,7 +49,7 @@ const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='widt
 const char WEB_PAGE_HEADER_CONFIG_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>\
 <link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
 </style>\
-<script src='" STATIC_PREFIX "?r=js' defer></script>\   
+<script src='" STATIC_PREFIX "?r=js' defer></script>\
 </head><body>\
 <div class='canvas'>\
 <a class='b' href='/' style='background:none;display:inline'>\

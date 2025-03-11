@@ -74,8 +74,6 @@
 #include "defines.h"
 #include "ext_def.h"
 #include "webserver/html-content.h"
-#include "SparkFunCCS811.h"
-#include "CG_RadSens.h"
 #include <Robonomics.h>
 #include "sensors/sensor_factory.h"
 #include "apis/apis.h"

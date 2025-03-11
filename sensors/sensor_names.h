@@ -5,6 +5,6 @@
 #define BME_SENSOR_NAME "BME280"
 #define BMP_SENSOR_NAME "BMP280"
 #define I2S_NOISE_SENSOR_NAME "PCBA"
-
+#define RADSENS_SENSOR_NAME "RadSens"
 
 #endif // __SENSORS_NAMES_H__
