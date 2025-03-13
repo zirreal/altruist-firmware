@@ -37,6 +37,8 @@ bool SDS011Sensor::begin() {
 }
 
 void SDS011Sensor::_fetch(JsonDocument &data) {
+	serialSDS.begin(9600, SERIAL_8N1, PM_SERIAL_RX, PM_SERIAL_TX);
+    serialSDS.setTimeout((4 * 12 * 1000) / 9600);
 	if (first_fetch) {
 		first_fetch = false;
 		addValueToJSON(data, F("P1"), (float)-1.0, "PM10", F("ppm"));

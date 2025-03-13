@@ -6,5 +6,6 @@
 #define BMP_SENSOR_NAME "BMP280"
 #define I2S_NOISE_SENSOR_NAME "ICS43434"
 #define RADSENS_SENSOR_NAME "RadSens"
+#define GPS_SENSOR_NAME "GPS"
 
 #endif // __SENSORS_NAMES_H__

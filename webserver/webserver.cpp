@@ -37,7 +37,7 @@ void SensorWebServer::setup() {
 
 void SensorWebServer::_webserver_status() {
 	if (WiFi.status() != WL_CONNECTED) {
-		sendHttpRedirect();
+		sendHttpRedirectGuest();
 		return;
 	}
 
@@ -68,7 +68,7 @@ void SensorWebServer::_webserver_not_found() {
 		if ((server.uri().indexOf(F("success.html")) != -1) || (server.uri().indexOf(F("detect.html")) != -1)) {
 			server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), FPSTR(WEB_IOS_REDIRECT));
 		} else {
-			sendHttpRedirect();
+			sendHttpRedirectGuest();
 		}
 	} else {
 		server.send(404, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("Not found."));
@@ -156,7 +156,7 @@ void SensorWebServer::_webserver_debug_level() {
 
 void SensorWebServer::_webserver_values() {
     if (WiFi.status() != WL_CONNECTED) {
-		sendHttpRedirect();
+		sendHttpRedirectGuest();
 		return;
 	}
     if (!webserver_request_auth())
@@ -197,10 +197,63 @@ void SensorWebServer::_webserver_guest() {
 	}
 
 	if (server.method() == HTTP_POST) {
-		if (writeConfig()) {
-			sensor_restart();
+			String page_content = F(
+				"<body>"
+				"<h2>Connecting to WiFi...</h2>"
+				"<p class='status'>Connecting to: ");
+			page_content += cfg::wlanssid;
+			page_content += F("</p>"
+				"<div class='loader'></div>"
+				"</body>"
+				"</html>");
+
+			server.sendContent(page_content);
+
+			if (WiFi.status() != WL_CONNECTED) {
+				if (cfg::wlannopwd) {
+					debug_outln_info(F("No password"));
+					WiFi.begin(cfg::wlanssid);
+				} else {
+					WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+				}
+			}
+
+			int counter = 0;
+			while (WiFi.status() != WL_CONNECTED) {
+				if (counter > 60) {
+					break;
+				}
+				delay(500);
+				counter++;
+				page_content = ".";
+				server.sendContent(page_content);
+			}
+
+			if (WiFi.status() == WL_CONNECTED) {
+				String address = WiFi.localIP().toString();
+				debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
+				page_content = "<h1>Connected!</h1>\n";
+				page_content += "<p>Connected to WiFi network: " + String(cfg::wlanssid) + "</p>\n";
+				page_content += "<div>IP Address: <span class='ip-address' onclick='copyToClipboard(this)'>" + address + "</span></div>";
+				page_content += "<script>function copyToClipboard(el) { navigator.clipboard.writeText(el.innerText); alert('IP address copied: ' + el.innerText); }</script>";
+				page_content += "<p>Restarting sensor...</p>\n";
+				server.sendContent(page_content);
+				debug_outln_info(F("After send content"));
+				delay(1000);
+				sendHttpRedirectConnected(address);
+				delay(5000);
+			} else {
+				page_content = F("<h2>Connection Failed</h2>"
+								"<p class='status'>Failed to connect to: ");
+				page_content += cfg::wlanssid;
+				page_content += F("</p><p>Restarting sensor...</p>");
+				server.sendContent(page_content);
+			}
+
+			if (writeConfig()) {
+				sensor_restart();
+			}
 		}
-	}
     // end_html_page(page_content);
 }
 
@@ -211,7 +264,7 @@ void SensorWebServer::setWifiInfo(struct_wifiInfo* info, uint8_t count) {
 
 void SensorWebServer::_webserver_config() {
     if (WiFi.status() != WL_CONNECTED) {
-		sendHttpRedirect();
+		sendHttpRedirectGuest();
 	} else {
 		if (!webserver_request_auth())
 		{ return; }
@@ -239,9 +292,8 @@ void SensorWebServer::_webserver_config() {
 		end_html_page(page_content);
 
 		if (server.method() == HTTP_POST) {
-			// display_debug(F("Writing config"), emptyString);
+
 			if (writeConfig()) {
-				// display_debug(F("Writing config"), F("and restarting"));
 				sensor_restart();
 			}
 		}
@@ -250,7 +302,7 @@ void SensorWebServer::_webserver_config() {
 
 void SensorWebServer::_webserver_root() {
     if (WiFi.status() != WL_CONNECTED) {
-		sendHttpRedirect();
+		sendHttpRedirectGuest();
 		return;
 	}
     if (!webserver_request_auth())
@@ -274,9 +326,20 @@ bool SensorWebServer::webserver_request_auth() {
 	return true;
 }
 
-void SensorWebServer::sendHttpRedirect() {
+void SensorWebServer::sendHttpRedirectGuest() {
 	server.sendHeader(F("Location"), F("http://192.168.4.1/guest"));
 	server.send(302, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), emptyString);
+}
+
+void SensorWebServer::sendHttpRedirectConnected(String &address) {
+	String redirect = F("http://");
+	redirect += address;
+	debug_outln_info(F("Redirecting to: "), redirect);
+	server.sendHeader(F("Location"), redirect);
+	server.sendHeader(F("Cache-Control"), F("no-cache"));
+	server.sendHeader(F("Connection"), F("close"));
+	server.send(303, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), "<html><body>Redirecting...</body></html>");
+
 }
 
 void SensorWebServer::start_html_page(String& page_content, const String& title) {

@@ -81,7 +81,6 @@
 #include "wifi_manager.h"
 #include "webserver/webserver.h"
 #include "OTA_Update.h"
-//#include "radSens1v2.h"
 
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
@@ -105,12 +104,6 @@ Robonomics robonomics;
 
 // CCS811 ccs811(CCS811_ADDR);
 // CCS811 ccs811_27(CCS811_27_ADDR);
-
-/*****************************************************************
- * Radiation sensor declaration                                            *
- *****************************************************************/
-
-// CG_RadSens radSens(RS_DEFAULT_I2C_ADDRESS); 
 
 /*****************************************************************
  * init CCS811 sensor                                            *
