@@ -62,6 +62,7 @@ namespace cfg {
 	char donated_by[LEN_DONATED_BY];
 
 	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
+	char local_hostname[LEN_LOCAL_HOSTNAME] = LOCAL_HOSTNAME;
 
 	void initNonTrivials(const char* id) {
 		strcpy(cfg::current_lang, CURRENT_LANG);
