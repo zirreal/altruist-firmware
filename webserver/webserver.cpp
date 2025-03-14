@@ -199,6 +199,7 @@ void SensorWebServer::_webserver_guest() {
 	if (server.method() == HTTP_POST) {
 			String page_content = F(
 				"<body class='configuration'>"
+				"<br>"
 				"<h2 class='guest__connect-subtitle'>Connecting to WiFi...</h2>"
 				"<div class='guest__connect-status'><span class='<span class='guest__reboot'>Connecting to: ");
 			page_content += cfg::wlanssid;
