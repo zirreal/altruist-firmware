@@ -86,6 +86,7 @@ const char INTL_PATH[] PROGMEM = "Path";
 const char INTL_PORT[] PROGMEM = "Port";
 const char INTL_USER[] PROGMEM = "User";
 const char INTL_PASSWORD[] PROGMEM = "Password";
+const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Local Hostname (Change it if you have more then one Altruist in the same network!)";
 const char INTL_MEASUREMENT[] PROGMEM = "Measurement";
 const char INTL_SEND_TO[] PROGMEM = "Send to {v}";
 const char INTL_READ_FROM[] PROGMEM = "Read from {v}";

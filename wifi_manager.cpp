@@ -208,7 +208,7 @@ void connectWifi(SensorWebServer &webserver) {
 	}
 	debug_outln_info(F("WiFi connected, IP is: "), WiFi.localIP().toString());
 
-	if (MDNS.begin(cfg::fs_ssid)) {
+	if (MDNS.begin(cfg::local_hostname)) {
 		MDNS.addService("altruist", "tcp", 80);
 		MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
 	}

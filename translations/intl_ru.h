@@ -86,6 +86,7 @@ const char INTL_PATH[] PROGMEM = "Путь";
 const char INTL_PORT[] PROGMEM = "Порт";
 const char INTL_USER[] PROGMEM = "Пользователь";
 const char INTL_PASSWORD[] PROGMEM = "Пароль";
+const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Локальный домен (Измените его, если у вас больше одного альтруиста в одной сети!)";
 const char INTL_MEASUREMENT[] PROGMEM = "Measurement";
 const char INTL_SEND_TO[] PROGMEM = "Отправлять в {v}";
 const char INTL_READ_FROM[] PROGMEM = "Считывать с {v}";

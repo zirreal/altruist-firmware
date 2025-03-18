@@ -237,8 +237,9 @@ void SensorWebServer::_webserver_guest() {
 				page_content += "<div class='guest__connect-status'><span class='guest__reboot'>Restarting sensor...</span><div class='loader'></div></div>\n";
 				server.sendContent(page_content);
 				debug_outln_info(F("After send content"));
-				delay(1000);
-				sendHttpRedirectConnected(address);
+				// delay(1000);
+				// sendHttpRedirectConnected(address);
+				// server.client().stop();
 				delay(5000);
 			} else {
 				page_content = F("<h2 class='guest__connect-subtitle error'>Connection Failed</h2>"

@@ -7,6 +7,7 @@
 // Wifi config
 const char WLANSSID[] PROGMEM = "Not Set";
 const char WLANPWD[] PROGMEM = "";
+#define LOCAL_HOSTNAME "altruist"
 #define WLANNOPWD 0
 
 // BasicAuth config
