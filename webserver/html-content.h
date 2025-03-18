@@ -36,7 +36,7 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 <meta charset='utf-8'/>\
 <title>{t}</title>";
 
-#define STATIC_PREFIX "/" INTL_LANG "_s1.3"
+#define STATIC_PREFIX "/" INTL_LANG "_s1.4"
 
 const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>\
     <link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
@@ -125,12 +125,12 @@ const char WEB_REMOVE_CONFIG_CONTENT[] PROGMEM = "<h3>" INTL_CONFIGURATION_REALL
 <label for='allConfig'>All Configurations</label><br />\
 <input type='radio' id='wifiConfig' name='configType' value='wifi' class='radio-input'>\
 <label for='wifiConfig'>WiFi Configurations</label><br />\
-<input type='submit' class='s_red' name='submit' value='" INTL_DELETE "'/></form></td>\</tr><tr><td><a class='b' href='/'>" INTL_CANCEL "</a></td></tr></table>\
+<input type='submit' class='s_red submit-btn--config' name='submit' value='" INTL_DELETE "'/></form></td>\</tr><tr><td><a class='b' href='/'>" INTL_CANCEL "</a></td></tr></table>\
 ";
 
 const char WEB_RESET_CONTENT[] PROGMEM = "<h3>" INTL_REALLY_RESTART_SENSOR "</h3>" \
 "<table class='content-table delete-table'><tr><td><form method='POST' action'/reset'>" \
-"<input type='submit' class='s_red submit-btn--config' name='submit' value='" INTL_RESTART "'/>"\
+"<input type='submit' class='s_red' name='submit' value='" INTL_RESTART "'/>"\
 "</form></td><td><a class='b' href='/'>" INTL_CANCEL "</a></td></tr></table>";
 
 
