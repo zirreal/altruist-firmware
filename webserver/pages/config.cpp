@@ -4,7 +4,7 @@
 #include "../html-content.h"
 #include "../utils.h"
 
-void webserver_config_send_body_post(WebServer &server, String& page_content) {
+void webserver_config_send_body_post(WebServer &server) {
 	String masked_pwd;
 
 	for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {
@@ -37,11 +37,6 @@ void webserver_config_send_body_post(WebServer &server, String& page_content) {
 			break;
 		}
 	}
-
-	page_content += FPSTR(INTL_SENSOR_IS_REBOOTING);
-
-	server.sendContent(page_content);
-	page_content = emptyString;
 }
 
 /*****************************************************************
@@ -207,7 +202,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// CSV (tab 3)
 
 	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CVS "</h3>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CSV "</h3>");
 	add_form_checkbox(Config_send2csv, FPSTR(WEB_CSV), false);
 	page_content += F("</div>");
 

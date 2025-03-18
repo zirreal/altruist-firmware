@@ -34,6 +34,26 @@ unsigned int getConfigUintValue(const char* key) {
     return 0;
 }
 
+void removeWiFiCredentials() {
+	for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {
+		ConfigShapeEntry c;
+		memcpy_P(&c, &configShape[e], sizeof(ConfigShapeEntry));
+		const String s_param(c.cfg_key());
+		if (s_param != "wlanssid" && s_param != "wlanpwd") {
+			continue;
+		}
+		if (s_param == "wlanssid") {
+			strncpy(c.cfg_val.as_str, "Not Set", c.cfg_len);
+			c.cfg_val.as_str[c.cfg_len] = '\0';
+		} else if (s_param == "wlanpwd")
+		{
+			strncpy(c.cfg_val.as_str, "", c.cfg_len);
+			c.cfg_val.as_str[c.cfg_len] = '\0';
+		}
+		writeConfig();
+	}
+}
+
 void saveRobonomicsPrivateKey(const char* private_key) {
 	for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {
 		ConfigShapeEntry c;

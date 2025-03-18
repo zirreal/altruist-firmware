@@ -122,10 +122,11 @@ function load_wifi_list(){var x=new XMLHttpRequest();x.open('GET','/wifi');x.onl
 const char WEB_REMOVE_CONFIG_CONTENT[] PROGMEM = "<h3>" INTL_CONFIGURATION_REALLY_DELETE "</h3>\
 <table class='content-table delete-table'><tr><td><form method='POST' action='/removeConfig'>\
 <input type='radio' id='allConfig' name='configType' value='all' class='radio-input' checked>\
-<label for='allConfig'>All Configurations</label><br />\
+<label for='allConfig'>All Configuration</label><br />\
 <input type='radio' id='wifiConfig' name='configType' value='wifi' class='radio-input'>\
-<label for='wifiConfig'>WiFi Configurations</label><br />\
-<input type='submit' class='s_red submit-btn--config' name='submit' value='" INTL_DELETE "'/></form></td>\</tr><tr><td><a class='b' href='/'>" INTL_CANCEL "</a></td></tr></table>\
+<label for='wifiConfig'>WiFi Configuration</label><br />\
+<input type='submit' class='s_red submit-btn--config' name='submit' value='" INTL_DELETE "'/></form></td>\
+</tr><tr><td><a class='b' href='/'>" INTL_CANCEL "</a></td></tr></table>\
 ";
 
 const char WEB_RESET_CONTENT[] PROGMEM = "<h3>" INTL_REALLY_RESTART_SENSOR "</h3>" \

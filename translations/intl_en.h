@@ -57,7 +57,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_PANEL_TITLE_DEBUG "Debug Level"
 #define INTL_PANEL_TITLE_FIRMWARE "Firmware Version"
 #define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi in Configuration Mode"
-#define INTL_PANEL_TITLE_CVS "CVS"
+#define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Custom API"
 #define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
 

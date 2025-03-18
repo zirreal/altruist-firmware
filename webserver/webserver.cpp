@@ -125,7 +125,12 @@ void SensorWebServer::_webserver_removeConfig() {
 	RESERVE_STRING(page_content, LARGE_STR);
 	start_html_page(page_content, FPSTR(INTL_DELETE_CONFIG));
     bool is_HTTP_GET = server.method() == HTTP_GET;
-    webserver_removeConfig(page_content, is_HTTP_GET);
+	bool remove_all = false;
+	if (server.hasArg("configType")) {
+		const String server_arg(server.arg("configType"));
+		remove_all = server_arg == "all";
+	}
+    webserver_removeConfig(page_content, is_HTTP_GET, remove_all);
     end_html_page(page_content);
     if (!is_HTTP_GET) {
         esp_restart();
@@ -193,7 +198,9 @@ void SensorWebServer::_webserver_guest() {
         server.sendContent(page_content);
 	    page_content = emptyString;
 	} else {
-		webserver_config_send_body_post(server, page_content);
+		webserver_config_send_body_post(server);
+		server.sendContent(page_content);
+		page_content = emptyString;
 	}
 
 	if (server.method() == HTTP_POST) {
@@ -223,8 +230,6 @@ void SensorWebServer::_webserver_guest() {
 				}
 				delay(500);
 				counter++;
-				page_content = ".";
-				server.sendContent(page_content);
 			}
 
 			if (WiFi.status() == WL_CONNECTED) {
@@ -237,9 +242,6 @@ void SensorWebServer::_webserver_guest() {
 				page_content += "<div class='guest__connect-status'><span class='guest__reboot'>Restarting sensor...</span><div class='loader'></div></div>\n";
 				server.sendContent(page_content);
 				debug_outln_info(F("After send content"));
-				// delay(1000);
-				// sendHttpRedirectConnected(address);
-				// server.client().stop();
 				delay(5000);
 			} else {
 				page_content = F("<h2 class='guest__connect-subtitle error'>Connection Failed</h2>"
@@ -286,7 +288,10 @@ void SensorWebServer::_webserver_config() {
 		if (server.method() == HTTP_GET) {
 			webserver_config_send_body_get(server, page_content, wificonfig_loop);
 		} else {
-			webserver_config_send_body_post(server, page_content);
+			webserver_config_send_body_post(server);
+			page_content += FPSTR(INTL_SENSOR_IS_REBOOTING);
+			server.sendContent(page_content);
+			page_content = emptyString;
 		}
 		end_html_page(page_content);
 

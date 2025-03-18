@@ -57,7 +57,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_PANEL_TITLE_DEBUG "Уровень отладки"
 #define INTL_PANEL_TITLE_FIRMWARE "Версия Прошивки"
 #define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi в режиме настройки"
-#define INTL_PANEL_TITLE_CVS "CVS"
+#define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Пользовательский API"
 #define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
 
