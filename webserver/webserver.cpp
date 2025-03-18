@@ -198,12 +198,10 @@ void SensorWebServer::_webserver_guest() {
 
 	if (server.method() == HTTP_POST) {
 			String page_content = F(
-				"<body>"
-				"<h2>Connecting to WiFi...</h2>"
-				"<p class='status'>Connecting to: ");
-			page_content += cfg::wlanssid;
-			page_content += F("</p>"
-				"<div class='loader'></div>"
+				"<body class='configuration'>"
+				"<br>"
+				"<div class='guest__connect-status guest__connect-status--initial'><h2 class='guest__connect-subtitle'>Connecting to WiFi...</h2>"
+				"<div class='loader'></div></div>"
 				"</body>"
 				"</html>");
 
@@ -232,11 +230,11 @@ void SensorWebServer::_webserver_guest() {
 			if (WiFi.status() == WL_CONNECTED) {
 				String address = WiFi.localIP().toString();
 				debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
-				page_content = "<h1>Connected!</h1>\n";
-				page_content += "<p>Connected to WiFi network: " + String(cfg::wlanssid) + "</p>\n";
-				page_content += "<div>IP Address: <span class='ip-address' onclick='copyToClipboard(this)'>" + address + "</span></div>";
-				page_content += "<script>function copyToClipboard(el) { navigator.clipboard.writeText(el.innerText); alert('IP address copied: ' + el.innerText); }</script>";
-				page_content += "<p>Restarting sensor...</p>\n";
+				page_content = "<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>";
+				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>Connected!</h2></div>\n";
+				page_content += "<div class='guest__reboot guest__reboot--ip'>IP Address: <span class='ip-address'>" + address + "</span> <button class='copy-btn' onclick='copyText()'></button></div>";
+				page_content += "<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){console.log('Text successfully copied to clipboard'),alert('Copied to clipboard!')})).catch((function(e){console.error('Failed to copy text: ',e),alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}window.location.href='http://'+e}</script>";
+				page_content += "<div class='guest__connect-status'><span class='guest__reboot'>Restarting sensor...</span><div class='loader'></div></div>\n";
 				server.sendContent(page_content);
 				debug_outln_info(F("After send content"));
 				// delay(1000);
@@ -244,10 +242,10 @@ void SensorWebServer::_webserver_guest() {
 				// server.client().stop();
 				delay(5000);
 			} else {
-				page_content = F("<h2>Connection Failed</h2>"
-								"<p class='status'>Failed to connect to: ");
+				page_content = F("<h2 class='guest__connect-subtitle error'>Connection Failed</h2>"
+								"<p class='guest__reboot'>Failed to connect to: ");
 				page_content += cfg::wlanssid;
-				page_content += F("</p><p>Restarting sensor...</p>");
+				page_content += F("</p><div class='guest__connect-status'><span class='guest__reboot'>Restarting sensor...</span><div class='loader'></div></div>\n");
 				server.sendContent(page_content);
 			}
 
