@@ -200,10 +200,7 @@ void SensorWebServer::_webserver_guest() {
 			String page_content = F(
 				"<body class='configuration'>"
 				"<br>"
-				"<h2 class='guest__connect-subtitle'>Connecting to WiFi...</h2>"
-				"<div class='guest__connect-status'><span class='<span class='guest__reboot'>Connecting to: ");
-			page_content += cfg::wlanssid;
-			page_content += F("</span>"
+				"<div class='guest__connect-status guest__connect-status--initial'><h2 class='guest__connect-subtitle'>Connecting to WiFi...</h2>"
 				"<div class='loader'></div></div>"
 				"</body>"
 				"</html>");
@@ -233,10 +230,10 @@ void SensorWebServer::_webserver_guest() {
 			if (WiFi.status() == WL_CONNECTED) {
 				String address = WiFi.localIP().toString();
 				debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
-				page_content = "<div class='guest__connected'><h2 class='guest__connect-title'>Connected!</h2></div>\n";
-				page_content += "<p class='guest__connect-text'>Connected to WiFi network: " + String(cfg::wlanssid) + "</p>\n";
-				page_content += "<div class='guest__reboot'>IP Address: <span class='ip-address' onclick='copyToClipboard(this)'>" + address + "</span></div>";
-				page_content += "<script>function copyToClipboard(el) { navigator.clipboard.writeText(el.innerText); window.location.href = 'http://' +  el.innerText; alert('IP address copied: ' + el.innerText); }</script>";
+				page_content = "<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>";
+				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>Connected!</h2></div>\n";
+				page_content += "<div class='guest__reboot'>IP Address: <a href='http://" + address +  "' class='ip-address' onclick='copyToClipboard(this)'>" + address + "</a></div>";
+				page_content += "<script>function copyToClipboard(el) { navigator.clipboard.writeText(el.innerText); window.location.href = 'http://' +  el.innerText; }</script>";
 				page_content += "<div class='guest__connect-status'><span class='guest__reboot'>Restarting sensor...</span><div class='loader'></div></div>\n";
 				server.sendContent(page_content);
 				debug_outln_info(F("After send content"));
