@@ -7,5 +7,6 @@
 #define I2S_NOISE_SENSOR_NAME "ICS43434"
 #define RADSENS_SENSOR_NAME "RadSens"
 #define GPS_SENSOR_NAME "GPS"
+#define SCD4X_SENSOR_NAME "SCD4x"
 
 #endif // __SENSORS_NAMES_H__

@@ -17,6 +17,7 @@ bool RadSensSensor::begin() {
     if (res) {
         debug_outln_info(F("RadSens Sensor started with fetch interval (sec): "), String(timeout/1000));
     }
+    last_fetch_time = millis() - timeout;
     return res;
 }
 

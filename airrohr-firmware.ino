@@ -95,40 +95,6 @@ SensorWebServer webserver(sensors_data, deviceStatus);
  *****************************************************************/
 Robonomics robonomics;
 
-/*****************************************************************
- * CCS811 declaration                                               *
- *****************************************************************/
-
-// #define CCS811_ADDR 0x5A //Default I2C Address
-// #define CCS811_27_ADDR 0x5B //Alternate I2C Address
-
-// CCS811 ccs811(CCS811_ADDR);
-// CCS811 ccs811_27(CCS811_27_ADDR);
-
-/*****************************************************************
- * init CCS811 sensor                                            *
- *****************************************************************/
-
-// static void initSensorCCS811() {
-// 	Wire.begin();
-// 	if (cfg::ccs811_read) {
-// 		debug_outln_info(F("Trying CCS811 on 0x5A"));
-// 		if (ccs811.begin() == false) {
-// 			ccs811_init_failed = true;
-// 			debug_outln_error(F("CCS811 error starting measurement"));
-// 			return;
-// 		}
-// 	}
-// 	if (cfg::ccs811_27_read) {
-// 		debug_outln_info(F("Trying CCS811 on 0x5B"));
-// 		if (ccs811_27.begin() == false) {
-// 			ccs811_init_failed = true;
-// 			debug_outln_error(F("CCS811 error starting measurement"));
-// 			return;
-// 		}
-// 	}
-// }
-
 
 /*****************************************************************
  * send data to influxdb                                         *
@@ -258,54 +224,6 @@ Robonomics robonomics;
 // 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_HTU21D));
 // }
 
-
-/*****************************************************************
- * read CCS811 sensor values                                     *
- *****************************************************************/
-// static void fetchSensorCCS811(String& s) {
-// 	if (cfg::ccs811_read) {
-// 		if (ccs811.dataAvailable()){
-// 			ccs811.readAlgorithmResults();
-// 			last_value_CCS811_CO2 = ccs811.getCO2();
-// 			last_value_CCS811_TVOC = ccs811.getTVOC();
-// 			debug_outln_verbose(F("CCS811 CO2 : "), String(last_value_CCS811_CO2));
-// 			debug_outln_verbose(F("CCS811 TVOC : "), String(last_value_CCS811_TVOC));
-// 		}
-// 	}
-// 	if (cfg::ccs811_27_read) {
-// 		if (ccs811_27.dataAvailable()){
-// 			ccs811_27.readAlgorithmResults();
-// 			last_value_CCS811_CO2 = ccs811_27.getCO2();
-// 			last_value_CCS811_TVOC = ccs811_27.getTVOC();
-// 			debug_outln_verbose(F("CCS811 CO2 : "), String(last_value_CCS811_CO2));
-// 			debug_outln_verbose(F("CCS811 TVOC : "), String(last_value_CCS811_TVOC));
-// 		}
-// 	}
-// 	if (send_now) {
-// 		add_Value2Json(s, F("CCS_CO2"), F("CO2:  "), last_value_CCS811_CO2);
-// 		add_Value2Json(s, F("CCS_TVOC"), F("TVOC: "), last_value_CCS811_TVOC);
-// 		debug_outln_info(FPSTR(DBG_TXT_SEP));
-// 	}
-// }
-
-/*****************************************************************
- * read Cajoe Geiger Counter sensor values                                     *
- *****************************************************************/
-
-// static void init_GS() {
-// 	debug_outln_info(F("Trying RadSens on "), RS_DEFAULT_I2C_ADDRESS);
-// 	if (radSens.init() == false) {
-// 		gc_init_failed = true;
-// 		debug_outln_error(F("RadSens error starting measurement"));
-// 		return;
-// 	}
-// }
-
-// static void fetchSensorGC(String& s) {
-// 		last_value_gc = radSens.getRadIntensyDynamic();
-// 		add_Value2Json(s, F("GC"), String(last_value_gc));
-// 		debug_outln_info(F("GC "), last_value_gc);
-// 	}
 
 
 const int maxSensors = 10;

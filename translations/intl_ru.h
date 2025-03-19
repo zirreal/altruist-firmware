@@ -129,6 +129,7 @@ const char INTL_NOISE_MEAN[] PROGMEM = "Средний шум";
 const char INTL_HUMIDITY[] PROGMEM = "Относительная влажность";
 const char INTL_PRESSURE[] PROGMEM = "Давление воздуха";
 const char INTL_RADIATION[] PROGMEM = "Радиация";
+const char INTL_CO2[] PROGMEM = "CO2";
 const char INTL_LEQ_A[] PROGMEM = "LAeq";
 const char INTL_LA_MIN[] PROGMEM = "LA min";
 const char INTL_LA_MAX[] PROGMEM = "LA max";
