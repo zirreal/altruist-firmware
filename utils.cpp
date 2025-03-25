@@ -70,49 +70,7 @@ String delayToString(unsigned time_ms) {
 	return s;
 }
 
-#if defined(ESP8266)
-
-bool launchUpdateLoader(const String& md5) {
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored  "-Wdeprecated-declarations"
-
-	File loaderFile = SPIFFS.open(F("/loader.bin"), "r");
-	if (!loaderFile) {
-		return false;
-	}
-
-	if (!Update.begin(loaderFile.size(), U_FLASH)) {
-		return false;
-	}
-
-	if (md5.length() && !Update.setMD5(md5.c_str())) {
-		return false;
-	}
-
-	if (Update.writeStream(loaderFile) != loaderFile.size()) {
-		return false;
-	}
-	loaderFile.close();
-
-	if (!Update.end()) {
-		return false;
-	}
-
-	debug_outln_info(F("Erasing SDK config."));
-	ESP.eraseConfig();
-	return true;
-#pragma GCC diagnostic pop
-}
-
-#endif
-
 void sensor_restart() {
-#if defined(ESP8266)
-		WiFi.disconnect();
-		WiFi.mode(WIFI_OFF);
-		delay(100);
-#endif
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored  "-Wdeprecated-declarations"
@@ -131,35 +89,6 @@ void sensor_restart() {
 }
 
 
-/*****************************************************************
- * check display values, return '-' if undefined                 *
- *****************************************************************/
-String check_display_value(double value, double undef, uint8_t len, uint8_t str_len) {
-	RESERVE_STRING(s, 15);
-	s = (value != undef ? String(value, (int8_t)len) : String("-"));
-	while (s.length() < str_len) {
-		s = " " + s;
-	}
-	return s;
-}
-
-/*****************************************************************
- * add value to json string                                  *
- *****************************************************************/
-void add_Value2Json(String& res, const __FlashStringHelper* type, const String& value) {
-	RESERVE_STRING(s, SMALL_STR);
-
-	s = F("{\"value_type\":\"{t}\",\"value\":\"{v}\"},");
-	s.replace("{t}", String(type));
-	s.replace("{v}", value);
-	res += s;
-}
-
-void add_Value2Json(String& res, const __FlashStringHelper* type, const __FlashStringHelper* debug_type, const float& value) {
-	debug_outln_info(FPSTR(debug_type), value);
-	add_Value2Json(res, type, String(value));
-}
-
 float readCorrectionOffset(const char* correction) {
 	char* pEnd = nullptr;
 	// Avoiding atof() here as this adds a lot (~ 9kb) of code size
@@ -176,59 +105,29 @@ float readCorrectionOffset(const char* correction) {
 
 LoggingSerial Debug;
 
-#if defined(ESP8266)
-LoggingSerial::LoggingSerial()
-    : HardwareSerial(UART0)
-    , m_buffer(new circular_queue<uint8_t>(LARGE_STR))
-{
-}
-#endif
-
-#if defined(ESP32)
 LoggingSerial::LoggingSerial()
     : HardwareSerial(0)
 {
 	m_buffer = xQueueCreate(LARGE_STR, sizeof(uint8_t));
 }
-#endif
 
 size_t LoggingSerial::write(uint8_t c)
 {
-#if defined(ESP32)
 	xQueueSendToBack(m_buffer, ( void * ) &c, ( TickType_t ) 1);
-#endif
-#if defined(ESP8266)
-	m_buffer->push(c);
-#endif
 	return HardwareSerial::write(c);
 }
 
 size_t LoggingSerial::write(const uint8_t *buffer, size_t size)
 {
-#if defined(ESP32)
 	for(int i = 0; i < size; i++) {
 		xQueueSendToBack(m_buffer, ( void * ) &buffer[i], ( TickType_t ) 1);
 	}
-#endif
-#if defined(ESP8266)
-	m_buffer->push_n(buffer, size);
-#endif
 	return HardwareSerial::write(buffer, size);
 }
 
 String LoggingSerial::popLines()
 {
 	String r;
-#if defined(ESP8266)
-	while (m_buffer->available() > 0) {
-		uint8_t c = m_buffer->pop();
-		r += (char) c;
-
-		if (c == '\n' && r.length() > m_buffer->available())
-			break;
-	}
-#endif
-#if defined(ESP32)
 	uint8_t c;
 	while (xQueueReceive(m_buffer, &(c ), (TickType_t) 1 )) {
 		r += (char) c;
@@ -236,7 +135,6 @@ String LoggingSerial::popLines()
 		if (c == '\n' && r.length() > 10)
 			break;
 	}
-#endif
 	return r;
 }
 
@@ -303,182 +201,6 @@ void debug_outln_info_bool(const __FlashStringHelper* text, const bool option) {
 }
 
 #undef debug_level_check
-
-
-/*****************************************************************
- * send SDS011 command (start, stop, continuous mode, version    *
- *****************************************************************/
-
-template<typename T, std::size_t N> constexpr std::size_t array_num_elements(const T(&)[N]) {
-	return N;
-}
-
-// bool SDS_checksum_valid(const uint8_t (&data)[8]) {
-//     uint8_t checksum_is = 0;
-//     for (unsigned i = 0; i < 6; ++i) {
-//         checksum_is += data[i];
-//     }
-//     return (data[7] == 0xAB && checksum_is == data[6]);
-// }
-
-// void SDS_rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3) {
-// 	constexpr uint8_t cmd_len = 19;
-
-// 	uint8_t buf[cmd_len];
-// 	buf[0] = 0xAA;
-// 	buf[1] = 0xB4;
-// 	buf[2] = cmd_head1;
-// 	buf[3] = cmd_head2;
-// 	buf[4] = cmd_head3;
-// 	for (unsigned i = 5; i < 15; ++i) {
-// 		buf[i] = 0x00;
-// 	}
-// 	buf[15] = 0xFF;
-// 	buf[16] = 0xFF;
-// 	buf[17] = cmd_head1 + cmd_head2 + cmd_head3 - 2;
-// 	buf[18] = 0xAB;
-// 	serialSDS.write(buf, cmd_len);
-// }
-
-// bool SDS_cmd(PmSensorCmd cmd) {
-// 	switch (cmd) {
-// 	case PmSensorCmd::Start:
-// 		SDS_rawcmd(0x06, 0x01, 0x01);
-// 		break;
-// 	case PmSensorCmd::Stop:
-// 		SDS_rawcmd(0x06, 0x01, 0x00);
-// 		break;
-// 	case PmSensorCmd::ContinuousMode:
-// 		// TODO: Check mode first before (re-)setting it
-// 		SDS_rawcmd(0x08, 0x01, 0x00);
-// 		SDS_rawcmd(0x02, 0x01, 0x00);
-// 		break;
-// 	}
-
-// 	return cmd != PmSensorCmd::Stop;
-// }
-
-// /*****************************************************************
-//  * send Plantower PMS sensor command start, stop, cont. mode     *
-//  *****************************************************************/
-// bool PMS_cmd(PmSensorCmd cmd) {
-// 	static constexpr uint8_t start_cmd[] PROGMEM = {
-// 		0x42, 0x4D, 0xE4, 0x00, 0x01, 0x01, 0x74
-// 	};
-// 	static constexpr uint8_t stop_cmd[] PROGMEM = {
-// 		0x42, 0x4D, 0xE4, 0x00, 0x00, 0x01, 0x73
-// 	};
-// 	static constexpr uint8_t continuous_mode_cmd[] PROGMEM = {
-// 		0x42, 0x4D, 0xE1, 0x00, 0x01, 0x01, 0x71
-// 	};
-// 	constexpr uint8_t cmd_len = array_num_elements(start_cmd);
-
-// 	uint8_t buf[cmd_len];
-// 	switch (cmd) {
-// 	case PmSensorCmd::Start:
-// 		memcpy_P(buf, start_cmd, cmd_len);
-// 		break;
-// 	case PmSensorCmd::Stop:
-// 		memcpy_P(buf, stop_cmd, cmd_len);
-// 		break;
-// 	case PmSensorCmd::ContinuousMode:
-// 		memcpy_P(buf, continuous_mode_cmd, cmd_len);
-// 		break;
-// 	}
-// 	serialSDS.write(buf, cmd_len);
-// 	return cmd != PmSensorCmd::Stop;
-// }
-
-// /*****************************************************************
-//  * send Honeywell PMS sensor command start, stop, cont. mode     *
-//  *****************************************************************/
-// bool HPM_cmd(PmSensorCmd cmd) {
-// 	static constexpr uint8_t start_cmd[] PROGMEM = {
-// 		0x68, 0x01, 0x01, 0x96
-// 	};
-// 	static constexpr uint8_t stop_cmd[] PROGMEM = {
-// 		0x68, 0x01, 0x02, 0x95
-// 	};
-// 	static constexpr uint8_t continuous_mode_cmd[] PROGMEM = {
-// 		0x68, 0x01, 0x40, 0x57
-// 	};
-// 	constexpr uint8_t cmd_len = array_num_elements(start_cmd);
-
-// 	uint8_t buf[cmd_len];
-// 	switch (cmd) {
-// 	case PmSensorCmd::Start:
-// 		memcpy_P(buf, start_cmd, cmd_len);
-// 		break;
-// 	case PmSensorCmd::Stop:
-// 		memcpy_P(buf, stop_cmd, cmd_len);
-// 		break;
-// 	case PmSensorCmd::ContinuousMode:
-// 		memcpy_P(buf, continuous_mode_cmd, cmd_len);
-// 		break;
-// 	}
-// 	serialSDS.write(buf, cmd_len);
-// 	return cmd != PmSensorCmd::Stop;
-// }
-
-/*****************************************************************
- * send Tera Sensor Next PM sensor command start, stop, cont. mode     *
- *****************************************************************/
-bool NPM_checksum_valid_4(const uint8_t (&data)[4]) {
-	uint8_t checksum = data[3] + (data[0] + data[1] + data[2]);
-	return (checksum == 0);
-}
-
-bool NPM_checksum_valid_16(const uint8_t (&data)[16]) {
-	uint8_t sum = data[0] + data[1] + data[2] + data[3] + data[4] + data[5] + data[6] + data[7] + data[8] + data[9] + data[10] + data[11] + data[12] + data[13] + data[14] + data[15];
-	uint8_t checksum = sum % 0x100;
-	return (checksum == 0);
-}
-
-
-void NPM_cmd(PmSensorCmd2 cmd) {
-
-	static constexpr uint8_t state_cmd[] PROGMEM = { //read the current state
-		0x81, 0x16, 0x69
-	};
-	static constexpr uint8_t change_cmd[] PROGMEM = { //change the sate alternatively start/stop
-		0x81, 0x15, 0x6A
-	};
-	static constexpr uint8_t concentration_cmd[] PROGMEM = { //No continous mode => repeat call
-		0x81, 0x11, 0x6E    //Concentrations reading’s averaged over 10 seconds and updated every 1 second
-	};
-
-	constexpr uint8_t cmd_len = array_num_elements(change_cmd);
-	uint8_t buf[cmd_len];
-
-	switch (cmd) {
-	case PmSensorCmd2::State:
-		memcpy_P(buf, state_cmd, cmd_len);
-		break;
-	case PmSensorCmd2::Change:
-		memcpy_P(buf, change_cmd, cmd_len);
-		break;
-	case PmSensorCmd2::Concentration:
-		memcpy_P(buf, concentration_cmd, cmd_len);
-		break;
-	}
-	serialSDS.write(buf, cmd_len);
-}
-
-const __FlashStringHelper* loggerDescription(unsigned i) {
-    const __FlashStringHelper* logger = nullptr;
-    switch (i) {
-        case LoggerFSapp:
-            logger = F("Feinstaub-App");
-            break;
-        case LoggerInflux:
-            logger = F("InfluxDB");
-            break;
-        case LoggerCustom:
-            logger = F("Custom");
-            break;
-    }
-    return logger;
-}
 
 /*****************************************************************
  * helper to see if a given string is numeric                    *

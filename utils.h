@@ -28,21 +28,12 @@
 #include <map>
 #include <vector>
 
-#if defined(ESP8266)
-#include <Hash.h>
-#include <coredecls.h>
-#include <ESP8266WiFi.h>
-#include <SoftwareSerial.h>
-#endif
-
-#if defined(ESP32)
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <HardwareSerial.h>
 #include "sha/sha_parallel_engine.h"
 #include <freertos/queue.h>
-#endif
 
 const char DBG_TXT_TEMPERATURE[] PROGMEM = "Temperature (°C): ";
 const char DBG_TXT_DECIBEL[] PROGMEM = "Noise Level (DB): ";
@@ -101,13 +92,6 @@ String delayToString(unsigned time_ms);
 
 void sensor_restart();
 
-extern String check_display_value(double value, double undef, uint8_t len, uint8_t str_len);
-extern void add_Value2Json(String& res, const __FlashStringHelper* type, const String& value);
-extern void add_Value2Json(String& res, const __FlashStringHelper* type, const __FlashStringHelper* debug_type, const float& value);
-
-#if defined(ESP8266)
-extern bool launchUpdateLoader(const String& md5);
-#endif
 
 extern float readCorrectionOffset(const char* correction);
 
@@ -115,24 +99,8 @@ namespace cfg {
 	extern unsigned debug;
 }
 
-#if defined(ESP8266)
-extern SoftwareSerial serialSDS;
-#endif
-#if defined(ESP32)
 #define serialSDS (Serial1)
-#endif
 
-// enum class PmSensorCmd {
-// 	Start,
-// 	Stop,
-// 	ContinuousMode
-// };
-
-enum class PmSensorCmd2 { // for NPM
-	State,
-	Change,
-	Concentration
-};
 
 /*****************************************************************
  * Debug output                                                  *
@@ -147,12 +115,7 @@ public:
 	String popLines();
 
 private:
-#if defined(ESP8266)
-	std::unique_ptr<circular_queue<uint8_t> > m_buffer;
-#endif
-#if defined(ESP32)
 	QueueHandle_t m_buffer;
-#endif
 };
 
 extern class LoggingSerial Debug;
@@ -170,15 +133,6 @@ extern void debug_outln_info(const __FlashStringHelper* text, float value);
 extern void debug_outln_verbose(const __FlashStringHelper* text, const String& option);
 extern void debug_outln_info_bool(const __FlashStringHelper* text, const bool option);
 
-
-extern bool SDS_checksum_valid(const uint8_t (&data)[8]);
-extern void SDS_rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3);
-// extern bool SDS_cmd(PmSensorCmd cmd);
-// extern bool PMS_cmd(PmSensorCmd cmd);
-// extern bool HPM_cmd(PmSensorCmd cmd);
-// extern void NPM_cmd(PmSensorCmd2 cmd);
-extern bool NPM_checksum_valid_4(const uint8_t (&data)[4]);
-extern bool NPM_checksum_valid_16(const uint8_t (&data)[16]);
 
 extern bool isNumeric(const String& str);
 
