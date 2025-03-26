@@ -53,8 +53,6 @@ static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostr
 	return false;
 }
 
-#if defined(ESP32)
-
 bool downloadAndUpdate(const char* url, const String& expectedMD5) {
     WiFiClient client;
     HTTPClient http;
@@ -114,7 +112,6 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5) {
     return false;
 }
 
-#endif
 
 void twoStageOTAUpdate(device_status_t &deviceStatus) {
 	if (!cfg::auto_update) return;
@@ -125,9 +122,7 @@ void twoStageOTAUpdate(device_status_t &deviceStatus) {
 		lang_variant = CURRENT_LANG;
 	}
 	lang_variant.toLowerCase();
-#if defined(ESP32)
 	String fetch_name(F("/latest32c3_"));
-#endif
 	if (cfg::use_beta) {
 		fetch_name += F("beta");
 	} else {
@@ -156,9 +151,7 @@ void twoStageOTAUpdate(device_status_t &deviceStatus) {
 	debug_outln_info(F("Update md5: "), newFwmd5);
 	debug_outln_info(F("Sketch md5: "), ESP.getSketchMD5());
 
-#if defined(ESP32)
 	if (downloadAndUpdate(fetch_name.c_str(), newFwmd5)) {
         sensor_restart();
     }
-#endif
 }

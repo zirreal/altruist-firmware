@@ -57,7 +57,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_PANEL_TITLE_DEBUG "Уровень отладки"
 #define INTL_PANEL_TITLE_FIRMWARE "Версия Прошивки"
 #define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi в режиме настройки"
-#define INTL_PANEL_TITLE_CVS "CVS"
+#define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Пользовательский API"
 #define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
 
@@ -86,6 +86,7 @@ const char INTL_PATH[] PROGMEM = "Путь";
 const char INTL_PORT[] PROGMEM = "Порт";
 const char INTL_USER[] PROGMEM = "Пользователь";
 const char INTL_PASSWORD[] PROGMEM = "Пароль";
+const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Локальный домен (Измените его, если у вас больше одного альтруиста в одной сети!)";
 const char INTL_MEASUREMENT[] PROGMEM = "Measurement";
 const char INTL_SEND_TO[] PROGMEM = "Отправлять в {v}";
 const char INTL_READ_FROM[] PROGMEM = "Считывать с {v}";
@@ -128,6 +129,7 @@ const char INTL_NOISE_MEAN[] PROGMEM = "Средний шум";
 const char INTL_HUMIDITY[] PROGMEM = "Относительная влажность";
 const char INTL_PRESSURE[] PROGMEM = "Давление воздуха";
 const char INTL_RADIATION[] PROGMEM = "Радиация";
+const char INTL_CO2[] PROGMEM = "CO2";
 const char INTL_LEQ_A[] PROGMEM = "LAeq";
 const char INTL_LA_MIN[] PROGMEM = "LA min";
 const char INTL_LA_MAX[] PROGMEM = "LA max";

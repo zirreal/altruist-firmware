@@ -4,7 +4,7 @@
 #include "../html-content.h"
 #include "../utils.h"
 
-void webserver_config_send_body_post(WebServer &server, String& page_content) {
+void webserver_config_send_body_post(WebServer &server) {
 	String masked_pwd;
 
 	for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {
@@ -37,11 +37,6 @@ void webserver_config_send_body_post(WebServer &server, String& page_content) {
 			break;
 		}
 	}
-
-	page_content += FPSTR(INTL_SENSOR_IS_REBOOTING);
-
-	server.sendContent(page_content);
-	page_content = emptyString;
 }
 
 /*****************************************************************
@@ -58,11 +53,11 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	debug_outln_info(F("begin webserver_config_body_get ..."));
 	page_content += F("<form method='POST' action='/config' style='width:100%;'>\n"
   "<div class='tabs'>"
-	"<div class='tab' onclick='showPanel(1)'>" INTL_COMMON_SETTINGS "</div>"
-	"<div class='tab' onclick='showPanel(2)'>");
+	"<div class='tab' data-id='1' style='background: rgb(244, 244, 244)'>" INTL_COMMON_SETTINGS "</div>"
+	"<div class='tab' data-id='2' style='background: rgb(244, 244, 244)'>");
 	page_content += FPSTR(INTL_MORE_SETTINGS);
 	page_content += F("</div>"
-		"<div class='tab' onclick='showPanel(3)'>" INTL_APIS_SETTINGS "</div></div>"
+		"<div class='tab' data-id='3' style='background: rgb(244, 244, 244)'>" INTL_APIS_SETTINGS "</div></div>"
 		"<div class='panel' id='panel1'>");
 
 	// if (wificonfig_loop) {  // scan for wlan ssids
@@ -76,6 +71,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_input(page_content, Config_wlanssid, FPSTR(INTL_FS_WIFI_NAME), LEN_WLANSSID-1);
 	add_form_input(page_content, Config_wlanpwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
 	page_content += form_checkbox(Config_wlannopwd, FPSTR(INTL_NO_WLAN_PWD), false);
+	add_form_input(page_content, Config_local_hostname, FPSTR(INTL_LOCAL_HOSTNAME), LEN_LOCAL_HOSTNAME-1);
 	page_content += F("</div>");
 
 	server.sendContent(page_content);
@@ -96,10 +92,12 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 
 	// GPS Settings (tab 1)
 
-	page_content += F("<div class='panel-container'>");
+	page_content += F("<div class='panel-container panel-container--with-map'>");
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_GPS "</h3>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
+	page_content += F("<div class='map-container'><div id='map'></div>");
+	page_content += F("</div><span class='map-text'> <em>The marker on the map shows approximate location to make sure you have the right hemisphere</em></span>");
 	page_content += F("</div>");
 
 	server.sendContent(page_content);
@@ -149,19 +147,6 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		"$('current_lang').disabled = $('use_beta').disabled = !$('auto_update').checked; "
 		"}; updateOTAOptions(); $('auto_update').onchange = updateOTAOptions;"
 		"</script>");
-
-	// скрипт для табов
-		page_content += F("<script>"
-			"function showPanel(panelIndex) {"
-				"var panels = document.querySelectorAll('.panel');"
-				"var tabs = document.querySelectorAll('.tab');"
-					"panels.forEach(function(panel) { panel.classList.remove('active'); });"
-					"tabs.forEach(function(tab) { tab.style.background = '#f4f4f4'; });"
-					"panels[panelIndex - 1].classList.add('active');"
-					"tabs[panelIndex - 1].style.background = '#ddd';"
-			"}"
-				"showPanel(1);"
-			"</script>");
 
 	page_content += "</div>";
 
@@ -217,7 +202,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// CSV (tab 3)
 
 	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CVS "</h3>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CSV "</h3>");
 	add_form_checkbox(Config_send2csv, FPSTR(WEB_CSV), false);
 	page_content += F("</div>");
 

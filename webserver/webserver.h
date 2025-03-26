@@ -32,7 +32,8 @@ private:
     uint8_t wifiInfoCount;
 
     bool webserver_request_auth();
-    void sendHttpRedirect();
+    void sendHttpRedirectGuest();
+    void sendHttpRedirectConnected(String &address);
     void start_html_page(String& page_content, const String& title);
     void end_html_page(String& page_content);
     void end_html_page_root(String& page_content);

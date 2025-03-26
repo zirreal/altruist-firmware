@@ -57,7 +57,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_PANEL_TITLE_DEBUG "Debug Level"
 #define INTL_PANEL_TITLE_FIRMWARE "Firmware Version"
 #define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi in Configuration Mode"
-#define INTL_PANEL_TITLE_CVS "CVS"
+#define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Custom API"
 #define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
 
@@ -86,6 +86,7 @@ const char INTL_PATH[] PROGMEM = "Path";
 const char INTL_PORT[] PROGMEM = "Port";
 const char INTL_USER[] PROGMEM = "User";
 const char INTL_PASSWORD[] PROGMEM = "Password";
+const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Local Hostname (Change it if you have more then one Altruist in the same network!)";
 const char INTL_MEASUREMENT[] PROGMEM = "Measurement";
 const char INTL_SEND_TO[] PROGMEM = "Send to {v}";
 const char INTL_READ_FROM[] PROGMEM = "Read from {v}";
@@ -128,6 +129,7 @@ const char INTL_NOISE_MEAN[] PROGMEM = "mean noise";
 const char INTL_HUMIDITY[] PROGMEM = "humidity";
 const char INTL_PRESSURE[] PROGMEM = "air pressure";
 const char INTL_RADIATION[] PROGMEM = "Radiation";
+const char INTL_CO2[] PROGMEM = "CO2";
 const char INTL_LEQ_A[] PROGMEM = "LAeq";
 const char INTL_LA_MIN[] PROGMEM = "LA min";
 const char INTL_LA_MAX[] PROGMEM = "LA max";

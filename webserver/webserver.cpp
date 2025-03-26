@@ -1,6 +1,7 @@
 #include "webserver.h"
 #include "pages/pages.h"
 #include "html-content.h"
+#include "script-js.h"
 #include "../config_manager/config_helpers.h"
 #include "robonomics-logo-common.h"
 
@@ -36,7 +37,7 @@ void SensorWebServer::setup() {
 
 void SensorWebServer::_webserver_status() {
 	if (WiFi.status() != WL_CONNECTED) {
-		sendHttpRedirect();
+		sendHttpRedirectGuest();
 		return;
 	}
 
@@ -67,7 +68,7 @@ void SensorWebServer::_webserver_not_found() {
 		if ((server.uri().indexOf(F("success.html")) != -1) || (server.uri().indexOf(F("detect.html")) != -1)) {
 			server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), FPSTR(WEB_IOS_REDIRECT));
 		} else {
-			sendHttpRedirect();
+			sendHttpRedirectGuest();
 		}
 	} else {
 		server.send(404, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("Not found."));
@@ -84,6 +85,9 @@ void SensorWebServer::_webserver_static() {
 	else if (server.arg(String('r')) == F("css")) {
 		server.send_P(200, TXT_CONTENT_TYPE_TEXT_CSS,
 			WEB_PAGE_STATIC_CSS, sizeof(WEB_PAGE_STATIC_CSS)-1);
+	} else if (server.arg(String('r')) == F("js")) {
+		server.send_P(200, TXT_CONTENT_TYPE_TEXT_JS,
+			WEB_PAGE_STATIC_JS_CONFIG, sizeof(WEB_PAGE_STATIC_JS_CONFIG)-1);
 	} else {
 		_webserver_not_found();
 	}
@@ -121,7 +125,12 @@ void SensorWebServer::_webserver_removeConfig() {
 	RESERVE_STRING(page_content, LARGE_STR);
 	start_html_page(page_content, FPSTR(INTL_DELETE_CONFIG));
     bool is_HTTP_GET = server.method() == HTTP_GET;
-    webserver_removeConfig(page_content, is_HTTP_GET);
+	bool remove_all = false;
+	if (server.hasArg("configType")) {
+		const String server_arg(server.arg("configType"));
+		remove_all = server_arg == "all";
+	}
+    webserver_removeConfig(page_content, is_HTTP_GET, remove_all);
     end_html_page(page_content);
     if (!is_HTTP_GET) {
         esp_restart();
@@ -152,7 +161,7 @@ void SensorWebServer::_webserver_debug_level() {
 
 void SensorWebServer::_webserver_values() {
     if (WiFi.status() != WL_CONNECTED) {
-		sendHttpRedirect();
+		sendHttpRedirectGuest();
 		return;
 	}
     if (!webserver_request_auth())
@@ -189,14 +198,63 @@ void SensorWebServer::_webserver_guest() {
         server.sendContent(page_content);
 	    page_content = emptyString;
 	} else {
-		webserver_config_send_body_post(server, page_content);
+		webserver_config_send_body_post(server);
+		server.sendContent(page_content);
+		page_content = emptyString;
 	}
 
 	if (server.method() == HTTP_POST) {
-		if (writeConfig()) {
-			sensor_restart();
+			String page_content = F(
+				"<body class='configuration'>"
+				"<br>"
+				"<div class='guest__connect-status guest__connect-status--initial'><h2 class='guest__connect-subtitle'>Connecting to WiFi...</h2>"
+				"<div class='loader'></div></div>"
+				"</body>"
+				"</html>");
+
+			server.sendContent(page_content);
+
+			if (WiFi.status() != WL_CONNECTED) {
+				if (cfg::wlannopwd) {
+					debug_outln_info(F("No password"));
+					WiFi.begin(cfg::wlanssid);
+				} else {
+					WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+				}
+			}
+
+			int counter = 0;
+			while (WiFi.status() != WL_CONNECTED) {
+				if (counter > 60) {
+					break;
+				}
+				delay(500);
+				counter++;
+			}
+
+			if (WiFi.status() == WL_CONNECTED) {
+				String address = WiFi.localIP().toString();
+				debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
+				page_content = "<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>";
+				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>Connected!</h2></div>\n";
+				page_content += "<div class='guest__reboot guest__reboot--ip'>IP Address: <span class='ip-address'>" + address + "</span> <button class='copy-btn' onclick='copyText()'></button></div>";
+				page_content += "<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){console.log('Text successfully copied to clipboard'),alert('Copied to clipboard!')})).catch((function(e){console.error('Failed to copy text: ',e),alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}window.location.href='http://'+e}</script>";
+				page_content += "<div class='guest__connect-status'><span class='guest__reboot'>Restarting sensor...</span><div class='loader'></div></div>\n";
+				server.sendContent(page_content);
+				debug_outln_info(F("After send content"));
+				delay(5000);
+			} else {
+				page_content = F("<h2 class='guest__connect-subtitle error'>Connection Failed</h2>"
+								"<p class='guest__reboot'>Failed to connect to: ");
+				page_content += cfg::wlanssid;
+				page_content += F("</p><div class='guest__connect-status'><span class='guest__reboot'>Restarting sensor...</span><div class='loader'></div></div>\n");
+				server.sendContent(page_content);
+			}
+
+			if (writeConfig()) {
+				sensor_restart();
+			}
 		}
-	}
     // end_html_page(page_content);
 }
 
@@ -207,7 +265,7 @@ void SensorWebServer::setWifiInfo(struct_wifiInfo* info, uint8_t count) {
 
 void SensorWebServer::_webserver_config() {
     if (WiFi.status() != WL_CONNECTED) {
-		sendHttpRedirect();
+		sendHttpRedirectGuest();
 	} else {
 		if (!webserver_request_auth())
 		{ return; }
@@ -230,14 +288,16 @@ void SensorWebServer::_webserver_config() {
 		if (server.method() == HTTP_GET) {
 			webserver_config_send_body_get(server, page_content, wificonfig_loop);
 		} else {
-			webserver_config_send_body_post(server, page_content);
+			webserver_config_send_body_post(server);
+			page_content += FPSTR(INTL_SENSOR_IS_REBOOTING);
+			server.sendContent(page_content);
+			page_content = emptyString;
 		}
 		end_html_page(page_content);
 
 		if (server.method() == HTTP_POST) {
-			// display_debug(F("Writing config"), emptyString);
+
 			if (writeConfig()) {
-				// display_debug(F("Writing config"), F("and restarting"));
 				sensor_restart();
 			}
 		}
@@ -246,7 +306,7 @@ void SensorWebServer::_webserver_config() {
 
 void SensorWebServer::_webserver_root() {
     if (WiFi.status() != WL_CONNECTED) {
-		sendHttpRedirect();
+		sendHttpRedirectGuest();
 		return;
 	}
     if (!webserver_request_auth())
@@ -270,9 +330,20 @@ bool SensorWebServer::webserver_request_auth() {
 	return true;
 }
 
-void SensorWebServer::sendHttpRedirect() {
+void SensorWebServer::sendHttpRedirectGuest() {
 	server.sendHeader(F("Location"), F("http://192.168.4.1/guest"));
 	server.send(302, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), emptyString);
+}
+
+void SensorWebServer::sendHttpRedirectConnected(String &address) {
+	String redirect = F("http://");
+	redirect += address;
+	debug_outln_info(F("Redirecting to: "), redirect);
+	server.sendHeader(F("Location"), redirect);
+	server.sendHeader(F("Cache-Control"), F("no-cache"));
+	server.sendHeader(F("Connection"), F("close"));
+	server.send(303, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), "<html><body>Redirecting...</body></html>");
+
 }
 
 void SensorWebServer::start_html_page(String& page_content, const String& title) {
@@ -282,7 +353,11 @@ void SensorWebServer::start_html_page(String& page_content, const String& title)
 	server.setContentLength(CONTENT_LENGTH_UNKNOWN);
 	server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), s);
 
-	server.sendContent_P(WEB_PAGE_HEADER_HEAD);
+	if(title.indexOf(INTL_CONFIGURATION) != -1) {
+		server.sendContent_P(WEB_PAGE_HEADER_CONFIG_HEAD);
+	} else {
+		server.sendContent_P(WEB_PAGE_HEADER_HEAD);
+	}
 
 	if (title.indexOf(INTL_DEBUG_LEVEL) != -1) {
 		s = FPSTR(WEB_PAGE_DEBUG_HEADER_BODY);

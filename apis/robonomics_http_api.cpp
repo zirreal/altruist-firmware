@@ -57,7 +57,7 @@ void RobonomicsHTTPAPI::addTimeAndSign(const String &data, String &signature) {
   // Get the local time.
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
-    Serial.println("Failed to obtain time");
+    debug_outln_error(F("Failed to obtain time"));
     return;
   }
   

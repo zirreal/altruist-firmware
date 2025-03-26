@@ -33,7 +33,13 @@ void webserver_data_json(JsonDocument &data, const String &esp_chipid, String &j
             String type = measurement.key().c_str();
             JsonObject measurementData = measurement.value().as<JsonObject>();
             String value = measurementData["value"].as<String>();
-            meas_id = sensor_name + "_" + type;
+            if (sensor_name == "ICS43434") {
+                meas_id = "PCBA_" + type;
+            } else if (sensor_name == "RadSens") {
+                meas_id = "GC";
+            } else {
+                meas_id = sensor_name + "_" + type;
+            }
 
             json_content += "{\"value_type\":\"";
             json_content += meas_id;

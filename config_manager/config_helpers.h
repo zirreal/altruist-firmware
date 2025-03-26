@@ -15,5 +15,6 @@ bool writeConfig();
 void readConfig(bool oldconfig = false);
 void init_config();
 unsigned int getConfigUintValue(const char* key);
+void removeWiFiCredentials();
 
 #endif // __CONFIG_HELPERS_H__

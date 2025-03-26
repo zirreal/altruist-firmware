@@ -9,6 +9,7 @@ const char TXT_CONTENT_TYPE_JSON[] PROGMEM = "application/json";
 const char TXT_CONTENT_TYPE_INFLUXDB[] PROGMEM = "application/x-www-form-urlencoded";
 const char TXT_CONTENT_TYPE_TEXT_HTML[] PROGMEM = "text/html; charset=utf-8";
 const char TXT_CONTENT_TYPE_TEXT_CSS[] PROGMEM = "text/css";
+const char TXT_CONTENT_TYPE_TEXT_JS[] PROGMEM = "text/javascript";
 const char TXT_CONTENT_TYPE_TEXT_PLAIN[] PROGMEM = "text/plain";
 const char TXT_CONTENT_TYPE_IMAGE_PNG[] PROGMEM = "image/png";
 
@@ -35,7 +36,7 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 <meta charset='utf-8'/>\
 <title>{t}</title>";
 
-#define STATIC_PREFIX "/" INTL_LANG "_s1.2"
+#define STATIC_PREFIX "/" INTL_LANG "_s1.4"
 
 const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>\
     <link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
@@ -44,6 +45,15 @@ const char WEB_PAGE_HEADER_HEAD[] PROGMEM = "<meta name='viewport' content='widt
     <div class='canvas'>\
     <a class='b' href='/' style='background:none;display:inline'>\
     <img src='" STATIC_PREFIX "?r=logo' alt='" INTL_BACK_TO_HOME "' style='float:left;margin:16px' width='100' height='89'/></a>";
+
+const char WEB_PAGE_HEADER_CONFIG_HEAD[] PROGMEM = "<meta name='viewport' content='width=device-width'/>\
+<link rel='stylesheet' href='" STATIC_PREFIX "?r=css'>\
+</style>\
+<script src='" STATIC_PREFIX "?r=js' defer></script>\
+</head><body>\
+<div class='canvas'>\
+<a class='b' href='/' style='background:none;display:inline'>\
+<img src='" STATIC_PREFIX "?r=logo' alt='" INTL_BACK_TO_HOME "' style='float:left;margin:16px' width='100' height='89'/></a>";
 
 const char WEB_PAGE_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
     <h3>" INTL_PM_SENSOR "</h3>\
@@ -111,8 +121,12 @@ function load_wifi_list(){var x=new XMLHttpRequest();x.open('GET','/wifi');x.onl
 
 const char WEB_REMOVE_CONFIG_CONTENT[] PROGMEM = "<h3>" INTL_CONFIGURATION_REALLY_DELETE "</h3>\
 <table class='content-table delete-table'><tr><td><form method='POST' action='/removeConfig'>\
-<input type='submit' class='s_red' name='submit' value='" INTL_DELETE "'/></form></td>\
-<td><a class='b' href='/'>" INTL_CANCEL "</a></td></tr></table>\
+<input type='radio' id='allConfig' name='configType' value='all' class='radio-input' checked>\
+<label for='allConfig'>All Configuration</label><br />\
+<input type='radio' id='wifiConfig' name='configType' value='wifi' class='radio-input'>\
+<label for='wifiConfig'>WiFi Configuration</label><br />\
+<input type='submit' class='s_red submit-btn--config' name='submit' value='" INTL_DELETE "'/></form></td>\
+</tr><tr><td><a class='b' href='/'>" INTL_CANCEL "</a></td></tr></table>\
 ";
 
 const char WEB_RESET_CONTENT[] PROGMEM = "<h3>" INTL_REALLY_RESTART_SENSOR "</h3>" \

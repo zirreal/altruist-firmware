@@ -2,7 +2,7 @@
 #define __DEFINES_H__
 
 // increment on change
-#define SOFTWARE_VERSION_STR "R_2025-02.2"
+#define SOFTWARE_VERSION_STR "R_2025-03"
 
 #if defined(ESP8266)
 #define SENSOR_BASENAME "esp8266-"
@@ -33,6 +33,7 @@
 #define LEN_GPS_COORDS 21
 #define LEN_DNMS_CORRECTION 8
 #define LEN_TEMP_CORRECTION 8
+#define LEN_LOCAL_HOSTNAME 100
 
 #define LEN_HOST_INFLUX 100
 #define LEN_URL_INFLUX 100

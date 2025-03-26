@@ -2,32 +2,39 @@
 #include "../../intl.h"
 #include "../html-content.h"
 #include "../../utils.h"
+#include "../../config_manager/config_helpers.h"
 #include <SPIFFS.h>
 
 /*****************************************************************
  * Webserver remove config                                       *
  *****************************************************************/
-void webserver_removeConfig(String &page_content, bool is_HTTP_GET) {
+void webserver_removeConfig(String &page_content, bool is_HTTP_GET, bool remove_all) {
 	debug_outln_info(F("ws: removeConfig ..."));
 
 	if (is_HTTP_GET) {
 		page_content += FPSTR(WEB_REMOVE_CONFIG_CONTENT);
 
 	} else {
+		if (remove_all) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored  "-Wdeprecated-declarations"
-		// Silently remove the desaster backup
-		SPIFFS.remove(F("/config.json.old"));
-		if (SPIFFS.exists(F("/config.json"))) {	//file exists
-			debug_outln_info(F("removing config.json..."));
-			if (SPIFFS.remove(F("/config.json"))) {
-				page_content += F("<h3>" INTL_CONFIG_DELETED ".</h3>");
+			// Silently remove the desaster backup
+			SPIFFS.remove(F("/config.json.old"));
+			if (SPIFFS.exists(F("/config.json"))) {	//file exists
+				debug_outln_info(F("removing config.json..."));
+				if (SPIFFS.remove(F("/config.json"))) {
+					page_content += F("<h3>" INTL_CONFIG_DELETED ".</h3>");
+				} else {
+					page_content += F("<h3>" INTL_CONFIG_CAN_NOT_BE_DELETED ".</h3>");
+				}
 			} else {
-				page_content += F("<h3>" INTL_CONFIG_CAN_NOT_BE_DELETED ".</h3>");
+				page_content += F("<h3>" INTL_CONFIG_NOT_FOUND ".</h3>");
 			}
-		} else {
-			page_content += F("<h3>" INTL_CONFIG_NOT_FOUND ".</h3>");
-		}
 #pragma GCC diagnostic pop
+		} else {
+			debug_outln_info(F("Removig WiFi credentials"));
+			removeWiFiCredentials();
+			page_content += F("<h3> WiFi Credentials were deleted.</h3>");
+		}
 	}
 }
