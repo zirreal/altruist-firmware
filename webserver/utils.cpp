@@ -59,7 +59,7 @@ String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int3
 					"<td>"
 					"<a href='#wlanpwd' onclick='setSSID(this)' class='wifi'>{n}</a>&nbsp;{e}"
 					"</td>"
-					"<td style='width:80%;vertical-align:middle;'>"
+					"<td style='vertical-align:middle;'>"
 					"{v}%"
 					"</td>"
 					"</tr>");
