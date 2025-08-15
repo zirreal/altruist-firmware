@@ -67,6 +67,9 @@ namespace cfg {
 	extern char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS];
 	extern char timezone[LEN_TIMEZONE];
 
+	extern char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS];
+	extern bool use_custom_urban;
+
 	extern unsigned leds_brightness;
 	extern bool leds_on;
 

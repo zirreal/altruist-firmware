@@ -77,6 +77,8 @@ enum ConfigShapeId {
 	Config_timezone,
 	Config_leds_brightness,
 	Config_leds_on,
+	Config_custom_altruist_urban,
+	Config_use_custom_urban,
 };
 static constexpr char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 static constexpr char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
@@ -126,6 +128,8 @@ static constexpr char CFG_KEY_CHOSEN_ALTRUIST_URBAN[] PROGMEM = "chosen_altruist
 static constexpr char CFG_KEY_TIMEZONE[] PROGMEM = "timezone";
 static constexpr char CFG_KEY_LEDS_BRIGHTNESS[] PROGMEM = "leds_brightness";
 static constexpr char CFG_KEY_LEDS_ON[] PROGMEM = "leds_on";
+static constexpr char CFG_KEY_CUSTOM_ALTRUIST_URBAN[] PROGMEM = "custom_altruist_urban";
+static constexpr char CFG_KEY_USE_CUSTOM_URBAN[] PROGMEM = "use_custom_urban";
 static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::current_lang)-1, CFG_KEY_CURRENT_LANG, cfg::current_lang },
 	{ Config_Type_String, sizeof(cfg::wlanssid)-1, CFG_KEY_WLANSSID, cfg::wlanssid },
@@ -175,6 +179,8 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::timezone)-1, CFG_KEY_TIMEZONE, cfg::timezone },
 	{ Config_Type_UInt, 0, CFG_KEY_LEDS_BRIGHTNESS, &cfg::leds_brightness },
 	{ Config_Type_Bool, 0, CFG_KEY_LEDS_ON, &cfg::leds_on },
+	{ Config_Type_String, sizeof(cfg::custom_altruist_urban)-1, CFG_KEY_CUSTOM_ALTRUIST_URBAN, cfg::custom_altruist_urban },
+	{ Config_Type_Bool, 0, CFG_KEY_USE_CUSTOM_URBAN, &cfg::use_custom_urban },
 };
           
 #endif // __CONFIG_H__

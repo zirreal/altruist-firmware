@@ -21,6 +21,7 @@ private:
     void _fetch(JsonDocument &data) override;
     void _fetch_one_sensor(JsonDocument &data, HTTPClient& http, const String &ip_address);
     std::vector<String> sensor_addresses;
+    String chosen_address;
 };
 
 #endif // __HTTP_ALTRUIST_H__

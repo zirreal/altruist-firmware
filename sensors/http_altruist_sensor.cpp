@@ -59,10 +59,16 @@ bool HTTPAltruistSensor::begin() {
             }
         }
     }
-    if (!found_chosen && !sensor_addresses.empty()) {
-        config_set_string_by_key("chosen_altruist_urban", sensor_addresses[0].c_str());
-        writeConfig();
-        debug_outln_info(F("Chosen altruist sensor not found, using: "), cfg::chosen_altruist_urban);
+    if (cfg::use_custom_urban) {
+        chosen_address = String(cfg::custom_altruist_urban);
+        debug_outln_info(F("Use custom altruist urban address "), chosen_address);
+    } else {
+        if (!found_chosen && !sensor_addresses.empty()) {
+            config_set_string_by_key("chosen_altruist_urban", sensor_addresses[0].c_str());
+            writeConfig();
+            debug_outln_info(F("Chosen altruist sensor not found, using: "), cfg::chosen_altruist_urban);
+        }
+        chosen_address = String(cfg::chosen_altruist_urban);
     }
     debug_outln_info(F("Http Altruis Sensor started with fetch interval (sec): "), String(timeout/1000));
     last_fetch_time = millis() - timeout;
@@ -85,7 +91,7 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
             addresses.add(ip_address);
         }
     }
-    _fetch_one_sensor(data, http, cfg::chosen_altruist_urban);
+    _fetch_one_sensor(data, http, chosen_address);
     // sensor_name = HTTP_ALTRUIST_SENSOR_NAME;
 }
 

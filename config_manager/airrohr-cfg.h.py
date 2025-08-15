@@ -49,6 +49,8 @@ String      chosen_altruist_urban
 String      timezone
 UInt		leds_brightness
 Bool        leds_on
+String      custom_altruist_urban
+Bool		use_custom_urban
 """
 
 with open("airrohr-cfg.h", "w") as h:

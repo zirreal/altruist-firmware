@@ -37,7 +37,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         initAndClearScreen();
         UBYTE *BlackImage;
         createNewImage(BlackImage);
-        if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL) {
+        if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL && currentScreenID == ScreenPage::MAIN) {
             // if (refresh_count_for_qr > 0) {
             //     refresh_count_for_qr = 0;
                 refresh_time_for_qr = millis();

@@ -66,6 +66,8 @@ namespace cfg {
 	char local_hostname[LEN_LOCAL_HOSTNAME] = LOCAL_HOSTNAME;
 	char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	char timezone[LEN_TIMEZONE] = "<+00>0";
+	char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
+	bool use_custom_urban = false;
 
 	unsigned leds_brightness = 10;
 	bool leds_on = true;
