@@ -150,7 +150,17 @@ void twoStageOTAUpdate(device_status_t &deviceStatus) {
 		lang_variant = CURRENT_LANG;
 	}
 	lang_variant.toLowerCase();
+#ifdef ALTRUIST_INSIDE
+	String fetch_name(F("/latest32c6ins_"));
+#endif
+#ifdef ALTRUIST_URBAN
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
 	String fetch_name(F("/latest32c3_"));
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+	String fetch_name(F("/latest32c6urb_"));
+#endif
+#endif
 	if (cfg::use_beta) {
 		fetch_name += F("beta");
 	} else {

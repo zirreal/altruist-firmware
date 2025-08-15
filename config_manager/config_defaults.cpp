@@ -6,6 +6,7 @@ namespace cfg {
 
 	unsigned time_for_wifi_config = 600000;
 	unsigned sending_intervall_ms = 30000;
+	unsigned sds_meas_interval_ms = 300000;
 	unsigned datalog_sending_intervall_ms = 600000;
 
 	char current_lang[3];
@@ -63,6 +64,11 @@ namespace cfg {
 
 	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
 	char local_hostname[LEN_LOCAL_HOSTNAME] = LOCAL_HOSTNAME;
+	char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
+	char timezone[LEN_TIMEZONE] = "<+00>0";
+
+	unsigned leds_brightness = 10;
+	bool leds_on = true;
 
 	void initNonTrivials(const char* id) {
 		strcpy(cfg::current_lang, CURRENT_LANG);

@@ -52,7 +52,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 
 #define INTL_PANEL_TITLE_WIFI "Настройка WiFi"
 #define INTL_PANEL_TITLE_ROBONOMICS "Robonomics"
-#define INTL_PANEL_TITLE_GPS "GPS & Коррекция температуры"
+#define INTL_PANEL_TITLE_GPS "GPS & Датчики"
 #define INTL_PANEL_TITLE_AUTH "Аутентификация"
 #define INTL_PANEL_TITLE_DEBUG "Уровень отладки"
 #define INTL_PANEL_TITLE_FIRMWARE "Версия Прошивки"
@@ -76,7 +76,10 @@ const char INTL_LCD2004_3F[] PROGMEM = "LCD 2004 (I2C: 0x3F)";
 const char INTL_DISPLAY_WIFI_INFO[] PROGMEM = "Отображать информацию о WiFi";
 const char INTL_DISPLAY_DEVICE_INFO[] PROGMEM = "Отображать информацию об устройстве";
 const char INTL_DEBUG_LEVEL[] PROGMEM = "Уровень&nbsp;отладки";
-const char INTL_MEASUREMENT_INTERVAL[] PROGMEM = "Измерительный интервал";
+const char INTL_MEASUREMENT_INTERVAL[] PROGMEM = "Интервал отправки данных (с)";
+const char INTL_LEDS_BRIGHTNESS[] PROGMEM = "Яркость светодиодов (%)";
+const char INTL_LEDS_ON[] PROGMEM = "Включить светодиоды";
+const char INTL_SDS_MEAS_INTERVAL[] PROGMEM = "Интервал измерения SDS (с)";
 const char INTL_DATALOG_SENDING_INTERVAL[] PROGMEM = "Интервал отправки даталогов";
 const char INTL_DURATION_ROUTER_MODE[] PROGMEM = "Длительность режима маршрутизатора";
 const char INTL_MORE_APIS[] PROGMEM = "Другие API";
@@ -107,6 +110,16 @@ const char INTL_DEVICE_STATUS[] PROGMEM = "Состояние устройств
 #define INTL_RESTART "Перезапустить"
 const char INTL_SAVE_AND_RESTART[] PROGMEM = "Сохранить и перезапустить";
 #define INTL_FIRMWARE "Прошивка"
+#define INTL_IP_ADDRESS "IP адрес"
+const char INTL_SD_CONNECTED[] PROGMEM = "SD карта подключена";
+const char INTL_FREE_RAM[] PROGMEM = "Свободно памяти (ОЗУ)";
+const char INTL_LAST_OTA[] PROGMEM = "Последний OTA";
+const char INTL_UPTIME[] PROGMEM = "Время работы";
+const char INTL_RESET_REASON[] PROGMEM = "Причина перезагрузки";
+const char INTL_OTA_RETURN[] PROGMEM = "OTA Ответ";
+const char INTL_COUNT_SUCCESS_SENDS[] PROGMEM = "количество успешных отправок";
+const char INTL_LAST_SEND_TIME[] PROGMEM = "время последней отправки";
+#define INTL_CHIP_TYPE "Тип чипа"
 #define INTL_ROBONOMICS_ADDR "Адрес в Робономике"
 const char INTL_DEBUG_SETTING_TO[] PROGMEM = "Настройки отладки";
 #define INTL_NONE "отключена"
@@ -136,7 +149,7 @@ const char INTL_LA_MAX[] PROGMEM = "LA max";
 const char INTL_LATITUDE[] PROGMEM = "Широта";
 const char INTL_LONGITUDE[] PROGMEM = "Долгота";
 const char INTL_ALTITUDE[] PROGMEM = "Высота";
-const char INTL_TIME_UTC[] PROGMEM = "Время (UTC)";
+const char INTL_TIME_LOCAL[] PROGMEM = "Время";
 const char INTL_SIGNAL_STRENGTH[] PROGMEM = "Сигнал";
 const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_NUMBER_OF_MEASUREMENTS "Количество измерений"

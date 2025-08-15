@@ -3,10 +3,12 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIDE)
-#define SOFTWARE_VERSION_STR "R-INS_2025-06"
+#define SOFTWARE_VERSION_STR "R-INS_2025-08"
+#define PM_SENSOR_NAME "Altruist Insight"
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_STR "R-URB_2025-06"
+#define SOFTWARE_VERSION_STR "R-URB_2025-08"
+#define PM_SENSOR_NAME "Altruist Urban"
 #endif
 
 #if defined(ESP8266)
@@ -17,6 +19,19 @@
 #define SENSOR_BASENAME "esp32-"
 #define OTA_BASENAME "/airrohr/esp32"
 #endif
+
+#define ATRUIST_URBAN_SENSOR "altruist_urban"
+
+#define DEVICE_MODEL_MDNS_PROPERTY "device_model"
+#define DEVICE_MODEL_INSIGHT "insight"
+#define DEVICE_MODEL_URBAN "urban"
+#if defined(ALTRUIST_INSIDE)
+#define DEVICE_MODEL DEVICE_MODEL_INSIGHT
+#endif
+#if defined(ALTRUIST_URBAN)
+#define DEVICE_MODEL DEVICE_MODEL_URBAN
+#endif
+
 
 #define SSID_BASENAME "Altruist-"
 #define HOSTNAME_BASE "Altruist-"
@@ -39,6 +54,8 @@
 #define LEN_DNMS_CORRECTION 8
 #define LEN_TEMP_CORRECTION 8
 #define LEN_LOCAL_HOSTNAME 100
+#define LEN_CHOSEN_ALTRUIS_ADDRESS 20
+#define LEN_TIMEZONE 10
 
 #define LEN_HOST_INFLUX 100
 #define LEN_URL_INFLUX 100
@@ -76,90 +93,291 @@ constexpr const unsigned long ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 constexpr const unsigned long PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS = ONE_DAY_IN_MS;		// check for firmware updates once a day
 constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS * 28;	// force a reboot every ~4 weeks
 
-// Definition GPIOs for Zero based Arduino Feather M0 LoRaWAN
-#if defined(ARDUINO_SAMD_ZERO) && defined(SERIAL_PORT_USBVIRTUAL)
-// Required for Serial on Zero based boards
-#define Serial SERIAL_PORT_USBVIRTUAL
-//GPIO Pins
-#define D0 0
-#define D1 1
-#define D2 2
-#define D3 3
-#define D4 4
-#define D5 5
-#define D6 6
-#define D7 7
-#define D8 8
-#define D9 9
-#define D10 10
-#define D11 11
-#define D12 12
-// RFM69 FSK module
-#define RF69_FREQ 868.0
-#define CLIENT_ADDRESS 2
-#define SERVER_ADDRESS 100
+// Pins Config
+
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+
+// i2s pins
+
+#define I2S_PIN_BCLK     7
+#define I2S_PIN_WS       6
+#define I2S_PIN_DIN      8
+#define I2S_PIN_DOUT     -1
+
+// I2C pins
+
+#define SDA_I2C_PIN 3
+#define SCL_I2C_PIN 0
+
+// PM Serial
+
+#define PM_SERIAL_RX 1
+#define PM_SERIAL_TX 10
+
+// SPI pins
+
+#define SPI_SCK_PIN 7
+#define SPI_MISO_PIN 18
+#define SPI_MOSI_PIN 6
+#define SPI_CS_PIN 19
+
+// Display
+
+#define EPD_SCK_PIN  -1
+#define EPD_MOSI_PIN -1
+#define EPD_CS_PIN   -1
+#define EPD_RST_PIN  -1
+#define EPD_DC_PIN   -1
+#define EPD_BUSY_PIN -1
+
+// Buttons
+
+#define BTN_DOWN_PIN -1
+#define BTN_SET_PIN -1
+#define BTN_UP_PIN -1
+
+// Led pin
+
+#define LED_PIN -1
+
+#elif defined(CONFIG_IDF_TARGET_ESP32C6)
+
+// i2s pins
+#ifdef ALTRUIST_URBAN
+#define I2S_PIN_BCLK     10
+#define I2S_PIN_WS       1
+#define I2S_PIN_DIN      11
+#define I2S_PIN_DOUT     -1
+#endif
+#ifdef ALTRUIST_INSIDE
+#define I2S_PIN_BCLK     -1
+#define I2S_PIN_WS       -1
+#define I2S_PIN_DIN      -1
+#define I2S_PIN_DOUT     -1
 #endif
 
-#if defined(ESP32)
-//GPIO Pins
-// the IO pins which can be used for what depends on the following:
-//   - The board which is used
-//     - onboard peripherials like LCD or LoRa chips which already occupy an IO pin
-//     - the ESP32 module which is used
-//         - the WROVER board uses the IOs 16 and 17 to access the PSRAW
-//         - on WROOM boards the IOs 16 and 17 can be freely used
-//   - if JTAG debugging shall be used
-//   - some IOs have constraints
-//     - configuration of ESP32 module configuration options ("strapping") like operating voltage and boot medium
-//     - some IOs can only be used for inputs (34, 35, 36, 39)
-// see https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
-//     https://github.com/va3wam/TWIPi/blob/master/Eagle/doc/feather-pinout-map.pdf
-#define D0_STRAPPING 0
-#if defined(NO_USB_SERIAL_ON_UART0)
-#define D1 1  // often used for USB serial RX
+// I2C pins
+
+#ifdef ALTRUIST_INSIDE
+// #define SDA_I2C_PIN 19
+// #define SCL_I2C_PIN 18
+#define SDA_I2C_PIN 2
+#define SCL_I2C_PIN 3
 #endif
-#define D2_STRAPPING 2
-#if defined(NO_USB_SERIAL_ON_UART0)
-#define D3 3  // often used USB serial TX
-#endif
-#define D4 4
-#define D5 5
-#define D13 13
-// pins 12 to 15 are needed by JTAG and should not be used to allow debugging (if you can afford it)
-//#define D9 9
-//#define D10 10
-//
-#if not defined(USING_JTAG_DEBUGGER_PINS)
-#define D12_JTAG_TDI_LOW_DURING_BOOT 12
-#define D13_JTAG_TCK 13
-#define D14_JTAG_TMS 14
-#define D15_JTAG_TDO_HIGH_DURING_BOOT 15
+#ifdef ALTRUIST_URBAN
+#define SDA_I2C_PIN 3
+#define SCL_I2C_PIN 2
 #endif
 
-#if defined(ESP32_WROOM_MODULE)
-// these two pins are used to access PSRAM on WROVER modules
-#define D16_WROOM_ONLY 16
-#define D17_WROOM_ONLY 17
-#endif
-#define D18 18
-#define D19 19
-#define D21 21
-#define D22 22
-#define D23 23
-#define D25 25
-#define D26 26
-#define D27 27
-#define D32 32
-#define D33 33
-#define D34_INPUTONLY 34
-#define D35_INPUTONLY 35
-#define D36_INPUTONLY 36
-#define D39_INPUTONLY 39
+// PM Serial
 
-// RFM69 FSK module
-#define RF69_FREQ 868.0
-#define CLIENT_ADDRESS 2
-#define SERVER_ADDRESS 100
+#ifdef ALTRUIST_INSIDE
+#define PM_SERIAL_RX -1
+#define PM_SERIAL_TX -1
 #endif
+#ifdef ALTRUIST_URBAN
+#define PM_SERIAL_RX 5
+#define PM_SERIAL_TX 4
+#endif
+
+
+// SPI SD Card pins
+
+#ifdef ALTRUIST_INSIDE
+// #define SPI_SCK_PIN 0
+// #define SPI_MISO_PIN 1
+// #define SPI_MOSI_PIN 7
+// #define SPI_CS_PIN 6
+#define SPI_SCK_PIN 5
+#define SPI_MISO_PIN 18
+#define SPI_MOSI_PIN 6
+#define SPI_CS_PIN 19
+#endif
+
+// Display
+
+#ifdef ALTRUIST_INSIDE
+// #define EPD_SCK_PIN  21
+// #define EPD_MOSI_PIN 20
+// #define EPD_CS_PIN   22
+// #define EPD_RST_PIN  15
+// #define EPD_DC_PIN   23
+// #define EPD_BUSY_PIN 4
+#define EPD_SCK_PIN  21
+#define EPD_MOSI_PIN 20
+#define EPD_CS_PIN   22
+#define EPD_RST_PIN  15
+#define EPD_DC_PIN   23
+#define EPD_BUSY_PIN 7
+#endif
+
+// Buttons
+
+#ifdef ALTRUIST_INSIDE
+// #define BTN_DOWN_PIN 3
+// #define BTN_SET_PIN 2
+// #define BTN_UP_PIN 10
+#define BTN_DOWN_PIN 0
+#define BTN_SET_PIN 1
+#define BTN_UP_PIN 10
+#endif
+#ifdef ALTRUIST_URBAN
+#define BTN_DOWN_PIN -1
+#define BTN_SET_PIN 7
+#define BTN_UP_PIN -1
+#endif
+
+// Led pin
+
+#ifdef ALTRUIST_INSIDE
+// #define LED_PIN -1
+#define LED_PIN 11
+#endif
+#ifdef ALTRUIST_URBAN
+#define LED_PIN 0
+#endif
+
+#else
+  #error Unsupported board selection.
+#endif 
+
+
+// TRANSFER FROM ext_def.h
+// Language config
+#define CURRENT_LANG INTL_LANG
+
+// Wifi config
+const char WLANSSID[] PROGMEM = "Not Set";
+const char WLANPWD[] PROGMEM = "";
+#define LOCAL_HOSTNAME "altruist"
+#define WLANNOPWD 0
+
+// BasicAuth config
+const char WWW_USERNAME[] PROGMEM = "admin";
+const char WWW_PASSWORD[] PROGMEM = "";
+#define WWW_BASICAUTH_ENABLED 0
+
+// Sensor Wifi config (config mode)
+#define FS_SSID ""
+#define FS_PWD ""
+
+// Where to send the data?
+#define SEND2ROBONOMICS 1
+#define SSL_ROBONOMICS 0
+#define SSL_FSAPP 0
+#define SEND2MQTT 0
+#define SEND2INFLUX 0
+#define SEND2LORA 0
+#define SEND2CSV 0
+#define SEND2CUSTOM 0
+
+enum LoggerEntry {
+    LoggerRobonomics,
+    LoggerFSapp,
+    LoggerInflux,
+    LoggerCustom,
+    LoggerCount
+};
+
+struct LoggerConfig {
+    uint16_t destport;
+    uint16_t errors;
+#if defined(ESP8266)
+    BearSSL::Session* session;
+#else
+    void* session;
+#endif
+};
+
+// IMPORTANT: NO MORE CHANGES TO VARIABLE NAMES NEEDED FOR EXTERNAL APIS
+
+static const char HOST_FSAPP[] PROGMEM = "server.chillibits.com";
+static const char URL_FSAPP[] PROGMEM = "/data.php";
+#define PORT_FSAPP 80
+
+static const char FW_DOWNLOAD_HOST[] PROGMEM = "upd.sensors.robonomics.network";
+#define FW_DOWNLOAD_PORT 80
+
+static const char FW_2ND_LOADER_URL[] PROGMEM = "/loader-002.bin";
+
+static const char NTP_SERVER_1[] PROGMEM = "0.pool.ntp.org";
+static const char NTP_SERVER_2[] PROGMEM = "1.pool.ntp.org";
+
+// define own API
+static const char HOST_CUSTOM[] PROGMEM = "192.168.100.73";
+static const char URL_CUSTOM[] PROGMEM = "";
+#define PORT_CUSTOM 5000
+#define USER_CUSTOM ""
+#define PWD_CUSTOM ""
+#define SSL_CUSTOM 0
+
+
+// Robonomics
+#include "./intl.h"
+static const char CURRENT_REG[] PROGMEM = "Global";
+// #define PORT_ROBONOMICS 31112
+#define PORT_ROBONOMICS 65
+#define ROBONOMICS_PUBLIC_NODE "polkadot.rpc.robonomics.network"
+
+// Donated by
+static const char DONATED_BY[] PROGMEM = "";
+
+// define own InfluxDB
+static const char HOST_INFLUX[] PROGMEM = "influx.server";
+static const char URL_INFLUX[] PROGMEM = "/write?db=sensorcommunity";
+#define PORT_INFLUX 8086
+#define USER_INFLUX ""
+#define PWD_INFLUX ""
+static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
+#define SSL_INFLUX 0
+
+// GPS, preferred Neo-6M
+#define GPS_READ 1
+#define GPS_API_PIN 9
+#define GPS_LAT "0.0"
+#define GPS_LON "0.0"
+#define GPS_COORDS "0.0,0.0"
+
+// Temp compensation
+#define TEMP_CORRECTION "0.0"
+
+// MHZ19 CO2 sensor
+#define MHZ19_READ 0
+
+// automatic firmware updates
+#define AUTO_UPDATE 1
+
+// use beta firmware
+#define USE_BETA 0
+
+// OLED Display SSD1306 connected?
+#define HAS_DISPLAY 0
+
+// OLED Display SH1106 connected?
+#define HAS_SH1106 0
+
+// OLED Display um 180° gedreht?
+#define HAS_FLIPPED_DISPLAY 0
+
+// LCD Display LCD1602 connected?
+#define HAS_LCD1602 0
+
+// LCD Display LCD1602 (0x27) connected?
+#define HAS_LCD1602_27 0
+
+// LCD Display LCD2004 connected?
+#define HAS_LCD2004 0
+
+// LCD Display LCD2004 (0x27) connected?
+#define HAS_LCD2004_27 0
+
+// Show wifi info on displays
+#define DISPLAY_WIFI_INFO 1
+
+// Show device info on displays
+#define DISPLAY_DEVICE_INFO 1
+
+// Set debug level for serial output?
+#define DEBUG 3
 
 #endif // __DEFINES_H__

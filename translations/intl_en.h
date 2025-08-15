@@ -52,7 +52,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 
 #define INTL_PANEL_TITLE_WIFI "WiFi Credentials"
 #define INTL_PANEL_TITLE_ROBONOMICS "Robonomics"
-#define INTL_PANEL_TITLE_GPS "GPS & Temperature Correction"
+#define INTL_PANEL_TITLE_GPS "GPS & Sensors"
 #define INTL_PANEL_TITLE_AUTH "Authentication"
 #define INTL_PANEL_TITLE_DEBUG "Debug Level"
 #define INTL_PANEL_TITLE_FIRMWARE "Firmware Version"
@@ -76,7 +76,10 @@ const char INTL_LCD2004_3F[] PROGMEM = "LCD 2004 (I2C: 0x3F)";
 const char INTL_DISPLAY_WIFI_INFO[] PROGMEM = "Display Wifi info";
 const char INTL_DISPLAY_DEVICE_INFO[] PROGMEM = "Display device info";
 const char INTL_DEBUG_LEVEL[] PROGMEM = "Debug&nbsp;level";
-const char INTL_MEASUREMENT_INTERVAL[] PROGMEM = "Measuring interval (sec)";
+const char INTL_MEASUREMENT_INTERVAL[] PROGMEM = "Sending data interval (sec)";
+const char INTL_LEDS_BRIGHTNESS[] PROGMEM = "Led brightness (%)";
+const char INTL_LEDS_ON[] PROGMEM = "Turn on led";
+const char INTL_SDS_MEAS_INTERVAL[] PROGMEM = "SDS measure interval (sec)";
 const char INTL_DATALOG_SENDING_INTERVAL[] PROGMEM = "Datalog sending interval (sec)";
 const char INTL_DURATION_ROUTER_MODE[] PROGMEM = "Duration router mode";
 const char INTL_MORE_APIS[] PROGMEM = "More APIs";
@@ -107,6 +110,16 @@ const char INTL_DEVICE_STATUS[] PROGMEM = "Device status";
 #define INTL_RESTART "Restart"
 const char INTL_SAVE_AND_RESTART[] PROGMEM = "Save configuration and restart";
 #define INTL_FIRMWARE "Firmware version"
+#define INTL_IP_ADDRESS "IP Address"
+const char INTL_SD_CONNECTED[] PROGMEM = "SD Card connected";
+const char INTL_FREE_RAM[] PROGMEM = "Free Memory (RAM)";
+const char INTL_LAST_OTA[] PROGMEM = "Last OTA";
+const char INTL_UPTIME[] PROGMEM = "Uptime";
+const char INTL_RESET_REASON[] PROGMEM = "Reset Reason";
+const char INTL_OTA_RETURN[] PROGMEM = "OTA Return";
+const char INTL_COUNT_SUCCESS_SENDS[] PROGMEM = "count success sends";
+const char INTL_LAST_SEND_TIME[] PROGMEM = "last send time";
+#define INTL_CHIP_TYPE "Chip type"
 #define INTL_ROBONOMICS_ADDR "Robonomics Address"
 const char INTL_DEBUG_SETTING_TO[] PROGMEM = "Set debug level to";
 #define INTL_NONE "off"
@@ -136,7 +149,7 @@ const char INTL_LA_MAX[] PROGMEM = "LA max";
 const char INTL_LATITUDE[] PROGMEM = "Latitude";
 const char INTL_LONGITUDE[] PROGMEM = "Longitude";
 const char INTL_ALTITUDE[] PROGMEM = "Altitude";
-const char INTL_TIME_UTC[] PROGMEM = "Time (UTC)";
+const char INTL_TIME_LOCAL[] PROGMEM = "Time";
 const char INTL_SIGNAL_STRENGTH[] PROGMEM = "signal strength";
 const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_NUMBER_OF_MEASUREMENTS "Number of measurements"

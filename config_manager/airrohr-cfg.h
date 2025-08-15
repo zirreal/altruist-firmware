@@ -52,6 +52,7 @@ enum ConfigShapeId {
 	Config_debug,
 	Config_sending_intervall_ms,
 	Config_datalog_sending_intervall_ms,
+	Config_sds_meas_interval_ms,
 	Config_time_for_wifi_config,
 	Config_send2custom,
 	Config_host_custom,
@@ -72,6 +73,10 @@ enum ConfigShapeId {
 	Config_current_reg,
 	Config_temp_correction,
 	Config_local_hostname,
+	Config_chosen_altruist_urban,
+	Config_timezone,
+	Config_leds_brightness,
+	Config_leds_on,
 };
 static constexpr char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 static constexpr char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
@@ -96,6 +101,7 @@ static constexpr char CFG_KEY_HAS_FLIPPED_DISPLAY[] PROGMEM = "has_flipped_displ
 static constexpr char CFG_KEY_DEBUG[] PROGMEM = "debug";
 static constexpr char CFG_KEY_SENDING_INTERVALL_MS[] PROGMEM = "sending_intervall_ms";
 static constexpr char CFG_KEY_DATALOG_SENDING_INTERVALL_MS[] PROGMEM = "datalog_sending_intervall_ms";
+static constexpr char CFG_KEY_SDS_MEAS_INTERVAL_MS[] PROGMEM = "sds_meas_interval_ms";
 static constexpr char CFG_KEY_TIME_FOR_WIFI_CONFIG[] PROGMEM = "time_for_wifi_config";
 static constexpr char CFG_KEY_SEND2CUSTOM[] PROGMEM = "send2custom";
 static constexpr char CFG_KEY_HOST_CUSTOM[] PROGMEM = "host_custom";
@@ -116,6 +122,10 @@ static constexpr char CFG_KEY_DONATED_BY[] PROGMEM = "donated_by";
 static constexpr char CFG_KEY_CURRENT_REG[] PROGMEM = "current_reg";
 static constexpr char CFG_KEY_TEMP_CORRECTION[] PROGMEM = "temp_correction";
 static constexpr char CFG_KEY_LOCAL_HOSTNAME[] PROGMEM = "local_hostname";
+static constexpr char CFG_KEY_CHOSEN_ALTRUIST_URBAN[] PROGMEM = "chosen_altruist_urban";
+static constexpr char CFG_KEY_TIMEZONE[] PROGMEM = "timezone";
+static constexpr char CFG_KEY_LEDS_BRIGHTNESS[] PROGMEM = "leds_brightness";
+static constexpr char CFG_KEY_LEDS_ON[] PROGMEM = "leds_on";
 static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::current_lang)-1, CFG_KEY_CURRENT_LANG, cfg::current_lang },
 	{ Config_Type_String, sizeof(cfg::wlanssid)-1, CFG_KEY_WLANSSID, cfg::wlanssid },
@@ -140,6 +150,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_UInt, 0, CFG_KEY_DEBUG, &cfg::debug },
 	{ Config_Type_Time, 0, CFG_KEY_SENDING_INTERVALL_MS, &cfg::sending_intervall_ms },
 	{ Config_Type_Time, 0, CFG_KEY_DATALOG_SENDING_INTERVALL_MS, &cfg::datalog_sending_intervall_ms },
+	{ Config_Type_Time, 0, CFG_KEY_SDS_MEAS_INTERVAL_MS, &cfg::sds_meas_interval_ms },
 	{ Config_Type_Time, 0, CFG_KEY_TIME_FOR_WIFI_CONFIG, &cfg::time_for_wifi_config },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2CUSTOM, &cfg::send2custom },
 	{ Config_Type_String, sizeof(cfg::host_custom)-1, CFG_KEY_HOST_CUSTOM, cfg::host_custom },
@@ -160,6 +171,10 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::current_reg)-1, CFG_KEY_CURRENT_REG, cfg::current_reg },
 	{ Config_Type_String, sizeof(cfg::temp_correction)-1, CFG_KEY_TEMP_CORRECTION, cfg::temp_correction },
 	{ Config_Type_String, sizeof(cfg::local_hostname)-1, CFG_KEY_LOCAL_HOSTNAME, cfg::local_hostname },
+	{ Config_Type_String, sizeof(cfg::chosen_altruist_urban)-1, CFG_KEY_CHOSEN_ALTRUIST_URBAN, cfg::chosen_altruist_urban },
+	{ Config_Type_String, sizeof(cfg::timezone)-1, CFG_KEY_TIMEZONE, cfg::timezone },
+	{ Config_Type_UInt, 0, CFG_KEY_LEDS_BRIGHTNESS, &cfg::leds_brightness },
+	{ Config_Type_Bool, 0, CFG_KEY_LEDS_ON, &cfg::leds_on },
 };
           
 #endif // __CONFIG_H__

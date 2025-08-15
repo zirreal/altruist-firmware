@@ -1,7 +1,6 @@
 #ifndef __CONFIG_DEFAULTS_H__
 #define __CONFIG_DEFAULTS_H__
 
-#include "../ext_def.h"
 #include "../defines.h"
 
 namespace cfg {
@@ -9,6 +8,7 @@ namespace cfg {
 
 	extern unsigned time_for_wifi_config;
 	extern unsigned sending_intervall_ms;
+	extern unsigned sds_meas_interval_ms;
 	extern unsigned datalog_sending_intervall_ms;
 
 	extern char current_lang[3];
@@ -64,6 +64,11 @@ namespace cfg {
 
 	extern char temp_correction[LEN_TEMP_CORRECTION];
 	extern char local_hostname[LEN_LOCAL_HOSTNAME];
+	extern char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS];
+	extern char timezone[LEN_TIMEZONE];
+
+	extern unsigned leds_brightness;
+	extern bool leds_on;
 
 	extern void initNonTrivials(const char* id);
 }
