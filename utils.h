@@ -72,6 +72,7 @@ constexpr unsigned XLARGE_STR = 1024-1;
 struct api_status_t {
 	bool is_ok = true;
 	unsigned long count_sends = 0;
+	unsigned long count_sends_success = 0;
 	time_t last_send_time;
 };
 
@@ -79,13 +80,15 @@ struct device_status_t {
 	unsigned long last_update_attempt;
 	unsigned long time_point_device_start_ms;
 	int last_update_returncode;
-	unsigned long count_sends = 0;
+	bool sd_card_connected = false;
+	String ip_address;
 	std::map<std::string, api_status_t> apis_status;
 	std::vector<std::string> sensor_names;
 };
 
-
+String get_chipid();
 String tmpl(const __FlashStringHelper* patt, const String& value);
+const char* get_reset_reason_text();
 
 String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);
 String delayToString(unsigned time_ms);

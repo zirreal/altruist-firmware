@@ -67,12 +67,13 @@
 #define ARDUINOJSON_ENABLE_ARDUINO_PRINT 0
 #define ARDUINOJSON_DECODE_UNICODE 0
 #include <ArduinoJson.h>
+#include <SPIFFS.h>
 
 #include "./intl.h"
 
 #include "./utils.h"
 #include "defines.h"
-#include "ext_def.h"
+//#include "ext_def.h"
 #include "webserver/html-content.h"
 #include <Robonomics.h>
 #include "sensors/sensor_factory.h"
@@ -81,150 +82,45 @@
 #include "wifi_manager.h"
 #include "webserver/webserver.h"
 #include "OTA_Update.h"
+#include "sd_card/sd_card.h"
+#include "buttons/button_manager.h"
+#if defined(ALTRUIST_INSIDE)
+#include "display/display_manager.h"
+#include "leds/leds_controller_insight.h"
+#endif
+#if defined(ALTRUIST_URBAN)
+#include "leds/leds_controller_urban.h"
+#endif
 
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
-
+SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
 DynamicJsonDocument sensors_data(2048);
 device_status_t deviceStatus;
+#if defined(USE_SD_CARD)
+SDCard sdCardLogger;
+#endif
 
-SensorWebServer webserver(sensors_data, deviceStatus);
+#if defined(ALTRUIST_INSIDE)
+DisplayManager displayManager(sensors_data, deviceStatus);
+#endif
+ButtonManager button_manager;
+
+button_pressed_t btn_press;
+
+#if defined(ALTRUIST_URBAN)
+LedControllerUrban leds_controller_urban;
+#endif
+#if defined(ALTRUIST_INSIDE)
+LedControllerInsight leds_controller_insight(sensors_data);
+#endif
+
+SensorWebServer webserver(sensors_data, deviceStatus, mutex);
 
 /*****************************************************************
  * Variables for Robonomics                                      *
  *****************************************************************/
 Robonomics robonomics;
-
-
-/*****************************************************************
- * send data to influxdb                                         *
- *****************************************************************/
-// static void create_influxdb_string_from_data(String& data_4_influxdb, const String& data) {
-// 	debug_outln_verbose(F("Parse JSON for influx DB: "), data);
-// 	DynamicJsonDocument json2data(JSON_BUFFER_SIZE);
-// 	DeserializationError err = deserializeJson(json2data, data);
-// 	if (!err) {
-// 		data_4_influxdb += cfg::measurement_name_influx;
-// 		data_4_influxdb += F(",node=" SENSOR_BASENAME);
-// 		data_4_influxdb += esp_chipid + " ";
-// 		for (JsonObject measurement : json2data[FPSTR(JSON_SENSOR_DATA_VALUES)].as<JsonArray>()) {
-// 			data_4_influxdb += measurement["value_type"].as<char*>();
-// 			data_4_influxdb += "=";
-
-// 			if (isNumeric(measurement["value"])) {
-// 				//send numerics without quotes
-// 				data_4_influxdb += measurement["value"].as<char*>();
-// 			} else {
-// 				//quote string values
-// 				data_4_influxdb += "\"";
-// 				data_4_influxdb += measurement["value"].as<char*>();
-// 				data_4_influxdb += "\"";
-// 			}
-// 			data_4_influxdb += ",";
-// 		}
-// 		if ((unsigned)(data_4_influxdb.lastIndexOf(',') + 1) == data_4_influxdb.length()) {
-// 			data_4_influxdb.remove(data_4_influxdb.length() - 1);
-// 		}
-
-// 		data_4_influxdb += '\n';
-// 	} else {
-// 		debug_outln_error(FPSTR(DBG_TXT_DATA_READ_FAILED));
-// 	}
-// }
-
-/*****************************************************************
- * send data as csv to serial out                                *
- *****************************************************************/
-// static void send_csv(const String& data) {
-// 	DynamicJsonDocument json2data(JSON_BUFFER_SIZE);
-// 	DeserializationError err = deserializeJson(json2data, data);
-// 	debug_outln_info(F("CSV Output: "), data);
-// 	if (!err) {
-// 		String headline = F("Timestamp_ms;");
-// 		String valueline(act_milli);
-// 		valueline += ';';
-// 		for (JsonObject measurement : json2data[FPSTR(JSON_SENSOR_DATA_VALUES)].as<JsonArray>()) {
-// 			headline += measurement["value_type"].as<char*>();
-// 			headline += ';';
-// 			valueline += measurement["value"].as<char*>();
-// 			valueline += ';';
-// 		}
-// 		static bool first_csv_line = true;
-// 		if (first_csv_line) {
-// 			if (headline.length() > 0) {
-// 				headline.remove(headline.length() - 1);
-// 			}
-// 			Debug.println(headline);
-// 			first_csv_line = false;
-// 		}
-// 		if (valueline.length() > 0) {
-// 			valueline.remove(valueline.length() - 1);
-// 		}
-// 		Debug.println(valueline);
-// 	} else {
-// 		debug_outln_error(FPSTR(DBG_TXT_DATA_READ_FAILED));
-// 	}
-// }
-
-/*****************************************************************
- * read DHT22 sensor values                                      *
- *****************************************************************/
-// static void fetchSensorDHT(String& s) {
-// 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_DHT22));
-
-// 	// Check if valid number if non NaN (not a number) will be send.
-// 	last_value_DHT_T = -128;
-// 	last_value_DHT_H = -1;
-
-// 	int count = 0;
-// 	const int MAX_ATTEMPTS = 5;
-// 	while ((count++ < MAX_ATTEMPTS)) {
-// 		auto t = dht.readTemperature();
-// 		auto h = dht.readHumidity();
-// 		if (isnan(t) || isnan(h)) {
-// 			delay(100);
-// 			t = dht.readTemperature(false);
-// 			h = dht.readHumidity();
-// 		}
-// 		if (isnan(t) || isnan(h)) {
-// 			debug_outln_error(F("DHT11/DHT22 read failed"));
-// 		} else {
-// 			last_value_DHT_T = t + readCorrectionOffset(cfg::temp_correction);
-// 			last_value_DHT_H = h;
-// 			add_Value2Json(s, F("temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_DHT_T);
-// 			add_Value2Json(s, F("humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_DHT_H);
-// 			break;
-// 		}
-// 	}
-// 	debug_outln_info(FPSTR(DBG_TXT_SEP));
-
-// 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_DHT22));
-// }
-
-/*****************************************************************
- * read HTU21D sensor values                                     *
- *****************************************************************/
-// static void fetchSensorHTU21D(String& s) {
-// 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_HTU21D));
-
-// 	const auto t = htu21d.readTemperature();
-// 	const auto h = htu21d.readHumidity();
-// 	if (isnan(t) || isnan(h)) {
-// 		last_value_HTU21D_T = -128.0;
-// 		last_value_HTU21D_H = -1.0;
-// 		debug_outln_error(F("HTU21D read failed"));
-// 	} else {
-// 		last_value_HTU21D_T = t;
-// 		last_value_HTU21D_H = h;
-// 		add_Value2Json(s, F("HTU21D_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_HTU21D_T);
-// 		add_Value2Json(s, F("HTU21D_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_HTU21D_H);
-// 	}
-// 	debug_outln_info(FPSTR(DBG_TXT_SEP));
-
-// 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_HTU21D));
-// }
-
-
 
 const int maxSensors = 10;
 Sensor* activeSensors[maxSensors];
@@ -248,11 +144,13 @@ static void powerOnTestSensors() {
 
 }
 
-const int APIsCount = 2;
+const int APIsCount = 3;
+int ActiveAPIsCount = 2;
 API* activeAPIs[APIsCount];
 
 RobonomicsDatalogAPI robonomicsDatalogAPI;
 RobonomicsHTTPAPI robonomicsHTTPAPI;
+CustomHTTPAPI* customHTTPAPI = nullptr;
 
 static void setupEnabledAPIs() {
 	debug_outln_info(F("Send to :"));
@@ -263,8 +161,16 @@ static void setupEnabledAPIs() {
 	activeAPIs[0] = &robonomicsDatalogAPI;
 	activeAPIs[1] = &robonomicsHTTPAPI;
 
-	for (int i = 0; i < APIsCount; i++) {
+	if (cfg::send2custom) {
+		customHTTPAPI = new CustomHTTPAPI();
+		customHTTPAPI->setRobonomcis(&robonomics);
+		activeAPIs[2] = customHTTPAPI;
+		ActiveAPIsCount++;
+	}
+
+	for (int i = 0; i < ActiveAPIsCount; i++) {
 		activeAPIs[i]->setup();
+		activeAPIs[i]->updateDeviceStatus(deviceStatus);
 	}
 
 }
@@ -272,59 +178,213 @@ static void setupEnabledAPIs() {
 static void setupNetworkTime() {
 	// server name ptrs must be persisted after the call to configTime because internally
 	// the pointers are stored see implementation of lwip sntp_setservername()
+	debug_outln_info(F("Setup time, timezone: "), cfg::timezone);
 	static char ntpServer1[18], ntpServer2[18];
 	strcpy_P(ntpServer1, NTP_SERVER_1);
 	strcpy_P(ntpServer2, NTP_SERVER_2);
-	configTime(0, 0, ntpServer1, ntpServer2);
+
+	configTzTime(cfg::timezone, ntpServer1, ntpServer2);
+}
+
+void fetchSensors() {
+	bool isSDSRunning = false;
+		for (int i = 0; i < activeSensorsCount; i++) {
+			if (activeSensors[i]->sensor_name == SDS_SENSOR_NAME) {
+				isSDSRunning = static_cast<SDS011Sensor*>(activeSensors[i])->getIsSDSRunning();
+			}
+			if (activeSensors[i]->sensor_name == I2S_NOISE_SENSOR_NAME) {
+				static_cast<I2SNoiseSensor*>(activeSensors[i])->setSDSRunning(isSDSRunning);
+			}
+			if (activeSensors[i]->isTimeToFetch()) {
+				if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+					activeSensors[i]->fetch(sensors_data);
+					xSemaphoreGive(mutex);
+				}
+#if defined(USE_SD_CARD)
+				deviceStatus.sd_card_connected = sdCardLogger.checkInserted();
+				if (deviceStatus.sd_card_connected && activeSensors[i]->jsonUpdated()) {
+					sdCardLogger.logData(activeSensors[i]->sensor_name, sensors_data);
+				}
+#endif
+			}
+		}
+}
+
+void sensorAndAPIWorker(void *pvParameters) {
+	int reconnected = 0;
+	for (;;) {  // infinite loop
+		fetchSensors();
+
+		for (int i = 0; i < ActiveAPIsCount; i++) {
+			if (activeAPIs[i]->isTimeToSend()) {
+			Serial.printf("WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
+			if (WiFi.status() != WL_CONNECTED) {
+				WiFi.reconnect();
+				reconnected++;
+			}
+
+			sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
+			activeAPIs[i]->send(sensors_data);
+			activeAPIs[i]->updateDeviceStatus(deviceStatus);
+
+			if (msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
+				twoStageOTAUpdate(deviceStatus);
+				deviceStatus.last_update_attempt = millis();
+			}
+
+			debug_outln_info(get_reset_reason_text());
+
+			Serial.println(F("Device Status:"));
+			bool senders_ok = true;
+			for (const auto& [api_name, status] : deviceStatus.apis_status) {
+				Serial.print(F("API Name: "));
+				Serial.println(api_name.c_str());
+				Serial.print(F("  Count Sends: "));
+				Serial.println(status.count_sends);
+				Serial.print(F("  Last Send Time: "));
+				Serial.println(ctime(&status.last_send_time));
+				Serial.print(F("  Is OK: "));
+				Serial.println(status.is_ok ? F("Yes") : F("No"));
+				senders_ok = senders_ok && status.is_ok;
+			}
+
+			sensors_data.shrinkToFit();
+#ifdef ALTRUIST_URBAN
+			if (senders_ok) {
+				leds_controller_urban.setMode(LedMode::BLINK_GREEN);
+			} else {
+				leds_controller_urban.setMode(LedMode::BLINK_RED);
+			}
+#endif
+			}
+		}
+
+		vTaskDelay(100 / portTICK_PERIOD_MS);  // yield to other tasks, run ~10x/sec
+	}
+}
+
+void ledsWorker(void *pvParameters) {
+	for (;;) {
+		vTaskDelay(10 / portTICK_PERIOD_MS);
+#ifdef ALTRUIST_URBAN
+		leds_controller_urban.process();
+#endif
+#ifdef ALTRUIST_INSIDE
+		leds_controller_insight.process();
+#endif
+	}
+}
+
+void buttonsWorker(void *pvParameters) {
+	for (;;) {
+		button_pressed_t res = button_manager.process();
+		vTaskDelay(10 / portTICK_PERIOD_MS);
+		if (res.pressed) {
+			btn_press.button_num = res.button_num;
+			btn_press.press_type = res.press_type;
+			btn_press.double_long = res.double_long;
+			btn_press.second_button_num = res.second_button_num;
+			btn_press.pressed = true;
+#ifdef ALTRUIST_URBAN
+			if (btn_press.press_type == PressType::LONG) {
+				removeWiFiCredentials();
+				esp_restart();
+			}
+#endif
+#ifdef ALTRUIST_INSIDE
+			if (btn_press.double_long) {
+				debug_outln_info(F("Get double long press, reset wifi"));
+				removeWiFiCredentials();
+				btn_press.pressed = false;
+				displayManager.setScreen(ScreenPage::LOGO);
+				displayManager.process(btn_press);
+				delay(10000);
+				esp_restart();
+			}
+#endif
+		}
+	}
 }
 
 
-/*****************************************************************
- * The Setup                                                     *
- *****************************************************************/
-
 void setup(void) {
-	delay(3000);
+	delay(300);
 	// Debug.begin(115200);		// Output to Serial at 115200 from web console 
 	// Debug.println("Start Setup");
 	// printf("Start Setup print");
 	Serial.begin(115200);
 	Serial.println("Start setup");
 
-#if defined(WIFI_LoRa_32_V2)
-	// reset the OLED display, e.g. of the heltec_wifi_lora_32 board
-	pinMode(RST_OLED, OUTPUT);
-	digitalWrite(RST_OLED, LOW);
-	delay(50);
-	digitalWrite(RST_OLED, HIGH);
+	// If SET button pressed while turn on, reset the configuration
+#ifdef ALTRUIST_URBAN
+	leds_controller_urban.init();
+#endif
+#ifdef ALTRUIST_INSIDE
+	leds_controller_insight.init();
+#endif
+	button_manager.init();
+	bool reset_needed = true;
+	for (int i=0; i<5; i++) {
+		button_manager.process();
+#ifdef ALTRUIST_URBAN
+		reset_needed = reset_needed && (button_manager.get_button_state(ButtonNum::SET) == PRESSED_STATE);
+#endif
+#ifdef ALTRUIST_INSIDE
+		reset_needed = reset_needed && button_manager.get_button_state(ButtonNum::SET) == PRESSED_STATE && button_manager.get_button_state(ButtonNum::DOWN) == PRESSED_STATE;
+#endif
+		delay(10);
+	}
+	if (reset_needed) {
+		debug_outln_info(F("Delete configuration and restart"));
+		init_config();
+		SPIFFS.remove(F("/config.json.old"));
+		SPIFFS.remove(F("/config.json"));
+		delay(2000);
+		// esp_restart();
+	}
+
+#ifdef ALTRUIST_INSIDE
+	DEV_Module_Init();
+	displayManager.setScreen(ScreenPage::LOADING);
+	displayManager.process(btn_press);
 #endif
 
-#if defined(ESP8266)
-	esp_chipid = std::move(String(ESP.getChipId()));
-	esp_mac_id = std::move(String(WiFi.macAddress().c_str()));
-	esp_mac_id.replace(":", "");
-	esp_mac_id.toLowerCase();
-#endif
-#if defined(ESP32)
-	uint64_t chipid_num;
-	chipid_num = ESP.getEfuseMac();
-	String esp_chipid((uint16_t)(chipid_num >> 32), HEX);
-	esp_chipid += String((uint32_t)chipid_num, HEX);
-#endif
+	String esp_chipid = get_chipid();
 	cfg::initNonTrivials(esp_chipid.c_str());
 	WiFi.persistent(false);
 
-	debug_outln_info(F("airRohr: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
+	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
 
 	init_config();
-	// init_display();
 	setupNetworkTime();
 	setupEnabledAPIs();
-	powerOnTestSensors();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
-	connectWifi(webserver);
+#ifdef ALTRUIST_INSIDE
+	displayManager.setRobonomicsAddress(robonomics.getSs58Address());
+	if (strcmp(cfg::wlanssid, WLANSSID) != 0) {
+		displayManager.setScreen(ScreenPage::CONNECTING);
+		displayManager.process(btn_press);
+	}
+#endif
+	if (strcmp(cfg::wlanssid, WLANSSID) == 0 || !connectWifi(webserver)) {
+#ifdef ALTRUIST_INSIDE
+		displayManager.setScreen(ScreenPage::SETUP);
+		displayManager.process(btn_press);
+#endif
+#ifdef ALTRUIST_URBAN
+		leds_controller_urban.setMode(LedMode::BLUE);
+		leds_controller_urban.process();
+#endif
+		wifiConfig(webserver);
+	}
+#ifdef ALTRUIST_URBAN
+		leds_controller_urban.setMode(LedMode::GREEN);
+		leds_controller_urban.process();
+#endif
+	powerOnTestSensors();
 	webserver.setup();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
+	debug_outln_info(get_reset_reason_text());
 	twoStageOTAUpdate(deviceStatus);
 
 	sensors_data["service_data"]["robonomics_address"] = robonomics.getSs58Address();
@@ -342,51 +402,54 @@ void setup(void) {
     Serial.println();
 
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
+#if defined(USE_SD_CARD)
+	deviceStatus.sd_card_connected = sdCardLogger.begin();
+#endif
+	fetchSensors();
+	deviceStatus.ip_address = WiFi.localIP().toString();
 
+#ifdef ALTRUIST_URBAN
+	leds_controller_urban.setMode(LedMode::NONE);
+#endif
+
+	xTaskCreatePinnedToCore(
+		sensorAndAPIWorker,  // task function
+		"SensorAPIWorker",   // name
+		16392,                // stack size
+		NULL,                // parameters
+		2,                   // priority (>=1 to not be preempted too much)
+		NULL,                // task handle (optional)
+		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
+	);
+	xTaskCreatePinnedToCore(
+		buttonsWorker,  // task function
+		"ButtonWorker",   // name
+		2048,                // stack size
+		NULL,                // parameters
+		1,                   // priority (>=1 to not be preempted too much)
+		NULL,                // task handle (optional)
+		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
+	);
+	xTaskCreatePinnedToCore(
+		ledsWorker,  // task function
+		"LedsWorker",   // name
+		2048,                // stack size
+		NULL,                // parameters
+		2,                   // priority (>=1 to not be preempted too much)
+		NULL,                // task handle (optional)
+		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
+	);
+#ifdef ALTRUIST_INSIDE
+	displayManager.setScreen(ScreenPage::MAIN);
+#endif
+	debug_outln_info(F("Setup finished"));
+	// button_controller.init();
 }
 
-/*****************************************************************
- * And action                                                    *
- *****************************************************************/
-
 void loop(void) {
-	bool isSDSRunning = false;
-	for (int i = 0; i < activeSensorsCount; i++) {
-		if (activeSensors[i]->sensor_name == SDS_SENSOR_NAME) {
-			isSDSRunning = static_cast<SDS011Sensor*>(activeSensors[i])->getIsSDSRunning();
-		}
-		if (activeSensors[i]->sensor_name == I2S_NOISE_SENSOR_NAME) {
-			static_cast<I2SNoiseSensor*>(activeSensors[i])->setSDSRunning(isSDSRunning);
-		}
-		if (activeSensors[i]->isTimeToFetch()) {
-			activeSensors[i]->fetch(sensors_data);
-		}
-	}
-
-
-	for (int i = 0; i < APIsCount; i++) {
-		if (activeAPIs[i]->isTimeToSend()) {
-			sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
-			activeAPIs[i]->send(sensors_data);
-			activeAPIs[i]->updateDeviceStatus(deviceStatus);
-			if (msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
-				twoStageOTAUpdate(deviceStatus);
-				deviceStatus.last_update_attempt = millis();
-			}
-			Serial.println(F("Device Status:"));
-			for (const auto& [api_name, status] : deviceStatus.apis_status) {
-				Serial.print(F("API Name: "));
-				Serial.println(api_name.c_str());
-				Serial.print(F("  Count Sends: "));
-				Serial.println(status.count_sends);
-				Serial.print(F("  Last Send Time: "));
-				Serial.println(ctime(&status.last_send_time));
-				Serial.print(F("  Is OK: "));
-				Serial.println(status.is_ok ? F("Yes") : F("No"));
-			}
-			sensors_data.shrinkToFit();
-		}
-	}
 	webserver.handleClient();
+#if defined(ALTRUIST_INSIDE)
+	displayManager.process(btn_press);
+#endif
 	yield();
 }

@@ -43,7 +43,7 @@ void webserver_config_send_body_post(WebServer &server) {
  * Webserver config: show config page                            *
  *****************************************************************/
 
-void webserver_config_send_body_get(WebServer &server, String& page_content, bool wificonfig_loop) {
+void webserver_config_send_body_get(WebServer &server, String& page_content, bool wificonfig_loop, JsonDocument &data) {
 	auto add_form_checkbox = [&page_content](const ConfigShapeId cfgid, const String& info, bool enabled) {
 		page_content += form_checkbox(cfgid, info, true, enabled);
 	};
@@ -96,6 +96,21 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_GPS "</h3>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
+#ifdef ALTRUIST_URBAN
+	add_form_input(page_content, Config_sds_meas_interval_ms, FPSTR(INTL_SDS_MEAS_INTERVAL), 5);
+#endif
+#ifdef ALTRUIST_INSIDE
+	page_content += form_select_altruist(data);
+	add_form_checkbox(Config_use_custom_urban, FPSTR(INTL_USE_CUSTOM_URBAN), true);
+	add_form_input(page_content, Config_custom_altruist_urban, FPSTR(INTL_CUSTOM_ALTRUIST), LEN_CHOSEN_ALTRUIS_ADDRESS-1);
+	page_content += F("<script>"
+	    "var $ = function(e) { return document.getElementById(e); };"
+	    "function updateUrbanOptions() { "
+		"$('custom_altruist_urban').disabled = !$('use_custom_urban').checked; "
+		"$('chosen_altruist_urban').disabled = $('use_custom_urban').checked;"
+		"}; updateUrbanOptions(); $('use_custom_urban').onchange = updateUrbanOptions;"
+		"</script>");
+#endif
 	page_content += F("<div class='map-container'><div id='map'></div>");
 	page_content += F("</div><span class='map-text'> <em>The marker on the map shows approximate location to make sure you have the right hemisphere</em></span>");
 	page_content += F("</div>");
@@ -124,7 +139,10 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_DEBUG "</h3>");
 	add_form_input(page_content, Config_debug, FPSTR(INTL_DEBUG_LEVEL), 1);
 	add_form_input(page_content, Config_sending_intervall_ms, FPSTR(INTL_MEASUREMENT_INTERVAL), 5);
-	add_form_input(page_content, Config_time_for_wifi_config, FPSTR(INTL_DURATION_ROUTER_MODE), 5);
+	if (LED_PIN != -1) {
+		add_form_checkbox(Config_leds_on, FPSTR(INTL_LEDS_ON), true);
+		add_form_input(page_content, Config_leds_brightness, FPSTR(INTL_LEDS_BRIGHTNESS), 5);
+	}
 	page_content += F("</div>");
 
 	server.sendContent(page_content);
@@ -139,7 +157,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 
 	page_content += form_select_lang();
 
-	page_content += form_select_reg();
+	page_content += form_select_timezone();
+
+	// page_content += form_select_reg();
 
 	page_content += F("<script>"
 	    "var $ = function(e) { return document.getElementById(e); };"
@@ -169,22 +189,22 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// Custom API (tab 3)
 
 	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CUSTOMAPI "</h3>");
-	page_content += form_checkbox(Config_send2custom, FPSTR(INTL_SEND_TO_OWN_API), false, false);
-	page_content += form_checkbox(Config_ssl_custom, FPSTR(WEB_HTTPS), false, false);
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CUSTOMAPI " (BETA)</h3>");
+	page_content += form_checkbox(Config_send2custom, FPSTR(INTL_SEND_TO_OWN_API), false, true);
+	// page_content += form_checkbox(Config_ssl_custom, FPSTR(WEB_HTTPS), false, false);
 
-	add_form_input(page_content, Config_host_custom, FPSTR(INTL_SERVER), LEN_HOST_CUSTOM-1, false);
-	add_form_input(page_content, Config_url_custom, FPSTR(INTL_PATH), LEN_URL_CUSTOM-1, false);
-	add_form_input(page_content, Config_port_custom, FPSTR(INTL_PORT), MAX_PORT_DIGITS, false);
-	add_form_input(page_content, Config_user_custom, FPSTR(INTL_USER), LEN_USER_CUSTOM-1, false);
-	add_form_input(page_content, Config_pwd_custom, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1, false);
+	add_form_input(page_content, Config_host_custom, FPSTR(INTL_SERVER), LEN_HOST_CUSTOM-1, true);
+	add_form_input(page_content, Config_url_custom, FPSTR(INTL_PATH), LEN_URL_CUSTOM-1, true);
+	add_form_input(page_content, Config_port_custom, FPSTR(INTL_PORT), MAX_PORT_DIGITS, true);
+	// add_form_input(page_content, Config_user_custom, FPSTR(INTL_USER), LEN_USER_CUSTOM-1, false);
+	// add_form_input(page_content, Config_pwd_custom, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1, false);
 	page_content += F("</div>");
 	server.sendContent(page_content);
 
 	// Influx DB (tab 3)
 	
 	page_content = F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_INFLUX "</h3>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_INFLUX " (UNDO DEVELOPMENT)</h3>");
 	page_content += form_checkbox(Config_send2influx, tmpl(FPSTR(INTL_SEND_TO), F("InfluxDB")), false, false);
 
 	page_content += form_checkbox(Config_ssl_influx, FPSTR(WEB_HTTPS), false, false);
@@ -202,7 +222,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// CSV (tab 3)
 
 	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CSV "</h3>");
+	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CSV " (UNDO DEVELOPMENT)</h3>");
 	add_form_checkbox(Config_send2csv, FPSTR(WEB_CSV), false);
 	page_content += F("</div>");
 

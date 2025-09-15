@@ -128,6 +128,71 @@ String form_select_lang() {
 	return s;
 }
 
+String form_select_altruist(JsonDocument& data) {
+	String s_select = F(" selected='selected'");
+	String s = F("<div class='form-group'>"
+				"<label for='chosen_altruist_urban'>Altruist Urban</label>"
+				"<select id='chosen_altruist_urban' name='chosen_altruist_urban'>");
+
+	JsonArray addresses = data["service_data"]["altruist_addresses"];
+	for (JsonVariant v : addresses) {
+		const String ip = v.as<String>();
+
+		s += F("<option value='");
+		s += ip;
+		s += "'";
+
+		if (ip == cfg::chosen_altruist_urban) {
+			s += s_select;
+		}
+
+		s += ">";
+		s += ip;
+		s += "</option>";
+	}
+
+	s += F("</select></div>");
+	return s;
+}
+
+String form_select_timezone() {
+	String s_select = F(" selected='selected'");
+	String s = F(
+    "<div class='form-group'>"
+    "<label for='timezone'>Timezone:</label>"
+    "<select id='timezone' name='timezone'>"
+        "<option value='<-12>12'>UTC-12</option>"
+        "<option value='<-11>11'>UTC-11</option>"
+        "<option value='<-10>10'>UTC-10</option>"
+        "<option value='<-9>9'>UTC-9</option>"
+        "<option value='<-8>8'>UTC-8</option>"
+        "<option value='<-7>7'>UTC-7</option>"
+        "<option value='<-6>6'>UTC-6</option>"
+        "<option value='<-5>5'>UTC-5</option>"
+        "<option value='<-4>4'>UTC-4</option>"
+        "<option value='<-3>3'>UTC-3</option>"
+        "<option value='<-2>2'>UTC-2</option>"
+        "<option value='<-1>1'>UTC-1</option>"
+        "<option value='<+00>0'>UTC+0</option>"
+        "<option value='<+01>-1'>UTC+1</option>"
+        "<option value='<+02>-2'>UTC+2</option>"
+        "<option value='<+03>-3'>UTC+3</option>"
+        "<option value='<+04>-4'>UTC+4</option>"
+        "<option value='<+05>-5'>UTC+5</option>"
+        "<option value='<+06>-6'>UTC+6</option>"
+        "<option value='<+07>-7'>UTC+7</option>"
+        "<option value='<+08>-8'>UTC+8</option>"
+        "<option value='<+09>-9'>UTC+9</option>"
+        "<option value='<+10>-10'>UTC+10</option>"
+        "<option value='<+11>-11'>UTC+11</option>"
+        "<option value='<+12>-12'>UTC+12</option>"
+    "</select>"
+    "</div>");
+
+	s.replace("'" + String(cfg::timezone) + "'>", "'" + String(cfg::timezone) + "'" + s_select + ">");
+	return s;
+}
+
 String form_select_reg() {
 	String s_select = F(" selected='selected'");
 	String s = F(	"<div class='form-group'>"
@@ -187,4 +252,8 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 	s.replace("{v}", t_value);
 	s.replace("{l}", String(length));
 	page_content += s;
+}
+
+void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length) {
+    add_form_input(page_content, cfgid, info, length, true);
 }

@@ -29,7 +29,7 @@ private:
     void _send(JsonDocument &data) override;
     void POSTRequest(const String& data, const char* host);
     int chooseRobonomicsServer(bool onlyGlobal);
-    void addTimeAndSign(const String &data, String &signature);
+    void formatDataToSend(String &data_to_send, JsonDocument &data);
 };
 
 #endif  // __ROBONOMICS_API_H__

@@ -1,0 +1,66 @@
+name: Release PR to Webflasher Repo
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  push-to-deploy:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install GitHub CLI
+        run: |
+          sudo apt update
+          sudo apt install -y curl
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /usr/share/keyrings/githubcli-archive-keyring.gpg > /dev/null
+          sudo apt update
+          sudo apt install gh  # Install GitHub CLI
+
+      - name: Install GitHub CLI
+        run: sudo apt install -y gh
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build firmware
+        run: pio run
+
+      - name: Clone webflasher repo and create PR
+        run: |
+          pio --version
+          cat builds/latest32c3_en.bin.md5
+          TAG=${{ github.ref_name }}
+          BRANCH=altruist-release-$TAG
+
+          gh auth login --with-token <<< "${{ secrets.GH_PAT }}"
+          gh repo clone airalab/webflasher webflasher
+          cd webflasher
+
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/airalab/webflasher.git
+
+          git config --global user.name "Altruist Actions"
+          git config --global user.email "ci-automation@example.com"
+
+          git checkout -b $BRANCH
+          ls firmware/Altruist
+          rm -f firmware/Altruist/latest*
+          ls firmware/Altruist
+          cp ../builds/* ./firmware/Altruist/
+          rm 
+          ls firmware/Altruist
+          git add firmware/Altruist
+          git commit -m "Altruist firmware release $TAG"
+          git push --set-upstream origin $BRANCH
+          echo "Pushed the branch: $BRANCH"
+
+          gh pr create --title "Altruist firmware release $TAG" \
+                       --body "Automated PR for Altruist firmware release $TAG" \
+                       --base main --head $BRANCH

@@ -1,0 +1,33 @@
+# Airrohr Firmware CI workflow
+
+name: Altruist Firmware Test Build
+on:
+  push:
+    branches:
+        - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build firmware
+        run: pio run
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: altruist-firmware
+          path: builds/latest*.bin*
+

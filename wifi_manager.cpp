@@ -32,7 +32,7 @@ static int selectChannelForAp() {
 /*****************************************************************
  * WifiConfig                                                    *
  *****************************************************************/
-static void wifiConfig(SensorWebServer &webserver) {
+void wifiConfig(SensorWebServer &webserver) {
 	debug_outln_info(F("Starting WiFiManager"));
 	debug_outln_info(F("AP ID: "), String(cfg::fs_ssid));
 	debug_outln_info(F("Password: "), String(cfg::fs_pwd));
@@ -75,6 +75,7 @@ static void wifiConfig(SensorWebServer &webserver) {
 	const IPAddress apIP(192, 168, 4, 1);
 	WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
 	WiFi.softAP(cfg::fs_ssid, cfg::fs_pwd, selectChannelForAp());
+	// WiFi.softAP(cfg::fs_ssid);
 	// In case we create a unique password at first start
 	debug_outln_info(F("AP Password is: "), cfg::fs_pwd);
 
@@ -88,9 +89,14 @@ static void wifiConfig(SensorWebServer &webserver) {
 
 	// // 10 minutes timeout for wifi config
 	// unsigned long last_page_load = millis();
+	unsigned long start_setup_time = millis();
 	while (true) {
 		dnsServer.processNextRequest();
 		webserver.handleClient();
+		if (millis() - start_setup_time > 15 * 60 * 1000) {
+			debug_outln_error(F("WiFi config timeout, restarting..."));
+			esp_restart();
+		}
 #if defined(ESP8266)
 		wdt_reset(); // nodemcu is alive
 		MDNS.update();
@@ -145,10 +151,12 @@ static WiFiEventHandler disconnectEventHandler;
 static WiFiEventId_t disconnectEventHandler;
 #endif
 
-void connectWifi(SensorWebServer &webserver) {
+bool connectWifi(SensorWebServer &webserver) {
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
 	if (WiFi.getAutoConnect()) {
 		WiFi.setAutoConnect(false);
 	}
+#endif
 	if (!WiFi.getAutoReconnect()) {
 		WiFi.setAutoReconnect(true);
 	}
@@ -191,6 +199,7 @@ void connectWifi(SensorWebServer &webserver) {
 	
 	debug_outln_info(emptyString);
 	if (WiFi.status() != WL_CONNECTED) {
+		return false;
 		String fss(cfg::fs_ssid);
 		// display_debug(fss.substring(0, 16), fss.substring(16));
 
@@ -211,6 +220,8 @@ void connectWifi(SensorWebServer &webserver) {
 	if (MDNS.begin(cfg::local_hostname)) {
 		MDNS.addService("altruist", "tcp", 80);
 		MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
+		MDNS.addServiceTxt("altruist", "tcp", DEVICE_MODEL_MDNS_PROPERTY, DEVICE_MODEL);
 	}
+	return true;
 }
 
