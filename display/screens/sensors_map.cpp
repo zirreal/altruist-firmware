@@ -65,9 +65,17 @@ void showSensorsMapPage(const String& robonomics_address) {
         }
     }
 
-    Paint_DrawString_EN(DISPLAY_WIDTH / 2 - 5*Font24.Width, 0, "Sensors Map", &Font24, WHITE, BLACK);
-    
+    // Main title - centered
+    const char* title = "Sensors Map";
+    int title_x = (DISPLAY_WIDTH - strlen(title) * Font24.Width) / 2;
+    Paint_DrawString_EN(title_x, 5, title, &Font24, BLACK, WHITE);
 
+    // Subtitle - smaller font, centered
+    const char* subtitle = "Scan to open online";
+    int subtitle_x = (DISPLAY_WIDTH - strlen(subtitle) * Font16.Width) / 2;
+    Paint_DrawString_EN(subtitle_x, Font24.Height + 10, subtitle, &Font16, BLACK, WHITE);
+
+    
     int qr_x = DISPLAY_WIDTH / 2 - total_width / 2;
     int qr_y = Font24.Height + (DISPLAY_HEIGHT - Font24.Height) / 2 - total_height / 2;
     

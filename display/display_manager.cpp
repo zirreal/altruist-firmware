@@ -28,7 +28,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             refresh_now = true;
         }
     }
-    if (refresh_time_for_qr > 0 && msSince(refresh_time_for_qr) > 3000) {
+    if (refresh_time_for_qr > 0 && msSince(refresh_time_for_qr) > 8000) {
         refresh_time_for_qr = 0;
         refresh_now = true;
     }
