@@ -3,6 +3,10 @@
 #include "display_manager.h"
 #include "screens/screens.h"
 
+void DisplayManager::setup() {
+    createNewImage(BlackImage);
+}
+
 void DisplayManager::setScreen(ScreenPage pageID) {
     // Reset animation state when leaving connecting screen
     if (currentScreenID == ScreenPage::CONNECTING && pageID != ScreenPage::CONNECTING) {
@@ -39,25 +43,18 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     }
     if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || refresh_now || currentScreenID == ScreenPage::CONNECTING) {
         refresh_now = false;
-        
-        // Skip initialization for connecting screen to maintain fast refresh mode
-        if (currentScreenID != ScreenPage::CONNECTING) {
-            initAndClearScreen();
-        }
-        
-        UBYTE *BlackImage;
-        createNewImage(BlackImage);
+        initAndClearScreen();
         if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL && currentScreenID == ScreenPage::MAIN) {
-            // if (refresh_count_for_qr > 0) {
-            //     refresh_count_for_qr = 0;
+            if (refresh_count_for_qr > 1) {
+                refresh_count_for_qr = 0;
                 refresh_time_for_qr = millis();
                 showSensorsMapPage(robonomics_address);
                 last_refresh_time = millis();
                 showImageLong(BlackImage);
                 return;
-            // } else {
-            //     refresh_count_for_qr++;
-            // }
+            } else {
+                refresh_count_for_qr++;
+            }
         }
         if (currentScreenID == ScreenPage::MAIN) {
             String jsonString;

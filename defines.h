@@ -261,7 +261,7 @@ const char WWW_PASSWORD[] PROGMEM = "";
 
 // Sensor Wifi config (config mode)
 #define FS_SSID ""
-#define FS_PWD ""
+#define FS_PWD "123456789"
 
 // Where to send the data?
 #define SEND2ROBONOMICS 1

@@ -104,13 +104,13 @@ uint32_t LedControllerInsight::_getPMColor(float pm10, float pm25) {
 }
 
 uint32_t LedControllerInsight::_getNoiseColor(float noise) {
-    if (noise < 50) {
+    if (noise < 60) {
         return getColor(ColorName::GREEN_LED);
-    } else if (noise < 70) {
-        return getColor(ColorName::BLUE_LED);
     } else if (noise < 80) {
-        return getColor(ColorName::ORANGE_LED);
+        return getColor(ColorName::BLUE_LED);
     } else if (noise < 100) {
+        return getColor(ColorName::ORANGE_LED);
+    } else if (noise < 120) {
         return getColor(ColorName::RED_LED);
     } else {
         return getColor(ColorName::PURPLE_LED);

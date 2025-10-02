@@ -31,7 +31,7 @@ void showSetupPage(UBYTE *BlackImage) {
     // QR code generation
     uint8_t qrcodeData[qrcode_getBufferSize(3)];
     char qr_data[100];
-    sprintf(qr_data, "WIFI:S:%s;T:;P:;;", cfg::fs_ssid);
+    sprintf(qr_data, "WIFI:S:%s;T:WPA2;P:%s;;", cfg::fs_ssid, cfg::fs_pwd);
     qrcode_initText(&qrcode, qrcodeData, QR_VERSION, ECC_LOW, qr_data);
 
     int scale_factor = 4; // pixels per module
@@ -67,17 +67,16 @@ void showSetupPage(UBYTE *BlackImage) {
     int qr_y = DISPLAY_HEIGHT / 2 - total_height / 2;
     Paint_DrawImage(qr_bitmap_scaled, qr_x, qr_y, total_width, total_height);
 
-    // Instruction text below QR
-    const char* label1 = "Scan QR to connect";
-    int label_x = (DISPLAY_WIDTH - strlen(label1) * Font16.Width) / 2;
-    int label_y = qr_y + total_height + 5;
-    Paint_DrawString_EN(label_x, label_y, label1, &Font16, BLACK, WHITE);
+    int label_y = qr_y + total_height + (DISPLAY_HEIGHT - (qr_y + total_height)) / 2 - (3 * Font16.Height + 10) / 2;
 
-    const char* label2 = cfg::fs_ssid; // SSID text
-    int label2_x = (DISPLAY_WIDTH - strlen(label2) * Font16.Width) / 2;
-    int label2_y = label_y + Font16.Height + 2;
-    Paint_DrawString_EN(label2_x, label2_y, label2, &Font16, BLACK, WHITE);
-
+    Paint_DrawString_EN(DISPLAY_WIDTH / 2 - 5*Font16.Width, label_y, "Connect to", &Font16, WHITE, BLACK);
+    Paint_DrawString_EN(DISPLAY_WIDTH / 2 - strlen(cfg::fs_ssid)*Font16.Width / 2, label_y + Font16.Height + 5, cfg::fs_ssid, &Font16, WHITE, BLACK);
+    char output_str[100];
+    strcpy(output_str, "Password: ");
+    strcat(output_str, cfg::fs_pwd);
+    Paint_DrawString_EN(DISPLAY_WIDTH / 2 - strlen(output_str)*Font16.Width / 2, label_y + 2*Font16.Height + 10, output_str, &Font16, WHITE, BLACK);
+    
+    // Clean up
     free(qr_bitmap_scaled);
 }
 
