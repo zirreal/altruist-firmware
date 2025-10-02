@@ -4,6 +4,11 @@
 #include "screens/screens.h"
 
 void DisplayManager::setScreen(ScreenPage pageID) {
+    // Reset animation state when leaving connecting screen
+    if (currentScreenID == ScreenPage::CONNECTING && pageID != ScreenPage::CONNECTING) {
+        // Reset static variables in connecting animation
+        // This will be handled by the static variables naturally
+    }
     currentScreenID = pageID;
     refresh_now = true;
 }
@@ -28,13 +33,18 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             refresh_now = true;
         }
     }
-    if (refresh_time_for_qr > 0 && msSince(refresh_time_for_qr) > 8000) {
+    if (refresh_time_for_qr > 0 && msSince(refresh_time_for_qr) > 30000) {
         refresh_time_for_qr = 0;
         refresh_now = true;
     }
-    if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || refresh_now) {
+    if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || refresh_now || currentScreenID == ScreenPage::CONNECTING) {
         refresh_now = false;
-        initAndClearScreen();
+        
+        // Skip initialization for connecting screen to maintain fast refresh mode
+        if (currentScreenID != ScreenPage::CONNECTING) {
+            initAndClearScreen();
+        }
+        
         UBYTE *BlackImage;
         createNewImage(BlackImage);
         if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL && currentScreenID == ScreenPage::MAIN) {
@@ -61,7 +71,9 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         } else if (currentScreenID == ScreenPage::LOADING) {
             showLoadingPage(BlackImage);
         } else if (currentScreenID == ScreenPage::CONNECTING) {
-            showConnectingPage(BlackImage);
+            // Simple static connecting screen - perfect for e-ink displays
+            debug_outln_info(F("Showing connecting screen"));
+            showConnectingPage(BlackImage, 25); // Static 25% progress
         } else if (currentScreenID == ScreenPage::LOGO) {
             showLogoPage();
         } else if (currentScreenID == ScreenPage::SENSOR_MAP) {

@@ -5,7 +5,7 @@
 
 #include "../driver/EPD.h"
 
-void showConnectingPage(UBYTE *BlackImage);
+void showConnectingPage(UBYTE *BlackImage, int step = 0);
 
 #endif // _CONNECTING_SCREEN_H
 
