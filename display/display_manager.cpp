@@ -8,11 +8,6 @@ void DisplayManager::setup() {
 }
 
 void DisplayManager::setScreen(ScreenPage pageID) {
-    // Reset animation state when leaving connecting screen
-    if (currentScreenID == ScreenPage::CONNECTING && pageID != ScreenPage::CONNECTING) {
-        // Reset static variables in connecting animation
-        // This will be handled by the static variables naturally
-    }
     currentScreenID = pageID;
     refresh_now = true;
 }
@@ -44,8 +39,9 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || refresh_now || currentScreenID == ScreenPage::CONNECTING) {
         refresh_now = false;
         initAndClearScreen();
+        // Show sensors map every few refresh cycles when on main screen
         if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL && currentScreenID == ScreenPage::MAIN) {
-            if (refresh_count_for_qr > 1) {
+            if (refresh_count_for_qr >= 1) { // Show sensors map after 1 main screen refresh
                 refresh_count_for_qr = 0;
                 refresh_time_for_qr = millis();
                 showSensorsMapPage(robonomics_address);
@@ -68,9 +64,9 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         } else if (currentScreenID == ScreenPage::LOADING) {
             showLoadingPage(BlackImage);
         } else if (currentScreenID == ScreenPage::CONNECTING) {
-            // Simple static connecting screen - perfect for e-ink displays
+            // Simple static connecting screen
             debug_outln_info(F("Showing connecting screen"));
-            showConnectingPage(BlackImage, 25); // Static 25% progress
+            showConnectingPage(BlackImage, 25);
         } else if (currentScreenID == ScreenPage::LOGO) {
             showLogoPage();
         } else if (currentScreenID == ScreenPage::SENSOR_MAP) {

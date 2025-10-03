@@ -73,7 +73,7 @@ void showSensorsMapPage(const String& robonomics_address) {
     const char* powered = "Powered by Robonomics";
     int powered_x = (DISPLAY_WIDTH - strlen(powered) * Font12.Width) / 2;
     int powered_y = DISPLAY_HEIGHT - Font12.Height - 5;
-    Paint_DrawString_EN(powered_x, powered_y, powered, &Font12, BLACK, WHITE);
+    Paint_DrawString_EN(powered_x, powered_y, powered, &Font12, WHITE, BLACK);
 
     free(qr_bitmap_scaled);
 }
