@@ -146,65 +146,76 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
     }
 }
 
-// Draw the full main screen with improved UX
+// Draw the full main screen with Urban 2-subcolumn layout
 void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &device_ip) {
     main_screen_values_t values;
     _parseJsonToStruct(jsonString, values);
 
-    uint16_t top_bar_height = Font16.Height + Font12.Height + 10;
-    uint16_t column_width = DISPLAY_WIDTH / 3;
-
-    // Cleaner, more compact header
+    // Clear screen first to remove any white lines
+    Paint_Clear(WHITE);
+    
+    // Simple black line/bar at top (a bit longer)
+    uint16_t top_bar_height = Font16.Height + Font8.Height;
     Paint_DrawRectangle(0, 0, DISPLAY_WIDTH, top_bar_height, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-
-    // Urban Section with connection status - smaller font for cleaner look
-    Paint_DrawString_EN(8, 4, "URBAN", &Font16, BLACK, WHITE);
-    String urban_status = values.ip_address.length() > 0 ? values.ip_address : "Offline";
-    Paint_DrawString_EN(8, Font16.Height + 4, urban_status.c_str(), &Font12, BLACK, WHITE);
-
-    // Insight Section with connection status - smaller font for cleaner look
-    Paint_DrawString_EN(2 * column_width + 8, 4, "INSIGHT", &Font16, BLACK, WHITE);
-    String insight_status = device_ip.length() > 0 ? device_ip : "Offline";
-    Paint_DrawString_EN(2 * column_width + 8, Font16.Height + 4, insight_status.c_str(), &Font12, BLACK, WHITE);
-
-    // Centered date/time with better formatting
-    struct tm timeinfo;
+    
+    // Date and time on top of black bar
+    struct tm timeinfo; 
     if (getLocalTime(&timeinfo)) {
         char date_buf[12], time_buf[8];
         strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
         strftime(time_buf, sizeof(time_buf), "%H:%M", &timeinfo);
         
         int date_x = DISPLAY_WIDTH / 2 - strlen(date_buf) * Font12.Width / 2;
-        int time_x = DISPLAY_WIDTH / 2 - strlen(time_buf) * Font12.Width / 2;
+        int time_x = DISPLAY_WIDTH / 2 - strlen(time_buf) * Font16.Width / 2;
         
         Paint_DrawString_EN(date_x, 2, date_buf, &Font12, BLACK, WHITE);
-        Paint_DrawString_EN(time_x, Font12.Height + 2, time_buf, &Font12, BLACK, WHITE);
+        Paint_DrawString_EN(time_x, Font12.Height + 2, time_buf, &Font16, BLACK, WHITE);
     }
 
-    // Vertical separators
-    Paint_DrawLine(column_width, 0, column_width, top_bar_height, WHITE, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    Paint_DrawLine(2 * column_width, 0, 2 * column_width, top_bar_height, WHITE, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    // Section headers row (below time) - bigger gap
+    uint16_t y_start = top_bar_height + 18;
+    uint16_t urban_width = (DISPLAY_WIDTH * 2) / 3; // Urban gets 2/3 of screen
+    uint16_t insight_width = DISPLAY_WIDTH / 3;     // Insight gets 1/3 of screen
+    uint16_t value_spacing = 50;
 
-    // More balanced layout with tighter spacing
-    uint16_t y_start = top_bar_height + 12;
-    uint16_t row_spacing = 50; // Tighter spacing since values are smaller now
+    // Vertical separator line with border
+    // Paint_DrawLine(urban_width, y_start, urban_width, DISPLAY_HEIGHT, WHITE, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    // Paint_DrawLine(urban_width - 1, y_start, urban_width - 1, DISPLAY_HEIGHT, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    // Paint_DrawLine(urban_width + 1, y_start, urban_width + 1, DISPLAY_HEIGHT, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
-    // Column 1 - Air Quality and Noise (Urban sensor data)
-    drawValue("PM10", values.pm10, 1, air_filter_35x35, "μg/m³", 35, 8, y_start, 5, false, SOURCE_URBAN);
-    drawValue("PM2.5", values.pm25, 1, air_filter_35x35, "μg/m³", 35, 8, y_start + row_spacing, 5, false, SOURCE_URBAN);
-    drawValue("Noise Max", values.noise_max, 0, ear_hearing_35x35, "dB", 35, 8, y_start + 2 * row_spacing, 5, false, SOURCE_URBAN);
-    drawValue("Noise Avg", values.noise_avg, 0, ear_hearing_35x35, "dB", 35, 8, y_start + 3 * row_spacing, 5, false, SOURCE_URBAN);
+    // === URBAN SENSOR SECTION (2 sub-columns) ===
+    // Simple section header
+    Paint_DrawString_EN(8, y_start, "URBAN SENSOR", &Font16, WHITE, BLACK);
+    String urban_status = values.ip_address.length() > 0 ? values.ip_address : "Offline";
+    Paint_DrawString_EN(8, y_start + Font16.Height + 2, urban_status.c_str(), &Font12, WHITE, BLACK);
+    
+    uint16_t urban_y = y_start + Font16.Height + Font12.Height + 15;
+    uint16_t urban_subcol_width = urban_width / 2;
+    
+    // Urban sub-column 1 (left)
+    drawValue("PM10", values.pm10, 1, air_filter_35x35, "μg/m³", 35, 8, urban_y, 5, false, SOURCE_URBAN);
+    drawValue("PM2.5", values.pm25, 1, air_filter_35x35, "μg/m³", 35, 8, urban_y + value_spacing, 5, false, SOURCE_URBAN);
+    drawValue("Noise Max", values.noise_max, 0, ear_hearing_35x35, "dB", 35, 8, urban_y + 2 * value_spacing, 5, false, SOURCE_URBAN);
+    drawValue("Noise Avg", values.noise_avg, 0, ear_hearing_35x35, "dB", 35, 8, urban_y + 3 * value_spacing, 5, false, SOURCE_URBAN);
+    
+    // Urban sub-column 2 (right)
+    drawValue("Temperature", values.temp_outdoor, 1, wi_thermometer_cropped_35x35, "C", 35, urban_subcol_width + 8, urban_y, 5, false, SOURCE_URBAN);
+    drawValue("Humidity", values.hum_outdoor, 0, wi_humidity_cropped_35x35, "%", 35, urban_subcol_width + 8, urban_y + value_spacing, 5, false, SOURCE_URBAN);
+    drawValue("Pressure", values.press_outdoor, 0, pressure_35x35, "mmHg", 35, urban_subcol_width + 8, urban_y + 2 * value_spacing, 2, false, SOURCE_URBAN);
 
-    // Column 2 - Outdoor Environment (Urban sensor data)
-    drawValue("Temp", values.temp_outdoor, 1, wi_thermometer_cropped_35x35, "C", 35, column_width + 8, y_start, 5, false, SOURCE_URBAN);
-    drawValue("Humidity", values.hum_outdoor, 0, wi_humidity_cropped_35x35, "%", 35, column_width + 8, y_start + row_spacing, 5, false, SOURCE_URBAN);
-    drawValue("Pressure", values.press_outdoor, 0, pressure_40x40, "mmHg", 40, column_width + 8, y_start + 2 * row_spacing, 2, false, SOURCE_URBAN);
-
-    // Column 3 - Indoor Environment (Insight device data) - adjusted positioning to prevent overflow
-    drawValue("Temp", values.temp_indoor, 1, house_thermometer_40x40, "C", 40, 2 * column_width + 5, y_start, 0, false, SOURCE_INSIGHT);
-    drawValue("Humidity", values.hum_indoor, 0, house_humidity_40x40, "%", 40, 2 * column_width + 5, y_start + row_spacing, 0, false, SOURCE_INSIGHT);
-    drawValue("Pressure", values.press_indoor, 0, pressure_40x40, "mmHg", 40, 2 * column_width + 5, y_start + 2 * row_spacing, 0, false, SOURCE_INSIGHT);
-    drawValue("CO2", values.co2, 0, co2_svgrepo_com_35x35, "ppm", 35, 2 * column_width + 5, y_start + 3 * row_spacing, 0, false, SOURCE_INSIGHT);
+    // === INSIGHT DEVICE SECTION (1 column) ===
+    // Simple section header
+    Paint_DrawString_EN(urban_width + 8, y_start, "INSIGHT", &Font16, WHITE, BLACK);
+    String insight_status = device_ip.length() > 0 ? device_ip : "Offline";
+    Paint_DrawString_EN(urban_width + 8, y_start + Font16.Height + 2, insight_status.c_str(), &Font12, WHITE, BLACK);
+    
+    uint16_t insight_y = y_start + Font16.Height + Font12.Height + 15;
+    
+    // Insight device data (single column)
+    drawValue("Temperature", values.temp_indoor, 1, house_thermometer_35x35, "C", 35, urban_width + 8, insight_y, 2, false, SOURCE_INSIGHT);
+    drawValue("Humidity", values.hum_indoor, 0, wi_humidity_cropped_35x35, "%", 35, urban_width + 8, insight_y + value_spacing, 2, false, SOURCE_INSIGHT);
+    drawValue("Pressure", values.press_indoor, 0, pressure_35x35, "mmHg", 35, urban_width + 8, insight_y + 2 * value_spacing, 2, false, SOURCE_INSIGHT);
+    drawValue("CO2", values.co2, 0, co2_svgrepo_com_35x35, "ppm", 35, urban_width + 8, insight_y + 3 * value_spacing, 5, false, SOURCE_INSIGHT);
 }
 
 #endif

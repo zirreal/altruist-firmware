@@ -1,4 +1,4 @@
-SIZES := 16 24 32 48 64 96 128 160 196
+SIZES := 35 40 200
 
 # Generate the list of target directories based on sizes
 TARGETS := $(foreach size, $(SIZES), icons/$(size)x$(size))

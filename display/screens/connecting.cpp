@@ -4,6 +4,7 @@
 #include "../paint_driver/GUI_Paint.h"
 #include "../../config_manager/config_helpers.h"
 #include "../icons/icons/40x40/robo_hw_logo_black_40x40.h"  // team logo
+#include "../icons/icons/35x35/wifi_35x35.h"  // wifi icon
 
 // step goes from 0..100 (progress percentage)
 void showConnectingPage(UBYTE *BlackImage, int step) {
@@ -28,11 +29,18 @@ void showConnectingPage(UBYTE *BlackImage, int step) {
     // --- Connection status section ---
     int status_section_y = title_y + Font20.Height + 25;
     
-    // Connection status
+    // Connection status with Wi-Fi icon
     const char *status = "Connecting to Wi-Fi";
     int status_width = strlen(status) * Font16.Width;
-    int status_x = (DISPLAY_WIDTH - status_width) / 2;
-    Paint_DrawString_EN(status_x, status_section_y, status, &Font16, WHITE, BLACK);
+    int wifi_icon_size = 35; // Good size for 35x35 source
+    int total_width = status_width + wifi_icon_size + 8; // 8px spacing
+    int status_x = (DISPLAY_WIDTH - total_width) / 2;
+    
+    // Draw Wi-Fi icon (scaled from 35x35 to 20x20 - better scaling ratio)
+    Paint_DrawImage(wifi_35x35, status_x, status_section_y, wifi_icon_size, wifi_icon_size);
+    
+    // Draw status text next to icon (centered with icon)
+    Paint_DrawString_EN(status_x + wifi_icon_size + 8, status_section_y + 2, status, &Font16, WHITE, BLACK);
 
     // Network name with better formatting
     char network_display[64];
