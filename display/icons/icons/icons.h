@@ -11,6 +11,7 @@
 
 typedef enum icon_name {
   air_filter,
+  air_pollution,
   co2_svgrepo_com,
   ear_hearing,
   house_thermometer,
@@ -31,6 +32,14 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 35: return air_filter_35x35;
     case 40: return air_filter_40x40;
     case 200: return air_filter_200x200;
+    default:
+      return nullptr;
+    }
+  case air_pollution:
+    switch (size) {
+    case 35: return air_pollution_35x35;
+    case 40: return air_pollution_40x40;
+    case 200: return air_pollution_200x200;
     default:
       return nullptr;
     }

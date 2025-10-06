@@ -1,6 +1,7 @@
 #ifndef __ICONS_35x35_H__
 #define __ICONS_35x35_H__
 #include "35x35/air_filter_35x35.h"
+#include "35x35/air_pollution_35x35.h"
 #include "35x35/co2_svgrepo_com_35x35.h"
 #include "35x35/ear_hearing_35x35.h"
 #include "35x35/house_thermometer_35x35.h"
