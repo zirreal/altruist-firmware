@@ -193,8 +193,8 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     uint16_t urban_subcol_width = urban_width / 2;
     
     // Urban sub-column 1 (left)
-    drawValue("PM10", values.pm10, 1, air_filter_35x35, "μg/m³", 35, 8, urban_y, 5, false, SOURCE_URBAN);
-    drawValue("PM2.5", values.pm25, 1, air_pollution_35x35, "μg/m³", 35, 8, urban_y + value_spacing, 5, false, SOURCE_URBAN);
+    drawValue("PM10", values.pm10, 1, air_filter_35x35, "ppm", 35, 8, urban_y, 5, false, SOURCE_URBAN);
+    drawValue("PM2.5", values.pm25, 1, air_pollution_35x35, "ppm", 35, 8, urban_y + value_spacing, 5, false, SOURCE_URBAN);
     drawValue("Noise Max", values.noise_max, 0, ear_hearing_35x35, "dB", 35, 8, urban_y + 2 * value_spacing, 5, false, SOURCE_URBAN);
     drawValue("Noise Avg", values.noise_avg, 0, ear_hearing_35x35, "dB", 35, 8, urban_y + 3 * value_spacing, 5, false, SOURCE_URBAN);
     
