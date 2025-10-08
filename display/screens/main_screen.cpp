@@ -60,9 +60,6 @@ void drawValue(const char *label, float value, uint8_t precision,
         Paint_DrawString_EN(x_start + image_size + image_offset + value_pixel_width + 6,
                             y_start + Font12.Height + 6,
                             units, &Font12, WHITE, BLACK);
-        
-        // Simple data freshness indicator (single dot for all sources) - positioned better
-        Paint_DrawCircle(x_start + image_size + image_offset + 100, y_start + 3, 2, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
     }
 }
 
