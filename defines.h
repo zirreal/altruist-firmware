@@ -161,9 +161,14 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #ifdef ALTRUIST_INSIDE
 // #define SDA_I2C_PIN 19
 // #define SCL_I2C_PIN 18
+#ifdef PRE
 #define SDA_I2C_PIN 2
 #define SCL_I2C_PIN 3
-#endif
+#else
+#define SDA_I2C_PIN 19
+#define SCL_I2C_PIN 18
+#endif //PRE
+#endif //ALTRUIST_INSIDE
 #ifdef ALTRUIST_URBAN
 #define SDA_I2C_PIN 3
 #define SCL_I2C_PIN 2
@@ -184,42 +189,51 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 // SPI SD Card pins
 
 #ifdef ALTRUIST_INSIDE
-// #define SPI_SCK_PIN 0
-// #define SPI_MISO_PIN 1
-// #define SPI_MOSI_PIN 7
-// #define SPI_CS_PIN 6
+#ifdef PRE
 #define SPI_SCK_PIN 5
 #define SPI_MISO_PIN 18
 #define SPI_MOSI_PIN 6
 #define SPI_CS_PIN 19
+#else
+#define SPI_SCK_PIN 0
+#define SPI_MISO_PIN 1
+#define SPI_MOSI_PIN 7
+#define SPI_CS_PIN 6
+#endif //PRE
 #endif
 
 // Display
 
 #ifdef ALTRUIST_INSIDE
-// #define EPD_SCK_PIN  21
-// #define EPD_MOSI_PIN 20
-// #define EPD_CS_PIN   22
-// #define EPD_RST_PIN  15
-// #define EPD_DC_PIN   23
-// #define EPD_BUSY_PIN 4
+#ifdef PRE
 #define EPD_SCK_PIN  21
 #define EPD_MOSI_PIN 20
 #define EPD_CS_PIN   22
 #define EPD_RST_PIN  15
 #define EPD_DC_PIN   23
 #define EPD_BUSY_PIN 7
+#else
+#define EPD_SCK_PIN  21
+#define EPD_MOSI_PIN 20
+#define EPD_CS_PIN   22
+#define EPD_RST_PIN  15
+#define EPD_DC_PIN   23
+#define EPD_BUSY_PIN 4
+#endif //PRE
 #endif
 
 // Buttons
 
 #ifdef ALTRUIST_INSIDE
-// #define BTN_DOWN_PIN 3
-// #define BTN_SET_PIN 2
-// #define BTN_UP_PIN 10
+#ifdef PRE
 #define BTN_DOWN_PIN 0
 #define BTN_SET_PIN 1
 #define BTN_UP_PIN 10
+#else
+#define BTN_DOWN_PIN 3
+#define BTN_SET_PIN 2
+#define BTN_UP_PIN 10
+#endif //PRE
 #endif
 #ifdef ALTRUIST_URBAN
 #define BTN_DOWN_PIN -1
@@ -347,7 +361,11 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define MHZ19_READ 0
 
 // automatic firmware updates
+#ifdef ALTRUIST_INSIDE
+#define AUTO_UPDATE 0
+#else
 #define AUTO_UPDATE 1
+#endif
 
 // use beta firmware
 #define USE_BETA 0
