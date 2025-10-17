@@ -16,8 +16,12 @@ void showSensorsMapPage(const String& robonomics_address) {
     char qr_data[300];
     char lat[32], lon[32];
     const char* addr = robonomics_address.c_str();
-    sscanf(cfg::coords_gps, "%31[^,],%31s", lat, lon);
-    sprintf(qr_data, "https://sensors.social/#/remote/%s/17/%s/%s/%s", addr, lat, lon, addr);
+    if (robonomics_address.length() == 0) {
+        sprintf(qr_data, "https://sensors.social/");
+    } else {
+        sscanf(cfg::coords_gps, "%31[^,],%31s", lat, lon);
+        sprintf(qr_data, "https://sensors.social/#/remote/%s/17/%s/%s/%s", addr, lat, lon, addr);
+    }
     qrcode_initText(&QRSensorMap, qrcodeData, 12, ECC_LOW, qr_data);
 
     // scale factor
