@@ -31,6 +31,7 @@ class LedControllerInsight {
         const JsonDocument &sensors_data;
         Adafruit_NeoPixel pixels;
         uint32_t last_refresh_time = 0;
+        uint8_t current_time_brightness = 255;
 
         void _setAllPixels(uint32_t color);
         uint32_t getColor(ColorName c) {
@@ -56,6 +57,8 @@ class LedControllerInsight {
         uint32_t _getCO2Color(float co2);
         uint32_t _getTempColor(float temperature);
         void _setPartColor(uint8_t start_led, uint8_t end_led, uint32_t color);
+        uint8_t _calculateTimeBrightness();
+        bool _isNightTime();
 };
 
 #endif

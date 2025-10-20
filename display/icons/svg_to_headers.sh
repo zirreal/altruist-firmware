@@ -52,7 +52,7 @@ if [ ! -e "$PNG_PATH" ]; then
 
     # using inkscape to convert to png because mogrify was being troublesome
     out="$PNG_PATH/$(basename $f .svg).png"
-    inkscape -w ${1} -h ${1} $f -o $out --export-background="#ffffff"
+    inkscape -w ${1} $f -o $out --export-background="#ffffff"
   done
 fi
 

@@ -2,6 +2,7 @@
 
 #include "display_manager.h"
 #include "screens/screens.h"
+#include "../defines.h"
 
 void DisplayManager::setup() {
     createNewImage(BlackImage);
@@ -36,14 +37,33 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         refresh_time_for_qr = 0;
         refresh_now = true;
     }
-    if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || refresh_now) {
+    if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || refresh_now || currentScreenID == ScreenPage::CONNECTING) {
         refresh_now = false;
         initAndClearScreen();
+        // Show sensors map every few refresh cycles when on main screen
         if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL && currentScreenID == ScreenPage::MAIN) {
-            if (refresh_count_for_qr > 1) {
+            if (refresh_count_for_qr >= 1) { // Show sensors map after 1 main screen refresh
                 refresh_count_for_qr = 0;
                 refresh_time_for_qr = millis();
-                showSensorsMapPage(robonomics_address);
+                // When Urban is connected (has IP_address), prefer its Robonomics address stored in service_data
+                bool urban_connected = false;
+                if (sensors_data.containsKey(ATRUIST_URBAN_SENSOR)) {
+                    auto urban = sensors_data[ATRUIST_URBAN_SENSOR].as<JsonObject>();
+                    if (!urban.isNull() && urban.containsKey("IP_address")) {
+                        urban_connected = true;
+                    }
+                }
+                String addr = String("");
+                if (urban_connected && sensors_data.containsKey("service_data")) {
+                    auto service = sensors_data["service_data"].as<JsonObject>();
+                    if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
+                        String urban_addr = service["urban_robonomics_address"].as<String>();
+                        if (urban_addr.length() > 0) {
+                            addr = urban_addr;
+                        }
+                    }
+                }
+                showSensorsMapPage(addr);
                 last_refresh_time = millis();
                 showImageLong(BlackImage);
                 return;
@@ -63,11 +83,31 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         } else if (currentScreenID == ScreenPage::LOADING) {
             showLoadingPage(BlackImage);
         } else if (currentScreenID == ScreenPage::CONNECTING) {
-            showConnectingPage(BlackImage);
+            // Simple static connecting screen
+            debug_outln_info(F("Showing connecting screen"));
+            showConnectingPage(BlackImage, 25);
         } else if (currentScreenID == ScreenPage::LOGO) {
             showLogoPage();
         } else if (currentScreenID == ScreenPage::SENSOR_MAP) {
-            showSensorsMapPage(robonomics_address);
+            // When Urban is connected (has IP_address), prefer its Robonomics address stored in service_data
+            bool urban_connected = false;
+            if (sensors_data.containsKey(ATRUIST_URBAN_SENSOR)) {
+                auto urban = sensors_data[ATRUIST_URBAN_SENSOR].as<JsonObject>();
+                if (!urban.isNull() && urban.containsKey("IP_address")) {
+                    urban_connected = true;
+                }
+            }
+            String addr = String("") ;
+            if (urban_connected && sensors_data.containsKey("service_data")) {
+                auto service = sensors_data["service_data"].as<JsonObject>();
+                if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
+                    String urban_addr = service["urban_robonomics_address"].as<String>();
+                    if (urban_addr.length() > 0) {
+                        addr = urban_addr;
+                    }
+                }
+            }
+            showSensorsMapPage(addr);
         }
         last_refresh_time = millis();
         showImageLong(BlackImage);

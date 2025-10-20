@@ -149,6 +149,43 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
 
             addValueToJSON(data, type, value, intl_name, units);
         }
+        // Capture Urban device's Robonomics address from data.json, or fallback to HTML extraction
+        bool has_urban_addr = false;
+        if (doc.containsKey("service_data") && doc["service_data"].containsKey("robonomics_address")) {
+            String urban_addr = doc["service_data"]["robonomics_address"].as<String>();
+            if (urban_addr.length() > 0) {
+                JsonObject service = data["service_data"].isNull() ? data.createNestedObject("service_data") : data["service_data"].as<JsonObject>();
+                service["urban_robonomics_address"] = urban_addr;
+                has_urban_addr = true;
+            }
+        }
+        if (!has_urban_addr) {
+            HTTPClient http2;
+            String root_url = SENSOR_URL_PREFIX + ip_address + String("/");
+            http2.begin(root_url);
+            int httpCode2 = http2.GET();
+            if (httpCode2 == HTTP_CODE_OK) {
+                String html = http2.getString();
+                // Fallback heuristic: first base58-like sequence starting with '4'
+                const char *base58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+                for (size_t i = 0; i < html.length(); ++i) {
+                    if (html[i] == '4') {
+                        size_t j = i;
+                        while (j < html.length() && strchr(base58, html[j])) {
+                            ++j;
+                        }
+                        size_t len = j - i;
+                        if (len >= 47 && len <= 50) { // accept typical SS58 length range
+                            String urban_addr = html.substring(i, j);
+                            JsonObject service = data["service_data"].isNull() ? data.createNestedObject("service_data") : data["service_data"].as<JsonObject>();
+                            service["urban_robonomics_address"] = urban_addr;
+                            break;
+                        }
+                    }
+                }
+            }
+            http2.end();
+        }
         serializeJson(data, Serial);
     } else {
         debug_outln_info(F("Request to Altruist Urban failed, code: "), httpCode);
