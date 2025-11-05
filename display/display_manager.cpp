@@ -4,6 +4,7 @@
 #include "screens/screens.h"
 #include "../defines.h"
 #include "utils.h"
+#include <SPIFFS.h>
 #include "../leds/leds_controller_insight.h"
 
 extern LedControllerInsight leds_controller_insight;
@@ -29,6 +30,18 @@ ScreenPage DisplayManager::getPrevScreen(ScreenPage current) {
 
 void DisplayManager::setup() {
     createNewImage(BlackImage);
+    // Load cached Urban address from SPIFFS to survive power cycles
+    if (SPIFFS.begin(true)) {
+        if (SPIFFS.exists("/urban_ss58.cache")) {
+            File f = SPIFFS.open("/urban_ss58.cache", "r");
+            if (f) {
+                String v = f.readString();
+                v.trim();
+                if (v.length() > 0) cached_urban_address = v;
+                f.close();
+            }
+        }
+    }
 }
 
 void DisplayManager::setScreen(ScreenPage pageID) {
@@ -132,9 +145,15 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
             String urban_addr = service["urban_robonomics_address"].as<String>();
             if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
+                bool was_empty = cached_urban_address.length() == 0;
                 cached_urban_address = urban_addr;
-                if (currentScreenID == ScreenPage::SENSOR_MAP) {
-                    refresh_now = true;
+                if (currentScreenID == ScreenPage::SENSOR_MAP || was_empty) {
+                    refresh_now = true; // force first render after boot/flash
+                }
+                // Persist to SPIFFS so we have it after power cycles
+                if (SPIFFS.begin(true)) {
+                    File f = SPIFFS.open("/urban_ss58.cache", "w");
+                    if (f) { f.print(cached_urban_address); f.close(); }
                 }
             }
         }
