@@ -30,6 +30,11 @@ void LedControllerInsight::process() {
     if (LED_PIN == -1 || !cfg::leds_on) {
         return;
     }
+    if (sleep_mode) {
+        pixels.clear();
+        pixels.show();
+        return;
+    }
     
     // Check if it's night time - if so, turn off LEDs completely
     if (_isNightTime()) {
@@ -73,6 +78,17 @@ void LedControllerInsight::process() {
             _setPartColor(7, 9, color);
             debug_outln_info(F("Set CO2 color "), getColorName(color));
         }
+        pixels.show();
+    }
+}
+
+void LedControllerInsight::setSleepMode(bool enabled) {
+    sleep_mode = enabled;
+    if (LED_PIN == -1 || !cfg::leds_on) {
+        return;
+    }
+    if (sleep_mode) {
+        pixels.clear();
         pixels.show();
     }
 }

@@ -36,12 +36,25 @@ private:
     JsonDocument &sensors_data;
     bool refresh_now = false;
     String robonomics_address;
+    String cached_urban_address; // cached Urban Robonomics address once discovered
     uint8_t refresh_count_for_qr = 0;
     uint32_t refresh_time_for_qr = 0;
     UBYTE *BlackImage;
 
     ScreenPage currentScreenID = ScreenPage::MAIN;
     unsigned long last_refresh_time = -DISPLAY_REFRESH_INTERVAL;
+
+    // Screen navigation helpers
+    ScreenPage getNextScreen(ScreenPage current);
+    ScreenPage getPrevScreen(ScreenPage current);
+
+    // Auto navigation after wake: SENSOR_MAP -> MAIN in ~30s
+    bool auto_to_main_active = false;
+    uint32_t auto_to_main_deadline_ms = 0;
+
+    // Retry updating Sensor Map QR when address not yet available
+    bool sensor_map_waiting_addr = false;
+    uint32_t next_sensor_map_check_ms = 0;
 
 };
 
