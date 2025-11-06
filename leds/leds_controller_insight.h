@@ -26,12 +26,14 @@ class LedControllerInsight {
         LedControllerInsight(const JsonDocument &_data) : sensors_data(_data), pixels(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800) {}
         void init();
         void process();
+        void setSleepMode(bool enabled);
 
     private:
         const JsonDocument &sensors_data;
         Adafruit_NeoPixel pixels;
         uint32_t last_refresh_time = 0;
         uint8_t current_time_brightness = 255;
+        bool sleep_mode = false;
 
         void _setAllPixels(uint32_t color);
         uint32_t getColor(ColorName c) {

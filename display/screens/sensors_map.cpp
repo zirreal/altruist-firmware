@@ -14,27 +14,45 @@ QRCode QRSensorMap;
 void showSensorsMapPage(const String& robonomics_address) {
     uint8_t qrcodeData[qrcode_getBufferSize(12)];
     char qr_data[300];
-    char lat[32], lon[32];
+    // Safe defaults
+    char lat[32] = "0.0";
+    char lon[32] = "0.0";
     const char* addr = robonomics_address.c_str();
+
     if (robonomics_address.length() == 0) {
-        sprintf(qr_data, "https://sensors.social/");
+        snprintf(qr_data, sizeof(qr_data), "https://sensors.social/");
     } else {
-        sscanf(cfg::coords_gps, "%31[^,],%31s", lat, lon);
-        sprintf(qr_data, "https://sensors.social/#/remote/%s/17/%s/%s/%s", addr, lat, lon, addr);
+        char lat[32] = "0.0";
+        char lon[32] = "0.0";
+        bool coords_ok = false;
+        if (cfg::coords_gps != nullptr && strlen(cfg::coords_gps) > 0) {
+            int parsed = sscanf(cfg::coords_gps, "%31[^,],%31s", lat, lon);
+            coords_ok = (parsed == 2);
+        }
+        int zoom = coords_ok ? 18 : 3;
+        // Date in YYYY-MM-DD
+        char date[11] = "1970-01-01";
+        struct tm timeinfo;
+        if (getLocalTime(&timeinfo)) {
+            strftime(date, sizeof(date), "%Y-%m-%d", &timeinfo);
+        }
+        snprintf(qr_data, sizeof(qr_data), "https://sensors.social/?type=noisemax&date=%s&provider=remote&lat=%s&lng=%s&zoom=%d&sensor=%s", date, lat, lon, zoom, addr);
     }
     qrcode_initText(&QRSensorMap, qrcodeData, 12, ECC_LOW, qr_data);
 
-    // scale factor
     int scale_factor = 3;
+    int quiet_zone = 3; 
     int scaled_qr_width = QRSensorMap.size * scale_factor;
     int scaled_qr_height = QRSensorMap.size * scale_factor;
-    int quiet_zone = 3;
     int total_width = scaled_qr_width + (2 * quiet_zone);
     int total_height = scaled_qr_height + (2 * quiet_zone);
 
     int qr_bitmap_width_bytes = (total_width + 7) / 8;
     int qr_bitmap_size = total_height * qr_bitmap_width_bytes;
     unsigned char *qr_bitmap_scaled = (unsigned char*)malloc(qr_bitmap_size);
+    if (!qr_bitmap_scaled) {
+        return;
+    }
     memset(qr_bitmap_scaled, 0x00, qr_bitmap_size);
 
     for (uint8_t qr_y = 0; qr_y < QRSensorMap.size; qr_y++) {
@@ -44,7 +62,8 @@ void showSensorsMapPage(const String& robonomics_address) {
                     for (int sx = 0; sx < scale_factor; sx++) {
                         int pixel_x = quiet_zone + (qr_x * scale_factor) + sx;
                         int pixel_y = quiet_zone + (qr_y * scale_factor) + sy;
-                        qr_bitmap_scaled[pixel_y * qr_bitmap_width_bytes + (pixel_x / 8)] |= (0x80 >> (pixel_x % 8));
+                        int byte_index = pixel_y * qr_bitmap_width_bytes + (pixel_x / 8);
+                        qr_bitmap_scaled[byte_index] |= (0x80 >> (pixel_x % 8));
                     }
                 }
             }
@@ -68,7 +87,6 @@ void showSensorsMapPage(const String& robonomics_address) {
     int icon_y = Font24.Height + 5;
     Paint_DrawImage(location_40x40, icon_x, icon_y, 40, 40);
 
-    // QR code centered
     int qr_x = DISPLAY_WIDTH / 2 - total_width / 2;
     int qr_y = DISPLAY_HEIGHT / 2 - total_height / 2;
     Paint_DrawImage(qr_bitmap_scaled, qr_x, qr_y, total_width, total_height);
