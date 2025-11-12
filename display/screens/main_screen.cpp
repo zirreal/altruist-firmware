@@ -9,8 +9,7 @@
 // #include "graph.h"
 #include <stdlib.h>
 #include "utils.h"
-#include "../icons/icons/icons_40x40.h"
-#include "../icons/icons/icons_35x35.h"
+#include "../icons/icons/icons_20x20.h"
 #include "../../defines.h"
 #include "../utils.h"
 #include "../../config_manager/config_helpers.h"
@@ -50,13 +49,15 @@ void drawValue(const char *label, float value, uint8_t precision,
         char value_str[12];
         stringFromFloat(value_str, value, precision);
         
-        // More balanced value display - not too big
+        sFONT* value_font = &Font16;
+        
+        // Draw the numeric value
         Paint_DrawString_EN(x_start + image_size + image_offset + 3,
                             y_start + Font12.Height + 3,
-                            value_str, &Font20, WHITE, BLACK);
+                            value_str, value_font, WHITE, BLACK);
         
-        // Better positioned units - use actual value width for more accurate positioning
-        uint16_t value_pixel_width = strlen(value_str) * Font20.Width;
+        // Position units based on rendered value width and chosen font
+        uint16_t value_pixel_width = strlen(value_str) * value_font->Width;
         Paint_DrawString_EN(x_start + image_size + image_offset + value_pixel_width + 6,
                             y_start + Font12.Height + 6,
                             units, &Font12, WHITE, BLACK);
@@ -171,14 +172,14 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
 
     // Section headers row (below time) - bigger gap
     uint16_t y_start = top_bar_height + 18;
-    uint16_t urban_width = (DISPLAY_WIDTH * 2) / 3; // Urban gets 2/3 of screen
-    uint16_t insight_width = DISPLAY_WIDTH / 3;     // Insight gets 1/3 of screen
-    uint16_t value_spacing = 50;
 
-    // Vertical separator line with border
-    // Paint_DrawLine(urban_width, y_start, urban_width, DISPLAY_HEIGHT, WHITE, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    // Paint_DrawLine(urban_width - 1, y_start, urban_width - 1, DISPLAY_HEIGHT, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    // Paint_DrawLine(urban_width + 1, y_start, urban_width + 1, DISPLAY_HEIGHT, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    // Save right sidebar for vertical navigation icons (approx 28px)
+    const uint16_t nav_sidebar_width = 28;
+    uint16_t usable_width = (DISPLAY_WIDTH > nav_sidebar_width) ? (DISPLAY_WIDTH - nav_sidebar_width) : DISPLAY_WIDTH;
+
+    uint16_t urban_width = (usable_width * 2) / 3; // Urban gets 2/3 of usable area
+    uint16_t insight_width = usable_width / 3;     // Insight gets 1/3 of usable area
+    uint16_t value_spacing = 50;
 
     // === URBAN SENSOR SECTION (2 sub-columns) ===
     // Simple section header
@@ -188,17 +189,17 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     
     uint16_t urban_y = y_start + Font16.Height + Font12.Height + 15;
     uint16_t urban_subcol_width = urban_width / 2;
-    
+
     // Urban sub-column 1 (left)
-    drawValue("PM10", values.pm10, 1, air_filter_35x35, "ppm", 35, 8, urban_y, 5, false, SOURCE_URBAN);
-    drawValue("PM2.5", values.pm25, 1, air_pollution_35x35, "ppm", 35, 8, urban_y + value_spacing, 5, false, SOURCE_URBAN);
-    drawValue("Noise Max", values.noise_max, 0, ear_hearing_35x35, "dB", 35, 8, urban_y + 2 * value_spacing, 5, false, SOURCE_URBAN);
-    drawValue("Noise Avg", values.noise_avg, 0, ear_hearing_35x35, "dB", 35, 8, urban_y + 3 * value_spacing, 5, false, SOURCE_URBAN);
+    drawValue("PM10", values.pm10, 1, air_filter_20x20, "ppm", 20, 8, urban_y, 5, false, SOURCE_URBAN);
+    drawValue("PM2.5", values.pm25, 1, air_pollution_20x20, "ppm", 20, 8, urban_y + value_spacing, 5, false, SOURCE_URBAN);
+    drawValue("Noise Max", values.noise_max, 0, ear_hearing_20x20, "dB", 20, 8, urban_y + 2 * value_spacing, 5, false, SOURCE_URBAN);
+    drawValue("Noise Avg", values.noise_avg, 0, ear_hearing_20x20, "dB", 20, 8, urban_y + 3 * value_spacing, 5, false, SOURCE_URBAN);
     
     // Urban sub-column 2 (right)
-    drawValue("Temperature", values.temp_outdoor, 1, wi_thermometer_cropped_35x35, "C", 35, urban_subcol_width + 8, urban_y, 5, false, SOURCE_URBAN);
-    drawValue("Humidity", values.hum_outdoor, 0, wi_humidity_cropped_35x35, "%", 35, urban_subcol_width + 8, urban_y + value_spacing, 5, false, SOURCE_URBAN);
-    drawValue("Pressure", values.press_outdoor, 0, pressure_35x35, "mmHg", 35, urban_subcol_width + 8, urban_y + 2 * value_spacing, 2, false, SOURCE_URBAN);
+    drawValue("Temperature", values.temp_outdoor, 1, wi_thermometer_cropped_20x20, "C", 20, urban_subcol_width + 8, urban_y, 5, false, SOURCE_URBAN);
+    drawValue("Humidity", values.hum_outdoor, 0, wi_humidity_cropped_20x20, "%", 20, urban_subcol_width + 8, urban_y + value_spacing, 5, false, SOURCE_URBAN);
+    drawValue("Pressure", values.press_outdoor, 0, pressure_20x20, "mmHg", 20, urban_subcol_width + 8, urban_y + 2 * value_spacing, 2, false, SOURCE_URBAN);
 
     // === INSIGHT DEVICE SECTION (1 column) ===
     // Simple section header
@@ -209,10 +210,10 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     uint16_t insight_y = y_start + Font16.Height + Font12.Height + 15;
     
     // Insight device data (single column)
-    drawValue("Temperature", values.temp_indoor, 1, house_thermometer_35x35, "C", 35, urban_width + 8, insight_y, 2, false, SOURCE_INSIGHT);
-    drawValue("Humidity", values.hum_indoor, 0, wi_humidity_cropped_35x35, "%", 35, urban_width + 8, insight_y + value_spacing, 2, false, SOURCE_INSIGHT);
-    drawValue("Pressure", values.press_indoor, 0, pressure_35x35, "mmHg", 35, urban_width + 8, insight_y + 2 * value_spacing, 2, false, SOURCE_INSIGHT);
-    drawValue("CO2", values.co2, 0, co2_svgrepo_com_35x35, "ppm", 35, urban_width + 8, insight_y + 3 * value_spacing, 5, false, SOURCE_INSIGHT);
+    drawValue("Temperature", values.temp_indoor, 1, house_thermometer_20x20, "C", 20, urban_width + 8, insight_y, 2, false, SOURCE_INSIGHT);
+    drawValue("Humidity", values.hum_indoor, 0, wi_humidity_cropped_20x20, "%", 20, urban_width + 8, insight_y + value_spacing, 2, false, SOURCE_INSIGHT);
+    drawValue("Pressure", values.press_indoor, 0, pressure_20x20, "mmHg", 20, urban_width + 8, insight_y + 2 * value_spacing, 2, false, SOURCE_INSIGHT);
+    drawValue("CO2", values.co2, 0, co2_svgrepo_com_20x20, "ppm", 20, urban_width + 8, insight_y + 3 * value_spacing, 5, false, SOURCE_INSIGHT);
 }
 
 #endif

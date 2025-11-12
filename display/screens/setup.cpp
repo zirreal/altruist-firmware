@@ -17,7 +17,8 @@ void showSetupPage(UBYTE *BlackImage) {
     Paint_Clear(WHITE);
 
     // Draw team logo top-left
-    Paint_DrawImage(robo_hw_logo_black_40x40, 5, 5, 40, 40);
+    // Note: logo is actually 40x32, not 40x40 (see header file comment)
+    Paint_DrawImage(robo_hw_logo_black_40x40, 5, 5, 40, 32);
 
     // Draw Wi-Fi icon top-right
     Paint_DrawImage(wifi_40x40, DISPLAY_WIDTH - 45, 5, 40, 40);

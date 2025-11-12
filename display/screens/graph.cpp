@@ -23,6 +23,9 @@ static uint16_t drawOneGraph(int left_x, int left_y, const char* sensor_name, co
 #endif
 
 void drawGraphScreen() {
+    // Clear screen first to prevent glitching
+    Paint_Clear(WHITE);
+    
     debug_outln_info(F("Set graph screen "), current_graph_screen);
 #if defined(USE_SD_CARD)
     // String urban_ip = cfg::chosen_altruist_urban;
@@ -50,7 +53,7 @@ void drawGraphScreen() {
         drawOneGraph(DISPLAY_WIDTH / 2 + 10, DISPLAY_HEIGHT - 10, "SCD4x", "co2", "Insight CO2");
     }
 #else
-    Paint_DrawString_EN_Center("No history available", &Font24, WHITE, BLACK);
+    Paint_DrawString_EN_Center("No history available", &Font16, WHITE, BLACK);
 #endif
 }
 
