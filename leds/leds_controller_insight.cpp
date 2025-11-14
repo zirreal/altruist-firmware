@@ -1,6 +1,7 @@
 #ifdef ALTRUIST_INSIDE
 
 #include "leds_controller_insight.h"
+#include <string.h>
 #include "../utils.h"
 #include "../config_manager/config_helpers.h"
 
@@ -62,7 +63,13 @@ void LedControllerInsight::process() {
                 _setPartColor(1, 3, color);
                 debug_outln_info(F("Set PM color "), getColorName(color));
             }
-            if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("PCBA_noiseAvg")) {
+            
+            // Handle noise - prefer max if available, otherwise use avg
+            if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("PCBA_noiseMax")) {
+                color = _getNoiseColor(sensors_data[ATRUIST_URBAN_SENSOR]["PCBA_noiseMax"]["value"].as<float>());
+                _setPartColor(4, 6, color);
+                debug_outln_info(F("Set Noise color "), getColorName(color));
+            } else if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("PCBA_noiseAvg")) {
                 color = _getNoiseColor(sensors_data[ATRUIST_URBAN_SENSOR]["PCBA_noiseAvg"]["value"].as<float>());
                 _setPartColor(4, 6, color);
                 debug_outln_info(F("Set Noise color "), getColorName(color));
@@ -105,58 +112,83 @@ void LedControllerInsight::_setPartColor(uint8_t start_led, uint8_t end_led, uin
     }
 }
 
-uint32_t LedControllerInsight::_getPMColor(float pm10, float pm25) {
-    if (pm10 < 50 && pm25 < 36) {
-        return getColor(ColorName::GREEN_LED);
-    } else if (pm10 < 100 && pm25 < 70) {
-        return getColor(ColorName::BLUE_LED);
-    } else if (pm10 < 250 && pm25 < 150) {
-        return getColor(ColorName::ORANGE_LED);
-    } else if (pm10 < 350 && pm25 < 250) {
-        return getColor(ColorName::RED_LED);
-    } else {
-        return getColor(ColorName::PURPLE_LED);
+// Sensor threshold configurations - definitions (declared in header)
+namespace SensorConfigs {
+    // Noise thresholds (dB)
+    const float noise_thresholds[] = {50, 70, 85, 100};
+    const ColorName noise_colors[] = {ColorName::GREEN_LED, ColorName::BLUE_LED, ColorName::YELLOW_LED, ColorName::ORANGE_LED, ColorName::RED_LED};
+    
+    // CO2 thresholds (ppm)
+    const float co2_thresholds[] = {1000, 2000, 5000};
+    const ColorName co2_colors[] = {ColorName::GREEN_LED, ColorName::YELLOW_LED, ColorName::ORANGE_LED, ColorName::RED_LED};
+    
+    // Temperature thresholds (°C) 
+    const float temp_thresholds[] = {1, 10, 27, 35};
+    const ColorName temp_colors[] = {ColorName::DARKBLUE_LED, ColorName::BLUE_LED, ColorName::GREEN_LED, ColorName::YELLOW_LED, ColorName::ORANGE_LED};
+    
+    // PM thresholds 
+    // PM10 thresholds (μg/m³)
+    const float pm10_thresholds[] = {50, 100, 250, 350};
+    // PM2.5 thresholds (μg/m³)
+    const float pm25_thresholds[] = {30, 55, 110, 250};
+    const ColorName pm_colors[] = {ColorName::GREEN_LED, ColorName::BLUE_LED, ColorName::YELLOW_LED, ColorName::ORANGE_LED, ColorName::RED_LED};
+    
+    // Humidity thresholds (%)
+    const float humidity_thresholds[] = {30, 40, 60, 70};
+    const ColorName humidity_colors[] = {ColorName::ORANGE_LED, ColorName::YELLOW_LED, ColorName::GREEN_LED, ColorName::BLUE_LED, ColorName::DARKBLUE_LED};
+    
+    // Pressure thresholds (mmHg)
+    const float pressure_thresholds[] = {747, 767, 775};
+    const ColorName pressure_colors[] = {ColorName::BLUE_LED, ColorName::GREEN_LED, ColorName::YELLOW_LED, ColorName::ORANGE_LED};
+}
+
+// Generic function to get color based on value and thresholds
+// thresholds array should be in ascending order, colors array should have count elements
+// (one color for each threshold range, and the last color is used for values above all thresholds)
+uint32_t LedControllerInsight::_getColorByThresholds(float value, const float* thresholds, const ColorName* colors, uint8_t count) {
+    for (uint8_t i = 0; i < count; i++) {
+        if (value < thresholds[i]) {
+            return getColor(colors[i]);
+        }
     }
+    // Value is above all thresholds, return the last color from the array
+    return getColor(colors[count - 1]);
+}
+
+// PM color function
+uint32_t LedControllerInsight::_getPMColor(float pm10, float pm25) {
+    // PM color requires checking both PM10 and PM2.5 values simultaneously
+    // Both values must be below their respective thresholds for each level
+    const uint8_t threshold_count = 4;
+    
+    for (uint8_t i = 0; i < threshold_count; i++) {
+        if (pm10 < SensorConfigs::pm10_thresholds[i] && pm25 < SensorConfigs::pm25_thresholds[i]) {
+            return getColor(SensorConfigs::pm_colors[i]);
+        }
+    }
+    // Both values exceed all thresholds, return the last color from the array
+    return getColor(SensorConfigs::pm_colors[threshold_count - 1]);
 }
 
 uint32_t LedControllerInsight::_getNoiseColor(float noise) {
-    if (noise < 60) {
-        return getColor(ColorName::GREEN_LED);
-    } else if (noise < 80) {
-        return getColor(ColorName::BLUE_LED);
-    } else if (noise < 100) {
-        return getColor(ColorName::ORANGE_LED);
-    } else if (noise < 120) {
-        return getColor(ColorName::RED_LED);
-    } else {
-        return getColor(ColorName::PURPLE_LED);
-    }
+    return _getColorByThresholds(noise, SensorConfigs::noise_thresholds, SensorConfigs::noise_colors, 4);
 }
 
 uint32_t LedControllerInsight::_getCO2Color(float co2) {
-    if (co2 < 800) {
-        return getColor(ColorName::GREEN_LED);
-    } else if (co2 < 1000) {
-        return getColor(ColorName::BLUE_LED);
-    } else if (co2 < 2500) {
-        return getColor(ColorName::ORANGE_LED);
-    } else if (co2 < 5000) {
-        return getColor(ColorName::RED_LED);
-    } else {
-        return getColor(ColorName::PURPLE_LED);
-    }
+    return _getColorByThresholds(co2, SensorConfigs::co2_thresholds, SensorConfigs::co2_colors, 3);
 }
 
 uint32_t LedControllerInsight::_getTempColor(float temperature) {
-    if (temperature < -9) {
-        return getColor(ColorName::PURPLE_LED);
-    } else if (temperature < 10) {
-        return getColor(ColorName::BLUE_LED);
-    } else if (temperature < 25) {
-        return getColor(ColorName::GREEN_LED);
-    } else {
-        return getColor(ColorName::ORANGE_LED);
-    }
+    // Use SensorConfigs thresholds and colors directly
+    return _getColorByThresholds(temperature, SensorConfigs::temp_thresholds, SensorConfigs::temp_colors, 4);
+}
+
+uint32_t LedControllerInsight::_getHumidityColor(float humidity) {
+    return _getColorByThresholds(humidity, SensorConfigs::humidity_thresholds, SensorConfigs::humidity_colors, 4);
+}
+
+uint32_t LedControllerInsight::_getPressureColor(float pressure) {
+    return _getColorByThresholds(pressure, SensorConfigs::pressure_thresholds, SensorConfigs::pressure_colors, 4);
 }
 
 // Calculate brightness based on time of day
