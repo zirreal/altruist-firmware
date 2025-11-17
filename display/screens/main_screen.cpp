@@ -70,9 +70,9 @@ void drawValue(const char *label, float value, uint8_t precision,
             uint16_t units_width = strlen(units) * Font12.Width;
             
             // Calculate position for warning icon (circle with exclamation point)
-            const uint16_t circle_radius = 7;  // Circle radius
-            uint16_t icon_x = units_x + units_width + 6;  // Position after units (increased spacing by 2px)
-            uint16_t icon_y = y_start + Font12.Height + 2;  // Align with value text
+            const uint16_t circle_radius = 5; 
+            uint16_t icon_x = units_x + units_width + 6;  // Position after units
+            uint16_t icon_y = y_start + Font12.Height + 5; 
             uint16_t circle_center_x = icon_x + circle_radius;
             uint16_t circle_center_y = icon_y + circle_radius;
             
@@ -81,10 +81,10 @@ void drawValue(const char *label, float value, uint8_t precision,
                            BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
             
             // Draw white exclamation point inside the circle
-            uint16_t exclamation_x = circle_center_x - (Font12.Width / 2) - 1;
-            uint16_t exclamation_y = circle_center_y - (Font12.Height / 2); 
+            uint16_t exclamation_x = circle_center_x - (Font8.Width / 2) - 1;
+            uint16_t exclamation_y = circle_center_y - (Font8.Height / 2) + 1; 
             
-            Paint_DrawChar(exclamation_x, exclamation_y, '!', &Font12, WHITE, WHITE);
+            Paint_DrawChar(exclamation_x, exclamation_y, '!', &Font8, WHITE, WHITE);
         }
     }
 }

@@ -158,16 +158,22 @@ uint32_t LedControllerInsight::_getColorByThresholds(float value, const float* t
 // PM color function
 uint32_t LedControllerInsight::_getPMColor(float pm10, float pm25) {
     // PM color requires checking both PM10 and PM2.5 values simultaneously
-    // Both values must be below their respective thresholds for each level
+    // Check if either value exceeds the last threshold
     const uint8_t threshold_count = 4;
     
+    // If either PM10 >= 350 OR PM25 >= 250, return RED (last color)
+    if (pm10 >= SensorConfigs::pm10_thresholds[threshold_count - 1] || 
+        pm25 >= SensorConfigs::pm25_thresholds[threshold_count - 1]) {
+        return getColor(SensorConfigs::pm_colors[threshold_count]); 
+    }
+    
+    // Otherwise, check both values against thresholds
     for (uint8_t i = 0; i < threshold_count; i++) {
         if (pm10 < SensorConfigs::pm10_thresholds[i] && pm25 < SensorConfigs::pm25_thresholds[i]) {
             return getColor(SensorConfigs::pm_colors[i]);
         }
     }
-    // Both values exceed all thresholds, return the last color from the array
-    return getColor(SensorConfigs::pm_colors[threshold_count - 1]);
+    return getColor(SensorConfigs::pm_colors[threshold_count]);
 }
 
 uint32_t LedControllerInsight::_getNoiseColor(float noise) {
