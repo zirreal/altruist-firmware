@@ -5,10 +5,13 @@
 
 #include "../driver/EPD.h"
 
+enum class ScreenPage;
+
 void initAndClearScreen();
 void createNewImage(UBYTE *&BlackImage);
 void showImageFast(UBYTE *&BlackImage);
 void showImageLong(UBYTE *&BlackImage);
+void drawScreenIndicator(ScreenPage currentScreen);
 
 #ifdef DISPLAY_4IN2
 #define EPD_DisplayFull(img)   EPD_4IN2_V2_Display(img)

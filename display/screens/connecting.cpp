@@ -15,9 +15,10 @@ void showConnectingPage(UBYTE *BlackImage, int step) {
     int content_start_y = 30;
 
     // --- Header with logo and title together ---
+    // Note: logo is actually 40x32, not 40x40 (see header file comment)
     int logo_x = (DISPLAY_WIDTH - 40) / 2;
     int logo_y = content_start_y;
-    Paint_DrawImage(robo_hw_logo_black_40x40, logo_x, logo_y, 40, 40);
+    Paint_DrawImage(robo_hw_logo_black_40x40, logo_x, logo_y, 40, 32);
 
     // Title directly below logo with better spacing
     const char *title = "ALTRUIST INSIGHT";

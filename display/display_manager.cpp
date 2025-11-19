@@ -6,23 +6,27 @@
 #include "utils.h"
 #include <SPIFFS.h>
 #include "../leds/leds_controller_insight.h"
+#include "../config_manager/config_helpers.h"
 
 extern LedControllerInsight leds_controller_insight;
 
 bool display_sleeping = false;
 
 // Cycle order for screens when navigating with UP/SET
+// Order: MAIN -> GRAPHS -> SETTINGS -> SENSOR_MAP -> MAIN
 ScreenPage DisplayManager::getNextScreen(ScreenPage current) {
-    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::MAIN;
     if (current == ScreenPage::MAIN) return ScreenPage::GRAPHS;
-    if (current == ScreenPage::GRAPHS) return ScreenPage::SENSOR_MAP;
+    if (current == ScreenPage::GRAPHS) return ScreenPage::SETTINGS;
+    if (current == ScreenPage::SETTINGS) return ScreenPage::SENSOR_MAP;
+    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::MAIN;
     // Default: go to MAIN from other screens
     return ScreenPage::MAIN;
 }
 
 ScreenPage DisplayManager::getPrevScreen(ScreenPage current) {
-    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::GRAPHS;
     if (current == ScreenPage::MAIN) return ScreenPage::SENSOR_MAP;
+    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::SETTINGS;
+    if (current == ScreenPage::SETTINGS) return ScreenPage::GRAPHS;
     if (current == ScreenPage::GRAPHS) return ScreenPage::MAIN;
     // Default: go to MAIN from other screens
     return ScreenPage::MAIN;
@@ -41,6 +45,14 @@ void DisplayManager::setup() {
                 f.close();
             }
         }
+    }
+    // Initialize display and show loading screen immediately
+    // initAndClearScreen();
+    // Paint_SelectImage(BlackImage);
+    // Paint_Clear(WHITE);
+    if (currentScreenID == ScreenPage::LOADING) {
+        showLoadingPage(BlackImage);
+        showImageFast(BlackImage);
     }
 }
 
@@ -72,6 +84,9 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             // Global: long DOWN to sleep from any screen
             if (btn_press.button_num == ButtonNum::DOWN && btn_press.press_type == PressType::LONG) {
                 initAndClearScreen();
+                // Clear the image buffer to white before drawing sleep message
+                Paint_SelectImage(BlackImage);
+                Paint_Clear(WHITE);
                 Paint_DrawString_EN_Center("Going to sleep...", &Font24, WHITE, BLACK);
                 EPD_4IN2_V2_Init();
                 DEV_Delay_ms(200);
@@ -125,6 +140,17 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                     }
                 }
             }
+            else if (currentScreenID == ScreenPage::SETTINGS) {
+                if (btn_press.press_type == PressType::SHORT) {
+                    if (btn_press.button_num == ButtonNum::UP) {
+                        setScreen(getPrevScreen(currentScreenID));
+                        return;
+                    } else if (btn_press.button_num == ButtonNum::SET) {
+                        setScreen(getNextScreen(currentScreenID));
+                        return;
+                    }
+                }
+            }
         }
     }
     // Handle auto-navigation from SENSOR_MAP to MAIN ~30s after wake
@@ -163,9 +189,19 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         refresh_now = true;
     }
 
-    if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || refresh_now || currentScreenID == ScreenPage::CONNECTING) {
+    // Always refresh on first run (loading screen) or when explicitly requested
+    bool should_refresh = (last_refresh_time == (unsigned long)-DISPLAY_REFRESH_INTERVAL) || 
+                          msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || 
+                          refresh_now || 
+                          currentScreenID == ScreenPage::CONNECTING;
+    
+    if (should_refresh) {
         refresh_now = false;
         initAndClearScreen();
+        // Ensure image buffer is selected and cleared after physical display init
+        Paint_SelectImage(BlackImage);
+        Paint_Clear(WHITE);
+        
         // Show sensors map every few refresh cycles when on main screen
         if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL && currentScreenID == ScreenPage::MAIN) {
             if (refresh_count_for_qr >= 1) { // Show sensors map after 1 main screen refresh
@@ -181,15 +217,17 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         }
                     }
                 }
-                String addr = cached_urban_address; // may be empty -> default link
+                String addr = cached_urban_address; // may be empty => default link
                 showSensorsMapPage(addr);
+                drawScreenIndicator(ScreenPage::SENSOR_MAP);
                 last_refresh_time = millis();
-                showImageLong(BlackImage);
+                showImageFast(BlackImage);
                 return;
             } else {
                 refresh_count_for_qr++;
             }
         }
+        
         if (currentScreenID == ScreenPage::MAIN) {
             String jsonString;
 		    serializeJson(sensors_data, jsonString);
@@ -222,9 +260,27 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             sensor_map_waiting_addr = false;
             String addr = cached_urban_address; // empty => default link
             showSensorsMapPage(addr);
+        } else if (currentScreenID == ScreenPage::SETTINGS) {
+            // Get urban IP address from config or sensors_data
+            String urban_ip = String(cfg::chosen_altruist_urban);
+            // Fallback: try to get from sensors_data if config is empty
+            if (urban_ip.length() == 0 && sensors_data.containsKey("service_data")) {
+                auto service = sensors_data["service_data"].as<JsonObject>();
+                if (!service.isNull() && service.containsKey("altruist_addresses")) {
+                    JsonArray addresses = service["altruist_addresses"];
+                    if (addresses.size() > 0) {
+                        urban_ip = addresses[0].as<String>();
+                    }
+                }
+            }
+            showSettingsPage(BlackImage, deviceStatus, urban_ip, robonomics_address);
         }
+        
+        // Draw screen indicator dots in bottom right corner
+        drawScreenIndicator(currentScreenID);
+        
         last_refresh_time = millis();
-        showImageLong(BlackImage);
+        showImageFast(BlackImage);
     }
 }
 

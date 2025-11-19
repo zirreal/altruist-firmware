@@ -20,7 +20,8 @@ enum class ScreenPage {
     SETUP,
     LOADING,
     LOGO,
-    SENSOR_MAP
+    SENSOR_MAP,
+    SETTINGS
 };
 
 class DisplayManager {
