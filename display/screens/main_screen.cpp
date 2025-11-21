@@ -136,9 +136,9 @@ bool isHumidityDangerous(float humidity) {
 
 // Check if pressure is dangerous 
 bool isPressureDangerous(float pressure) {
-    if (pressure < 500 || pressure > 800) return false; // Invalid data
+    if (pressure < 500 || pressure > 1000) return false; // Invalid data
     // Dangerous if: pressure < 747 OR pressure >= 775 
-    return (pressure < 747 || pressure >= 775);
+    return (pressure < 747 || pressure >= 767);
 }
 
 // Parse JSON data into struct with validation
