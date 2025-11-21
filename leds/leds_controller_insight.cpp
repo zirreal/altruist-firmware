@@ -61,7 +61,6 @@ void LedControllerInsight::process() {
             if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P1") && sensors_data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P2")) {
                 color = _getPMColor(sensors_data[ATRUIST_URBAN_SENSOR]["SDS_P1"]["value"].as<float>(), sensors_data[ATRUIST_URBAN_SENSOR]["SDS_P2"]["value"].as<float>());
                 _setPartColor(1, 3, color);
-                debug_outln_info(F("Set PM color "), getColorName(color));
             }
             
             // Handle noise - prefer max if available, otherwise use avg
@@ -76,13 +75,35 @@ void LedControllerInsight::process() {
             }
             if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("BME280_temperature")) {
                 color = _getTempColor(sensors_data[ATRUIST_URBAN_SENSOR]["BME280_temperature"]["value"].as<float>());
+                _setPartColor(7, 9, color);
+                debug_outln_info(F("Set U Temp color "), getColorName(color));
+            }
+            if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("BME280_humidity")) {
+                color = _getHumidityColor(sensors_data[ATRUIST_URBAN_SENSOR]["BME280_humidity"]["value"].as<float>());
                 _setPartColor(10, 12, color);
-                debug_outln_info(F("Set Temp color "), getColorName(color));
+                debug_outln_info(F("Set U Humidity color "), getColorName(color));
+            }
+            if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("BME280_pressure")) {
+                color = _getPressureColor(sensors_data[ATRUIST_URBAN_SENSOR]["BME280_pressure"]["value"].as<float>() * 0.0075);
+                _setPartColor(13, 16, color);
+                debug_outln_info(F("Set U Pressure color "), getColorName(color));
             }
         }
+        if (sensors_data.containsKey("BME680")) {
+            color = _getTempColor(sensors_data["BME680"]["temperature"]["value"].as<float>());
+            _setPartColor(17, 19, color);
+            debug_outln_info(F("Set Temp color "), getColorName(color));
+            color = _getHumidityColor(sensors_data["BME680"]["humidity"]["value"].as<float>());
+            _setPartColor(20, 22, color);
+            debug_outln_info(F("Set Humidity color "), getColorName(color));
+            color = _getPressureColor(sensors_data["BME680"]["pressure"]["value"].as<float>() * 0.0075);
+            _setPartColor(23, 25, color);
+            debug_outln_info(F("Set Pressure color "), getColorName(color));
+        }
+        
         if (sensors_data.containsKey("SCD4x")) {
             color = _getCO2Color(sensors_data["SCD4x"]["co2"]["value"].as<float>());
-            _setPartColor(7, 9, color);
+            _setPartColor(26, 28, color);
             debug_outln_info(F("Set CO2 color "), getColorName(color));
         }
         pixels.show();
@@ -138,7 +159,7 @@ namespace SensorConfigs {
     const ColorName humidity_colors[] = {ColorName::ORANGE_LED, ColorName::YELLOW_LED, ColorName::GREEN_LED, ColorName::BLUE_LED, ColorName::DARKBLUE_LED};
     
     // Pressure thresholds (mmHg)
-    const float pressure_thresholds[] = {747, 767, 775};
+    const float pressure_thresholds[] = {747, 768, 775};
     const ColorName pressure_colors[] = {ColorName::BLUE_LED, ColorName::GREEN_LED, ColorName::YELLOW_LED, ColorName::ORANGE_LED};
 }
 
@@ -158,22 +179,33 @@ uint32_t LedControllerInsight::_getColorByThresholds(float value, const float* t
 // PM color function
 uint32_t LedControllerInsight::_getPMColor(float pm10, float pm25) {
     // PM color requires checking both PM10 and PM2.5 values simultaneously
-    // Check if either value exceeds the last threshold
+    // Arrays have 4 thresholds (indices 0-3) and 5 colors (indices 0-4)
     const uint8_t threshold_count = 4;
+    const uint8_t color_count = 5;
     
-    // If either PM10 >= 350 OR PM25 >= 250, return RED (last color)
+    // Check for invalid/negative values
+    if (pm10 < 0 || pm25 < 0) {
+        return getColor(SensorConfigs::pm_colors[0]); // Return GREEN for invalid data
+    }
+    
     if (pm10 >= SensorConfigs::pm10_thresholds[threshold_count - 1] || 
         pm25 >= SensorConfigs::pm25_thresholds[threshold_count - 1]) {
-        return getColor(SensorConfigs::pm_colors[threshold_count]); 
+        return getColor(SensorConfigs::pm_colors[color_count - 1]); // RED
     }
     
-    // Otherwise, check both values against thresholds
+    uint8_t worst_level = 0;
     for (uint8_t i = 0; i < threshold_count; i++) {
-        if (pm10 < SensorConfigs::pm10_thresholds[i] && pm25 < SensorConfigs::pm25_thresholds[i]) {
-            return getColor(SensorConfigs::pm_colors[i]);
+        if (pm10 >= SensorConfigs::pm10_thresholds[i] || pm25 >= SensorConfigs::pm25_thresholds[i]) {
+            worst_level = i + 1; // Next color level (since we exceeded this threshold)
         }
     }
-    return getColor(SensorConfigs::pm_colors[threshold_count]);
+    
+    // Clamp to valid color index (0-4)
+    if (worst_level >= color_count) {
+        worst_level = color_count - 1;
+    }
+    
+    return getColor(SensorConfigs::pm_colors[worst_level]);
 }
 
 uint32_t LedControllerInsight::_getNoiseColor(float noise) {
@@ -194,7 +226,7 @@ uint32_t LedControllerInsight::_getHumidityColor(float humidity) {
 }
 
 uint32_t LedControllerInsight::_getPressureColor(float pressure) {
-    return _getColorByThresholds(pressure, SensorConfigs::pressure_thresholds, SensorConfigs::pressure_colors, 4);
+    return _getColorByThresholds(pressure, SensorConfigs::pressure_thresholds, SensorConfigs::pressure_colors, 3);
 }
 
 // Calculate brightness based on time of day

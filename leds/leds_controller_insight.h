@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include "../defines.h"
 
-#define LED_COUNT 12
+#define LED_COUNT 28
 #define MAX_BLINK_COUNT 3
 
 #define REFRESH_INTERVAL 30000
