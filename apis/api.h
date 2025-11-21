@@ -44,7 +44,7 @@ public:
         deviceStatus.apis_status[api_name].count_sends_success = count_sends_success;
         deviceStatus.apis_status[api_name].last_send_time = last_send_time_t;
         deviceStatus.apis_status[api_name].is_ok = is_ok;
-        debug_outln_info(F("API status upadted"));
+        debug_outln_info(F("API status updated"));
     }
     
     bool isTimeToSend() const {

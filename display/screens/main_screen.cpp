@@ -160,11 +160,11 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
         // PM values with validation (reasonable ranges: 0-500 μg/m³)
         if (urban.containsKey("SDS_P1")) {
             float pm10 = urban["SDS_P1"]["value"].as<float>();
-            values.pm10 = isValidRange(pm10, 0, 500) ? pm10 : -1;
+            values.pm10 = isValidRange(pm10, 0, 800) ? pm10 : -1;
         }
         if (urban.containsKey("SDS_P2")) {
             float pm25 = urban["SDS_P2"]["value"].as<float>();
-            values.pm25 = isValidRange(pm25, 0, 300) ? pm25 : -1;
+            values.pm25 = isValidRange(pm25, 0, 600) ? pm25 : -1;
         }
         
         // Environmental values with validation
@@ -178,7 +178,7 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
         }
         if (urban.containsKey("BME280_pressure")) {
             float press = urban["BME280_pressure"]["value"].as<float>() * 0.0075;
-            values.press_outdoor = isValidRange(press, 500, 800) ? press : -1;
+            values.press_outdoor = isValidRange(press, 500, 1000) ? press : -1;
         }
         
         // Noise values with validation (0-120 dB)
@@ -211,7 +211,7 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
         }
         if (bme.containsKey("pressure")) {
             float press = bme["pressure"]["value"].as<float>() * 0.0075;
-            values.press_indoor = isValidRange(press, 500, 800) ? press : -1;
+            values.press_indoor = isValidRange(press, 500, 1000) ? press : -1;
         }
     }
 }

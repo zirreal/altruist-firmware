@@ -66,7 +66,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         btn_press.pressed = false;
 
         if (display_sleeping) {
-            if (btn_press.button_num == ButtonNum::DOWN) {
+            if (btn_press.button_num == ButtonNum::SET) {
                 EPD_4IN2_V2_Init();
                 DEV_Delay_ms(500);
                 display_sleeping = false;
@@ -81,8 +81,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             return;
         }
         else {
-            // Global: long DOWN to sleep from any screen
-            if (btn_press.button_num == ButtonNum::DOWN && btn_press.press_type == PressType::LONG) {
+            // Global: long SET to sleep from any screen
+            if (btn_press.button_num == ButtonNum::SET && btn_press.press_type == PressType::LONG) {
                 initAndClearScreen();
                 // Clear the image buffer to white before drawing sleep message
                 Paint_SelectImage(BlackImage);
@@ -107,14 +107,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                     if (btn_press.button_num == ButtonNum::UP) {
                         setScreen(getPrevScreen(currentScreenID));
                         return;
-                    } else if (btn_press.button_num == ButtonNum::SET) {
+                    } else if (btn_press.button_num == ButtonNum::DOWN) {
                         setScreen(getNextScreen(currentScreenID));
                         return;
                     }
                 }
             } 
             else if (currentScreenID == ScreenPage::GRAPHS) {
-                if (btn_press.button_num == ButtonNum::DOWN) {
+                if (btn_press.button_num == ButtonNum::SET) {
                     setNextGraphScreen();
                     refresh_now = true;
                     return;
@@ -123,7 +123,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                     if (btn_press.button_num == ButtonNum::UP) {
                         setScreen(getPrevScreen(currentScreenID));
                         return;
-                    } else if (btn_press.button_num == ButtonNum::SET) {
+                    } else if (btn_press.button_num == ButtonNum::DOWN) {
                         setScreen(getNextScreen(currentScreenID));
                         return;
                     }
@@ -134,7 +134,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                     if (btn_press.button_num == ButtonNum::UP) {
                         setScreen(getPrevScreen(currentScreenID));
                         return;
-                    } else if (btn_press.button_num == ButtonNum::SET) {
+                    } else if (btn_press.button_num == ButtonNum::DOWN) {
                         setScreen(getNextScreen(currentScreenID));
                         return;
                     }
@@ -145,7 +145,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                     if (btn_press.button_num == ButtonNum::UP) {
                         setScreen(getPrevScreen(currentScreenID));
                         return;
-                    } else if (btn_press.button_num == ButtonNum::SET) {
+                    } else if (btn_press.button_num == ButtonNum::DOWN) {
                         setScreen(getNextScreen(currentScreenID));
                         return;
                     }
