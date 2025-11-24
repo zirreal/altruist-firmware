@@ -129,7 +129,7 @@ bool isTempDangerous(float temperature) {
 
 // Check if humidity is dangerous
 bool isHumidityDangerous(float humidity) {
-    if (humidity < 0 || humidity > 100) return false; // Invalid data
+    if (humidity < 0 || humidity > 120) return false; // Invalid data
     // Dangerous if: humidity < 40 OR humidity >= 60 
     return (humidity < 40 || humidity >= 70);
 }
@@ -160,11 +160,11 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
         // PM values with validation (reasonable ranges: 0-500 μg/m³)
         if (urban.containsKey("SDS_P1")) {
             float pm10 = urban["SDS_P1"]["value"].as<float>();
-            values.pm10 = isValidRange(pm10, 0, 800) ? pm10 : -1;
+            values.pm10 = isValidRange(pm10, 0, 1500) ? pm10 : -1;
         }
         if (urban.containsKey("SDS_P2")) {
             float pm25 = urban["SDS_P2"]["value"].as<float>();
-            values.pm25 = isValidRange(pm25, 0, 600) ? pm25 : -1;
+            values.pm25 = isValidRange(pm25, 0, 800) ? pm25 : -1;
         }
         
         // Environmental values with validation

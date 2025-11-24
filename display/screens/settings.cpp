@@ -8,6 +8,9 @@
 #include "../../utils.h"
 #include "../../defines.h"
 #include "../paint_driver/GUI_Paint.h"
+#if defined(USE_SD_CARD)
+#include "../../sd_card/sd_card.h"
+#endif
 #include "../icons/icons/40x40/robo_hw_logo_black_40x40.h"
 #include "../icons/icons/15x15/ip_address_15x15.h"
 #include "../icons/icons/15x15/wifi_15x15.h"
@@ -190,10 +193,18 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
     Paint_DrawLine(icon_indent, info_y + divider_spacing, usable_width - 8, info_y + divider_spacing, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     info_y += divider_spacing + 2;
 
-    // SD Card Status
+    // SD Card Status - check dynamically to detect removal
+#if defined(USE_SD_CARD)
+    extern SDCard sdCardLogger;
+    bool sd_card_currently_connected = sdCardLogger.checkInserted();
+    // Update deviceStatus to reflect current state
+    deviceStatus.sd_card_connected = sd_card_currently_connected;
+#else
+    bool sd_card_currently_connected = deviceStatus.sd_card_connected;
+#endif
     Paint_DrawImage(sd_card_15x15, icon_indent, info_y, icon_size, icon_size);
     Paint_DrawString_EN(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, "SD Card:", &Font16, WHITE, BLACK);
-    const char* sd_status = deviceStatus.sd_card_connected ? "Connected" : "Not connected";
+    const char* sd_status = sd_card_currently_connected ? "Connected" : "Not connected";
     Paint_DrawString_EN(value_indent, info_y + (icon_size - Font12.Height) / 2, sd_status, &Font12, WHITE, BLACK);
     info_y += line_spacing;
     // Divider

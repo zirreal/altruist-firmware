@@ -132,28 +132,31 @@ void GraphPainter::drawXLabels(time_t *time_now) {
     // Serial.printf("start_time: %d\n\r", start_time);
     unsigned long seconds_in_day = start_time % 86400;  // Seconds since midnight
     // Serial.printf("seconds_in_day: %d\n\r", seconds_in_day);
-    uint8_t start_hour = seconds_in_day / 3600 + 1;
+    uint8_t start_hour = seconds_in_day / 3600;
     uint16_t start_seconds = seconds_in_day % 3600;
     uint32_t start_hour_time = 3600 - start_seconds;
     // Serial.printf("start_hour: %d, start_seconds: %d, start_hour_time: %d\n\r", start_hour, start_seconds, start_hour_time);
     for (int i = 0; i < 4; i++) {
-        int timezone_offset = get_timezone_offset();
-        int current_hour = start_hour + i * show_hours / 4 + timezone_offset;
-        if (current_hour < 0) {
-            current_hour = 24 + current_hour;
-        } else if (current_hour > 24) {
-            current_hour = current_hour - 24;
-        }
-        char label[5];
-        snprintf(label, sizeof(label), "%02dh", current_hour);
         float time_span = (float)(*time_now - start_time); // Ensure float division
         float time_offset = (float)(start_hour_time + i * 3600 * show_hours / 4); // seconds from start
 
         float x_pos = (float)left_bottom_graph_x + (time_offset * graph_width) / time_span;
         uint16_t x = (uint16_t)x_pos;
+        
+        // Show relative time labels: "-12h", "-9h", "-6h", "-3h", "now"
+        char label[6];
+        if (i == 3) {
+            // Last label shows "now" for current time
+            snprintf(label, sizeof(label), "now");
+        } else {
+            // Show hours ago: -12h, -9h, -6h, -3h
+            int hours_ago = show_hours - (i * show_hours / 4);
+            snprintf(label, sizeof(label), "-%dh", hours_ago);
+        }
+        
         // Serial.printf("time_span: %f, time_offset: %f, x_pos: %f\n\r", time_span, time_offset, x_pos);
         uint16_t y = left_bottom_graph_y + 5;
-        Paint_DrawString_EN(x - digitFont.Width * 3 / 2, y, label, &digitFont, background_color, main_color);
+        Paint_DrawString_EN(x - digitFont.Width * strlen(label) / 2, y, label, &digitFont, background_color, main_color);
         Paint_DrawLine(x, left_bottom_graph_y - 2, x, left_bottom_graph_y + 2, main_color, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     }
 }
