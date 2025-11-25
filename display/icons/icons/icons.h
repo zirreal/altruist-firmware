@@ -14,19 +14,25 @@
 typedef enum icon_name {
   air_filter,
   air_pollution,
+  buttons_nav,
   circuit,
   co2_svgrepo_com,
   display_frame,
   ear_hearing,
   gear,
+  graph_nav,
+  home_nav,
   house_thermometer,
   ip_address,
   line_graph,
   location,
   map,
+  map_nav,
   pressure,
   robo_hw_logo_black,
   sd_card,
+  set_nav,
+  switch_nav,
   wi_humidity_cropped,
   wi_thermometer_cropped,
   wifi,
@@ -42,6 +48,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return air_filter_20x20;
     case 35: return air_filter_35x35;
     case 40: return air_filter_40x40;
+    case 200: return air_filter_200x200;
     default:
       return nullptr;
     }
@@ -51,6 +58,17 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return air_pollution_20x20;
     case 35: return air_pollution_35x35;
     case 40: return air_pollution_40x40;
+    case 200: return air_pollution_200x200;
+    default:
+      return nullptr;
+    }
+  case buttons_nav:
+    switch (size) {
+    case 15: return buttons_nav_15x15;
+    case 20: return buttons_nav_20x20;
+    case 35: return buttons_nav_35x35;
+    case 40: return buttons_nav_40x40;
+    case 200: return buttons_nav_200x200;
     default:
       return nullptr;
     }
@@ -60,6 +78,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return circuit_20x20;
     case 35: return circuit_35x35;
     case 40: return circuit_40x40;
+    case 200: return circuit_200x200;
     default:
       return nullptr;
     }
@@ -69,6 +88,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return co2_svgrepo_com_20x20;
     case 35: return co2_svgrepo_com_35x35;
     case 40: return co2_svgrepo_com_40x40;
+    case 200: return co2_svgrepo_com_200x200;
     default:
       return nullptr;
     }
@@ -78,6 +98,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return display_frame_20x20;
     case 35: return display_frame_35x35;
     case 40: return display_frame_40x40;
+    case 200: return display_frame_200x200;
     default:
       return nullptr;
     }
@@ -87,6 +108,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return ear_hearing_20x20;
     case 35: return ear_hearing_35x35;
     case 40: return ear_hearing_40x40;
+    case 200: return ear_hearing_200x200;
     default:
       return nullptr;
     }
@@ -96,6 +118,27 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return gear_20x20;
     case 35: return gear_35x35;
     case 40: return gear_40x40;
+    case 200: return gear_200x200;
+    default:
+      return nullptr;
+    }
+  case graph_nav:
+    switch (size) {
+    case 15: return graph_nav_15x15;
+    case 20: return graph_nav_20x20;
+    case 35: return graph_nav_35x35;
+    case 40: return graph_nav_40x40;
+    case 200: return graph_nav_200x200;
+    default:
+      return nullptr;
+    }
+  case home_nav:
+    switch (size) {
+    case 15: return home_nav_15x15;
+    case 20: return home_nav_20x20;
+    case 35: return home_nav_35x35;
+    case 40: return home_nav_40x40;
+    case 200: return home_nav_200x200;
     default:
       return nullptr;
     }
@@ -105,6 +148,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return house_thermometer_20x20;
     case 35: return house_thermometer_35x35;
     case 40: return house_thermometer_40x40;
+    case 200: return house_thermometer_200x200;
     default:
       return nullptr;
     }
@@ -114,6 +158,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return ip_address_20x20;
     case 35: return ip_address_35x35;
     case 40: return ip_address_40x40;
+    case 200: return ip_address_200x200;
     default:
       return nullptr;
     }
@@ -123,6 +168,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return line_graph_20x20;
     case 35: return line_graph_35x35;
     case 40: return line_graph_40x40;
+    case 200: return line_graph_200x200;
     default:
       return nullptr;
     }
@@ -132,6 +178,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return location_20x20;
     case 35: return location_35x35;
     case 40: return location_40x40;
+    case 200: return location_200x200;
     default:
       return nullptr;
     }
@@ -141,6 +188,17 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return map_20x20;
     case 35: return map_35x35;
     case 40: return map_40x40;
+    case 200: return map_200x200;
+    default:
+      return nullptr;
+    }
+  case map_nav:
+    switch (size) {
+    case 15: return map_nav_15x15;
+    case 20: return map_nav_20x20;
+    case 35: return map_nav_35x35;
+    case 40: return map_nav_40x40;
+    case 200: return map_nav_200x200;
     default:
       return nullptr;
     }
@@ -150,6 +208,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return pressure_20x20;
     case 35: return pressure_35x35;
     case 40: return pressure_40x40;
+    case 200: return pressure_200x200;
     default:
       return nullptr;
     }
@@ -169,6 +228,27 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return sd_card_20x20;
     case 35: return sd_card_35x35;
     case 40: return sd_card_40x40;
+    case 200: return sd_card_200x200;
+    default:
+      return nullptr;
+    }
+  case set_nav:
+    switch (size) {
+    case 15: return set_nav_15x15;
+    case 20: return set_nav_20x20;
+    case 35: return set_nav_35x35;
+    case 40: return set_nav_40x40;
+    case 200: return set_nav_200x200;
+    default:
+      return nullptr;
+    }
+  case switch_nav:
+    switch (size) {
+    case 15: return switch_nav_15x15;
+    case 20: return switch_nav_20x20;
+    case 35: return switch_nav_35x35;
+    case 40: return switch_nav_40x40;
+    case 200: return switch_nav_200x200;
     default:
       return nullptr;
     }
@@ -178,6 +258,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return wi_humidity_cropped_20x20;
     case 35: return wi_humidity_cropped_35x35;
     case 40: return wi_humidity_cropped_40x40;
+    case 200: return wi_humidity_cropped_200x200;
     default:
       return nullptr;
     }
@@ -187,6 +268,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return wi_thermometer_cropped_20x20;
     case 35: return wi_thermometer_cropped_35x35;
     case 40: return wi_thermometer_cropped_40x40;
+    case 200: return wi_thermometer_cropped_200x200;
     default:
       return nullptr;
     }
@@ -196,6 +278,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return wifi_20x20;
     case 35: return wifi_35x35;
     case 40: return wifi_40x40;
+    case 200: return wifi_200x200;
     default:
       return nullptr;
     }
@@ -205,6 +288,7 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 20: return wifi_x_20x20;
     case 35: return wifi_x_35x35;
     case 40: return wifi_x_40x40;
+    case 200: return wifi_x_200x200;
     default:
       return nullptr;
     }

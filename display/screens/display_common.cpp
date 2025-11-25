@@ -3,10 +3,12 @@
 #include "display_common.h"
 #include "../paint_driver/GUI_Paint.h"
 #include "../display_manager.h"
-#include "../icons/icons/15x15/display_frame_15x15.h"
-#include "../icons/icons/15x15/gear_15x15.h"
-#include "../icons/icons/15x15/line_graph_15x15.h"
-#include "../icons/icons/15x15/map_15x15.h"
+#include "../icons/icons/10x10/buttons-nav_10x10.h"
+#include "../icons/icons/15x15/home_nav_15x15.h"
+#include "../icons/icons/15x15/graph_nav_15x15.h"
+#include "../icons/icons/15x15/nav-info_15x15.h"
+#include "../icons/icons/15x15/map_nav_15x15.h"
+#include "../icons/icons/15x15/nav-switch_15x15.h"
 
 static bool epd_initialized = false;
 
@@ -69,6 +71,136 @@ void showImageLong(UBYTE *&BlackImage) {
 #endif
 }
 
+// Helper function to draw an icon with inverted colors (white icon on black background)
+static void Paint_DrawImageInverted(const unsigned char *image_buffer, UWORD xStart, UWORD yStart, UWORD W_Image, UWORD H_Image) {
+    UWORD x, y;
+    UWORD byte_width = (W_Image % 8) ? (W_Image / 8 + 1) : (W_Image / 8);
+
+    for (y = 0; y < H_Image; y++) {
+        for (x = 0; x < W_Image; x++) {
+            UWORD byte_index = (y * byte_width) + (x / 8);
+            UBYTE byte = image_buffer[byte_index];
+            UBYTE bit = 0x80 >> (x % 8);  // MSB first
+
+            // Invert: if bit is set (would be WHITE), draw BLACK; if bit is clear (would be BLACK), draw WHITE
+            UWORD color = (byte & bit) ? BLACK : WHITE;
+
+            Paint_SetPixel(xStart + x, yStart + y, color);
+        }
+    }
+}
+
+// Helper function to draw a rounded rectangle
+static void Paint_DrawRoundedRectangle(UWORD xStart, UWORD yStart, UWORD xEnd, UWORD yEnd, 
+                                        UWORD color, UWORD radius, DOT_PIXEL line_width, DRAW_FILL draw_fill) {
+    if (xStart > Paint.Width || yStart > Paint.Height ||
+        xEnd > Paint.Width || yEnd > Paint.Height) {
+        return;
+    }
+
+    if (draw_fill == DRAW_FILL_FULL) {
+        // Fill the main rectangular area
+        Paint_DrawRectangle(xStart + radius, yStart, xEnd - radius, yEnd, color, line_width, DRAW_FILL_FULL);
+        Paint_DrawRectangle(xStart, yStart + radius, xEnd, yEnd - radius, color, line_width, DRAW_FILL_FULL);
+        
+        // Fill the corner areas with filled circles (only the parts that are inside the rectangle)
+        // Top-left
+        for (int y = 0; y < radius; y++) {
+            for (int x = 0; x < radius; x++) {
+                int dx = x - radius;
+                int dy = y - radius;
+                if (dx*dx + dy*dy <= radius*radius) {
+                    Paint_SetPixel(xStart + x, yStart + y, color);
+                }
+            }
+        }
+        // Top-right
+        for (int y = 0; y < radius; y++) {
+            for (int x = 0; x < radius; x++) {
+                int dx = x;
+                int dy = y - radius;
+                if (dx*dx + dy*dy <= radius*radius) {
+                    Paint_SetPixel(xEnd - radius + x, yStart + y, color);
+                }
+            }
+        }
+        // Bottom-left
+        for (int y = 0; y < radius; y++) {
+            for (int x = 0; x < radius; x++) {
+                int dx = x - radius;
+                int dy = y;
+                if (dx*dx + dy*dy <= radius*radius) {
+                    Paint_SetPixel(xStart + x, yEnd - radius + y, color);
+                }
+            }
+        }
+        // Bottom-right
+        for (int y = 0; y < radius; y++) {
+            for (int x = 0; x < radius; x++) {
+                int dx = x;
+                int dy = y;
+                if (dx*dx + dy*dy <= radius*radius) {
+                    Paint_SetPixel(xEnd - radius + x, yEnd - radius + y, color);
+                }
+            }
+        }
+    } else {
+        // Draw outline - for small radius, use simple rectangle with rounded corners
+        // Top and bottom horizontal lines
+        Paint_DrawLine(xStart + radius, yStart, xEnd - radius, yStart, color, line_width, LINE_STYLE_SOLID);
+        Paint_DrawLine(xStart + radius, yEnd, xEnd - radius, yEnd, color, line_width, LINE_STYLE_SOLID);
+        // Left and right vertical lines
+        Paint_DrawLine(xStart, yStart + radius, xStart, yEnd - radius, color, line_width, LINE_STYLE_SOLID);
+        Paint_DrawLine(xEnd, yStart + radius, xEnd, yEnd - radius, color, line_width, LINE_STYLE_SOLID);
+        
+        // Draw corner arcs using pixel-by-pixel approach
+        // Top-left corner
+        for (int y = 0; y < radius; y++) {
+            for (int x = 0; x < radius; x++) {
+                int dx = x - radius;
+                int dy = y - radius;
+                int dist_sq = dx*dx + dy*dy;
+                if (dist_sq >= (radius-1)*(radius-1) && dist_sq <= radius*radius) {
+                    Paint_SetPixel(xStart + x, yStart + y, color);
+                }
+            }
+        }
+        // Top-right corner
+        for (int y = 0; y < radius; y++) {
+            for (int x = 0; x < radius; x++) {
+                int dx = x;
+                int dy = y - radius;
+                int dist_sq = dx*dx + dy*dy;
+                if (dist_sq >= (radius-1)*(radius-1) && dist_sq <= radius*radius) {
+                    Paint_SetPixel(xEnd - radius + x, yStart + y, color);
+                }
+            }
+        }
+        // Bottom-left corner
+        for (int y = 0; y < radius; y++) {
+            for (int x = 0; x < radius; x++) {
+                int dx = x - radius;
+                int dy = y;
+                int dist_sq = dx*dx + dy*dy;
+                if (dist_sq >= (radius-1)*(radius-1) && dist_sq <= radius*radius) {
+                    Paint_SetPixel(xStart + x, yEnd - radius + y, color);
+                }
+            }
+        }
+        // Bottom-right corner
+        for (int y = 0; y < radius; y++) {
+            for (int x = 0; x < radius; x++) {
+                int dx = x;
+                int dy = y;
+                int dist_sq = dx*dx + dy*dy;
+                if (dist_sq >= (radius-1)*(radius-1) && dist_sq <= radius*radius) {
+                    Paint_SetPixel(xEnd - radius + x, yEnd - radius + y, color);
+                }
+            }
+        }
+    }
+}
+
 // Draw screen indicator icons as a vertical stack on the right side
 void drawScreenIndicator(ScreenPage currentScreen) {
     bool isNavigable = (currentScreen == ScreenPage::MAIN || 
@@ -79,50 +211,98 @@ void drawScreenIndicator(ScreenPage currentScreen) {
         return;
     }
 
-    struct ScreenIcon {
-        ScreenPage screen;
+    struct NavIcon {
         const unsigned char* icon;
+        bool isPageIcon;
+        ScreenPage screen; // Only used for page icons
     };
 
-    ScreenIcon screens[4] = {
-        {ScreenPage::MAIN, display_frame_15x15},
-        {ScreenPage::GRAPHS, line_graph_15x15},
-        {ScreenPage::SETTINGS, gear_15x15},
-        {ScreenPage::SENSOR_MAP, map_15x15}
+
+    NavIcon navItems[6] = {
+        {buttons_nav_10x10, false, ScreenPage::MAIN}, 
+        {home_nav_15x15, true, ScreenPage::MAIN},   
+        {graph_nav_15x15, true, ScreenPage::GRAPHS},
+        {map_nav_15x15, true, ScreenPage::SENSOR_MAP},  
+        {nav_info_15x15, true, ScreenPage::SETTINGS},   
+        {nav_switch_15x15, false, ScreenPage::MAIN}  
     };
 
-    const int icon_size = 15;
-    const int icon_spacing = 8; // vertical spacing
-    const int icon_count = 4;
-    const int margin = 8; // side margin
-    // Place below headers
-    const int top_margin = 30;
+    const int icon_size = 10; // small icon size f
+    const int large_icon_size = 15; // large icon size
+    const int icon_spacing = 4; // vertical spacing between icons
+    const int nav_item_count = 6;
+    const int sidebar_width = 28; // width of the navigation sidebar
+    const int button_height = icon_size + 6; // height of each button (icon + padding)
+    const int border_radius = 2; // rounded corner radius 
+    const int padding = 4; // padding inside the rounded rectangle
+    const int margin = 1; // margin from right edge of screen 
+    
+    // Calculate sidebar position (right side of screen, full height)
+    int sidebar_x = DISPLAY_WIDTH - sidebar_width - margin;
+    // Full height from top to bottom with margins
+    int sidebar_y = margin;
+    int sidebar_height = DISPLAY_HEIGHT - margin * 2;
 
-    // Right-aligned vertical stack at the top
-    int start_x = DISPLAY_WIDTH - icon_size - margin;
-    // Position at top, below headers
-    int start_y = top_margin;
+    // Draw rounded rectangle container with white background and black border
+    Paint_DrawRoundedRectangle(sidebar_x, sidebar_y, 
+                               sidebar_x + sidebar_width, sidebar_y + sidebar_height - 1,
+                               WHITE, border_radius, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    // Draw black border
+    Paint_DrawRoundedRectangle(sidebar_x, sidebar_y, 
+                               sidebar_x + sidebar_width - 1, sidebar_y + sidebar_height - 1,
+                               BLACK, border_radius, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
 
-    for (int i = 0; i < icon_count; i++) {
-        int icon_x = start_x;
-        int icon_y = start_y + i * (icon_size + icon_spacing);
-
-        // Clear the icon area + a little margin
-        Paint_ClearWindows(icon_x - 20, icon_y - 2, icon_x + icon_size + 2, icon_y + icon_size + 6, WHITE);
-
-        bool is_active = (screens[i].screen == currentScreen);
-
-        // Draw icon
-        Paint_DrawImage(screens[i].icon, icon_x, icon_y, icon_size, icon_size);
-
-        // Draw '>' marker to the left for active icon
+    // Calculate icon positions
+    int small_icon_x = sidebar_x + (sidebar_width - icon_size) / 2;
+    int large_icon_x = sidebar_x + (sidebar_width - large_icon_size) / 2;
+    const int page_icon_gap = 12; // gap between page icons 
+    const int buttons_bottom_border_gap = 12; // gap after buttons icon with border 
+    
+    // Top: buttons icon 
+    int current_y = sidebar_y + padding;
+    Paint_DrawImage(navItems[0].icon, small_icon_x, current_y + 8, icon_size, icon_size);
+    
+    // Draw bottom border for buttons icon
+    int buttons_bottom_y = current_y + button_height + buttons_bottom_border_gap;
+    Paint_DrawLine(sidebar_x + 2, buttons_bottom_y, sidebar_x + sidebar_width - 3, buttons_bottom_y, 
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    
+    // Page icons - stacked right after buttons icon with border
+    current_y = buttons_bottom_y + 4; // Start after border with some spacing
+    
+    for (int i = 1; i <= 4; i++) {
+        bool is_active = (navItems[i].screen == currentScreen);
+        
+        // Determine icon size based on which icon it is
+        // home-nav (index 1), graph-nav (index 2), map-nav (index 3), and nav-info (index 4) are all 15x15
+        bool is_large_icon = (i == 1 || i == 2 || i == 3 || i == 4); // home-nav, graph-nav, map-nav, or nav-info
+        int current_icon_size = is_large_icon ? large_icon_size : icon_size;
+        int current_icon_x = is_large_icon ? large_icon_x : small_icon_x;
+        
+        // Draw black button background for active page
         if (is_active) {
-            const char *marker = ">";
-            int marker_x = icon_x - 10; // a bit to the left
-            int marker_y = icon_y + (icon_size - Font12.Height) / 2;
-            Paint_DrawString_EN(marker_x, marker_y, marker, &Font12, WHITE, BLACK);
+            const int active_padding = 4; // extra top and bottom padding for active icon
+            int button_x = sidebar_x + 1; // no padding from border 
+            int button_y = current_y - active_padding; // more top padding
+            int button_w = sidebar_width - 2; // no padding from border 
+            int button_h = button_height + (active_padding * 2); // more bottom padding
+            Paint_DrawRectangle(button_x, button_y, 
+                               button_x + button_w - 1, button_y + button_h - 1,
+                               BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+            // Draw white (inverted) icon on black background
+            Paint_DrawImageInverted(navItems[i].icon, current_icon_x, current_y, current_icon_size, current_icon_size);
+        } else {
+            // Draw black icon on white background
+            Paint_DrawImage(navItems[i].icon, current_icon_x, current_y, current_icon_size, current_icon_size);
         }
+        
+        // Move to next icon position
+        current_y += button_height + page_icon_gap;
     }
+    
+    // Bottom: switch icon 
+    int bottom_icon_y = sidebar_y + sidebar_height - padding - button_height;
+    Paint_DrawImage(navItems[5].icon, large_icon_x, bottom_icon_y, large_icon_size, large_icon_size);
 }
 
 #endif

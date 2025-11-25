@@ -1,0 +1,9 @@
+#ifndef __ICONS_10x10_H__
+#define __ICONS_10x10_H__
+#include "10x10/buttons-nav_10x10.h"
+#include "10x10/graph-nav_10x10.h"
+#include "10x10/home-nav_10x10.h"
+#include "10x10/map-nav_10x10.h"
+#include "10x10/nav-info_10x10.h"
+#endif
+

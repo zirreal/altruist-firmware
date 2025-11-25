@@ -13,20 +13,20 @@ extern LedControllerInsight leds_controller_insight;
 bool display_sleeping = false;
 
 // Cycle order for screens when navigating with UP/SET
-// Order: MAIN -> GRAPHS -> SETTINGS -> SENSOR_MAP -> MAIN
+// Order: MAIN -> GRAPHS -> SENSOR_MAP -> SETTINGS -> MAIN
 ScreenPage DisplayManager::getNextScreen(ScreenPage current) {
     if (current == ScreenPage::MAIN) return ScreenPage::GRAPHS;
-    if (current == ScreenPage::GRAPHS) return ScreenPage::SETTINGS;
-    if (current == ScreenPage::SETTINGS) return ScreenPage::SENSOR_MAP;
-    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::MAIN;
+    if (current == ScreenPage::GRAPHS) return ScreenPage::SENSOR_MAP;
+    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::SETTINGS;
+    if (current == ScreenPage::SETTINGS) return ScreenPage::MAIN;
     // Default: go to MAIN from other screens
     return ScreenPage::MAIN;
 }
 
 ScreenPage DisplayManager::getPrevScreen(ScreenPage current) {
-    if (current == ScreenPage::MAIN) return ScreenPage::SENSOR_MAP;
-    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::SETTINGS;
-    if (current == ScreenPage::SETTINGS) return ScreenPage::GRAPHS;
+    if (current == ScreenPage::MAIN) return ScreenPage::SETTINGS;
+    if (current == ScreenPage::SETTINGS) return ScreenPage::SENSOR_MAP;
+    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::GRAPHS;
     if (current == ScreenPage::GRAPHS) return ScreenPage::MAIN;
     // Default: go to MAIN from other screens
     return ScreenPage::MAIN;

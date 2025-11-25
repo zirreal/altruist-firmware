@@ -224,26 +224,42 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     // Clear screen first to remove any white lines
     Paint_Clear(WHITE);
     
-    // Simple black line/bar at top (a bit longer)
-    uint16_t top_bar_height = Font16.Height + Font8.Height;
-    Paint_DrawRectangle(0, 0, DISPLAY_WIDTH, top_bar_height, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    
-    // Date and time on top of black bar
+    // Date and time in a row
     struct tm timeinfo; 
+    uint16_t header_height = Font16.Height + 4; // Height for header row
+    uint16_t header_y_offset = 12; // Move date/time lower
+    uint16_t header_bottom_border_y = 0;
     if (getLocalTime(&timeinfo)) {
         char date_buf[12], time_buf[8];
         strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
         strftime(time_buf, sizeof(time_buf), "%H:%M", &timeinfo);
         
-        int date_x = DISPLAY_WIDTH / 2 - strlen(date_buf) * Font12.Width / 2;
-        int time_x = DISPLAY_WIDTH / 2 - strlen(time_buf) * Font16.Width / 2;
+        // Calculate total width of date, pipe separator, and time with spacing
+        int date_width = strlen(date_buf) * Font12.Width;
+        int time_width = strlen(time_buf) * Font12.Width;
+        int pipe_width = Font12.Width; // width of "|" character
+        int spacing = 8; // spacing between date and pipe, and pipe and time
+        int total_width = date_width + spacing + pipe_width + spacing + time_width;
         
-        Paint_DrawString_EN(date_x, 2, date_buf, &Font12, BLACK, WHITE);
-        Paint_DrawString_EN(time_x, Font12.Height + 2, time_buf, &Font16, BLACK, WHITE);
+        // Center the combined date, pipe, and time
+        int start_x = DISPLAY_WIDTH / 2 - total_width / 2;
+        int center_y = header_y_offset;
+        
+        // Draw date, pipe separator, and time
+        Paint_DrawString_EN(start_x, center_y, date_buf, &Font12, WHITE, BLACK);
+        Paint_DrawString_EN(start_x + date_width + spacing, center_y, "|", &Font12, WHITE, BLACK);
+        Paint_DrawString_EN(start_x + date_width + spacing + pipe_width + spacing, center_y, time_buf, &Font12, WHITE, BLACK);
+        
+        // Calculate where the bottom border should be
+        header_bottom_border_y = center_y + Font16.Height + 6;
     }
 
-    // Section headers row (below time) - bigger gap
-    uint16_t y_start = top_bar_height + 18;
+    // Draw bottom border for header
+    Paint_DrawLine(0, header_bottom_border_y, DISPLAY_WIDTH, header_bottom_border_y, 
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
+    // Section headers row (below header) - bigger gap
+    uint16_t y_start = header_bottom_border_y + 18;
 
     // Save right sidebar for vertical navigation icons (approx 28px)
     const uint16_t nav_sidebar_width = 28;
