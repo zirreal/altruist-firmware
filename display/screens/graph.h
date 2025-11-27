@@ -9,11 +9,28 @@
 #define GRAPH_HEIGHT (DISPLAY_HEIGHT - 40)/2
 #define GRAPH_WIDTH (DISPLAY_WIDTH - 40)/2
 
+// Order of values when cycling on the graphs screen:
+enum class GraphValue : uint8_t {
+    INSIGHT_TEMP = 0,
+    INSIGHT_HUM,
+    INSIGHT_CO2,
+    INSIGHT_PRESSURE,
+    URBAN_AIR,
+    URBAN_NOISE,
+    URBAN_TEMP,
+    URBAN_HUM,
+    URBAN_PRESSURE
+};
+
 extern uint8_t current_graph_screen;
 
 void drawGraphScreen();
 void setNextGraphScreen();
 void setPrevGraphScreen();
+
+// Cycle through graph values on the GRAPHS screen
+void setNextGraphValue();
+void setPrevGraphValue();
 
 #endif
 #endif

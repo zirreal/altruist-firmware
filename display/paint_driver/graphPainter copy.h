@@ -66,7 +66,7 @@ private:
     uint16_t width;
     float max_value = 0;
     float min_value = 99999;
-    int ticks = 8; 
+    int ticks = 8; // Increased from 6 to 8 for more y-axis values
     float range;
     float step;
     float graph_min;

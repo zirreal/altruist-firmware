@@ -2,6 +2,7 @@
 
 #include "display_manager.h"
 #include "screens/screens.h"
+#include "screens/graph.h"
 #include "../defines.h"
 #include "utils.h"
 #include <SPIFFS.h>
@@ -114,17 +115,25 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 }
             } 
             else if (currentScreenID == ScreenPage::GRAPHS) {
-                if (btn_press.button_num == ButtonNum::DOWN) {
-                    setNextGraphScreen();
-                    refresh_now = true;
-                    return;
-                }
-                if (btn_press.press_type == PressType::SHORT) {
+                // On graphs page:
+                // - SHORT UP/SET: cycle graph values
+                // - LONG  UP/SET: change screens (prev/next)
+                if (btn_press.press_type == PressType::LONG) {
                     if (btn_press.button_num == ButtonNum::UP) {
                         setScreen(getPrevScreen(currentScreenID));
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         setScreen(getNextScreen(currentScreenID));
+                        return;
+                    }
+                } else if (btn_press.press_type == PressType::SHORT) {
+                    if (btn_press.button_num == ButtonNum::UP) {
+                        setPrevGraphValue();
+                        refresh_now = true;
+                        return;
+                    } else if (btn_press.button_num == ButtonNum::SET) {
+                        setNextGraphValue();
+                        refresh_now = true;
                         return;
                     }
                 }
