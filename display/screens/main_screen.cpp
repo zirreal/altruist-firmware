@@ -272,13 +272,48 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     // === URBAN SENSOR SECTION (2 sub-columns) ===
     // Simple section header
     Paint_DrawString_EN(8, y_start, "URBAN SENSOR", &Font16, WHITE, BLACK);
-    // Determine Urban status: online if we have IP address OR any valid sensor data
-    // This is more reliable than just checking IP address, as sensor data indicates Urban is actually working
-    bool urban_has_data = (values.pm10 >= 0 || values.pm25 >= 0 || values.temp_outdoor >= -40 || 
-                           values.hum_outdoor >= 0 || values.press_outdoor >= 0 || 
-                           values.noise_max >= 0 || values.noise_avg >= 0);
-    String urban_status = (values.ip_address.length() > 0) ? values.ip_address : 
-                          (urban_has_data ? "Online" : "Offline");
+
+    // Determine Urban status with simple debouncing & caching:
+    // - Consider Urban "online" if we have IP address OR any valid sensor data
+    // - Require several consecutive "offline" reads before showing "Offline" on screen
+    //   to avoid random glitches / missing packets
+    static uint8_t consecutive_urban_offline_reads = 0;
+    static String  last_urban_status = "";
+
+    bool urban_has_data = (values.pm10  >= 0 ||
+                           values.pm25  >= 0 ||
+                           values.temp_outdoor > -40 ||
+                           values.hum_outdoor  >= 0 ||
+                           values.press_outdoor >= 0 ||
+                           values.noise_max   >= 0 ||
+                           values.noise_avg   >= 0);
+
+    bool urban_now_online = (values.ip_address.length() > 0) || urban_has_data;
+    String urban_status;
+
+    if (urban_now_online) {
+        // Immediately trust an online reading and reset the counter
+        consecutive_urban_offline_reads = 0;
+        urban_status = (values.ip_address.length() > 0)
+                           ? values.ip_address
+                           : String(F("Online"));
+        last_urban_status = urban_status;
+    } else {
+        // Only switch to "Offline" after several consecutive missing reads
+        if (consecutive_urban_offline_reads < 3) {
+            consecutive_urban_offline_reads++;
+            // While we are not yet sure it's really offline, keep showing last known status if any
+            if (last_urban_status.length() > 0) {
+                urban_status = last_urban_status;
+            } else {
+                urban_status = String(F("Offline"));
+            }
+        } else {
+            urban_status = String(F("Offline"));
+            last_urban_status = urban_status;
+        }
+    }
+
     Paint_DrawString_EN(8, y_start + Font16.Height + 2, urban_status.c_str(), &Font12, WHITE, BLACK);
     
     uint16_t urban_y = y_start + Font16.Height + Font12.Height + 15;
