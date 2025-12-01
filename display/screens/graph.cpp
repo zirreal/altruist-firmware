@@ -7,6 +7,7 @@
 #include "../../sd_card/sd_card.h"
 #include "../../config_manager/config_helpers.h"
 #include "../icons/icons/15x15/buttons_nav_15x15.h"
+#include <vector>
 
 #if defined(USE_SD_CARD)
 #include "SD.h"
@@ -15,6 +16,63 @@
 
 uint8_t current_graph_screen = 1;
 static GraphValue current_graph_value = GraphValue::INSIGHT_TEMP;
+
+// Filter data to hourly intervals (keep only the last value in each hour)
+static void filterToHourlyData(LineData &data) {
+    if (data.count == 0 || !data.values || !data.timestamps) {
+        return;
+    }
+    
+    // Group data by hour and keep only the last value in each hour
+    std::vector<float> hourly_values;
+    std::vector<uint32_t> hourly_timestamps;
+    
+    uint32_t current_hour = 0;
+    bool first_hour = true;
+    float last_value_in_hour = 0;
+    uint32_t last_timestamp_in_hour = 0;
+    
+    for (int i = 0; i < data.count; i++) {
+        uint32_t timestamp = data.timestamps[i];
+        uint32_t hour = timestamp / 3600;  // Group by hour (Unix hour)
+        
+        if (first_hour) {
+            current_hour = hour;
+            first_hour = false;
+        } else if (hour != current_hour) {
+            // New hour - save the last value from previous hour
+            hourly_values.push_back(last_value_in_hour);
+            hourly_timestamps.push_back(last_timestamp_in_hour);
+            current_hour = hour;
+        }
+        
+        // Always update to the latest value in this hour
+        last_value_in_hour = data.values[i];
+        last_timestamp_in_hour = timestamp;
+    }
+    
+    if (data.count > 0) {
+        hourly_values.push_back(last_value_in_hour);
+        hourly_timestamps.push_back(last_timestamp_in_hour);
+    }
+    
+    // Replace the original data with filtered data
+    delete[] data.values;
+    delete[] data.timestamps;
+    
+    data.count = hourly_values.size();
+    if (data.count > 0) {
+        data.values = new float[data.count];
+        data.timestamps = new uint32_t[data.count];
+        for (int i = 0; i < data.count; i++) {
+            data.values[i] = hourly_values[i];
+            data.timestamps[i] = hourly_timestamps[i];
+        }
+    } else {
+        data.values = nullptr;
+        data.timestamps = nullptr;
+    }
+}
 
 #if defined(USE_SD_CARD)
 // External reference to SD card logger
@@ -198,8 +256,11 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         return;
     }
 
+    // Account for right sidebar navigation 
+    const uint16_t rightSidebarWidth = 29;
+    const uint16_t rightMargin = 0;  // No right margin - graph goes right up to sidebar
     uint16_t graphLeft   = marginX;
-    uint16_t graphWidth  = DISPLAY_WIDTH - 2 * marginX;
+    uint16_t graphWidth  = DISPLAY_WIDTH - marginX - rightSidebarWidth - rightMargin;  // Left margin + right sidebar, no extra right margin
     uint16_t graphHeight = navTop - topMargin - bottomGap;
     uint16_t graphBottom = navTop - bottomGap;
 
@@ -209,6 +270,10 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
     LineData lineData[2] = {};
     int      lineCount   = 0;
 
+    // We'll determine hours_back after checking data, but for now use 12 as max
+    // This will be updated after we calculate the actual time range
+    uint8_t hours_to_read = 12;
+    
     auto addLine = [&](const char* sensor_name,
                        const char* field_name,
                        const char* label,
@@ -217,10 +282,14 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
             return;
         }
         LineData &ld = lineData[lineCount];
-        readSensorDataFromCSV(ld, sensor_name, field_name, 12);
+        readSensorDataFromCSV(ld, sensor_name, field_name, hours_to_read);
         if (ld.count > 0 && ld.values && ld.timestamps) {
-            graph.addLineValues(ld.values, ld.timestamps, ld.count, label, style);
-            lineCount++;
+            // Filter to hourly intervals (keep only last value in each hour)
+            filterToHourlyData(ld);
+            if (ld.count > 0 && ld.values && ld.timestamps) {
+                graph.addLineValues(ld.values, ld.timestamps, ld.count, label, style);
+                lineCount++;
+            }
         } else {
             if (ld.values) {
                 delete[] ld.values;
@@ -243,6 +312,7 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
     // Dotted style for secondary line in combined graphs
     GraphLineStyle dotted = solid;
     dotted.style = LINE_STYLE_DOTTED;
+    // Keep normal thickness - will be adjusted per graph if needed
 
     switch (value) {
         case GraphValue::INSIGHT_TEMP:
@@ -257,15 +327,21 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         case GraphValue::INSIGHT_PRESSURE:
             addLine("BME680", "pressure", "Insight Press", solid);
             break;
-        case GraphValue::URBAN_AIR:
-            // Combined: PM10 (solid) + PM2.5 (dotted)
-            addLine(urban_key.c_str(), "SDS_P1", "PM10", solid);
-            addLine(urban_key.c_str(), "SDS_P2", "PM2.5", dotted);
+        case GraphValue::URBAN_AIR: {
+            // Both same thickness but different styles for distinction
+            GraphLineStyle airSolid = solid;
+            airSolid.width = DOT_PIXEL_1X1;  
+            GraphLineStyle airDotted = solid;  
+            airDotted.style = LINE_STYLE_DOTTED;
+            airDotted.width = DOT_PIXEL_1X1;  
+            addLine(urban_key.c_str(), "SDS_P1", "PM10", airSolid);
+            addLine(urban_key.c_str(), "SDS_P2", "PM2.5", airDotted);
             break;
+        }
         case GraphValue::URBAN_NOISE:
-            // Combined: Max (solid) + Avg (dotted)
-            addLine(urban_key.c_str(), "PCBA_noiseMax", "Max Noise", solid);
-            addLine(urban_key.c_str(), "PCBA_noiseAvg", "Avg Noise", dotted);
+            // Combined: Max (solid) + Avg (dotted) - shorter labels for legend
+            addLine(urban_key.c_str(), "PCBA_noiseMax", "Max", solid);
+            addLine(urban_key.c_str(), "PCBA_noiseAvg", "Avg", dotted);
             break;
         case GraphValue::URBAN_TEMP:
             addLine(urban_key.c_str(), "BME280_temperature", "Urban Temp", solid);
@@ -279,7 +355,141 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
     }
 
     if (lineCount > 0) {
+        // Calculate actual time range from data to set dynamic show_hours
+        time_t now = time(nullptr);
+        uint32_t oldest_timestamp = UINT32_MAX;
+        uint32_t newest_timestamp = 0;
+        
+        for (int i = 0; i < lineCount; i++) {
+            if (lineData[i].count > 0 && lineData[i].timestamps) {
+                // Find oldest and newest timestamps across all lines
+                for (int j = 0; j < lineData[i].count; j++) {
+                    if (lineData[i].timestamps[j] < oldest_timestamp) {
+                        oldest_timestamp = lineData[i].timestamps[j];
+                    }
+                    if (lineData[i].timestamps[j] > newest_timestamp) {
+                        newest_timestamp = lineData[i].timestamps[j];
+                    }
+                }
+            }
+        }
+        
+        if (oldest_timestamp != UINT32_MAX && newest_timestamp > 0) {
+            // Calculate total hours of data available
+            uint32_t data_span_seconds = newest_timestamp - oldest_timestamp;
+            float total_data_hours_float = (float)data_span_seconds / 3600.0f;
+            
+            // Check if we have less than 1 hour of data
+            if (total_data_hours_float < 1.0f) {
+                // Show helpful message instead of graph - centered vertically in available space
+                uint16_t graphCenterX = graphLeft + graphWidth / 2;
+                uint16_t availableHeight = navTop - topMargin;
+                uint16_t graphCenterY = topMargin + availableHeight / 2;
+                
+                const char* msg1 = "Not enough data yet";
+                const char* msg2 = "Collecting data...";
+                
+                uint16_t msg1Width = strlen(msg1) * Font16.Width;
+                uint16_t msg2Width = strlen(msg2) * Font12.Width;
+                
+                
+                uint16_t line_spacing = 8;
+                uint16_t total_msg_height = Font16.Height + Font12.Height + line_spacing;
+                
+                uint16_t msg1X = graphCenterX - msg1Width / 2;
+                uint16_t msg2X = graphCenterX - msg2Width / 2;
+                uint16_t msg1Y = graphCenterY - total_msg_height / 2;
+                uint16_t msg2Y = msg1Y + Font16.Height + line_spacing;
+                
+                Paint_DrawString_EN(msg1X, msg1Y, msg1, &Font16, WHITE, BLACK);
+                Paint_DrawString_EN(msg2X, msg2Y, msg2, &Font12, WHITE, BLACK);
+                
+                for (int i = 0; i < lineCount; i++) {
+                    if (lineData[i].values) {
+                        delete[] lineData[i].values;
+                        lineData[i].values = nullptr;
+                    }
+                    if (lineData[i].timestamps) {
+                        delete[] lineData[i].timestamps;
+                        lineData[i].timestamps = nullptr;
+                    }
+                    lineData[i].count = 0;
+                }
+                return;
+            }
+            
+            uint8_t total_data_hours = (uint8_t)(total_data_hours_float + 0.5f);  // Round to nearest
+            
+            // Dynamic time range logic:
+            // - If <= 12 hours of data: show all available data (1, 2, 3... up to 12 hours)
+            // - If > 12 hours: show sliding window of last 12 hours (new data appears as old data falls out)
+            uint8_t display_hours;
+            if (total_data_hours <= 12) {
+                display_hours = total_data_hours;
+            } else {
+                display_hours = 12;  // Sliding window: show last 12 hours
+                // When >12 hours, we need to re-read data with only last 12 hours for proper sliding window
+                // But since we already read with 12 hours, the data is already filtered correctly
+            }
+            
+            // Ensure at least 1 hour
+            if (display_hours < 1) display_hours = 1;
+            
+            graph.setShowHours(display_hours);
+        } else {
+            // No timestamps found - show message
+            uint16_t graphCenterX = graphLeft + graphWidth / 2;
+            uint16_t graphCenterY = navTop - (navTop - topMargin) / 2;
+            
+            const char* msg1 = "No data available";
+            const char* msg2 = "Collecting data...";
+            
+            uint16_t msg1Width = strlen(msg1) * Font16.Width;
+            uint16_t msg2Width = strlen(msg2) * Font12.Width;
+            
+            uint16_t msg1X = graphCenterX - msg1Width / 2;
+            uint16_t msg2X = graphCenterX - msg2Width / 2;
+            uint16_t msg1Y = graphCenterY - Font16.Height / 2 - 4;
+            uint16_t msg2Y = graphCenterY + Font12.Height / 2 + 4;
+            
+            Paint_DrawString_EN(msg1X, msg1Y, msg1, &Font16, WHITE, BLACK);
+            Paint_DrawString_EN(msg2X, msg2Y, msg2, &Font12, WHITE, BLACK);
+            
+            // Clean up and return early
+            for (int i = 0; i < lineCount; i++) {
+                if (lineData[i].values) {
+                    delete[] lineData[i].values;
+                    lineData[i].values = nullptr;
+                }
+                if (lineData[i].timestamps) {
+                    delete[] lineData[i].timestamps;
+                    lineData[i].timestamps = nullptr;
+                }
+                lineData[i].count = 0;
+            }
+            return;
+        }
+        
         graph.drawGraph();
+    } else {
+        // No data lines at all - show message
+        uint16_t graphCenterX = graphLeft + graphWidth / 2;
+        uint16_t graphCenterY = navTop - (navTop - topMargin) / 2;
+        
+        const char* msg1 = "No data available";
+        const char* msg2 = "Collecting data...";
+        
+        uint16_t msg1Width = strlen(msg1) * Font16.Width;
+        uint16_t msg2Width = strlen(msg2) * Font12.Width;
+        
+        uint16_t msg1X = graphCenterX - msg1Width / 2;
+        uint16_t msg2X = graphCenterX - msg2Width / 2;
+        uint16_t msg1Y = graphCenterY - Font16.Height / 2 - 4;
+        uint16_t msg2Y = graphCenterY + Font12.Height / 2 + 4;
+        
+        Paint_DrawString_EN(msg1X, msg1Y, msg1, &Font16, WHITE, BLACK);
+        Paint_DrawString_EN(msg2X, msg2Y, msg2, &Font12, WHITE, BLACK);
+        return;
     }
 
     // Clean up allocated buffers
@@ -297,6 +507,66 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
 }
 #endif
 
+// Helper function to check if we have at least 1 hour of data
+static bool hasEnoughData() {
+#if defined(USE_SD_CARD)
+    if (!checkSDCardAvailable() || !checkDataFilesExist()) {
+        return false;
+    }
+    
+    // Try to read a small sample of data to check if we have at least 1 hour
+    LineData testData = {};
+    String urban_key = ATRUIST_URBAN_SENSOR;
+    
+    // Try reading from a common sensor 
+    readSensorDataFromCSV(testData, "BME680", "temperature", 12);
+    
+    if (testData.count > 0 && testData.timestamps) {
+        // Filter to hourly intervals
+        filterToHourlyData(testData);
+        
+        // Check if we have at least 1 hour of data
+        if (testData.count >= 1) {
+            // Calculate time span
+            uint32_t oldest = UINT32_MAX;
+            uint32_t newest = 0;
+            for (int i = 0; i < testData.count; i++) {
+                if (testData.timestamps[i] < oldest) oldest = testData.timestamps[i];
+                if (testData.timestamps[i] > newest) newest = testData.timestamps[i];
+            }
+            
+            if (oldest != UINT32_MAX && newest > 0) {
+                uint32_t data_span_seconds = newest - oldest;
+                float total_data_hours = (float)data_span_seconds / 3600.0f;
+                
+                // Clean up
+                if (testData.values) { delete[] testData.values; }
+                if (testData.timestamps) { delete[] testData.timestamps; }
+                
+                return total_data_hours >= 1.0f;
+            }
+        }
+        
+        // Clean up
+        if (testData.values) { delete[] testData.values; }
+        if (testData.timestamps) { delete[] testData.timestamps; }
+    }
+    
+    return false;
+#else
+    return false;  // SD card not compiled in
+#endif
+}
+
+// Public function to check if graphs are available
+bool areGraphsAvailable() {
+#if defined(USE_SD_CARD)
+    return checkSDCardAvailable() && checkDataFilesExist() && hasEnoughData();
+#else
+    return false;  // SD card not compiled in
+#endif
+}
+
 void drawGraphScreen() {
     // Clear screen first to prevent glitching
     Paint_Clear(WHITE);
@@ -304,12 +574,17 @@ void drawGraphScreen() {
     String screenMsg = "Set graph screen " + String(current_graph_screen);
     debug_outln_info(screenMsg);
 
+    // Reserve space for the bottom navigation bar (always needed)
+    const uint16_t navBarHeight = 60;               
+    const uint16_t navTop       = DISPLAY_HEIGHT - navBarHeight;
+
+#if defined(USE_SD_CARD)
     // Check if SD card is available
     if (!checkSDCardAvailable()) {
         // Center text vertically with proper spacing (3 lines total)
         uint16_t line_spacing = 4;
         uint16_t total_height = Font16.Height + Font12.Height * 2 + line_spacing * 2;
-        uint16_t start_y = (DISPLAY_HEIGHT - total_height) / 2;
+        uint16_t start_y = (navTop - total_height) / 2;  // Account for nav bar at bottom
         
         uint16_t x1 = DISPLAY_WIDTH / 2 - strlen("SD card not found") * Font16.Width / 2;
         Paint_DrawString_EN(x1, start_y, "SD card not found", &Font16, WHITE, BLACK);
@@ -321,19 +596,13 @@ void drawGraphScreen() {
         uint16_t y3 = y2 + Font12.Height + line_spacing;
         uint16_t x3 = DISPLAY_WIDTH / 2 - strlen("(FAT32 formatted)") * Font12.Width / 2;
         Paint_DrawString_EN(x3, y3, "(FAT32 formatted)", &Font12, WHITE, BLACK);
-        return;
+        // Continue to draw nav bar below
     }
-    
-    // Reserve space for the bottom navigation bar
-    const uint16_t navBarHeight = 60;               
-    const uint16_t navTop       = DISPLAY_HEIGHT - navBarHeight;
-
-    // Check if any data files exist
-    if (!checkDataFilesExist()) {
-        // Center text vertically with proper spacing (4 lines total)
+    // Check if any data files exist (only if SD card is available)
+    else if (!checkDataFilesExist()) {
         uint16_t line_spacing = 4;
         uint16_t total_height = Font16.Height + Font12.Height * 3 + line_spacing * 3;
-        uint16_t start_y = (DISPLAY_HEIGHT - total_height) / 2;
+        uint16_t start_y = (navTop - total_height) / 2;  
         
         uint16_t x1 = DISPLAY_WIDTH / 2 - strlen("No data files found") * Font16.Width / 2;
         Paint_DrawString_EN(x1, start_y, "No data files found", &Font16, WHITE, BLACK);
@@ -349,22 +618,36 @@ void drawGraphScreen() {
         uint16_t y4 = y3 + Font12.Height + line_spacing;
         uint16_t x4 = DISPLAY_WIDTH / 2 - strlen("after collecting data") * Font12.Width / 2;
         Paint_DrawString_EN(x4, y4, "after collecting data", &Font12, WHITE, BLACK);
-        return;
+        // Continue to draw nav bar below
     }
+    else {
     
-    // String urban_ip = cfg::chosen_altruist_urban;
-    // int last_dot = urban_ip.lastIndexOf('.');
-    // if (last_dot == -1) {
-    //     debug_outln_info(F("Invalid IP address in cfg::chosen_altruist_urban"));
-    //     return;
-    // }
-    // String last_octet = urban_ip.substring(last_dot + 1);
-    // String urban_key = ATRUIST_URBAN_SENSOR + last_octet;
-    String urban_key = ATRUIST_URBAN_SENSOR;
-    // Draw single active graph based on current_graph_value
-    drawActiveGraph(current_graph_value, urban_key, navTop);
+        String urban_key = ATRUIST_URBAN_SENSOR;
+        // Draw single active graph based on current_graph_value
+        drawActiveGraph(current_graph_value, urban_key, navTop);
+    }
+#else
+    // SD card not available - show message
+    uint16_t line_spacing = 4;
+    uint16_t total_height = Font16.Height + Font12.Height * 2 + line_spacing * 2;
+    uint16_t start_y = (navTop - total_height) / 2;  // Account for nav bar at bottom
+    
+    uint16_t x1 = DISPLAY_WIDTH / 2 - strlen("SD card not available") * Font16.Width / 2;
+    Paint_DrawString_EN(x1, start_y, "SD card not available", &Font16, WHITE, BLACK);
+    
+    uint16_t y2 = start_y + Font16.Height + line_spacing;
+    uint16_t x2 = DISPLAY_WIDTH / 2 - strlen("Graphs require SD card") * Font12.Width / 2;
+    Paint_DrawString_EN(x2, y2, "Graphs require SD card", &Font12, WHITE, BLACK);
+    
+    uint16_t y3 = y2 + Font12.Height + line_spacing;
+    uint16_t x3 = DISPLAY_WIDTH / 2 - strlen("Please enable SD card") * Font12.Width / 2;
+    Paint_DrawString_EN(x3, y3, "Please enable SD card", &Font12, WHITE, BLACK);
+    // Nav bar will be drawn after #endif (below)
+#endif
 
-    Paint_DrawLine(0, navTop, DISPLAY_WIDTH, navTop, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    // Bottom navigation bar (only drawn if graphs are available)
+    if (areGraphsAvailable()) {
+        Paint_DrawLine(0, navTop, DISPLAY_WIDTH, navTop, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
     // Left/right padding inside bar
     const uint16_t paddingX = 6;
@@ -381,7 +664,7 @@ void drawGraphScreen() {
     uint16_t headerTop      = navTop + 1;
     uint16_t headerCenterY  = headerTop + sectionHeaderH / 2;
     uint16_t iconY          = headerCenterY - iconSizeHeight / 2 + 20;
-    uint16_t iconX = x + (iconColWidth - iconSizeWidth) / 2;
+    uint16_t iconX = x + (iconColWidth - iconSizeWidth) / 2 - 1;
     Paint_DrawImage(buttons_nav_15x15, iconX, iconY, iconSizeWidth, iconSizeHeight);
 
     x = iconAreaRight;
@@ -624,6 +907,7 @@ void drawGraphScreen() {
     } else {
         Paint_DrawString_EN(urbanPressX, urbanTextY2, urbanPressLabel, &Font12, WHITE, BLACK);
     }
+    } 
 }
 
 void setNextGraphScreen() {
@@ -642,7 +926,13 @@ void setPrevGraphScreen() {
     }
 }
 
-void setNextGraphValue() {
+bool setNextGraphValue() {
+    // Check if we're at the last graph (URBAN_PRESSURE)
+    if (current_graph_value == GraphValue::URBAN_PRESSURE) {
+        // At last graph - return true to indicate we should switch screens
+        return true;
+    }
+    
     switch (current_graph_value) {
         case GraphValue::INSIGHT_TEMP:
             current_graph_value = GraphValue::INSIGHT_HUM;
@@ -669,16 +959,23 @@ void setNextGraphValue() {
             current_graph_value = GraphValue::URBAN_PRESSURE;
             break;
         case GraphValue::URBAN_PRESSURE:
-            current_graph_value = GraphValue::INSIGHT_TEMP;
-            break;
+            // Should not reach here due to check above, but handle it anyway
+            return true;
     }
+    return false;  // Not at last graph, continue cycling
 }
 
-void setPrevGraphValue() {
+bool setPrevGraphValue() {
+    // Check if we're at the first graph 
+    if (current_graph_value == GraphValue::INSIGHT_TEMP) {
+        // At first graph - return true to indicate we should switch screens
+        return true;
+    }
+    
     switch (current_graph_value) {
         case GraphValue::INSIGHT_TEMP:
-            current_graph_value = GraphValue::URBAN_PRESSURE;
-            break;
+            // Should not reach here due to check above, but handle it anyway
+            return true;
         case GraphValue::INSIGHT_HUM:
             current_graph_value = GraphValue::INSIGHT_TEMP;
             break;
@@ -704,6 +1001,7 @@ void setPrevGraphValue() {
             current_graph_value = GraphValue::URBAN_HUM;
             break;
     }
+    return false;  // Not at first graph, continue cycling
 }
 
 #endif

@@ -116,9 +116,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             } 
             else if (currentScreenID == ScreenPage::GRAPHS) {
                 // On graphs page:
-                // - SHORT UP/SET: cycle graph values
-                // - LONG  UP/SET: change screens (prev/next)
-                if (btn_press.press_type == PressType::LONG) {
+                // - If graphs are not available: always navigate to next/prev screen
+                // - If graphs are available:
+                //   - SHORT UP/SET: cycle graph values (or switch screen if at last graph)
+                //   - LONG  UP/SET: change screens (prev/next)
+                if (!areGraphsAvailable()) {
+                    // No graphs available - navigate to next/prev screen on any button press
                     if (btn_press.button_num == ButtonNum::UP) {
                         setScreen(getPrevScreen(currentScreenID));
                         return;
@@ -126,15 +129,34 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         setScreen(getNextScreen(currentScreenID));
                         return;
                     }
-                } else if (btn_press.press_type == PressType::SHORT) {
-                    if (btn_press.button_num == ButtonNum::UP) {
-                        setPrevGraphValue();
-                        refresh_now = true;
-                        return;
-                    } else if (btn_press.button_num == ButtonNum::SET) {
-                        setNextGraphValue();
-                        refresh_now = true;
-                        return;
+                } else {
+                    // Graphs available - normal behavior
+                    if (btn_press.press_type == PressType::LONG) {
+                        if (btn_press.button_num == ButtonNum::UP) {
+                            setScreen(getPrevScreen(currentScreenID));
+                            return;
+                        } else if (btn_press.button_num == ButtonNum::SET) {
+                            setScreen(getNextScreen(currentScreenID));
+                            return;
+                        }
+                    } else if (btn_press.press_type == PressType::SHORT) {
+                        if (btn_press.button_num == ButtonNum::UP) {
+                            // If at first graph, switch to previous screen instead of looping
+                            if (setPrevGraphValue()) {
+                                setScreen(getPrevScreen(currentScreenID));
+                                return;
+                            }
+                            refresh_now = true;
+                            return;
+                        } else if (btn_press.button_num == ButtonNum::SET) {
+                            // If at last graph, switch to next screen instead of looping
+                            if (setNextGraphValue()) {
+                                setScreen(getNextScreen(currentScreenID));
+                                return;
+                            }
+                            refresh_now = true;
+                            return;
+                        }
                     }
                 }
             }
@@ -243,8 +265,13 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             debug_outln_info(F("Refresh main screen"));
             drawMainScreen(BlackImage, jsonString, deviceStatus.ip_address);
         } else if (currentScreenID == ScreenPage::GRAPHS) {
+            // Always draw graph screen - it will show appropriate message if no data/card
             drawGraphScreen();
-        } else if (currentScreenID == ScreenPage::SETUP) {
+            goto draw_complete;  // Skip the rest of the screen drawing logic
+        }
+        
+        // If we changed screens (no graphs available), continue to draw the new screen
+        if (currentScreenID == ScreenPage::SETUP) {
             showSetupPage(BlackImage);
         } else if (currentScreenID == ScreenPage::LOADING) {
             showLoadingPage(BlackImage);
@@ -285,6 +312,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             showSettingsPage(BlackImage, deviceStatus, urban_ip, robonomics_address);
         }
         
+draw_complete:
         // Draw screen indicator dots in bottom right corner
         drawScreenIndicator(currentScreenID);
         

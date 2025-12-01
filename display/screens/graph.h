@@ -29,8 +29,13 @@ void setNextGraphScreen();
 void setPrevGraphScreen();
 
 // Cycle through graph values on the GRAPHS screen
-void setNextGraphValue();
-void setPrevGraphValue();
+// Returns true if we've reached the last graph (should switch to next screen)
+bool setNextGraphValue();
+bool setPrevGraphValue();
+
+// Check if graphs are available (SD card present and data files exist)
+// Returns true if graphs can be displayed, false otherwise
+bool areGraphsAvailable();
 
 #endif
 #endif

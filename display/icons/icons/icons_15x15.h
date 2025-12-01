@@ -10,6 +10,7 @@
 #include "15x15/gear_15x15.h"
 #include "15x15/graph_nav_15x15.h"
 #include "15x15/home_nav_15x15.h"
+#include "15x15/hourly_15x15.h"
 #include "15x15/house_thermometer_15x15.h"
 #include "15x15/ip_address_15x15.h"
 #include "15x15/line_graph_15x15.h"
