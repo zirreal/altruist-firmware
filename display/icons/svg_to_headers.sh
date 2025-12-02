@@ -39,10 +39,17 @@ HEADER="./icons/icons_${1}x${1}.h"
 # ImageMagick default density is 96
 # z = 96 * y / (0.25 * x)
 
-if [ ! -e "$PNG_PATH" ]; then
-  mkdir $PNG_PATH
-  for f in $SVG_FILES
-  do
+mkdir -p $PNG_PATH
+for f in $SVG_FILES
+do
+  if [ ! -f "$f" ]; then
+    continue
+  fi
+  
+  out="$PNG_PATH/$(basename $f .svg).png"
+  
+  # Convert if PNG doesn't exist or SVG is newer
+  if [ ! -f "$out" ] || [ "$f" -nt "$out" ]; then
     echo "Converting .svg to .png for $f..."
 
     # use mogrify to convert to png
@@ -51,28 +58,34 @@ if [ ! -e "$PNG_PATH" ]; then
     # mogrify -format png -path $PNG_PATH -colorspace sRGB -density $DENSITY $f
 
     # using inkscape to convert to png because mogrify was being troublesome
-    out="$PNG_PATH/$(basename $f .svg).png"
     inkscape -w ${1} $f -o $out --export-background="#ffffff"
-  done
-fi
+  fi
+done
 
-if [ ! -e "$HEADER_PATH" ]; then
-  mkdir $HEADER_PATH
-  for f in $PNG_FILES
-  do
+mkdir -p $HEADER_PATH
+for f in $PNG_FILES
+do
+  if [ ! -f "$f" ]; then
+    continue
+  fi
+  
+  out="${HEADER_PATH}/$(basename $f .png | tr -s -c [:alnum:] _)${1}x${1}.h"
+  
+  # Generate header if it doesn't exist or PNG is newer
+  if [ ! -f "$out" ] || [ "$f" -nt "$out" ]; then
     echo "Generating header for $f..."
-    out="${HEADER_PATH}/$(basename $f .png | tr -s -c [:alnum:] _)${1}x${1}.h"
     python3 png_to_header.py -i $f -o $out
-  done
+  fi
+done
 
-  echo "Generating include statements..."
-  echo "#ifndef __ICONS_${1}x${1}_H__" > $HEADER
-  echo "#define __ICONS_${1}x${1}_H__" >> $HEADER
-  for f in ${HEADER_PATH}/*.h
-  do
-      echo "#include \"${1}x${1}/$(basename $f)\"" >> $HEADER
-  done
-  echo "#endif" >> $HEADER
-fi
+# Always regenerate the include header file to include all headers
+echo "Generating include statements..."
+echo "#ifndef __ICONS_${1}x${1}_H__" > $HEADER
+echo "#define __ICONS_${1}x${1}_H__" >> $HEADER
+for f in ${HEADER_PATH}/*.h
+do
+    echo "#include \"${1}x${1}/$(basename $f)\"" >> $HEADER
+done
+echo "#endif" >> $HEADER
 
 echo "Done."

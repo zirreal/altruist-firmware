@@ -191,17 +191,29 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
         start = comma + 1;
     }
 
+    // Debug: log all headers found
+    String headerList = "CSV headers: ";
+    for (size_t i = 0; i < headers.size(); ++i) {
+        headerList += headers[i] + " ";
+    }
+    debug_outln_info(headerList);
+    String searchMsg = "Searching for field: " + String(field_name);
+    debug_outln_info(searchMsg);
+    
     for (size_t i = 0; i < headers.size(); ++i) {
         String header = headers[i];
         header.trim();
         if (header == field_name) {
             field_index = i;
+            String foundMsg = "Found field at index: " + String(i);
+            debug_outln_info(foundMsg);
             break;
         }
     }
 
     if (field_index == -1) {
-        debug_outln_info(F("Field not found in CSV"));
+        String errorMsg = "Field not found in CSV. Looking for: " + String(field_name);
+        debug_outln_info(errorMsg);
         file.close();
         return;
     }
@@ -254,12 +266,33 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
 bool SDCard::checkInserted() {
     sdcard_type_t card_type = SD.cardType();
     debug_outln_info(F("[SDCardLogger] Check sd card, type: "), _getCardTypeName(card_type));
+    
     if (card_type == CARD_NONE) {
         debug_outln_info("[SDCardLogger] No SD card present, retry begin...");
         return _beginSD(SPI);
-    } else {
-        return true;
     }
+    
+    // Try to actually access the card to verify it's really there
+    // cardType() might return cached value, so we need to test actual access
+    if (!SD.exists("/")) {
+        debug_outln_info(F("[SDCardLogger] Card type OK but filesystem not accessible - card may be removed"));
+        // Try to reinitialize
+        SD.end();
+        delay(50);
+        return _beginSD(SPI);
+    }
+    
+    // Try to open root directory to verify card is actually accessible
+    File root = SD.open("/");
+    if (!root) {
+        debug_outln_info(F("[SDCardLogger] Cannot open root directory - card may be removed"));
+        SD.end();
+        delay(50);
+        return _beginSD(SPI);
+    }
+    root.close();
+    
+    return true;
 }
 
 String SDCard::_getCardTypeName(sdcard_type_t type) {

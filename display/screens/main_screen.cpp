@@ -129,7 +129,7 @@ bool isTempDangerous(float temperature) {
 
 // Check if humidity is dangerous
 bool isHumidityDangerous(float humidity) {
-    if (humidity < 0 || humidity > 100) return false; // Invalid data
+    if (humidity < 0 || humidity > 120) return false; // Invalid data
     // Dangerous if: humidity < 40 OR humidity >= 60 
     return (humidity < 40 || humidity >= 70);
 }
@@ -160,11 +160,11 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
         // PM values with validation (reasonable ranges: 0-500 μg/m³)
         if (urban.containsKey("SDS_P1")) {
             float pm10 = urban["SDS_P1"]["value"].as<float>();
-            values.pm10 = isValidRange(pm10, 0, 800) ? pm10 : -1;
+            values.pm10 = isValidRange(pm10, 0, 1500) ? pm10 : -1;
         }
         if (urban.containsKey("SDS_P2")) {
             float pm25 = urban["SDS_P2"]["value"].as<float>();
-            values.pm25 = isValidRange(pm25, 0, 600) ? pm25 : -1;
+            values.pm25 = isValidRange(pm25, 0, 800) ? pm25 : -1;
         }
         
         // Environmental values with validation
@@ -224,26 +224,42 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     // Clear screen first to remove any white lines
     Paint_Clear(WHITE);
     
-    // Simple black line/bar at top (a bit longer)
-    uint16_t top_bar_height = Font16.Height + Font8.Height;
-    Paint_DrawRectangle(0, 0, DISPLAY_WIDTH, top_bar_height, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    
-    // Date and time on top of black bar
+    // Date and time in a row
     struct tm timeinfo; 
+    uint16_t header_height = Font16.Height + 4; // Height for header row
+    uint16_t header_y_offset = 12; // Move date/time lower
+    uint16_t header_bottom_border_y = 0;
     if (getLocalTime(&timeinfo)) {
         char date_buf[12], time_buf[8];
         strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
         strftime(time_buf, sizeof(time_buf), "%H:%M", &timeinfo);
         
-        int date_x = DISPLAY_WIDTH / 2 - strlen(date_buf) * Font12.Width / 2;
-        int time_x = DISPLAY_WIDTH / 2 - strlen(time_buf) * Font16.Width / 2;
+        // Calculate total width of date, pipe separator, and time with spacing
+        int date_width = strlen(date_buf) * Font12.Width;
+        int time_width = strlen(time_buf) * Font12.Width;
+        int pipe_width = Font12.Width; // width of "|" character
+        int spacing = 8; // spacing between date and pipe, and pipe and time
+        int total_width = date_width + spacing + pipe_width + spacing + time_width;
         
-        Paint_DrawString_EN(date_x, 2, date_buf, &Font12, BLACK, WHITE);
-        Paint_DrawString_EN(time_x, Font12.Height + 2, time_buf, &Font16, BLACK, WHITE);
+        // Center the combined date, pipe, and time
+        int start_x = DISPLAY_WIDTH / 2 - total_width / 2;
+        int center_y = header_y_offset;
+        
+        // Draw date, pipe separator, and time
+        Paint_DrawString_EN(start_x, center_y, date_buf, &Font12, WHITE, BLACK);
+        Paint_DrawString_EN(start_x + date_width + spacing, center_y, "|", &Font12, WHITE, BLACK);
+        Paint_DrawString_EN(start_x + date_width + spacing + pipe_width + spacing, center_y, time_buf, &Font12, WHITE, BLACK);
+        
+        // Calculate where the bottom border should be
+        header_bottom_border_y = center_y + Font16.Height + 6;
     }
 
-    // Section headers row (below time) - bigger gap
-    uint16_t y_start = top_bar_height + 18;
+    // Draw bottom border for header
+    Paint_DrawLine(0, header_bottom_border_y, DISPLAY_WIDTH, header_bottom_border_y, 
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
+    // Section headers row (below header) - bigger gap
+    uint16_t y_start = header_bottom_border_y + 18;
 
     // Save right sidebar for vertical navigation icons (approx 28px)
     const uint16_t nav_sidebar_width = 28;
@@ -256,7 +272,48 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     // === URBAN SENSOR SECTION (2 sub-columns) ===
     // Simple section header
     Paint_DrawString_EN(8, y_start, "URBAN SENSOR", &Font16, WHITE, BLACK);
-    String urban_status = values.ip_address.length() > 0 ? values.ip_address : "Offline";
+
+    // Determine Urban status with simple debouncing & caching:
+    // - Consider Urban "online" if we have IP address OR any valid sensor data
+    // - Require several consecutive "offline" reads before showing "Offline" on screen
+    //   to avoid random glitches / missing packets
+    static uint8_t consecutive_urban_offline_reads = 0;
+    static String  last_urban_status = "";
+
+    bool urban_has_data = (values.pm10  >= 0 ||
+                           values.pm25  >= 0 ||
+                           values.temp_outdoor > -40 ||
+                           values.hum_outdoor  >= 0 ||
+                           values.press_outdoor >= 0 ||
+                           values.noise_max   >= 0 ||
+                           values.noise_avg   >= 0);
+
+    bool urban_now_online = (values.ip_address.length() > 0) || urban_has_data;
+    String urban_status;
+
+    if (urban_now_online) {
+        // Immediately trust an online reading and reset the counter
+        consecutive_urban_offline_reads = 0;
+        urban_status = (values.ip_address.length() > 0)
+                           ? values.ip_address
+                           : String(F("Online"));
+        last_urban_status = urban_status;
+    } else {
+        // Only switch to "Offline" after several consecutive missing reads
+        if (consecutive_urban_offline_reads < 3) {
+            consecutive_urban_offline_reads++;
+            // While we are not yet sure it's really offline, keep showing last known status if any
+            if (last_urban_status.length() > 0) {
+                urban_status = last_urban_status;
+            } else {
+                urban_status = String(F("Offline"));
+            }
+        } else {
+            urban_status = String(F("Offline"));
+            last_urban_status = urban_status;
+        }
+    }
+
     Paint_DrawString_EN(8, y_start + Font16.Height + 2, urban_status.c_str(), &Font12, WHITE, BLACK);
     
     uint16_t urban_y = y_start + Font16.Height + Font12.Height + 15;

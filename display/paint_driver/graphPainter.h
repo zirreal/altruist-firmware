@@ -34,6 +34,7 @@ public:
     void addLineValues(float* values, uint32_t* timestamps, int values_count, const char* label, GraphLineStyle line_style);
 
     void addLineValues(float* values, uint32_t* timestamps, int values_count, const char* label);
+    void setShowHours(uint8_t hours);
     void setBlackMode() {
         main_color = WHITE;
         background_color = BLACK;
@@ -66,7 +67,7 @@ private:
     uint16_t width;
     float max_value = 0;
     float min_value = 99999;
-    int ticks = 6;
+    int ticks = 8; 
     float range;
     float step;
     float graph_min;

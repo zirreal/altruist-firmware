@@ -2,6 +2,7 @@
 
 #include "display_manager.h"
 #include "screens/screens.h"
+#include "screens/graph.h"
 #include "../defines.h"
 #include "utils.h"
 #include <SPIFFS.h>
@@ -13,20 +14,20 @@ extern LedControllerInsight leds_controller_insight;
 bool display_sleeping = false;
 
 // Cycle order for screens when navigating with UP/SET
-// Order: MAIN -> GRAPHS -> SETTINGS -> SENSOR_MAP -> MAIN
+// Order: MAIN -> GRAPHS -> SENSOR_MAP -> SETTINGS -> MAIN
 ScreenPage DisplayManager::getNextScreen(ScreenPage current) {
     if (current == ScreenPage::MAIN) return ScreenPage::GRAPHS;
-    if (current == ScreenPage::GRAPHS) return ScreenPage::SETTINGS;
-    if (current == ScreenPage::SETTINGS) return ScreenPage::SENSOR_MAP;
-    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::MAIN;
+    if (current == ScreenPage::GRAPHS) return ScreenPage::SENSOR_MAP;
+    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::SETTINGS;
+    if (current == ScreenPage::SETTINGS) return ScreenPage::MAIN;
     // Default: go to MAIN from other screens
     return ScreenPage::MAIN;
 }
 
 ScreenPage DisplayManager::getPrevScreen(ScreenPage current) {
-    if (current == ScreenPage::MAIN) return ScreenPage::SENSOR_MAP;
-    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::SETTINGS;
-    if (current == ScreenPage::SETTINGS) return ScreenPage::GRAPHS;
+    if (current == ScreenPage::MAIN) return ScreenPage::SETTINGS;
+    if (current == ScreenPage::SETTINGS) return ScreenPage::SENSOR_MAP;
+    if (current == ScreenPage::SENSOR_MAP) return ScreenPage::GRAPHS;
     if (current == ScreenPage::GRAPHS) return ScreenPage::MAIN;
     // Default: go to MAIN from other screens
     return ScreenPage::MAIN;
@@ -114,18 +115,48 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 }
             } 
             else if (currentScreenID == ScreenPage::GRAPHS) {
-                if (btn_press.button_num == ButtonNum::DOWN) {
-                    setNextGraphScreen();
-                    refresh_now = true;
-                    return;
-                }
-                if (btn_press.press_type == PressType::SHORT) {
+                // On graphs page:
+                // - If graphs are not available: always navigate to next/prev screen
+                // - If graphs are available:
+                //   - SHORT UP/SET: cycle graph values (or switch screen if at last graph)
+                //   - LONG  UP/SET: change screens (prev/next)
+                if (!areGraphsAvailable()) {
+                    // No graphs available - navigate to next/prev screen on any button press
                     if (btn_press.button_num == ButtonNum::UP) {
                         setScreen(getPrevScreen(currentScreenID));
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         setScreen(getNextScreen(currentScreenID));
                         return;
+                    }
+                } else {
+                    // Graphs available - normal behavior
+                    if (btn_press.press_type == PressType::LONG) {
+                        if (btn_press.button_num == ButtonNum::UP) {
+                            setScreen(getPrevScreen(currentScreenID));
+                            return;
+                        } else if (btn_press.button_num == ButtonNum::SET) {
+                            setScreen(getNextScreen(currentScreenID));
+                            return;
+                        }
+                    } else if (btn_press.press_type == PressType::SHORT) {
+                        if (btn_press.button_num == ButtonNum::UP) {
+                            // If at first graph, switch to previous screen instead of looping
+                            if (setPrevGraphValue()) {
+                                setScreen(getPrevScreen(currentScreenID));
+                                return;
+                            }
+                            refresh_now = true;
+                            return;
+                        } else if (btn_press.button_num == ButtonNum::SET) {
+                            // If at last graph, switch to next screen instead of looping
+                            if (setNextGraphValue()) {
+                                setScreen(getNextScreen(currentScreenID));
+                                return;
+                            }
+                            refresh_now = true;
+                            return;
+                        }
                     }
                 }
             }
@@ -234,8 +265,13 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             debug_outln_info(F("Refresh main screen"));
             drawMainScreen(BlackImage, jsonString, deviceStatus.ip_address);
         } else if (currentScreenID == ScreenPage::GRAPHS) {
+            // Always draw graph screen - it will show appropriate message if no data/card
             drawGraphScreen();
-        } else if (currentScreenID == ScreenPage::SETUP) {
+            goto draw_complete;  // Skip the rest of the screen drawing logic
+        }
+        
+        // If we changed screens (no graphs available), continue to draw the new screen
+        if (currentScreenID == ScreenPage::SETUP) {
             showSetupPage(BlackImage);
         } else if (currentScreenID == ScreenPage::LOADING) {
             showLoadingPage(BlackImage);
@@ -276,6 +312,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             showSettingsPage(BlackImage, deviceStatus, urban_ip, robonomics_address);
         }
         
+draw_complete:
         // Draw screen indicator dots in bottom right corner
         drawScreenIndicator(currentScreenID);
         
