@@ -305,11 +305,17 @@ void GraphPainter::drawLine(uint8_t line_number, time_t *time_now) {
     uint16_t padded_graph_bottom = left_bottom_graph_y - y_padding;
     uint16_t padded_graph_top = padded_graph_bottom - padded_graph_height;
     
+    bool first_visible_point = true;
+    
     for (int i = 0; i < lines[line_number].values_count; i++) {
         if (lines[line_number].timestamps[i] < start_time) continue;
         
         // Normal orientation: old data on left, new data ("now") on right
         uint16_t x = padded_graph_x + (lines[line_number].timestamps[i] - start_time) * padded_graph_width / (*time_now - start_time);
+        if (first_visible_point) {
+            x = padded_graph_x;
+            first_visible_point = false;
+        }
         if (x < padded_graph_x) x = padded_graph_x;
         if (x > padded_graph_x + padded_graph_width) x = padded_graph_x + padded_graph_width;
         
