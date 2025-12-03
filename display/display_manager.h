@@ -53,9 +53,10 @@ private:
     bool auto_to_main_active = false;
     uint32_t auto_to_main_deadline_ms = 0;
 
-    // Retry updating Sensor Map QR when address not yet available
-    bool sensor_map_waiting_addr = false;
-    uint32_t next_sensor_map_check_ms = 0;
+    // Retry updating Sensor Map QR when Urban address not yet available
+    bool     sensor_map_waiting_addr   = false;
+    uint32_t next_sensor_map_check_ms  = 0;
+    uint8_t  sensor_map_waiting_tries  = 0;
 
 };
 

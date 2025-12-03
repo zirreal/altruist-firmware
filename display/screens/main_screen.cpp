@@ -10,10 +10,31 @@
 #include <stdlib.h>
 #include "utils.h"
 #include "../icons/icons/icons_20x20.h"
+#include "../icons/icons/icons_15x15.h"
+#include "../icons/icons/icons_10x10.h"
 #include "../../defines.h"
 #include "../utils.h"
 #include "../../config_manager/config_helpers.h"
 #include "display_common.h"
+
+// Helper function to draw an image flipped vertically (upside down)
+static void Paint_DrawImageFlippedVertical(const unsigned char *image_buffer, UWORD xStart, UWORD yStart, UWORD W_Image, UWORD H_Image) {
+    UWORD x, y;
+    UWORD byte_width = (W_Image % 8) ? (W_Image / 8 + 1) : (W_Image / 8);
+
+    for (y = 0; y < H_Image; y++) {
+        for (x = 0; x < W_Image; x++) {
+            // Read from bottom row instead of top row (flip vertically)
+            UWORD source_y = H_Image - 1 - y;
+            UWORD byte_index = (source_y * byte_width) + (x / 8);
+            UBYTE byte = image_buffer[byte_index];
+            UBYTE bit = 0x80 >> (x % 8);  // MSB first
+
+            UWORD color = (byte & bit) ? WHITE : BLACK;
+            Paint_SetPixel(xStart + x, yStart + y, color);
+        }
+    }
+}
 
 
 // Data source indicators
@@ -23,10 +44,17 @@ enum DataSource {
 };
 
 // Draw a value with icon, label, units and data source indicator
+// danger_direction:
+//   0  -> normal
+//  +1  -> above green range (high)
+  //  -1  -> below green range (low)
 void drawValue(const char *label, float value, uint8_t precision,
                const unsigned char *image, const char *units,
                uint16_t image_size, uint16_t x_start, uint16_t y_start,
-               uint16_t image_offset = 0, bool highlight = false, DataSource source = SOURCE_INSIGHT, bool is_dangerous = false) {
+               uint16_t image_offset = 0, bool highlight = false,
+               DataSource source = SOURCE_INSIGHT,
+               bool is_dangerous = false,
+               int  danger_direction = 0) {
     
     // Draw background highlight for important values
     if (highlight) {
@@ -63,28 +91,37 @@ void drawValue(const char *label, float value, uint8_t precision,
                             y_start + Font12.Height + 6,
                             units, &Font12, WHITE, BLACK);
         
-        // Draw warning icon (circle with exclamation point) if value is dangerous
-        if (is_dangerous) {
-            String debug_msg = String(F("Drawing ! for dangerous value: ")) + String(label) + F(" = ") + String(value_str);
+        // Draw warning icon (circle with exclamation point) and optional direction arrow
+        int dir = danger_direction;
+        if (dir == 0 && is_dangerous) {
+            // If only a boolean is given, assume "high"
+            dir = 1;
+        }
+
+        if (dir != 0) {
+            String debug_msg = String(F("Drawing warning icon and arrow for dangerous value: ")) + String(label) + F(" = ") + String(value_str);
             debug_outln_info(debug_msg);
             uint16_t units_width = strlen(units) * Font12.Width;
             
-            // Calculate position for warning icon (circle with exclamation point)
-            const uint16_t circle_radius = 5; 
+            // Position for warning icon (pre-generated bitmap)
             uint16_t icon_x = units_x + units_width + 6;  // Position after units
-            uint16_t icon_y = y_start + Font12.Height + 5; 
-            uint16_t circle_center_x = icon_x + circle_radius;
-            uint16_t circle_center_y = icon_y + circle_radius;
-            
-            // Draw filled black circle
-            Paint_DrawCircle(circle_center_x, circle_center_y, circle_radius, 
-                           BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-            
-            // Draw white exclamation point inside the circle
-            uint16_t exclamation_x = circle_center_x - (Font8.Width / 2) - 1;
-            uint16_t exclamation_y = circle_center_y - (Font8.Height / 2) + 1; 
-            
-            Paint_DrawChar(exclamation_x, exclamation_y, '!', &Font8, WHITE, WHITE);
+            uint16_t icon_y = y_start + Font12.Height + 5;
+            Paint_DrawImage(warning_10x10, icon_x, icon_y, 10, 10);
+
+            // Direction arrow icon - place it right after the measure title (label)
+            const uint16_t arrow_size = 10;
+            uint16_t label_width = strlen(label) * Font12.Width;
+            uint16_t label_x = x_start + image_size + image_offset + 3; // Same x as label text
+            uint16_t arrow_x = label_x + label_width + 1; // Right after label text
+            uint16_t arrow_y = y_start + (Font12.Height / 2) - (arrow_size / 2); // Vertically centered with label
+
+            if (dir > 0) {
+                // Above green range -> arrow up (use arrow icon as-is)
+                Paint_DrawImage(arrow_10x10, arrow_x, arrow_y - 2, arrow_size, 20);
+            } else {
+                // Below green range -> flip arrow vertically (upside down)
+                Paint_DrawImageFlippedVertical(arrow_10x10, arrow_x, arrow_y, arrow_size, 20);
+            }
         }
     }
 }
@@ -139,6 +176,43 @@ bool isPressureDangerous(float pressure) {
     if (pressure < 500 || pressure > 1000) return false; // Invalid data
     // Dangerous if: pressure < 747 OR pressure >= 775 
     return (pressure < 747 || pressure >= 767);
+}
+
+// Direction helpers: -1 = below green, +1 = above, 0 = normal/OK
+int tempDangerDirection(float temperature) {
+    if (temperature < -40 || temperature > 80) return 0;
+    if (temperature < 10)  return -1;
+    if (temperature >= 27) return 1;
+    return 0;
+}
+
+int humidityDangerDirection(float humidity) {
+    if (humidity < 0 || humidity > 120) return 0;
+    if (humidity < 40)  return -1;
+    if (humidity >= 70) return 1;
+    return 0;
+}
+
+int pressureDangerDirection(float pressure) {
+    if (pressure < 500 || pressure > 1000) return 0;
+    if (pressure < 747)  return -1;
+    if (pressure >= 767) return 1;
+    return 0;
+}
+
+int pmDangerDirection(float pm10, float pm25) {
+    if (pm10 < 0 || pm25 < 0) return 0;
+    return (pm10 >= 100 || pm25 >= 55) ? 1 : 0;  // only "too high" is dangerous
+}
+
+int noiseDangerDirection(float noise) {
+    if (noise < 0) return 0;
+    return (noise >= 70) ? 1 : 0; // only "too loud" is dangerous
+}
+
+int co2DangerDirection(float co2) {
+    if (co2 < 0) return 0;
+    return (co2 >= 1000) ? 1 : 0;
 }
 
 // Parse JSON data into struct with validation
@@ -224,34 +298,37 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     // Clear screen first to remove any white lines
     Paint_Clear(WHITE);
     
-    // Date and time in a row
+    // === HEADER: left icon (current page), center time, right date ===
     struct tm timeinfo; 
-    uint16_t header_height = Font16.Height + 4; // Height for header row
-    uint16_t header_y_offset = 12; // Move date/time lower
-    uint16_t header_bottom_border_y = 0;
+    const uint16_t header_top_y     = 6;
+    const uint16_t header_row_height = Font16.Height + 2; // room for 16px font
+    uint16_t header_bottom_border_y = header_top_y + header_row_height + 2;
+
     if (getLocalTime(&timeinfo)) {
         char date_buf[12], time_buf[8];
         strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
-        strftime(time_buf, sizeof(time_buf), "%H:%M", &timeinfo);
-        
-        // Calculate total width of date, pipe separator, and time with spacing
+        strftime(time_buf, sizeof(time_buf), "%H:%M",    &timeinfo);
+
+        // Left: current page icon (home for main screen)
+        const uint16_t header_icon_size = 15;
+        const uint16_t header_icon_x    = 4;
+        const uint16_t header_icon_y    = header_top_y;
+        Paint_DrawImage(home_nav_15x15, header_icon_x, header_icon_y, header_icon_size, header_icon_size);
+
+        // Center: time in bold (use Font16)
+        int time_width = strlen(time_buf) * Font16.Width;
+        int time_x = (DISPLAY_WIDTH - time_width) / 2;
+        int time_y = header_top_y;
+        Paint_DrawString_EN(time_x, time_y, time_buf, &Font16, WHITE, BLACK);
+
+        // Right: date, smaller but still bold-ish (Font12 drawn twice with 1px offset)
         int date_width = strlen(date_buf) * Font12.Width;
-        int time_width = strlen(time_buf) * Font12.Width;
-        int pipe_width = Font12.Width; // width of "|" character
-        int spacing = 8; // spacing between date and pipe, and pipe and time
-        int total_width = date_width + spacing + pipe_width + spacing + time_width;
-        
-        // Center the combined date, pipe, and time
-        int start_x = DISPLAY_WIDTH / 2 - total_width / 2;
-        int center_y = header_y_offset;
-        
-        // Draw date, pipe separator, and time
-        Paint_DrawString_EN(start_x, center_y, date_buf, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(start_x + date_width + spacing, center_y, "|", &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(start_x + date_width + spacing + pipe_width + spacing, center_y, time_buf, &Font12, WHITE, BLACK);
-        
-        // Calculate where the bottom border should be
-        header_bottom_border_y = center_y + Font16.Height + 6;
+        const int right_margin = 4;
+        int date_x = DISPLAY_WIDTH - right_margin - date_width;
+        int date_y = header_top_y + 2;
+        // draw twice with slight offset to fake bold
+        Paint_DrawString_EN(date_x,     date_y, date_buf, &Font12, WHITE, BLACK);
+        Paint_DrawString_EN(date_x + 1, date_y, date_buf, &Font12, WHITE, BLACK);
     }
 
     // Draw bottom border for header
@@ -269,9 +346,17 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     uint16_t insight_width = usable_width / 3;     // Insight gets 1/3 of usable area
     uint16_t value_spacing = 50;
 
-    // === URBAN SENSOR SECTION (2 sub-columns) ===
-    // Simple section header
-    Paint_DrawString_EN(8, y_start, "URBAN SENSOR", &Font16, WHITE, BLACK);
+    // === URBAN SECTION (2 sub-columns) ===
+    // Section header with icon on the left
+    const uint16_t header_icon_size = 20;
+    const uint16_t header_icon_text_offset = 4;
+    const uint16_t urban_header_icon_x = 8;
+
+    // Use correct 20x20 size for urban icon
+    // Add small x offset to prevent left-side clipping (icon might have left padding in data)
+    Paint_DrawImage(urban_20x20, urban_header_icon_x + 1, y_start + 2, header_icon_size, header_icon_size);
+    uint16_t urban_header_text_x = urban_header_icon_x + header_icon_size + header_icon_text_offset;
+    Paint_DrawString_EN(urban_header_text_x, y_start + 2, "URBAN", &Font16, WHITE, BLACK);
 
     // Determine Urban status with simple debouncing & caching:
     // - Consider Urban "online" if we have IP address OR any valid sensor data
@@ -314,35 +399,59 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
         }
     }
 
-    Paint_DrawString_EN(8, y_start + Font16.Height + 2, urban_status.c_str(), &Font12, WHITE, BLACK);
+    Paint_DrawString_EN(urban_header_text_x, y_start + Font16.Height + 2, urban_status.c_str(), &Font12, WHITE, BLACK);
     
     uint16_t urban_y = y_start + Font16.Height + Font12.Height + 15;
     uint16_t urban_subcol_width = urban_width / 2;
 
     // Urban sub-column 1 (left)
-    drawValue("PM10", values.pm10, 1, air_filter_20x20, "ppm", 20, 8, urban_y, 5, false, SOURCE_URBAN, isPMDangerous(values.pm10, values.pm25));
-    drawValue("PM2.5", values.pm25, 1, air_pollution_20x20, "ppm", 20, 8, urban_y + value_spacing, 5, false, SOURCE_URBAN, isPMDangerous(values.pm10, values.pm25));
-    drawValue("Noise Max", values.noise_max, 0, ear_hearing_20x20, "dB", 20, 8, urban_y + 2 * value_spacing, 5, false, SOURCE_URBAN, isNoiseDangerous(values.noise_max));
-    drawValue("Noise Avg", values.noise_avg, 0, ear_hearing_20x20, "dB", 20, 8, urban_y + 3 * value_spacing, 5, false, SOURCE_URBAN, isNoiseDangerous(values.noise_avg));
+    int pm_dir    = pmDangerDirection(values.pm10, values.pm25);
+    int noise_dir = noiseDangerDirection(values.noise_max); // use max for direction
+    drawValue("PM10",      values.pm10,      1, air_filter_20x20,    "ppm",
+              20, 8, urban_y,                 5, false, SOURCE_URBAN, (pm_dir != 0),    pm_dir);
+    drawValue("PM2.5",     values.pm25,      1, air_pollution_20x20, "ppm",
+              20, 8, urban_y + value_spacing, 5, false, SOURCE_URBAN, (pm_dir != 0),    pm_dir);
+    drawValue("Noise Max", values.noise_max, 0, ear_hearing_20x20,   "dB",
+              20, 8, urban_y + 2 * value_spacing, 5, false, SOURCE_URBAN, (noise_dir != 0), noise_dir);
+    drawValue("Noise Avg", values.noise_avg, 0, ear_hearing_20x20,   "dB",
+              20, 8, urban_y + 3 * value_spacing, 5, false, SOURCE_URBAN, (noise_dir != 0), noise_dir);
     
     // Urban sub-column 2 (right)
-    drawValue("Temperature", values.temp_outdoor, 1, wi_thermometer_cropped_20x20, "C", 20, urban_subcol_width + 8, urban_y, 5, false, SOURCE_URBAN, isTempDangerous(values.temp_outdoor));
-    drawValue("Humidity", values.hum_outdoor, 0, wi_humidity_cropped_20x20, "%", 20, urban_subcol_width + 8, urban_y + value_spacing, 5, false, SOURCE_URBAN, isHumidityDangerous(values.hum_outdoor));
-    drawValue("Pressure", values.press_outdoor, 0, pressure_20x20, "mmHg", 20, urban_subcol_width + 8, urban_y + 2 * value_spacing, 2, false, SOURCE_URBAN, isPressureDangerous(values.press_outdoor));
+    int temp_out_dir  = tempDangerDirection(values.temp_outdoor);
+    int hum_out_dir   = humidityDangerDirection(values.hum_outdoor);
+    int press_out_dir = pressureDangerDirection(values.press_outdoor);
+    drawValue("Temperature", values.temp_outdoor, 1, wi_thermometer_cropped_20x20, "C",
+              20, urban_subcol_width + 8, urban_y,                 5, false, SOURCE_URBAN, (temp_out_dir != 0),  temp_out_dir);
+    drawValue("Humidity",    values.hum_outdoor,  0, wi_humidity_cropped_20x20,     "%",
+              20, urban_subcol_width + 8, urban_y + value_spacing, 5, false, SOURCE_URBAN, (hum_out_dir != 0),   hum_out_dir);
+    drawValue("Pressure",    values.press_outdoor,0, pressure_20x20,               "mmHg",
+              20, urban_subcol_width + 8, urban_y + 2 * value_spacing, 2, false, SOURCE_URBAN, (press_out_dir != 0), press_out_dir);
 
     // === INSIGHT DEVICE SECTION (1 column) ===
-    // Simple section header
-    Paint_DrawString_EN(urban_width + 8, y_start, "INSIGHT", &Font16, WHITE, BLACK);
+    // Section header with icon on the left
+    const uint16_t insight_header_icon_x = urban_width + 8;
+    Paint_DrawImage(insight_20x20, insight_header_icon_x, y_start + 4, header_icon_size, header_icon_size);
+    uint16_t insight_header_text_x = insight_header_icon_x + header_icon_size + header_icon_text_offset;
+    Paint_DrawString_EN(insight_header_text_x, y_start + 2, "INSIGHT", &Font16, WHITE, BLACK);
     String insight_status = device_ip.length() > 0 ? device_ip : "Offline";
-    Paint_DrawString_EN(urban_width + 8, y_start + Font16.Height + 2, insight_status.c_str(), &Font12, WHITE, BLACK);
+    Paint_DrawString_EN(insight_header_text_x, y_start + Font16.Height + 2, insight_status.c_str(), &Font12, WHITE, BLACK);
     
     uint16_t insight_y = y_start + Font16.Height + Font12.Height + 15;
     
     // Insight device data (single column)
-    drawValue("Temperature", values.temp_indoor, 1, house_thermometer_20x20, "C", 20, urban_width + 8, insight_y, 2, false, SOURCE_INSIGHT, isTempDangerous(values.temp_indoor));
-    drawValue("Humidity", values.hum_indoor, 0, wi_humidity_cropped_20x20, "%", 20, urban_width + 8, insight_y + value_spacing, 2, false, SOURCE_INSIGHT, isHumidityDangerous(values.hum_indoor));
-    drawValue("Pressure", values.press_indoor, 0, pressure_20x20, "mmHg", 20, urban_width + 8, insight_y + 2 * value_spacing, 2, false, SOURCE_INSIGHT, isPressureDangerous(values.press_indoor));
-    drawValue("CO2", values.co2, 0, co2_svgrepo_com_20x20, "ppm", 20, urban_width + 8, insight_y + 3 * value_spacing, 5, false, SOURCE_INSIGHT, isCO2Dangerous(values.co2));
+    int temp_in_dir  = tempDangerDirection(values.temp_indoor);
+    int hum_in_dir   = humidityDangerDirection(values.hum_indoor);
+    int press_in_dir = pressureDangerDirection(values.press_indoor);
+    int co2_dir      = co2DangerDirection(values.co2);
+
+    drawValue("Temperature", values.temp_indoor, 1, house_thermometer_20x20, "C",
+              20, urban_width + 8, insight_y,                 2, false, SOURCE_INSIGHT, (temp_in_dir != 0),  temp_in_dir);
+    drawValue("Humidity",    values.hum_indoor,  0, wi_humidity_cropped_20x20,     "%",
+              20, urban_width + 8, insight_y + value_spacing, 2, false, SOURCE_INSIGHT, (hum_in_dir != 0),   hum_in_dir);
+    drawValue("Pressure",    values.press_indoor,0, pressure_20x20,               "mmHg",
+              20, urban_width + 8, insight_y + 2 * value_spacing, 2, false, SOURCE_INSIGHT, (press_in_dir != 0), press_in_dir);
+    drawValue("CO2",         values.co2,         0, co2_svgrepo_com_20x20,        "ppm",
+              20, urban_width + 8, insight_y + 3 * value_spacing, 5, false, SOURCE_INSIGHT, (co2_dir != 0),      co2_dir);
 }
 
 #endif

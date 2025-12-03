@@ -282,20 +282,47 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         } else if (currentScreenID == ScreenPage::LOGO) {
             showLogoPage();
         } else if (currentScreenID == ScreenPage::SENSOR_MAP) {
-            // Refresh cache if Urban address present; if it appears newly, force redraw immediately
+            // Refresh cache if Urban address present; if it appears newly, use it
             if (sensors_data.containsKey("service_data")) {
                 auto service = sensors_data["service_data"].as<JsonObject>();
                 if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
                     String urban_addr = service["urban_robonomics_address"].as<String>();
                     if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
                         cached_urban_address = urban_addr;
-                        refresh_now = true; // trigger immediate redraw with correct link
                     }
                 }
             }
-            sensor_map_waiting_addr = false;
-            String addr = cached_urban_address; // empty => default link
-            showSensorsMapPage(addr);
+
+            // If we don't yet have an Urban address, wait a few cycles before
+            // falling back to the default QR (without sensor parameter).
+            if (cached_urban_address.length() == 0) {
+                if (!sensor_map_waiting_addr) {
+                    // Start waiting phase
+                    sensor_map_waiting_addr  = true;
+                    sensor_map_waiting_tries = 0;
+                }
+
+                // Draw a simple "waiting for ID" screen so user understands
+                Paint_Clear(WHITE);
+                Paint_DrawString_EN_Center("Waiting for Urban ID...", &Font16, WHITE, BLACK);
+
+                // Schedule next check; after a few tries, give up and show default QR
+                sensor_map_waiting_tries++;
+                if (sensor_map_waiting_tries < 3) {
+                    next_sensor_map_check_ms = millis() + 3000; // wait ~3s between checks
+                } else {
+                    sensor_map_waiting_addr  = false;
+                    sensor_map_waiting_tries = 0;
+                    String addr; // empty => default link in showSensorsMapPage
+                    showSensorsMapPage(addr);
+                }
+            } else {
+                // We have a valid Urban address: show final QR immediately
+                sensor_map_waiting_addr  = false;
+                sensor_map_waiting_tries = 0;
+                String addr = cached_urban_address;
+                showSensorsMapPage(addr);
+            }
         } else if (currentScreenID == ScreenPage::SETTINGS) {
             // Get urban IP address from config or sensors_data
             String urban_ip = String(cfg::chosen_altruist_urban);

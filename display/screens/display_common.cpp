@@ -3,12 +3,9 @@
 #include "display_common.h"
 #include "../paint_driver/GUI_Paint.h"
 #include "../display_manager.h"
-#include "../icons/icons/10x10/buttons-nav_10x10.h"
-#include "../icons/icons/15x15/home_nav_15x15.h"
-#include "../icons/icons/15x15/graph_nav_15x15.h"
-#include "../icons/icons/15x15/nav-info_15x15.h"
-#include "../icons/icons/15x15/map_nav_15x15.h"
-#include "../icons/icons/15x15/nav-switch_15x15.h"
+// Icon sets
+#include "../icons/icons/icons_10x10.h"
+#include "../icons/icons/icons_15x15.h"
 
 static bool epd_initialized = false;
 
@@ -218,64 +215,54 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     };
 
 
-    NavIcon navItems[6] = {
-        {buttons_nav_10x10, false, ScreenPage::MAIN}, 
-        {home_nav_15x15, true, ScreenPage::MAIN},   
-        {graph_nav_15x15, true, ScreenPage::GRAPHS},
-        {map_nav_15x15, true, ScreenPage::SENSOR_MAP},  
-        {nav_info_15x15, true, ScreenPage::SETTINGS},   
-        {nav_switch_15x15, false, ScreenPage::MAIN}  
+    // Navigation items
+    NavIcon navItems[5] = {
+        {home_nav_15x15,    true,  ScreenPage::MAIN},
+        {chart_15x15,       true,  ScreenPage::GRAPHS},      // chart icon for graphs
+        {map_nav_15x15,     true,  ScreenPage::SENSOR_MAP},
+        {settings_15x15,    true,  ScreenPage::SETTINGS},    // settings icon for settings page
+        {new_switch_15x15,  false, ScreenPage::MAIN}         // bottom switch icon
     };
 
-    const int icon_size = 10; // small icon size f
-    const int large_icon_size = 15; // large icon size
+    const int icon_size = 10; // small icon size
+    const int large_icon_size = 15; // large icon size for page icons
     const int icon_spacing = 4; // vertical spacing between icons
-    const int nav_item_count = 6;
+    const int nav_item_count = 5;
     const int sidebar_width = 28; // width of the navigation sidebar
     const int button_height = icon_size + 6; // height of each button (icon + padding)
-    const int border_radius = 2; // rounded corner radius 
+    const int border_radius = 0; 
     const int padding = 4; // padding inside the rounded rectangle
-    const int margin = 1; // margin from right edge of screen 
+    const int margin = 1; // margin from right and bottom edges of screen 
     
-    // Calculate sidebar position (right side of screen, full height)
-    int sidebar_x = DISPLAY_WIDTH - sidebar_width - margin;
-    // Full height from top to bottom with margins
-    int sidebar_y = margin;
-    int sidebar_height = DISPLAY_HEIGHT - margin * 2;
+    // Reserve space at the top for the main header (icon/time/date) + its bottom border
+    const int header_reserved_height = 27;
 
-    // Draw rounded rectangle container with white background and black border
-    Paint_DrawRoundedRectangle(sidebar_x, sidebar_y, 
-                               sidebar_x + sidebar_width, sidebar_y + sidebar_height - 1,
-                               WHITE, border_radius, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    // Draw black border
-    Paint_DrawRoundedRectangle(sidebar_x, sidebar_y, 
-                               sidebar_x + sidebar_width - 1, sidebar_y + sidebar_height - 1,
-                               BLACK, border_radius, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    // Calculate sidebar position (right side of screen, starting below header)
+    int sidebar_x = DISPLAY_WIDTH - sidebar_width - margin;
+    int sidebar_y = header_reserved_height;
+    int sidebar_height = DISPLAY_HEIGHT - header_reserved_height - margin;
+
+
+    Paint_DrawRectangle(sidebar_x, sidebar_y, 
+                        sidebar_x + sidebar_width, sidebar_y + sidebar_height - 1,
+                        WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawRectangle(sidebar_x, sidebar_y, 
+                        sidebar_x + sidebar_width - 1, sidebar_y + sidebar_height - 1,
+                        BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
 
     // Calculate icon positions
     int small_icon_x = sidebar_x + (sidebar_width - icon_size) / 2;
     int large_icon_x = sidebar_x + (sidebar_width - large_icon_size) / 2;
     const int page_icon_gap = 12; // gap between page icons 
-    const int buttons_bottom_border_gap = 12; // gap after buttons icon with border 
     
-    // Top: buttons icon 
-    int current_y = sidebar_y + padding;
-    Paint_DrawImage(navItems[0].icon, small_icon_x, current_y + 8, icon_size, icon_size);
+
+    int current_y = sidebar_y + 4;
     
-    // Draw bottom border for buttons icon
-    int buttons_bottom_y = current_y + button_height + buttons_bottom_border_gap;
-    Paint_DrawLine(sidebar_x + 2, buttons_bottom_y, sidebar_x + sidebar_width - 3, buttons_bottom_y, 
-                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    
-    // Page icons - stacked right after buttons icon with border
-    current_y = buttons_bottom_y + 4; // Start after border with some spacing
-    
-    for (int i = 1; i <= 4; i++) {
+    for (int i = 0; i <= 3; i++) {
         bool is_active = (navItems[i].screen == currentScreen);
         
-        // Determine icon size based on which icon it is
-        // home-nav (index 1), graph-nav (index 2), map-nav (index 3), and nav-info (index 4) are all 15x15
-        bool is_large_icon = (i == 1 || i == 2 || i == 3 || i == 4); // home-nav, graph-nav, map-nav, or nav-info
+        // Page icons are all 15x15
+        bool is_large_icon = true;
         int current_icon_size = is_large_icon ? large_icon_size : icon_size;
         int current_icon_x = is_large_icon ? large_icon_x : small_icon_x;
         
@@ -302,7 +289,7 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     
     // Bottom: switch icon 
     int bottom_icon_y = sidebar_y + sidebar_height - padding - button_height;
-    Paint_DrawImage(navItems[5].icon, large_icon_x, bottom_icon_y, large_icon_size, large_icon_size);
+    Paint_DrawImage(navItems[4].icon, large_icon_x, bottom_icon_y, large_icon_size, large_icon_size);
 }
 
 #endif
