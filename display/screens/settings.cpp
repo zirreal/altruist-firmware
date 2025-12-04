@@ -17,6 +17,7 @@
 #include "../icons/icons/15x15/sd_card_15x15.h"
 #include "../icons/icons/15x15/location_15x15.h"
 #include "../icons/icons/15x15/circuit_15x15.h"
+#include "../icons/icons/15x15/settings_15x15.h"
 
 QRCode settingsQR;
 
@@ -76,15 +77,48 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
     // Clear screen
     Paint_Clear(WHITE);
 
-    // === HEADER SECTION ===
-    uint16_t header_height = 60;
-    
-    // Reserve space for navigation icons on right
+    // === HEADER: same layout as main screen (icon + time + date) ===
+    struct tm timeinfo;
+    const uint16_t header_top_y = 6;
+    const uint16_t header_row_height = Font16.Height + 2;
+    uint16_t header_bottom_border_y = header_top_y + header_row_height + 2;
+
+    // Reserve space for navigation icons on right in the rest of the page
     const uint16_t nav_sidebar_width = 28;
     uint16_t usable_width = DISPLAY_WIDTH - nav_sidebar_width - 10;
     uint16_t content_left = 12;
+
+    // Left: settings icon (page icon)
+    const uint16_t header_icon_size = 15;
+    const uint16_t header_icon_x    = 4;
+    const uint16_t header_icon_y    = header_top_y;
+    Paint_DrawImage(settings_15x15, header_icon_x, header_icon_y, header_icon_size, header_icon_size);
+
+    // Center: time (bold like main screen)
+    if (getLocalTime(&timeinfo)) {
+        char date_buf[12], time_buf[8];
+        strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
+        strftime(time_buf, sizeof(time_buf), "%H:%M",    &timeinfo);
+
+        int time_width = strlen(time_buf) * Font16.Width;
+        int time_x = (DISPLAY_WIDTH - time_width) / 2;
+        int time_y = header_top_y;
+        Paint_DrawString_EN(time_x, time_y, time_buf, &Font16, WHITE, BLACK);
+
+        // Right: date
+        int date_width = strlen(date_buf) * Font12.Width;
+        const int right_margin = 4;
+        int date_x = DISPLAY_WIDTH - right_margin - date_width;
+        int date_y = header_top_y + 2;
+        Paint_DrawString_EN(date_x,     date_y, date_buf, &Font12, WHITE, BLACK);
+        Paint_DrawString_EN(date_x + 1, date_y, date_buf, &Font12, WHITE, BLACK);
+    }
+
+    // Header bottom border
+    Paint_DrawLine(0, header_bottom_border_y, DISPLAY_WIDTH, header_bottom_border_y,
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     
-    // Generate QR code first for header 
+    // Generate QR code first for header-like device info block under the top bar
     String qr_url = "http://" + deviceStatus.ip_address;
     if (deviceStatus.ip_address.length() == 0) {
         qr_url = "http://192.168.4.1"; // Fallback to IP
@@ -125,9 +159,9 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
             }
         }
         
-        // Two column layout: QR on left, text on right
+        // Two column layout: QR on left, text on right, below the top bar
         int qr_x = content_left;
-        int qr_y = 5;
+        int qr_y = header_bottom_border_y + 6;
         Paint_DrawImage(qr_bitmap_scaled, qr_x, qr_y, total_width, total_height);
         
         // Text column on the right
@@ -147,7 +181,7 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
     }
 
     // === CONTENT AREA ===
-    uint16_t content_start_y = header_height + 15;
+    uint16_t content_start_y = header_bottom_border_y + total_height + 20;
 
     // === INFORMATION PANEL (Single Column) ===
     uint16_t info_y = content_start_y;

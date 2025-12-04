@@ -234,7 +234,8 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     const int padding = 4; // padding inside the rounded rectangle
     const int margin = 0; // margin from right and bottom edges of screen 
     
-    // Reserve space at the top for the main header (icon/time/date) + its bottom border
+    // Reserve space at the top for the main header (icon/time/date) + its bottom border.
+    // Main header bottom line is around y=26; start sidebar at y=27 so it sits just under it.
     const int header_reserved_height = 27;
 
     // Calculate sidebar position (right side of screen, starting below header)
@@ -243,13 +244,10 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     int sidebar_height = DISPLAY_HEIGHT - header_reserved_height - margin;
 
 
-    // Sidebar background
+    // Sidebar background (no top border so it blends with header)
     Paint_DrawRectangle(sidebar_x, sidebar_y, 
                         sidebar_x + sidebar_width, sidebar_y + sidebar_height - 1,
                         WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    // Top
-    Paint_DrawLine(sidebar_x, sidebar_y, sidebar_x + sidebar_width - 1, sidebar_y,
-                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     // Left
     Paint_DrawLine(sidebar_x, sidebar_y, sidebar_x, sidebar_y + sidebar_height - 1,
                    BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
@@ -264,7 +262,7 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     const int page_icon_gap = 20; // gap between page icons
     
 
-    int current_y = sidebar_y + 6; // top padding
+    int current_y = sidebar_y + 6; 
     
     for (int i = 0; i <= 3; i++) {
         bool is_active = (navItems[i].screen == currentScreen);
@@ -277,10 +275,14 @@ void drawScreenIndicator(ScreenPage currentScreen) {
         // Draw black button background for active page
         if (is_active) {
             const int active_padding = 6; // extra top and bottom padding for active icon
-            int button_x = sidebar_x + 1; // no padding from border 
-            int button_y = current_y - active_padding; // more top padding
-            int button_w = sidebar_width - 2; // no padding from border 
-            int button_h = button_height + (active_padding * 2); // more bottom padding
+            int button_x = sidebar_x; // stick to the right/left edges of sidebar
+            // Position active button around the icon's center
+            int button_y = current_y - active_padding;
+            if (button_y < sidebar_y) {
+                button_y = sidebar_y;
+            }
+            int button_w = sidebar_width; // full width of sidebar
+            int button_h = button_height + (active_padding * 2); // vertical padding around icon
             Paint_DrawRectangle(button_x, button_y, 
                                button_x + button_w - 1, button_y + button_h - 1,
                                BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);

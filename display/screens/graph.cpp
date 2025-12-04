@@ -6,7 +6,7 @@
 #include "../../utils.h"
 #include "../../sd_card/sd_card.h"
 #include "../../config_manager/config_helpers.h"
-#include "../icons/icons/15x15/buttons_nav_15x15.h"
+#include "../icons/icons/icons_15x15.h"
 #include <vector>
 
 #if defined(USE_SD_CARD)
@@ -16,6 +16,29 @@
 
 uint8_t current_graph_screen = 1;
 static GraphValue current_graph_value = GraphValue::INSIGHT_TEMP;
+
+// Human‑readable title for the current graph (measure only, no source prefix)
+static const char* getGraphTitle(GraphValue value) {
+    switch (value) {
+        case GraphValue::INSIGHT_TEMP:
+        case GraphValue::URBAN_TEMP:
+            return "Temperature";
+        case GraphValue::INSIGHT_HUM:
+        case GraphValue::URBAN_HUM:
+            return "Humidity";
+        case GraphValue::INSIGHT_CO2:
+            return "CO2";
+        case GraphValue::INSIGHT_PRESSURE:
+        case GraphValue::URBAN_PRESSURE:
+            return "Pressure";
+        case GraphValue::URBAN_AIR:
+            return "Air quality";
+        case GraphValue::URBAN_NOISE:
+            return "Noise";
+        default:
+            return "";
+    }
+}
 
 // Filter data to hourly intervals (keep only the last value in each hour)
 static void filterToHourlyData(LineData &data) {
@@ -245,11 +268,11 @@ static uint16_t drawOneGraph(int left_x, int left_y, const char* sensor_name, co
 }
 
 // Draw a single, full-width graph for the currently selected value.
-// The graph is positioned to sit above the bottom navigation bar.
-static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t navTop) {
+// The graph is positioned to sit below the header and above the bottom navigation bar.
+static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t navTop, uint16_t contentTop) {
     // Horizontal and vertical margins
     const uint16_t marginX    = 10;
-    const uint16_t topMargin  = 10;
+    const uint16_t topMargin  = contentTop;
     const uint16_t bottomGap  = 6;   // gap between graph and nav bar separator
 
     if (navTop <= topMargin + bottomGap + 40) {
@@ -316,16 +339,17 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
 
     switch (value) {
         case GraphValue::INSIGHT_TEMP:
-            addLine("BME680", "temperature", "Insight Temp", solid);
+            // Single-line Insight graphs: show only "Insight: <value>" in legend
+            addLine("BME680", "temperature", "Insight", solid);
             break;
         case GraphValue::INSIGHT_HUM:
-            addLine("BME680", "humidity", "Insight Hum", solid);
+            addLine("BME680", "humidity", "Insight", solid);
             break;
         case GraphValue::INSIGHT_CO2:
-            addLine("SCD4x", "co2", "Insight CO2", solid);
+            addLine("SCD4x", "co2", "Insight", solid);
             break;
         case GraphValue::INSIGHT_PRESSURE:
-            addLine("BME680", "pressure", "Insight Press", solid);
+            addLine("BME680", "pressure", "Insight", solid);
             break;
         case GraphValue::URBAN_AIR: {
             // Both same thickness but different styles for distinction
@@ -339,18 +363,19 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
             break;
         }
         case GraphValue::URBAN_NOISE:
-            // Combined: Max (solid) + Avg (dotted) - shorter labels for legend
+            // Combined: Max (solid) + Avg (dotted) - keep distinct labels
             addLine(urban_key.c_str(), "PCBA_noiseMax", "Max", solid);
             addLine(urban_key.c_str(), "PCBA_noiseAvg", "Avg", dotted);
             break;
         case GraphValue::URBAN_TEMP:
-            addLine(urban_key.c_str(), "BME280_temperature", "Urban Temp", solid);
+            // Single-line Urban graphs: show only "Urban: <value>" in legend
+            addLine(urban_key.c_str(), "BME280_temperature", "Urban", solid);
             break;
         case GraphValue::URBAN_HUM:
-            addLine(urban_key.c_str(), "BME280_humidity", "Urban Hum", solid);
+            addLine(urban_key.c_str(), "BME280_humidity", "Urban", solid);
             break;
         case GraphValue::URBAN_PRESSURE:
-            addLine(urban_key.c_str(), "BME280_pressure", "Urban Press", solid);
+            addLine(urban_key.c_str(), "BME280_pressure", "Urban", solid);
             break;
     }
 
@@ -574,6 +599,66 @@ void drawGraphScreen() {
     String screenMsg = "Set graph screen " + String(current_graph_screen);
     debug_outln_info(screenMsg);
 
+    // === HEADER: left icon (graphs), centered title, right time ===
+    struct tm timeinfo;
+    const uint16_t header_top_y = 6;
+    const uint16_t header_row_height = Font16.Height + 2;
+    uint16_t header_bottom_border_y = header_top_y + header_row_height + 2;
+
+    // Left: graphs screen icon 
+    const uint16_t header_icon_size = 15;
+    const uint16_t header_icon_x    = 4;
+    const uint16_t header_icon_y    = header_top_y;
+    Paint_DrawImage(chart_15x15, header_icon_x, header_icon_y, header_icon_size, header_icon_size);
+
+    // Prepare time on the right
+    bool has_time = false;
+    char time_buf[8] = {0};
+    int time_x = 0;
+    if (getLocalTime(&timeinfo)) {
+        strftime(time_buf, sizeof(time_buf), "%H:%M", &timeinfo);
+        int time_width = strlen(time_buf) * Font16.Width;
+        const int right_margin = 4;
+        time_x = DISPLAY_WIDTH - right_margin - time_width;
+        has_time = true;
+    }
+
+    // Title area: graph title
+    const char* graph_title = getGraphTitle(current_graph_value);
+    uint16_t title_pixel_width = strlen(graph_title) * Font16.Width;
+
+    // Start from screen-centered position
+    int title_x = (DISPLAY_WIDTH - title_pixel_width) / 2;
+    int min_x   = header_icon_x + header_icon_size + 4;
+    if (title_x < min_x) {
+        title_x = min_x;
+    }
+    // If we have a time label, ensure the title does not overlap it
+    if (has_time) {
+        int max_title_right = time_x - 4;
+        int title_right = title_x + title_pixel_width;
+        if (title_right > max_title_right) {
+            title_x -= (title_right - max_title_right);
+            if (title_x < min_x) {
+                title_x = min_x;
+            }
+        }
+    }
+    uint16_t title_y = header_top_y;
+
+    // Draw title
+    Paint_DrawString_EN(title_x, title_y, graph_title, &Font16, WHITE, BLACK);
+
+    // Right: time 
+    if (has_time) {
+        int time_y = header_top_y;
+        Paint_DrawString_EN(time_x, time_y, time_buf, &Font16, WHITE, BLACK);
+    }
+
+    // Bottom border for header
+    Paint_DrawLine(0, header_bottom_border_y, DISPLAY_WIDTH, header_bottom_border_y,
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
     // Reserve space for the bottom navigation bar (always needed)
     const uint16_t navBarHeight = 60;               
     const uint16_t navTop       = DISPLAY_HEIGHT - navBarHeight;
@@ -624,7 +709,8 @@ void drawGraphScreen() {
     
         String urban_key = ATRUIST_URBAN_SENSOR;
         // Draw single active graph based on current_graph_value
-        drawActiveGraph(current_graph_value, urban_key, navTop);
+        uint16_t contentTop = header_bottom_border_y + 6;
+        drawActiveGraph(current_graph_value, urban_key, navTop, contentTop);
     }
 #else
     // SD card not available - show message

@@ -4,7 +4,6 @@
 #include "utils.h"
 #include "../utils.h"
 #include "../../config_manager/config_helpers.h"
-#include "../icons/icons/20x20/hourly_20x20.h"
 
 int get_timezone_offset() {
     String tz_string(cfg::timezone);
@@ -260,7 +259,12 @@ void GraphPainter::drawLabel() {
         }
     }
     
+  
     strcpy(label_text, label_part);
+    const char* hourly_note = " (hourly update)";
+    if (strlen(label_text) + strlen(hourly_note) < sizeof(label_text)) {
+        strcat(label_text, hourly_note);
+    }
     
     // Calculate text width and icon width
     uint16_t text_width = strlen(label_text) * labelFont.Width;
@@ -275,11 +279,7 @@ void GraphPainter::drawLabel() {
         x = left_bottom_x + (width - total_width) / 2;
     }
     
-    uint16_t y = left_bottom_graph_y - graph_height - labelFont.Height - 4;  
-    
-    uint16_t icon_x = x;
-    uint16_t icon_y = y + (labelFont.Height - icon_size) / 2;  
-    Paint_DrawImage(hourly_20x20, icon_x, icon_y, icon_size, icon_size);
+    uint16_t y = left_bottom_graph_y - graph_height - labelFont.Height - 4; 
     
     uint16_t text_x = x + icon_size + icon_spacing;
     Paint_DrawString_EN(text_x, y, label_text, &labelFont, background_color, main_color);
