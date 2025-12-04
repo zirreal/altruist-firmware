@@ -390,8 +390,7 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     uint16_t urban_width   = usable_width / 2;
     uint16_t insight_width = usable_width - urban_width;
 
-    // Vertical dotted divider between Urban and Insight columns
-    uint16_t divider_x = urban_width;
+    uint16_t divider_x = urban_width + 3;
     Paint_DrawLine(divider_x, y_start - 4, divider_x, DISPLAY_HEIGHT - 4,
                    BLACK, DOT_PIXEL_1X1, LINE_STYLE_DOTTED);
 

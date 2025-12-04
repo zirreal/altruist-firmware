@@ -262,7 +262,8 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     const int page_icon_gap = 20; // gap between page icons
     
 
-    int current_y = sidebar_y + 6; 
+    // Extra top padding so the first icon sits a bit lower
+    int current_y = sidebar_y + 10; 
     
     for (int i = 0; i <= 3; i++) {
         bool is_active = (navItems[i].screen == currentScreen);
@@ -274,19 +275,35 @@ void drawScreenIndicator(ScreenPage currentScreen) {
         
         // Draw black button background for active page
         if (is_active) {
-            const int active_padding = 6; // extra top and bottom padding for active icon
-            int button_x = sidebar_x; // stick to the right/left edges of sidebar
-            // Position active button around the icon's center
-            int button_y = current_y - active_padding;
-            if (button_y < sidebar_y) {
-                button_y = sidebar_y;
+            const int top_padding    = 4;  // space above icon 
+            const int bottom_padding = 8;  // space below icon
+            int button_x = sidebar_x;      // stick to the right/left edges of sidebar
+
+            int button_y;
+            int button_h;
+            
+            if (i == 0) {
+                // First icon (home): extend all the way to header,
+                // and give it a bit more bottom padding so the icon feels vertically centered.
+                const int extra_bottom_padding = 4; // additional space only for home
+                button_y = sidebar_y;  // start at the very top
+                button_h = (current_y - sidebar_y) + large_icon_size + bottom_padding + extra_bottom_padding;
+            } else {
+                // Other icons: normal padding around the icon
+                button_y = current_y - top_padding;
+                if (button_y < sidebar_y) {
+                    button_y = sidebar_y;
+                }
+                button_h = large_icon_size + top_padding + bottom_padding;
             }
-            int button_w = sidebar_width; // full width of sidebar
-            int button_h = button_height + (active_padding * 2); // vertical padding around icon
-            Paint_DrawRectangle(button_x, button_y, 
-                               button_x + button_w - 1, button_y + button_h - 1,
-                               BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-            // Draw white (inverted) icon on black background
+
+            int button_w = sidebar_width;  // full width of sidebar
+
+            Paint_DrawRectangle(button_x, button_y,
+                                button_x + button_w - 1, button_y + button_h - 1,
+                                BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+
+            // Draw white (inverted) icon on black background at same position as inactive
             Paint_DrawImageInverted(navItems[i].icon, current_icon_x, current_y, current_icon_size, current_icon_size);
         } else {
             // Draw black icon on white background
