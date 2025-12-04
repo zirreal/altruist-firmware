@@ -147,12 +147,19 @@ void drawValue(const char *label, float value, uint8_t precision,
         uint16_t arrow_x = warning_x + warning_size + 2;
         uint16_t arrow_y = warning_y;
 
+        // NOTE: The base `arrow_15x15` bitmap currently points DOWN.
+        // We want:
+        //   dir > 0  (above green range, e.g. too hot / too loud)  -> arrow UP
+        //   dir < 0  (below green range, e.g. too cold / too low)  -> arrow DOWN
+        //
+        // So we flip vertically for dir > 0 to turn the down arrow into an up arrow,
+        // and use the original (down) arrow for dir < 0.
         if (dir > 0) {
-            // Above green range -> arrow up (use arrow icon as-is)
-            Paint_DrawImage(arrow_15x15, arrow_x, arrow_y, arrow_size, arrow_size);
-        } else if (dir < 0) {
-            // Below green range -> flip arrow vertically (upside down)
+            // Above green range -> arrow up (flip vertically)
             Paint_DrawImageFlippedVertical(arrow_15x15, arrow_x, arrow_y, arrow_size, arrow_size);
+        } else if (dir < 0) {
+            // Below green range -> arrow down (use icon as-is)
+            Paint_DrawImage(arrow_15x15, arrow_x, arrow_y, arrow_size, arrow_size);
         }
 
         // Underline only the label text to accent the warning
