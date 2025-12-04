@@ -23,4 +23,6 @@
 #include "35x35/wi_thermometer_cropped_35x35.h"
 #include "35x35/wifi_35x35.h"
 #include "35x35/wifi_x_35x35.h"
+#include "35x35/urban_35x35.h"
+#include "35x35/insight_35x35.h"
 #endif

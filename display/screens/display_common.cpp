@@ -228,11 +228,11 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     const int large_icon_size = 15; // large icon size for page icons
     const int icon_spacing = 4; // vertical spacing between icons
     const int nav_item_count = 5;
-    const int sidebar_width = 28; // width of the navigation sidebar
-    const int button_height = icon_size + 6; // height of each button (icon + padding)
+    const int sidebar_width = 26; // width of the navigation sidebar 
+    const int button_height = large_icon_size + 8; // icon + vertical padding
     const int border_radius = 0; 
     const int padding = 4; // padding inside the rounded rectangle
-    const int margin = 1; // margin from right and bottom edges of screen 
+    const int margin = 0; // margin from right and bottom edges of screen 
     
     // Reserve space at the top for the main header (icon/time/date) + its bottom border
     const int header_reserved_height = 27;
@@ -243,20 +243,28 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     int sidebar_height = DISPLAY_HEIGHT - header_reserved_height - margin;
 
 
+    // Sidebar background
     Paint_DrawRectangle(sidebar_x, sidebar_y, 
                         sidebar_x + sidebar_width, sidebar_y + sidebar_height - 1,
                         WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawRectangle(sidebar_x, sidebar_y, 
-                        sidebar_x + sidebar_width - 1, sidebar_y + sidebar_height - 1,
-                        BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    // Top
+    Paint_DrawLine(sidebar_x, sidebar_y, sidebar_x + sidebar_width - 1, sidebar_y,
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    // Left
+    Paint_DrawLine(sidebar_x, sidebar_y, sidebar_x, sidebar_y + sidebar_height - 1,
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    // Bottom
+    Paint_DrawLine(sidebar_x, sidebar_y + sidebar_height - 1,
+                   sidebar_x + sidebar_width - 1, sidebar_y + sidebar_height - 1,
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
     // Calculate icon positions
     int small_icon_x = sidebar_x + (sidebar_width - icon_size) / 2;
     int large_icon_x = sidebar_x + (sidebar_width - large_icon_size) / 2;
-    const int page_icon_gap = 12; // gap between page icons 
+    const int page_icon_gap = 20; // gap between page icons
     
 
-    int current_y = sidebar_y + 4;
+    int current_y = sidebar_y + 6; // top padding
     
     for (int i = 0; i <= 3; i++) {
         bool is_active = (navItems[i].screen == currentScreen);
@@ -268,7 +276,7 @@ void drawScreenIndicator(ScreenPage currentScreen) {
         
         // Draw black button background for active page
         if (is_active) {
-            const int active_padding = 4; // extra top and bottom padding for active icon
+            const int active_padding = 6; // extra top and bottom padding for active icon
             int button_x = sidebar_x + 1; // no padding from border 
             int button_y = current_y - active_padding; // more top padding
             int button_w = sidebar_width - 2; // no padding from border 
@@ -287,9 +295,36 @@ void drawScreenIndicator(ScreenPage currentScreen) {
         current_y += button_height + page_icon_gap;
     }
     
-    // Bottom: switch icon 
-    int bottom_icon_y = sidebar_y + sidebar_height - padding - button_height;
-    Paint_DrawImage(navItems[4].icon, large_icon_x, bottom_icon_y, large_icon_size, large_icon_size);
+    // Bottom: up / down (10x10) / switch (15x15) icons stack
+    const int bottom_gap = 4;
+    const int bottom_button_padding = 8; // padding from bottom border
+    const int button_icon_padding = 4; // padding around up/down icons
+    int switch_y = sidebar_y + sidebar_height - bottom_button_padding - large_icon_size; // switch is 15x15
+    
+    // Calculate button areas with padding
+    int down_button_bottom = switch_y - bottom_gap; // bottom of down button area
+    int down_button_top = down_button_bottom - icon_size - (button_icon_padding * 2); // top of down button area
+    int down_y = down_button_top + button_icon_padding; // icon position within down button area
+    
+    int up_button_bottom = down_button_top - bottom_gap; // bottom of up button area
+    int up_button_top = up_button_bottom - icon_size - (button_icon_padding * 2); // top of up button area
+    int up_y = up_button_top + button_icon_padding; // icon position within up button area
+
+    // Draw icons
+    Paint_DrawImage(button_up_10x10,   small_icon_x, up_y,   icon_size, icon_size);
+    // Top border line above the up button
+    Paint_DrawLine(sidebar_x + 1, up_button_top, sidebar_x + sidebar_width - 2, up_button_top,
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    // Bottom border line below the up button
+    Paint_DrawLine(sidebar_x + 1, up_button_bottom, sidebar_x + sidebar_width - 2, up_button_bottom,
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
+    Paint_DrawImage(button_down_10x10, small_icon_x, down_y, icon_size, icon_size);
+    // Bottom border line below the down button
+    Paint_DrawLine(sidebar_x + 1, down_button_bottom, sidebar_x + sidebar_width - 2, down_button_bottom,
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
+    Paint_DrawImage(navItems[4].icon,  large_icon_x, switch_y, large_icon_size, large_icon_size); 
 }
 
 #endif
