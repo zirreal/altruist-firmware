@@ -161,13 +161,6 @@ void drawValue(const char *label, float value, uint8_t precision,
             // Below green range -> arrow down (use icon as-is)
             Paint_DrawImage(arrow_15x15, arrow_x, arrow_y, arrow_size, arrow_size);
         }
-
-        // Underline only the label text to accent the warning
-        uint16_t underline_start_x = label_x;
-        uint16_t underline_end_x   = label_x + label_width;
-        uint16_t underline_y       = label_y + Font12.Height + 1;
-        Paint_DrawLine(underline_start_x, underline_y, underline_end_x, underline_y,
-                       BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     }
 }
 
