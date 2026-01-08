@@ -85,7 +85,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             leds_controller_insight.setSleepMode(false);
             // Set FULL mode and initialized state
             epdSetInitialized(true, DisplayMode::FULL);
-            DEV_Delay_ms(500);
+            DEV_Delay_ms(100);
             
             // Immediately draw and update screen after wake
             currentScreenID = ScreenPage::SENSOR_MAP;
@@ -106,7 +106,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             showSensorsMapPage(addr);
             drawScreenIndicator(ScreenPage::SENSOR_MAP);
             
-            // FULL update after wake
+            // FULL update after wake - this will overwrite any old content without showing white
             debug_outln_info(F("[EPD] FULL refresh after wake"));
             epdDisplay(DisplayMode::FULL, BlackImage);
             last_refresh_time = millis();
@@ -146,10 +146,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 // Short presses: navigate screens
                 if (btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
-                        setScreen(getPrevScreen(currentScreenID));
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
-                        setScreen(getNextScreen(currentScreenID));
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     }
                 }
@@ -163,27 +167,37 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 if (!areGraphsAvailable()) {
                     // No graphs available - navigate to next/prev screen on any button press
                     if (btn_press.button_num == ButtonNum::UP) {
-                        setScreen(getPrevScreen(currentScreenID));
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
-                        setScreen(getNextScreen(currentScreenID));
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     }
                 } else {
                     // Graphs available - normal behavior
                     if (btn_press.press_type == PressType::LONG) {
                         if (btn_press.button_num == ButtonNum::UP) {
-                            setScreen(getPrevScreen(currentScreenID));
+                            ScreenPage target = getPrevScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
                             return;
                         } else if (btn_press.button_num == ButtonNum::SET) {
-                            setScreen(getNextScreen(currentScreenID));
+                            ScreenPage target = getNextScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
                             return;
                         }
                     } else if (btn_press.press_type == PressType::SHORT) {
                         if (btn_press.button_num == ButtonNum::UP) {
                             // If at first graph, switch to previous screen instead of looping
                             if (setPrevGraphValue()) {
-                                setScreen(getPrevScreen(currentScreenID));
+                                ScreenPage target = getPrevScreen(currentScreenID);
+                                epdIncrementScreenCounter(target);
+                                setScreen(target);
                                 return;
                             }
                             refresh_now = true;
@@ -191,7 +205,9 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         } else if (btn_press.button_num == ButtonNum::SET) {
                             // If at last graph, switch to next screen instead of looping
                             if (setNextGraphValue()) {
-                                setScreen(getNextScreen(currentScreenID));
+                                ScreenPage target = getNextScreen(currentScreenID);
+                                epdIncrementScreenCounter(target);
+                                setScreen(target);
                                 return;
                             }
                             refresh_now = true;
@@ -203,10 +219,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             else if (currentScreenID == ScreenPage::SENSOR_MAP) {
                 if (btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
-                        setScreen(getPrevScreen(currentScreenID));
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
-                        setScreen(getNextScreen(currentScreenID));
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     }
                 }
@@ -214,16 +234,25 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             else if (currentScreenID == ScreenPage::SETTINGS) {
                 if (btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
-                        setScreen(getPrevScreen(currentScreenID));
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
-                        setScreen(getNextScreen(currentScreenID));
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     }
                 }
             }
         }
     }
+    // Skip all refresh logic when display is sleeping - only wake on button press
+    if (display_sleeping) {
+        return;
+    }
+
     // Handle auto-navigation from SENSOR_MAP to MAIN ~30s after wake
     if (auto_to_main_active && currentScreenID == ScreenPage::SENSOR_MAP) {
         if ((int32_t)(millis() - auto_to_main_deadline_ms) >= 0) {

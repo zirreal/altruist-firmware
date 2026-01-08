@@ -39,6 +39,9 @@ void epdResetState();
 // Reset period position counter (for full refresh after wake)
 void epdResetPeriodPosition();
 
+// Increment counter for a specific screen (called on button navigation)
+void epdIncrementScreenCounter(ScreenPage screen);
+
 // Set display state (for wake from sleep)
 void epdSetInitialized(bool initialized, DisplayMode mode);
 

@@ -14,7 +14,8 @@ static DisplayMode epd_current_mode = DisplayMode::FULL; // Track current mode t
 static unsigned long epd_update_count = 0;
 static unsigned int initial_full_refreshes_done = 0; // Track first 3 full refreshes after boot
 static ScreenPage last_screen = ScreenPage::MAIN; // Track last screen to detect screen changes
-static unsigned int period_position = 0; // Position within current period (0-based)
+// Track period position per screen (indexed by ScreenPage enum value)
+static unsigned int period_position_per_screen[8] = {0}; // Max 8 screens, all initialized to 0
 
 // Helper function: increment global update counter
 void epdIncrementUpdateCount() {
@@ -99,29 +100,63 @@ void showImageFast(UBYTE *&BlackImage, ScreenPage currentScreen) {
         debug_outln_info(String(F("[EPD] showImageFast -> FULL refresh (initial #")) + String(initial_full_refreshes_done + 1) + F(")"));
         epdDisplay(DisplayMode::FULL, BlackImage);
         initial_full_refreshes_done++;
-        period_position = 0; // Reset period position after initial full refreshes
+        // Reset all screen counters after initial full refreshes
+        for (int i = 0; i < 8; i++) {
+            period_position_per_screen[i] = 0;
+        }
         last_screen = currentScreen;
         return;
     }
     
-    // Reset period position when screen changes
-    if (currentScreen != last_screen) {
-        period_position = 0;
-        last_screen = currentScreen;
-        debug_outln_info(F("[EPD] Screen changed, resetting period counter"));
+    // Get the counter for the current screen (using enum value as index)
+    unsigned int screen_index = static_cast<unsigned int>(currentScreen);
+    // Ensure array bounds safety
+    if (screen_index >= 8) {
+        screen_index = 0; // Fallback to MAIN if out of bounds
     }
+    unsigned int &period_position = period_position_per_screen[screen_index];
     
+    // Determine refresh period based on screen type
+    // MAIN screen: 10 partials + 1 full = 11 total (updates every minute, needs more partials)
+    // All other screens: 5 partials + 1 full = 6 total (screen changes, need fewer partials)
     unsigned int full_refresh_period;
-    if (currentScreen == ScreenPage::MAIN) {
+    bool is_main_screen = (currentScreen == ScreenPage::MAIN);
+    if (is_main_screen) {
         // MAIN screen: 10 partial, then 1 full (for frequent data updates)
         full_refresh_period = 11;  // 10 partial + 1 full
     } else {
-        // Page changes: 5 partial, then 1 full
+        // All other screens (GRAPHS, SENSOR_MAP, SETTINGS, etc.): 5 partial, then 1 full
         full_refresh_period = 6;   // 5 partial + 1 full
     }
     
-    // Increment period position (0-based, so position 0-9 for MAIN, 0-4 for OTHER)
-    period_position++;
+    // Detect screen change and increment counter immediately when switching screens
+    bool screen_changed = (currentScreen != last_screen);
+    if (screen_changed) {
+        // Increment counter for the new screen immediately when switching
+        // This ensures we track how many times we've been on this screen, not just refresh count
+        period_position++;
+        debug_outln_info(String(F("[EPD] Screen changed, incremented counter to: ")) + String(period_position));
+        last_screen = currentScreen;
+        
+        // Check if we need a full refresh after incrementing
+        if (period_position >= full_refresh_period) {
+            debug_outln_info(F("[EPD] Counter reached limit on screen change - forcing FULL refresh"));
+            epdDisplay(DisplayMode::FULL, BlackImage);
+            period_position = 0; // Reset after full refresh
+            return;
+        }
+        // Otherwise continue with partial refresh below
+    } else {
+        // Same screen - increment counter for this refresh
+        period_position++;
+    }
+    
+    // Debug: log which screen and what period we're using
+    const char* screen_name = is_main_screen ? "MAIN" : "OTHER";
+    debug_outln_info(String(F("[EPD] Screen: ")) + screen_name + 
+                    F(", screen_index: ") + String(screen_index) + 
+                    F(", period: ") + String(full_refresh_period) +
+                    F(", current pos: ") + String(period_position));
     
     // Check if we need a full refresh (at the end of the period)
     bool do_full_refresh = (period_position >= full_refresh_period);
@@ -152,7 +187,10 @@ void showImageLong(UBYTE *&BlackImage) {
     epd_initialized = true;  // Update flag so epdInit knows display is initialized
     epd_current_mode = DisplayMode::FULL;  // Update current mode
     epdIncrementUpdateCount();
-    period_position = 0; // Reset period position after full refresh
+    // Reset all screen counters after full refresh
+    for (int i = 0; i < 8; i++) {
+        period_position_per_screen[i] = 0;
+    }
     unsigned long count = epdGetUpdateCount();
     debug_outln_info(String("[EPD] showImageLong complete, update count: ") + String(count));
 #endif
@@ -210,7 +248,10 @@ void epdResetState() {
     // Reset display state (like on first power-on)
     epd_initialized = false;
     epd_current_mode = DisplayMode::FULL;
-    period_position = 0; // Reset period position on wake/reset
+    // Reset all screen counters on wake/reset
+    for (int i = 0; i < 8; i++) {
+        period_position_per_screen[i] = 0;
+    }
     last_screen = ScreenPage::MAIN; // Reset screen tracking
     // Don't reset update counter - it continues counting
 #endif
@@ -218,7 +259,37 @@ void epdResetState() {
 
 void epdResetPeriodPosition() {
 #ifdef DISPLAY_4IN2
-    period_position = 0; // Reset period position
+    // Reset all screen counters
+    for (int i = 0; i < 8; i++) {
+        period_position_per_screen[i] = 0;
+    }
+#endif
+}
+
+void epdIncrementScreenCounter(ScreenPage screen) {
+#ifdef DISPLAY_4IN2
+    // Get the counter for the target screen
+    unsigned int screen_index = static_cast<unsigned int>(screen);
+    if (screen_index >= 8) {
+        screen_index = 0; // Fallback to MAIN if out of bounds
+    }
+    unsigned int &period_position = period_position_per_screen[screen_index];
+    
+    // Determine refresh period based on screen type
+    unsigned int full_refresh_period;
+    bool is_main_screen = (screen == ScreenPage::MAIN);
+    if (is_main_screen) {
+        full_refresh_period = 11;  // 10 partial + 1 full
+    } else {
+        full_refresh_period = 6;   // 5 partial + 1 full
+    }
+    
+    // Increment counter for this screen
+    period_position++;
+    debug_outln_info(String(F("[EPD] Button nav: incremented counter for screen ")) + 
+                    String(screen_index) + F(" to ") + String(period_position) + F("/") + String(full_refresh_period));
+    
+    // Don't reset here - let showImageFast handle the full refresh and reset
 #endif
 }
 
