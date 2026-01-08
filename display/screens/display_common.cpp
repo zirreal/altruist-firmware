@@ -166,7 +166,7 @@ void epdDisplay(DisplayMode mode, UBYTE *Image) {
 
     const char* mode_str = "";
     switch (mode) {
-        case DisplayMode::FULL:)
+        case DisplayMode::FULL:
             mode_str = "FULL (fast display)";
             EPD_4IN2_V2_Display_Fast(Image);
             break;
