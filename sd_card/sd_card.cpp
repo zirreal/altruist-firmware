@@ -2,6 +2,7 @@
 
 #include "sd_card.h"
 #include "../defines.h"
+#include "../utils.h"
 
 bool SDCard::begin() {
     SPI.begin(SPI_SCK_PIN, SPI_MISO_PIN, SPI_MOSI_PIN, SPI_CS_PIN);
@@ -154,6 +155,7 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
         debug_outln_info(F("[SDCardLogger] Data: "), values);
     } else {
         debug_outln_info(F("[SDCardLogger] Can't write data: "));
+        incrementSDWriteError();
     }
     file.close();
 }

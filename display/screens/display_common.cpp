@@ -6,26 +6,68 @@
 // Icon sets
 #include "../icons/icons/icons_10x10.h"
 #include "../icons/icons/icons_15x15.h"
+#include "../display_modes.h"
+#include "../../defines.h"
 
 static bool epd_initialized = false;
+static DisplayMode epd_current_mode = DisplayMode::FULL; // Track current mode to avoid unnecessary re-init
+static unsigned long epd_update_count = 0;
+static unsigned int initial_full_refreshes_done = 0; // Track first 3 full refreshes after boot
+static ScreenPage last_screen = ScreenPage::MAIN; // Track last screen to detect screen changes
+static unsigned int period_position = 0; // Position within current period (0-based)
+
+// Helper function: increment global update counter
+void epdIncrementUpdateCount() {
+    epd_update_count++;
+}
+
+unsigned long epdGetUpdateCount() {
+    return epd_update_count;
+}
 
 void initAndClearScreen() {
-#ifdef DISPLAY_3IN52
-    if (!epd_initialized) {
-        EPD_3IN52_Init();
-        epd_initialized = true;
-    }
-    EPD_3IN52_lut_GC();
-#endif
 #ifdef DISPLAY_4IN2
+    // Simplified initialization: only on first startup, without unnecessary clears
     if (!epd_initialized) {
-        EPD_4IN2_V2_Init();
-        // One-time clear on first init only
-        EPD_4IN2_V2_Clear();
-        DEV_Delay_ms(100);
+        // Use fast initialization even for first startup (faster)
+        EPD_4IN2_V2_Init_Fast(Seconds_1S);
         epd_initialized = true;
+        epd_current_mode = DisplayMode::FAST; // Will be switched on first use
     }
-    // No repeated clear; keep updates fast
+#endif
+}
+
+// Unified init by mode.
+// Optimized: re-initialization only when mode changes.
+void epdInit(DisplayMode mode) {
+#ifdef DISPLAY_4IN2
+    // Re-initialize only if mode changed or display is not initialized
+    if (!epd_initialized || epd_current_mode != mode) {
+    const char* mode_str = "";
+    switch (mode) {
+        case DisplayMode::FULL:
+                // For "full" update use fast init (faster, but still clean)
+                // Can use full init for maximum cleanliness, but it's slower
+                mode_str = "FULL (fast init)";
+                EPD_4IN2_V2_Init_Fast(Seconds_1S);
+            break;
+        case DisplayMode::FAST:
+        case DisplayMode::PARTIAL:
+            // For fast and partial updates use fast init.
+            mode_str = (mode == DisplayMode::FAST) ? "FAST" : "PARTIAL";
+            EPD_4IN2_V2_Init_Fast(Seconds_1S);
+            break;
+        case DisplayMode::GRAY_4:
+            mode_str = "GRAY_4";
+            EPD_4IN2_V2_Init_4Gray();
+            break;
+    }
+        epd_current_mode = mode;
+    debug_outln_info(String("[EPD] Init mode: ") + mode_str);
+    epd_initialized = true;
+    }
+#else
+    (void)mode;
 #endif
 }
 
@@ -42,29 +84,148 @@ void createNewImage(UBYTE *&BlackImage) {
 #endif
 }
 
-void showImageFast(UBYTE *&BlackImage) {
+void showImageFast(UBYTE *&BlackImage, ScreenPage currentScreen) {
 #ifdef DISPLAY_4IN2
-    // Fast update without sleep
-    EPD_4IN2_V2_Display(BlackImage);
+    // Fast update without going to sleep.
+    // Update logic:
+    // 1. First 3 updates after boot - always full (for clean initialization)
+    // 2. On MAIN screen (1-minute data updates): 10 partial, then 1 full
+    // 3. When changing pages: 5 partial, then 1 full
+    //
+    // Note: counter increments inside epdDisplay().
+    
+    // First 3 updates - always full
+    if (initial_full_refreshes_done < 3) {
+        debug_outln_info(String(F("[EPD] showImageFast -> FULL refresh (initial #")) + String(initial_full_refreshes_done + 1) + F(")"));
+        epdDisplay(DisplayMode::FULL, BlackImage);
+        initial_full_refreshes_done++;
+        period_position = 0; // Reset period position after initial full refreshes
+        last_screen = currentScreen;
+        return;
+    }
+    
+    // Reset period position when screen changes
+    if (currentScreen != last_screen) {
+        period_position = 0;
+        last_screen = currentScreen;
+        debug_outln_info(F("[EPD] Screen changed, resetting period counter"));
+    }
+    
+    unsigned int full_refresh_period;
+    if (currentScreen == ScreenPage::MAIN) {
+        // MAIN screen: 10 partial, then 1 full (for frequent data updates)
+        full_refresh_period = 11;  // 10 partial + 1 full
+    } else {
+        // Page changes: 5 partial, then 1 full
+        full_refresh_period = 6;   // 5 partial + 1 full
+    }
+    
+    // Increment period position (0-based, so position 0-9 for MAIN, 0-4 for OTHER)
+    period_position++;
+    
+    // Check if we need a full refresh (at the end of the period)
+    bool do_full_refresh = (period_position >= full_refresh_period);
+    
+    if (do_full_refresh) {
+        debug_outln_info(String(F("[EPD] showImageFast -> FULL refresh (periodic, screen: ")) + 
+                        (currentScreen == ScreenPage::MAIN ? F("MAIN") : F("OTHER")) + 
+                        F(", period pos: ") + String(period_position) + F("/") + String(full_refresh_period) + F(")"));
+        epdDisplay(DisplayMode::FULL, BlackImage);
+        period_position = 0; // Reset after full refresh
+    } else {
+        debug_outln_info(String(F("[EPD] showImageFast -> PARTIAL refresh (screen: ")) + 
+                        (currentScreen == ScreenPage::MAIN ? F("MAIN") : F("OTHER")) + 
+                        F(", period pos: ") + String(period_position) + F("/") + String(full_refresh_period) + F(")"));
+        epdDisplay(DisplayMode::PARTIAL, BlackImage);
+    }
 #endif
 }
 
 void showImageLong(UBYTE *&BlackImage) {
-#ifdef DISPLAY_3IN52
-    EPD_3IN52_SendCommand(0x50);
-    EPD_3IN52_SendData(0x17);
-
-    EPD_3IN52_display(BlackImage);
-    EPD_3IN52_lut_GC();
-    EPD_3IN52_refresh();
-    DEV_Delay_ms(200);
-    EPD_3IN52_sleep();
-#endif
 #ifdef DISPLAY_4IN2
-    EPD_4IN2_V2_Init();
+    // Full "long" update (e.g., after wake or for rare static screens).
+    // Use original full init for maximum reliability and cleanliness.
+    debug_outln_info(F("[EPD] showImageLong: FULL mode with full init"));
+    EPD_4IN2_V2_Init();  // Use original full init (not fast)
     EPD_4IN2_V2_Display(BlackImage);
     DEV_Delay_ms(100);
-    // EPD_4IN2_V2_Sleep(); // avoid sleeping on every render
+    epd_initialized = true;  // Update flag so epdInit knows display is initialized
+    epd_current_mode = DisplayMode::FULL;  // Update current mode
+    epdIncrementUpdateCount();
+    period_position = 0; // Reset period position after full refresh
+    unsigned long count = epdGetUpdateCount();
+    debug_outln_info(String("[EPD] showImageLong complete, update count: ") + String(count));
+#endif
+}
+
+// High-level display function by mode.
+void epdDisplay(DisplayMode mode, UBYTE *Image) {
+#ifdef DISPLAY_4IN2
+    // Ensure initialization for selected mode (only when necessary).
+        epdInit(mode);
+
+    const char* mode_str = "";
+    switch (mode) {
+        case DisplayMode::FULL:)
+            mode_str = "FULL (fast display)";
+            EPD_4IN2_V2_Display_Fast(Image);
+            break;
+        case DisplayMode::FAST:
+            mode_str = "FAST";
+            EPD_4IN2_V2_Display_Fast(Image);
+            break;
+        case DisplayMode::PARTIAL:
+            mode_str = "PARTIAL";
+            // True partial mode of controller (by LUT), without white pre-clearing.
+            // This gives fast updates with less flickering, but some residual
+            // "ghosting" of previous pages is physically inevitable.
+            EPD_4IN2_V2_PartialDisplay(Image);
+            break;
+        case DisplayMode::GRAY_4:
+            mode_str = "GRAY_4";
+            EPD_4IN2_V2_Display_4Gray(Image);
+            break;
+    }
+
+    epdIncrementUpdateCount();
+    unsigned long count = epdGetUpdateCount();
+    debug_outln_info(String("[EPD] Display mode: ") + mode_str + String(", update count: ") + String(count));
+#else
+    (void)mode;
+    (void)Image;
+#endif
+}
+
+void epdSleep() {
+#ifdef DISPLAY_4IN2
+    unsigned long count = epdGetUpdateCount();
+    debug_outln_info(String("[EPD] Sleep, total updates: ") + String(count));
+    EPD_4IN2_V2_Sleep();
+    epd_initialized = false; // Reset flag so wake-up gets full initialization
+#endif
+}
+
+void epdResetState() {
+#ifdef DISPLAY_4IN2
+    // Reset display state (like on first power-on)
+    epd_initialized = false;
+    epd_current_mode = DisplayMode::FULL;
+    period_position = 0; // Reset period position on wake/reset
+    last_screen = ScreenPage::MAIN; // Reset screen tracking
+    // Don't reset update counter - it continues counting
+#endif
+}
+
+void epdResetPeriodPosition() {
+#ifdef DISPLAY_4IN2
+    period_position = 0; // Reset period position
+#endif
+}
+
+void epdSetInitialized(bool initialized, DisplayMode mode) {
+#ifdef DISPLAY_4IN2
+    epd_initialized = initialized;
+    epd_current_mode = mode;
 #endif
 }
 

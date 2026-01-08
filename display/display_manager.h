@@ -11,7 +11,8 @@
 #include "../utils.h"
 #include "../buttons/button_manager.h"
 
-#define DISPLAY_REFRESH_INTERVAL 300000L
+#define DISPLAY_REFRESH_INTERVAL 60000L  // 1 minute (was 5 minutes)
+#define QR_MAP_AUTO_INTERVAL 7200000L   // 2 hours in milliseconds
 
 enum class ScreenPage {
     MAIN,
@@ -38,8 +39,7 @@ private:
     bool refresh_now = false;
     String robonomics_address;
     String cached_urban_address; // cached Urban Robonomics address once discovered
-    uint8_t refresh_count_for_qr = 0;
-    uint32_t refresh_time_for_qr = 0;
+    unsigned long last_qr_map_show_time = 0; // Track when QR map was last auto-shown
     UBYTE *BlackImage;
 
     ScreenPage currentScreenID = ScreenPage::MAIN;
@@ -52,6 +52,9 @@ private:
     // Auto navigation after wake: SENSOR_MAP -> MAIN in ~30s
     bool auto_to_main_active = false;
     uint32_t auto_to_main_deadline_ms = 0;
+    
+    // Force full refresh on next update (e.g., after wake from sleep)
+    bool force_full_refresh = false;
 
     // Retry updating Sensor Map QR when Urban address not yet available
     bool     sensor_map_waiting_addr   = false;

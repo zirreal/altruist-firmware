@@ -27,6 +27,17 @@
 #include "./defines.h"
 //#include "./ext_def.h"
 #include <SPIFFS.h>
+#include <Preferences.h>
+#include <esp_system.h>
+#include <time.h>
+
+#ifdef ESP32
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#include "driver/temperature_sensor.h"
+static temperature_sensor_handle_t temp_sensor_handle = NULL;
+static bool temp_sensor_initialized = false;
+#endif
+#endif
 
 String get_chipid() {
 	uint64_t chipid_num;
@@ -272,4 +283,218 @@ bool isNumeric(const String& str) {
 		return false;
 	}
 	return true;
+}
+
+// Global metrics instance
+metrics_t system_metrics;
+
+// Initialize metrics (load boot counter from NVS, increment it)
+void initMetrics() {
+	Preferences preferences;
+	preferences.begin("metrics", false);
+	system_metrics.boot_counter = preferences.getULong("boot_cnt", 0);
+	system_metrics.boot_counter++; // Increment on boot
+	preferences.putULong("boot_cnt", system_metrics.boot_counter);
+	preferences.end();
+	
+	system_metrics.uptime_sec = 0;
+	system_metrics.tx_counter = 0;
+	system_metrics.last_telemetry_timestamp = 0;
+	system_metrics.err_wifi_reconnects = 0;
+	system_metrics.err_sensor = 0;
+	system_metrics.err_sd_write = 0;
+	system_metrics.has_error = false;
+}
+
+// Update metrics (uptime, temperature, etc.)
+void updateMetrics() {
+	system_metrics.uptime_sec = millis() / 1000;
+	system_metrics.esp_temperature = getESPTemperature();
+	
+	// Check if we have errors
+	system_metrics.has_error = (system_metrics.err_wifi_reconnects > 0 || 
+	                           system_metrics.err_sensor > 0 || 
+	                           system_metrics.err_sd_write > 0);
+}
+
+// Initialize ESP32-C6 temperature sensor (call once at startup)
+void initESPTemperatureSensor() {
+	#ifdef ESP32
+		#if defined(CONFIG_IDF_TARGET_ESP32C6)
+			if (temp_sensor_initialized) {
+				return; // Already initialized
+			}
+			
+			temperature_sensor_config_t temp_sensor_config = {
+				.range_min = -10,
+				.range_max = 80,
+			};
+			
+			esp_err_t ret = temperature_sensor_install(&temp_sensor_config, &temp_sensor_handle);
+			if (ret != ESP_OK) {
+				Serial.printf("[URBAN][Temp] Failed to install temperature sensor: %s\n", esp_err_to_name(ret));
+				return;
+			}
+			
+			ret = temperature_sensor_enable(temp_sensor_handle);
+			if (ret != ESP_OK) {
+				Serial.printf("[URBAN][Temp] Failed to enable temperature sensor: %s\n", esp_err_to_name(ret));
+				temperature_sensor_uninstall(temp_sensor_handle);
+				temp_sensor_handle = NULL;
+				return;
+			}
+			
+			temp_sensor_initialized = true;
+			Serial.println(F("[URBAN][Temp] ESP32-C6 temperature sensor initialized"));
+		#endif
+	#endif
+}
+
+// Get ESP temperature (ESP32-C6 internal temperature sensor)
+float getESPTemperature() {
+	#ifdef ESP32
+		#if defined(CONFIG_IDF_TARGET_ESP32C6)
+			if (!temp_sensor_initialized || temp_sensor_handle == NULL) {
+				return 0.0; // Sensor not initialized
+			}
+			
+			float temperature = 0.0;
+			esp_err_t ret = temperature_sensor_get_celsius(temp_sensor_handle, &temperature);
+			if (ret != ESP_OK) {
+				// If reading fails, return last known value or 0
+				return 0.0;
+			}
+			return temperature;
+		#else
+			// Other ESP32 variants - no built-in temperature sensor
+			return 0.0;
+		#endif
+	#else
+		// Fallback: return 0 if not available
+		return 0.0;
+	#endif
+}
+
+// Increment error counters
+void incrementWiFiReconnectError() {
+	system_metrics.err_wifi_reconnects++;
+}
+
+void incrementSensorError() {
+	system_metrics.err_sensor++;
+}
+
+void incrementSDWriteError() {
+	system_metrics.err_sd_write++;
+}
+
+void incrementTXCounter() {
+	system_metrics.tx_counter++;
+	system_metrics.last_telemetry_timestamp = time(nullptr);
+}
+
+// Log metrics to UART in the specified format
+void logMetrics() {
+	updateMetrics();
+	
+	// Determine status
+	const char* status = system_metrics.has_error ? "ERROR" : "ALIVE";
+	const char* status_symbol = system_metrics.has_error ? "✗" : "✓";
+	
+	// Get WiFi state
+	const char* wifi_state = "DISCONNECTED";
+	const char* wifi_symbol = "✗";
+	int rssi = 0;
+	if (WiFi.status() == WL_CONNECTED) {
+		wifi_state = "OK";
+		wifi_symbol = "✓";
+		rssi = WiFi.RSSI();
+	}
+	
+	// Format uptime
+	unsigned long hours = system_metrics.uptime_sec / 3600;
+	unsigned long minutes = (system_metrics.uptime_sec % 3600) / 60;
+	unsigned long seconds = system_metrics.uptime_sec % 60;
+	
+	// Add device identification
+	#if defined(ALTRUIST_INSIDE)
+	Serial.print(F("\r\n=== [INSIGHT] METRICS ===\r\n"));
+	#elif defined(ALTRUIST_URBAN)
+	Serial.print(F("\r\n=== [URBAN] METRICS ===\r\n"));
+	#endif
+	
+	// Status line
+	Serial.print(F("Status: "));
+	Serial.print(status_symbol);
+	Serial.print(F(" "));
+	Serial.print(status);
+	if (system_metrics.has_error) {
+		Serial.print(F(" ("));
+		if (system_metrics.err_wifi_reconnects > 0) Serial.print(F("WiFi "));
+		if (system_metrics.err_sensor > 0) Serial.print(F("Sensor "));
+		if (system_metrics.err_sd_write > 0) Serial.print(F("SD "));
+		Serial.print(F(")"));
+	}
+	Serial.print(F("\r\n"));
+	
+	// Uptime line
+	Serial.print(F("Uptime: "));
+	if (hours > 0) {
+		Serial.print(hours);
+		Serial.print(F("h "));
+	}
+	if (minutes > 0 || hours > 0) {
+		Serial.print(minutes);
+		Serial.print(F("m "));
+	}
+	Serial.print(seconds);
+	Serial.print(F("s ("));
+	Serial.print(system_metrics.uptime_sec);
+	Serial.print(F("s total)\r\n"));
+	
+	// Boot counter
+	Serial.print(F("Boot: "));
+	Serial.print(system_metrics.boot_counter);
+	Serial.print(F("\r\n"));
+	
+	// WiFi line
+	Serial.print(F("WiFi: "));
+	Serial.print(wifi_symbol);
+	Serial.print(F(" "));
+	Serial.print(wifi_state);
+	if (rssi != 0) {
+		Serial.print(F(" (RSSI: "));
+		Serial.print(rssi);
+		Serial.print(F(" dBm)"));
+	}
+	Serial.print(F("\r\n"));
+	
+	// TX counter
+	Serial.print(F("TX: "));
+	Serial.print(system_metrics.tx_counter);
+	if (system_metrics.last_telemetry_timestamp > 0) {
+		time_t now = time(nullptr);
+		unsigned long sec_since_tx = (now > system_metrics.last_telemetry_timestamp) ? 
+		                            (now - system_metrics.last_telemetry_timestamp) : 0;
+		Serial.print(F(" (last: "));
+		Serial.print(sec_since_tx);
+		Serial.print(F("s ago)"));
+	}
+	Serial.print(F("\r\n"));
+	
+	// Error counters
+	Serial.print(F("Errors: WiFi="));
+	Serial.print(system_metrics.err_wifi_reconnects);
+	Serial.print(F(" Sensor="));
+	Serial.print(system_metrics.err_sensor);
+	Serial.print(F(" SD="));
+	Serial.print(system_metrics.err_sd_write);
+	Serial.print(F("\r\n"));
+	
+	// ESP temperature
+	Serial.print(F("ESP Temp: "));
+	Serial.print(system_metrics.esp_temperature, 1);
+	Serial.print(F("°C\r\n"));
+	
+	Serial.print(F("==========================\r\n"));
 }

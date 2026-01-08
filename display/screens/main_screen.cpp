@@ -108,9 +108,9 @@ void drawValue(const char *label, float value, uint8_t precision,
         uint16_t total_width = value_pixel_width + gap_value_units + units_pixel_width;
 
 
-        const uint16_t warning_icon_width = 15; // warning icon 15x15
-        const uint16_t arrow_icon_width   = 10; // arrow icon 10x10
-        const uint16_t warning_and_arrow_width = warning_icon_width + arrow_icon_width + 4 + 2;
+        const uint16_t warning_icon_width = 16; // warning icon 16x16 (manually drawn)
+        const uint16_t arrow_icon_width   = 14; // arrow icon 14x14 (manually drawn)
+        const uint16_t warning_and_arrow_width = warning_icon_width + arrow_icon_width + 2 + 1;
         uint16_t min_value_x = label_x + label_width +
                                (has_warning ? (warning_and_arrow_width + 4) : 8);
 
@@ -136,30 +136,105 @@ void drawValue(const char *label, float value, uint8_t precision,
         String debug_msg = String(F("Drawing warning icon and arrow for dangerous value: ")) + String(label) + F(" = ") + String(value);
         debug_outln_info(debug_msg);
 
-        // Warning icon 
-        const uint16_t warning_size = 15;
+        // Warning icon - manually drawn 16x16 filled triangle with exclamation
+        const uint16_t warning_size = 16;
         uint16_t warning_x = label_x + label_width + 4;
         uint16_t warning_y = label_y + (Font12.Height - warning_size) / 2;
-        Paint_DrawImage(warning_15x15, warning_x, warning_y, warning_size, warning_size);
+        
+        // Draw filled warning triangle (pointing up) with border radius
+        uint16_t tri_top_x = warning_x + warning_size / 2;
+        uint16_t tri_top_y = warning_y;
+        uint16_t tri_bottom_y = warning_y + warning_size - 1;
+        uint16_t tri_height = tri_bottom_y - tri_top_y;
+        
+        // Draw filled triangle by drawing horizontal lines from top to bottom
+        for (uint16_t y = tri_top_y; y <= tri_bottom_y; y++) {
+            // Calculate width at this y position (triangle widens as we go down)
+            uint16_t height_from_top = y - tri_top_y;
+            // Width increases linearly from 1 at top to warning_size at bottom
+            uint16_t width_at_y = 1 + (height_from_top * (warning_size - 1)) / tri_height;
+            uint16_t left_x = tri_top_x - width_at_y / 2;
+            uint16_t right_x = tri_top_x + (width_at_y - 1) / 2;
+            
+            // Add border radius effect: round only the bottom corners, keep top sharp
+            if (y >= tri_bottom_y - 1) {
+                // Bottom rows: round the bottom corners by slightly reducing width
+                uint16_t corner_reduction = (y == tri_bottom_y) ? 1 : 0;
+                Paint_DrawLine(left_x + corner_reduction, y, right_x - corner_reduction, y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            } else {
+                // Top and middle rows: normal triangle (sharp top)
+                Paint_DrawLine(left_x, y, right_x, y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            }
+        }
+        
+        // Draw exclamation mark in the center (white on black triangle) - properly centered
+        uint16_t exclam_x = tri_top_x;  // Centered on triangle (triangle center point)
+        uint16_t exclam_top_y = warning_y + 5;  // Start position for smaller triangle
+        uint16_t exclam_mid_y = warning_y + warning_size - 6;  // End before dot
+        uint16_t exclam_bottom_y = warning_y + warning_size - 3;  // Dot position
+        // Exclamation line (vertical) - perfectly straight, 2 pixels wide (a bit thicker)
+        Paint_DrawLine(exclam_x - 1, exclam_top_y, exclam_x - 1, exclam_mid_y, 
+                      WHITE, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(exclam_x, exclam_top_y, exclam_x, exclam_mid_y, 
+                      WHITE, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        // Exclamation dot (bottom) - slimmer shape with added width
+        // Draw a rectangle (2x2) for better appearance
+        Paint_DrawRectangle(exclam_x - 1, exclam_bottom_y - 1, 
+                           exclam_x, exclam_bottom_y + 1,
+                           WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
 
-        // Direction arrow icon 
-        const uint16_t arrow_size = 15;
-        uint16_t arrow_x = warning_x + warning_size + 2;
-        uint16_t arrow_y = warning_y;
-
-        // NOTE: The base `arrow_15x15` bitmap currently points DOWN.
-        // We want:
-        //   dir > 0  (above green range, e.g. too hot / too loud)  -> arrow UP
-        //   dir < 0  (below green range, e.g. too cold / too low)  -> arrow DOWN
-        //
-        // So we flip vertically for dir > 0 to turn the down arrow into an up arrow,
-        // and use the original (down) arrow for dir < 0.
+        // Direction arrow icon - manually drawn clean arrow shape (bigger and bolder)
+        const uint16_t arrow_size = 14;
+        uint16_t arrow_x = warning_x + warning_size; // Moved even closer (reduced spacing to 0)
+        // Center arrow to bottom of triangle, but move it up a bit
+        uint16_t arrow_y = warning_y + warning_size - arrow_size - 2; // Align with bottom but move up 2px
+        
+        uint16_t arrow_center_x = arrow_x + arrow_size / 2; // Centered, no offset
+        uint16_t arrow_top_y = arrow_y;
+        uint16_t arrow_bottom_y = arrow_y + arrow_size; // Shorter - removed the +2 extension
+        
         if (dir > 0) {
-            // Above green range -> arrow up (flip vertically)
-            Paint_DrawImageFlippedVertical(arrow_15x15, arrow_x, arrow_y, arrow_size, arrow_size);
+            // Above green range -> arrow UP
+            // Bolder arrowhead: triangle at top (4 rows for better visibility)
+            // Top point
+            Paint_DrawPoint(arrow_center_x, arrow_top_y, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+            // Second row: 3 pixels
+            Paint_DrawLine(arrow_center_x - 1, arrow_top_y + 1, arrow_center_x + 1, arrow_top_y + 1,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            // Third row: 5 pixels
+            Paint_DrawLine(arrow_center_x - 2, arrow_top_y + 2, arrow_center_x + 2, arrow_top_y + 2,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            // Fourth row: 7 pixels (bolder)
+            Paint_DrawLine(arrow_center_x - 3, arrow_top_y + 3, arrow_center_x + 3, arrow_top_y + 3,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            // Thicker shaft: 3 pixels wide, centered in arrowhead
+            Paint_DrawLine(arrow_center_x - 1, arrow_top_y + 4, arrow_center_x - 1, arrow_bottom_y,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(arrow_center_x, arrow_top_y + 4, arrow_center_x, arrow_bottom_y,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(arrow_center_x + 1, arrow_top_y + 4, arrow_center_x + 1, arrow_bottom_y,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
         } else if (dir < 0) {
-            // Below green range -> arrow down (use icon as-is)
-            Paint_DrawImage(arrow_15x15, arrow_x, arrow_y, arrow_size, arrow_size);
+            // Below green range -> arrow DOWN
+            // Thicker shaft: 3 pixels wide, centered in arrowhead
+            Paint_DrawLine(arrow_center_x - 1, arrow_top_y, arrow_center_x - 1, arrow_bottom_y - 4,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(arrow_center_x, arrow_top_y, arrow_center_x, arrow_bottom_y - 4,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(arrow_center_x + 1, arrow_top_y, arrow_center_x + 1, arrow_bottom_y - 4,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            // Bolder arrowhead: triangle at bottom (4 rows for better visibility)
+            // Fourth row from bottom: 7 pixels
+            Paint_DrawLine(arrow_center_x - 3, arrow_bottom_y - 3, arrow_center_x + 3, arrow_bottom_y - 3,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            // Third row from bottom: 5 pixels
+            Paint_DrawLine(arrow_center_x - 2, arrow_bottom_y - 2, arrow_center_x + 2, arrow_bottom_y - 2,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            // Second row from bottom: 3 pixels
+            Paint_DrawLine(arrow_center_x - 1, arrow_bottom_y - 1, arrow_center_x + 1, arrow_bottom_y - 1,
+                          BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            // Bottom point
+            Paint_DrawPoint(arrow_center_x, arrow_bottom_y, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
         }
     }
 }

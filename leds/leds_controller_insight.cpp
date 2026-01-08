@@ -11,12 +11,15 @@ void LedControllerInsight::init() {
         pixels.begin();
         pixels.clear();
         uint8_t brightness;
-        if (cfg::leds_brightness * 255 / 100 < 0) {
+        // Scale user setting to 30% max: if user sets 50%, actual brightness is 15% (50% of 30%)
+        uint8_t scaled_brightness = (cfg::leds_brightness * 30) / 100;
+        if (scaled_brightness > 100) scaled_brightness = 100;
+        if (scaled_brightness * 255 / 100 < 0) {
             brightness = 0;
-        } else if (cfg::leds_brightness * 255 / 100 > 255) {
+        } else if (scaled_brightness * 255 / 100 > 255) {
             brightness = 255;
         } else {
-            brightness = cfg::leds_brightness * 255 / 100;
+            brightness = scaled_brightness * 255 / 100;
         }
         pixels.setBrightness(brightness);
         pixels.show();
@@ -49,12 +52,17 @@ void LedControllerInsight::process() {
         last_refresh_time = millis();
         
         // Calculate time-based brightness and apply it
+        uint8_t scaled_brightness = (cfg::leds_brightness * 30) / 100;
+        if (scaled_brightness > 100) scaled_brightness = 100;
         current_time_brightness = _calculateTimeBrightness();
-        uint8_t final_brightness = (cfg::leds_brightness * current_time_brightness) / 100;
+        uint8_t final_brightness = (scaled_brightness * current_time_brightness) / 100;
         if (final_brightness > 255) final_brightness = 255;
         pixels.setBrightness(final_brightness);
         
-        debug_outln_info(F("LED brightness set to: "), final_brightness);
+        // Calculate percentage for logging (final_brightness is 0-255, convert to 0-100%)
+        float brightness_percent = (final_brightness * 100.0f) / 255.0f;
+        debug_outln_info(F("LED brightness: user_setting="), String(cfg::leds_brightness) + F("% -> scaled=") + 
+                        String(scaled_brightness) + F("% -> final=") + String(brightness_percent, 1) + F("%"));
         
         _setAllPixels(pixels.Color(255, 255, 255));
         if (sensors_data.containsKey(ATRUIST_URBAN_SENSOR)) {

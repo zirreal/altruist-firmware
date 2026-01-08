@@ -86,6 +86,19 @@ struct device_status_t {
 	std::vector<std::string> sensor_names;
 };
 
+// UART metrics structure for status logging
+struct metrics_t {
+	unsigned long boot_counter = 0;
+	unsigned long uptime_sec = 0;
+	unsigned long tx_counter = 0;
+	time_t last_telemetry_timestamp = 0;
+	unsigned long err_wifi_reconnects = 0;
+	unsigned long err_sensor = 0;
+	unsigned long err_sd_write = 0;
+	float esp_temperature = 0.0;
+	bool has_error = false;
+};
+
 String get_chipid();
 String tmpl(const __FlashStringHelper* patt, const String& value);
 const char* get_reset_reason_text();
@@ -140,5 +153,17 @@ extern void debug_outln_info_bool(const __FlashStringHelper* text, const bool op
 extern bool isNumeric(const String& str);
 
 extern const __FlashStringHelper* loggerDescription(unsigned i);
+
+// UART metrics logging functions
+extern metrics_t system_metrics;
+void initMetrics();
+void updateMetrics();
+void logMetrics();
+void incrementWiFiReconnectError();
+void incrementSensorError();
+void incrementSDWriteError();
+void incrementTXCounter();
+void initESPTemperatureSensor();
+float getESPTemperature();
 
 #endif
