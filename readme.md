@@ -23,6 +23,18 @@
 - `SET` long press (4s) - reset WiFi configuration
 - `SET` is pressed while turn on - reset all configuration
 
+## Manual Device Update (Advanced)
+
+To manually update the device:
+
+1. Connect the device to your computer via USB cable
+2. Clone this repository
+3. Navigate to the repository folder in terminal
+4. Execute the command:
+```bash
+pio run -e esp32c6_inside_en -t upload
+```
+
 ## Contributing
 
 To add your Connectivity Robonomics Server to sensors firmware fork this repository and edit [robonomics_servers.h](./robonomics_servers.h) file. Add your server in a list in the following format:

@@ -40,11 +40,23 @@ static bool temp_sensor_initialized = false;
 #endif
 
 String get_chipid() {
-	uint64_t chipid_num;
-	chipid_num = ESP.getEfuseMac();
-	String esp_chipid((uint16_t)(chipid_num >> 32), HEX);
-	esp_chipid += String((uint32_t)chipid_num, HEX);
-	return esp_chipid;
+	static String cached_chipid = "";  // Static variable to cache the ID
+	
+	if (cached_chipid.length() == 0) {  // Only get it once
+		WiFiMode_t previousMode = WiFi.getMode();  // Save current mode
+		WiFi.mode(WIFI_STA);  // Initialize WiFi to get MAC
+		String mac = WiFi.macAddress();
+		mac.replace(":", "");  // "AA:BB:CC:DD:EE:FF" -> "AABBCCDDEEFF"
+		cached_chipid = mac;
+		
+		// Restore previous mode only if it wasn't OFF
+		if (previousMode != WIFI_OFF) {
+			WiFi.mode(previousMode);
+		}
+		// If it was OFF, leave it in STA mode for the wifi manager to handle
+	}
+	
+	return cached_chipid;
 }
 
 String tmpl(const __FlashStringHelper* patt, const String& value) {
