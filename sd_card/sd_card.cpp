@@ -3,6 +3,7 @@
 #include "sd_card.h"
 #include "../defines.h"
 #include "../utils.h"
+#include <algorithm>
 
 bool SDCard::begin() {
     SPI.begin(SPI_SCK_PIN, SPI_MISO_PIN, SPI_MOSI_PIN, SPI_CS_PIN);
@@ -166,103 +167,142 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
     time_t now = time(nullptr);
     struct tm* timeinfo = localtime(&now);
 
-    char filename[64];
-    snprintf(filename, sizeof(filename), "/sensors_data/%s/%04d-%02d-%02d.csv",
-             sensor_name, timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday);
-
-    File file = SD.open(filename, FILE_READ);
-    if (!file) {
-        debug_outln_info(F("Failed to open: "), filename);
-        return;
-    }
-
-    // Временная память для хранения считанных значений
+    // Временная память для хранения считанных значений (общая для обоих дней)
     std::vector<float> values_vec;
     std::vector<uint32_t> timestamps_vec;
-
-    // Читаем заголовок
-    String header_line = file.readStringUntil('\n');
-    int field_index = -1;
-
-    std::vector<String> headers;
-    int start = 0;
-    while (start < header_line.length()) {
-        int comma = header_line.indexOf(',', start);
-        if (comma == -1) comma = header_line.length();
-        headers.push_back(header_line.substring(start, comma));
-        start = comma + 1;
-    }
-
-    // Debug: log all headers found
-    String headerList = "CSV headers: ";
-    for (size_t i = 0; i < headers.size(); ++i) {
-        headerList += headers[i] + " ";
-    }
-    debug_outln_info(headerList);
-    String searchMsg = "Searching for field: " + String(field_name);
-    debug_outln_info(searchMsg);
     
-    for (size_t i = 0; i < headers.size(); ++i) {
-        String header = headers[i];
-        header.trim();
-        if (header == field_name) {
-            field_index = i;
-            String foundMsg = "Found field at index: " + String(i);
-            debug_outln_info(foundMsg);
-            break;
-        }
-    }
-
-    if (field_index == -1) {
-        String errorMsg = "Field not found in CSV. Looking for: " + String(field_name);
-        debug_outln_info(errorMsg);
-        file.close();
-        return;
-    }
-
     // Граница по времени
     uint32_t time_limit = now - (hours_back * 3600);
+    
+    int field_index = -1;
+    bool field_index_found = false;
+    
+    // Helper function to read from a specific date file
+    auto readFromDateFile = [&](int year, int month, int day) -> bool {
+        char filename[64];
+        snprintf(filename, sizeof(filename), "/sensors_data/%s/%04d-%02d-%02d.csv",
+                 sensor_name, year, month, day);
 
-    // Чтение данных построчно
-    while (file.available()) {
-        String line = file.readStringUntil('\n');
-        std::vector<String> parts;
-        int pos = 0;
-        while (pos < line.length()) {
-            int comma = line.indexOf(',', pos);
-            if (comma == -1) comma = line.length();
-            parts.push_back(line.substring(pos, comma));
-            pos = comma + 1;
+        File file = SD.open(filename, FILE_READ);
+        if (!file) {
+            return false; // File doesn't exist, that's OK
         }
-
-        if (parts.size() <= field_index) continue;
-
-        uint32_t timestamp = parts[0].toInt();
-        if (timestamp < time_limit) continue;
         
-        float value;
-        if (strstr(field_name, "pressure") != nullptr) {
-            value = parts[field_index].toFloat() * 0.0075;
+        // Читаем заголовок (только если еще не нашли field_index)
+        if (!field_index_found) {
+            String header_line = file.readStringUntil('\n');
+            std::vector<String> headers;
+            int start = 0;
+            while (start < header_line.length()) {
+                int comma = header_line.indexOf(',', start);
+                if (comma == -1) comma = header_line.length();
+                headers.push_back(header_line.substring(start, comma));
+                start = comma + 1;
+            }
+            
+            for (size_t i = 0; i < headers.size(); ++i) {
+                String header = headers[i];
+                header.trim();
+                if (header == field_name) {
+                    field_index = i;
+                    field_index_found = true;
+                    break;
+                }
+            }
+            
+            if (!field_index_found) {
+                file.close();
+                return false;
+            }
         } else {
-            value = parts[field_index].toFloat();
+            // Skip header line if we already found field_index
+            file.readStringUntil('\n');
         }
 
-        timestamps_vec.push_back(timestamp);
-        values_vec.push_back(value);
+        // Чтение данных построчно
+        while (file.available()) {
+            String line = file.readStringUntil('\n');
+            std::vector<String> parts;
+            int pos = 0;
+            while (pos < line.length()) {
+                int comma = line.indexOf(',', pos);
+                if (comma == -1) comma = line.length();
+                parts.push_back(line.substring(pos, comma));
+                pos = comma + 1;
+            }
+
+            if (parts.size() <= field_index) continue;
+
+            uint32_t timestamp = parts[0].toInt();
+            if (timestamp < time_limit) continue;
+            
+            float value;
+            if (strstr(field_name, "pressure") != nullptr) {
+                value = parts[field_index].toFloat() * 0.0075;
+            } else {
+                value = parts[field_index].toFloat();
+            }
+
+            timestamps_vec.push_back(timestamp);
+            values_vec.push_back(value);
+        }
+
+        file.close();
+        return true;
+    };
+    
+    // First, try today's file
+    bool today_read = readFromDateFile(timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday);
+    
+    // Calculate yesterday's date
+    struct tm yesterday_tm = *timeinfo;
+    yesterday_tm.tm_mday--;
+    mktime(&yesterday_tm); // Normalize the date
+    
+    // Try yesterday's file if:
+    // 1. Today's file wasn't found, OR
+    // 2. We have data but it's less than 1 hour span, OR
+    // 3. We need more than 24 hours of data
+    bool need_yesterday = !today_read;
+    if (!need_yesterday && !timestamps_vec.empty()) {
+        uint32_t data_span = timestamps_vec.back() - timestamps_vec.front();
+        need_yesterday = (data_span < 3600); // Less than 1 hour of data
+    }
+    if (hours_back > 24) {
+        need_yesterday = true; // Always read yesterday if we need more than 24 hours
+    }
+    
+    if (need_yesterday) {
+        debug_outln_info(F("[SDCard] Reading from yesterday's file to get more data"));
+        readFromDateFile(yesterday_tm.tm_year + 1900, yesterday_tm.tm_mon + 1, yesterday_tm.tm_mday);
     }
 
-    file.close();
-
+    // If still no data, return early
+    if (values_vec.empty()) {
+        result.count = 0;
+        result.values = nullptr;
+        result.timestamps = nullptr;
+        return;
+    }
+    
+    // Sort by timestamp (in case we read from two files)
+    std::vector<std::pair<uint32_t, float>> combined;
+    for (size_t i = 0; i < timestamps_vec.size(); i++) {
+        combined.push_back({timestamps_vec[i], values_vec[i]});
+    }
+    std::sort(combined.begin(), combined.end());
+    
     // Переносим в C-массивы
-    result.count = values_vec.size();
+    result.count = combined.size();
     result.values = new float[result.count];
     result.timestamps = new uint32_t[result.count];
 
     for (int i = 0; i < result.count; ++i) {
-        result.values[i] = values_vec[i];
-        result.timestamps[i] = timestamps_vec[i];
+        result.timestamps[i] = combined[i].first;
+        result.values[i] = combined[i].second;
     }
-
+    
+    debug_outln_info(String(F("[SDCard] Read total of ")) + String(result.count) + F(" data points from CSV"));
 }
 
 bool SDCard::checkInserted() {
