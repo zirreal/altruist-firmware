@@ -1,0 +1,7 @@
+#ifndef __ICONS_30x30_H__
+#define __ICONS_30x30_H__
+#include "30x30/urban_30x30.h"
+#include "30x30/insight_30x30.h"
+#include "30x30/wifi_30x30.h"
+#include "30x30/wifi_x_30x30.h"
+#endif

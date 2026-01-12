@@ -19,14 +19,9 @@ HTTPAltruistSensor::HTTPAltruistSensor(unsigned long sending_timeout)
     sensor_name = HTTP_ALTRUIST_SENSOR_NAME;
 }
 
-bool HTTPAltruistSensor::begin() {
-    debug_outln_info(F("Begin HTTPAltruistSensor"));
-    if(mdns_init()!= ESP_OK){
-        debug_outln_info(F("mDNS failed to start"));
-        return false;
-    }
-    debug_outln_info(F("mDNS init finished"));
-
+bool HTTPAltruistSensor::_discoverSensors() {
+    sensor_addresses.clear();
+    debug_outln_info(F("HTTPAltruistSensor: discovering Urban devices via mDNS"));
     int nrOfServices = MDNS.queryService("altruist", "tcp");
    
     if (nrOfServices == 0) {
@@ -72,6 +67,23 @@ bool HTTPAltruistSensor::begin() {
     }
     debug_outln_info(F("Http Altruis Sensor started with fetch interval (sec): "), String(timeout/1000));
     last_fetch_time = millis() - timeout;
+    return true;
+}
+
+bool HTTPAltruistSensor::begin() {
+    debug_outln_info(F("Begin HTTPAltruistSensor"));
+    if(mdns_init()!= ESP_OK){
+        debug_outln_info(F("mDNS failed to start"));
+        return false;
+    }
+    debug_outln_info(F("mDNS init finished"));
+
+    bool ok = _discoverSensors();
+    if (ok) {
+        // Reset success / failure counters on fresh start
+        last_success_time    = 0;
+        consecutive_failures = 0;
+    }
     return true;
 }
 
@@ -187,8 +199,27 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             http2.end();
         }
         serializeJson(data, Serial);
+
+        // Mark successful communication with Urban
+        last_success_time    = millis();
+        consecutive_failures = 0;
     } else {
         debug_outln_info(F("Request to Altruist Urban failed, code: "), httpCode);
+        consecutive_failures++;
+
+        // If we've never succeeded or it's been a long time since last success,
+        // try to re-discover Urban devices via mDNS. This avoids needing a
+        // manual replug when Urban's IP or availability changes.
+        const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL; // 5 minutes
+        bool long_since_success = (last_success_time != 0 && msSince(last_success_time) > URBAN_REDISCOVER_INTERVAL_MS);
+
+        if (last_success_time == 0 || long_since_success) {
+            debug_outln_info(F("HTTPAltruistSensor: attempting rediscovery after failures"));
+            if (_discoverSensors()) {
+                // After rediscovery, reset counters
+                consecutive_failures = 0;
+            }
+        }
     }
 }
 

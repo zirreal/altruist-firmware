@@ -3,11 +3,15 @@
 #include "display_manager.h"
 #include "screens/screens.h"
 #include "screens/graph.h"
+#include "screens/display_common.h"
 #include "../defines.h"
 #include "utils.h"
 #include <SPIFFS.h>
 #include "../leds/leds_controller_insight.h"
 #include "../config_manager/config_helpers.h"
+#ifdef DISPLAY_4IN2
+#include "driver/EPD_4in2_SSD1683.h"
+#endif
 
 extern LedControllerInsight leds_controller_insight;
 
@@ -53,7 +57,7 @@ void DisplayManager::setup() {
     // Paint_Clear(WHITE);
     if (currentScreenID == ScreenPage::LOADING) {
         showLoadingPage(BlackImage);
-        showImageFast(BlackImage);
+        showImageFast(BlackImage, currentScreenID);
     }
 }
 
@@ -67,37 +71,73 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         btn_press.pressed = false;
 
         if (display_sleeping) {
-            if (btn_press.button_num == ButtonNum::DOWN) {
-                EPD_4IN2_V2_Init();
-                DEV_Delay_ms(500);
-                display_sleeping = false;
-                // Restore LEDs after wake
-                leds_controller_insight.setSleepMode(false);
-                // Show sensor map on wake
-                setScreen(ScreenPage::SENSOR_MAP);
-                // Start 30s auto-transition back to MAIN after wake
-                auto_to_main_active = true;
-                auto_to_main_deadline_ms = millis() + 30000;
+            // Wake up from any button press (DOWN, UP, or SET)
+            // Display wake: FULL initialization and update
+            debug_outln_info(F("[EPD] Wake up from sleep - FULL init and update"));
+            // Reset display state
+            epdResetState();
+            // FULL initialization (like on first power-on)
+            EPD_4IN2_V2_Init();
+            EPD_4IN2_V2_Clear();
+            DEV_Delay_ms(100);
+            display_sleeping = false;
+            // Restore LEDs after wake - do this BEFORE screen update
+            leds_controller_insight.setSleepMode(false);
+            // Set FULL mode and initialized state
+            epdSetInitialized(true, DisplayMode::FULL);
+            DEV_Delay_ms(100);
+            
+            // Immediately draw and update screen after wake
+            currentScreenID = ScreenPage::SENSOR_MAP;
+            Paint_SelectImage(BlackImage);
+            Paint_Clear(WHITE);
+            
+            // Draw sensor map
+            if (sensors_data.containsKey("service_data")) {
+                auto service = sensors_data["service_data"].as<JsonObject>();
+                if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
+                    String urban_addr = service["urban_robonomics_address"].as<String>();
+                    if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
+                        cached_urban_address = urban_addr;
+                    }
+                }
             }
+            String addr = cached_urban_address;
+            showSensorsMapPage(addr);
+            drawScreenIndicator(ScreenPage::SENSOR_MAP);
+            
+            // FULL update after wake - this will overwrite any old content without showing white
+            debug_outln_info(F("[EPD] FULL refresh after wake"));
+            epdDisplay(DisplayMode::FULL, BlackImage);
+            last_refresh_time = millis();
+            
+            // Start 30s auto-transition back to MAIN after wake
+            auto_to_main_active = true;
+            auto_to_main_deadline_ms = millis() + 30000;
             return;
         }
         else {
             // Global: long DOWN to sleep from any screen
             if (btn_press.button_num == ButtonNum::DOWN && btn_press.press_type == PressType::LONG) {
+                debug_outln_info(F("[EPD] Going to sleep - starting sleep cycle"));
                 initAndClearScreen();
                 // Clear the image buffer to white before drawing sleep message
                 Paint_SelectImage(BlackImage);
                 Paint_Clear(WHITE);
                 Paint_DrawString_EN_Center("Going to sleep...", &Font24, WHITE, BLACK);
-                EPD_4IN2_V2_Init();
+                // Full cycle: init (FULL) -> display -> clear -> sleep.
+                epdInit(DisplayMode::FULL);
                 DEV_Delay_ms(200);
-                EPD_4IN2_V2_Display(BlackImage);
+                epdDisplay(DisplayMode::FULL, BlackImage);
+                // Also count full clear as additional update.
                 DEV_Delay_ms(700);
+                debug_outln_info(F("[EPD] Clear screen before sleep"));
                 EPD_4IN2_V2_Clear();
+                epdIncrementUpdateCount();
                 DEV_Delay_ms(300);
                 // Turn off LEDs during sleep
                 leds_controller_insight.setSleepMode(true);
-                EPD_4IN2_V2_Sleep();
+                epdSleep();
                 DEV_Delay_ms(100);
                 display_sleeping = true;
                 return;
@@ -106,10 +146,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 // Short presses: navigate screens
                 if (btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
-                        setScreen(getPrevScreen(currentScreenID));
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
-                        setScreen(getNextScreen(currentScreenID));
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     }
                 }
@@ -123,27 +167,37 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 if (!areGraphsAvailable()) {
                     // No graphs available - navigate to next/prev screen on any button press
                     if (btn_press.button_num == ButtonNum::UP) {
-                        setScreen(getPrevScreen(currentScreenID));
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
-                        setScreen(getNextScreen(currentScreenID));
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     }
                 } else {
                     // Graphs available - normal behavior
                     if (btn_press.press_type == PressType::LONG) {
                         if (btn_press.button_num == ButtonNum::UP) {
-                            setScreen(getPrevScreen(currentScreenID));
+                            ScreenPage target = getPrevScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
                             return;
                         } else if (btn_press.button_num == ButtonNum::SET) {
-                            setScreen(getNextScreen(currentScreenID));
+                            ScreenPage target = getNextScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
                             return;
                         }
                     } else if (btn_press.press_type == PressType::SHORT) {
                         if (btn_press.button_num == ButtonNum::UP) {
                             // If at first graph, switch to previous screen instead of looping
                             if (setPrevGraphValue()) {
-                                setScreen(getPrevScreen(currentScreenID));
+                                ScreenPage target = getPrevScreen(currentScreenID);
+                                epdIncrementScreenCounter(target);
+                                setScreen(target);
                                 return;
                             }
                             refresh_now = true;
@@ -151,7 +205,9 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         } else if (btn_press.button_num == ButtonNum::SET) {
                             // If at last graph, switch to next screen instead of looping
                             if (setNextGraphValue()) {
-                                setScreen(getNextScreen(currentScreenID));
+                                ScreenPage target = getNextScreen(currentScreenID);
+                                epdIncrementScreenCounter(target);
+                                setScreen(target);
                                 return;
                             }
                             refresh_now = true;
@@ -163,10 +219,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             else if (currentScreenID == ScreenPage::SENSOR_MAP) {
                 if (btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
-                        setScreen(getPrevScreen(currentScreenID));
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
-                        setScreen(getNextScreen(currentScreenID));
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     }
                 }
@@ -174,16 +234,25 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             else if (currentScreenID == ScreenPage::SETTINGS) {
                 if (btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
-                        setScreen(getPrevScreen(currentScreenID));
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
-                        setScreen(getNextScreen(currentScreenID));
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
                         return;
                     }
                 }
             }
         }
     }
+    // Skip all refresh logic when display is sleeping - only wake on button press
+    if (display_sleeping) {
+        return;
+    }
+
     // Handle auto-navigation from SENSOR_MAP to MAIN ~30s after wake
     if (auto_to_main_active && currentScreenID == ScreenPage::SENSOR_MAP) {
         if ((int32_t)(millis() - auto_to_main_deadline_ms) >= 0) {
@@ -192,10 +261,6 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         }
     }
 
-    if (refresh_time_for_qr > 0 && msSince(refresh_time_for_qr) > 30000) {
-        refresh_time_for_qr = 0;
-        refresh_now = true;
-    }
     // Update cached Urban address every cycle; if it changes and we're on SENSOR_MAP, trigger redraw
     if (sensors_data.containsKey("service_data")) {
         auto service = sensors_data["service_data"].as<JsonObject>();
@@ -228,16 +293,19 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     
     if (should_refresh) {
         refresh_now = false;
-        initAndClearScreen();
-        // Ensure image buffer is selected and cleared after physical display init
         Paint_SelectImage(BlackImage);
         Paint_Clear(WHITE);
         
-        // Show sensors map every few refresh cycles when on main screen
-        if (msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL && currentScreenID == ScreenPage::MAIN) {
-            if (refresh_count_for_qr >= 1) { // Show sensors map after 1 main screen refresh
-                refresh_count_for_qr = 0;
-                refresh_time_for_qr = millis();
+        // Show sensors map QR screen automatically every 2 hours when on main screen
+        if (currentScreenID == ScreenPage::MAIN) {
+            unsigned long now = millis();
+            // Initialize on first check (don't show immediately on boot)
+            if (last_qr_map_show_time == 0) {
+                last_qr_map_show_time = now;
+            }
+            // Check if 2 hours have passed since last QR map display
+            if (msSince(last_qr_map_show_time) >= QR_MAP_AUTO_INTERVAL) {
+                last_qr_map_show_time = now;
                 // Update cached Urban address if present in sensors_data
                 if (sensors_data.containsKey("service_data")) {
                     auto service = sensors_data["service_data"].as<JsonObject>();
@@ -252,10 +320,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 showSensorsMapPage(addr);
                 drawScreenIndicator(ScreenPage::SENSOR_MAP);
                 last_refresh_time = millis();
-                showImageFast(BlackImage);
+                showImageFast(BlackImage, ScreenPage::SENSOR_MAP);
                 return;
-            } else {
-                refresh_count_for_qr++;
             }
         }
         
@@ -282,20 +348,47 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         } else if (currentScreenID == ScreenPage::LOGO) {
             showLogoPage();
         } else if (currentScreenID == ScreenPage::SENSOR_MAP) {
-            // Refresh cache if Urban address present; if it appears newly, force redraw immediately
+            // Refresh cache if Urban address present; if it appears newly, use it
             if (sensors_data.containsKey("service_data")) {
                 auto service = sensors_data["service_data"].as<JsonObject>();
                 if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
                     String urban_addr = service["urban_robonomics_address"].as<String>();
                     if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
                         cached_urban_address = urban_addr;
-                        refresh_now = true; // trigger immediate redraw with correct link
                     }
                 }
             }
-            sensor_map_waiting_addr = false;
-            String addr = cached_urban_address; // empty => default link
-            showSensorsMapPage(addr);
+
+            // If we don't yet have an Urban address, wait a few cycles before
+            // falling back to the default QR (without sensor parameter).
+            if (cached_urban_address.length() == 0) {
+                if (!sensor_map_waiting_addr) {
+                    // Start waiting phase
+                    sensor_map_waiting_addr  = true;
+                    sensor_map_waiting_tries = 0;
+                }
+
+                // Draw a simple "waiting for ID" screen so user understands
+                Paint_Clear(WHITE);
+                Paint_DrawString_EN_Center("Waiting for Urban ID...", &Font16, WHITE, BLACK);
+
+                // Schedule next check; after a few tries, give up and show default QR
+                sensor_map_waiting_tries++;
+                if (sensor_map_waiting_tries < 3) {
+                    next_sensor_map_check_ms = millis() + 3000; // wait ~3s between checks
+                } else {
+                    sensor_map_waiting_addr  = false;
+                    sensor_map_waiting_tries = 0;
+                    String addr; // empty => default link in showSensorsMapPage
+                    showSensorsMapPage(addr);
+                }
+            } else {
+                // We have a valid Urban address: show final QR immediately
+                sensor_map_waiting_addr  = false;
+                sensor_map_waiting_tries = 0;
+                String addr = cached_urban_address;
+                showSensorsMapPage(addr);
+            }
         } else if (currentScreenID == ScreenPage::SETTINGS) {
             // Get urban IP address from config or sensors_data
             String urban_ip = String(cfg::chosen_altruist_urban);
@@ -317,7 +410,18 @@ draw_complete:
         drawScreenIndicator(currentScreenID);
         
         last_refresh_time = millis();
-        showImageFast(BlackImage);
+        // After wake use FULL mode for first update
+        if (force_full_refresh) {
+            force_full_refresh = false; // Reset flag after use
+            epdResetPeriodPosition(); // Reset period counter after full refresh
+            debug_outln_info(F("[EPD] FULL refresh after wake"));
+            epdDisplay(DisplayMode::FULL, BlackImage);
+        } else {
+            // Pass current screen to showImageFast for adaptive update logic:
+            // MAIN screen: 10 partial + 1 full
+            // Other pages: 5 partial + 1 full
+            showImageFast(BlackImage, currentScreenID);
+        }
     }
 }
 

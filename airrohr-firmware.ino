@@ -217,24 +217,35 @@ void sensorAndAPIWorker(void *pvParameters) {
 
 		for (int i = 0; i < ActiveAPIsCount; i++) {
 			if (activeAPIs[i]->isTimeToSend()) {
-			Serial.printf("WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
+			#if defined(ALTRUIST_INSIDE)
+			Serial.printf("[INSIGHT] WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
+			#elif defined(ALTRUIST_URBAN)
+			Serial.printf("[URBAN] WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
+			#endif
 			if (WiFi.status() != WL_CONNECTED) {
 				WiFi.reconnect();
 				reconnected++;
+				incrementWiFiReconnectError();
 			}
 
 			sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
 			activeAPIs[i]->send(sensors_data);
+			incrementTXCounter(); // Track successful telemetry send
 			activeAPIs[i]->updateDeviceStatus(deviceStatus);
 
 			if (msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
-				twoStageOTAUpdate(deviceStatus);
+				// OTA disabled - metrics code in development
+				// twoStageOTAUpdate(deviceStatus);
 				deviceStatus.last_update_attempt = millis();
 			}
 
 			debug_outln_info(get_reset_reason_text());
 
-			Serial.println(F("Device Status:"));
+			#if defined(ALTRUIST_INSIDE)
+			Serial.println(F("[INSIGHT] Device Status:"));
+			#elif defined(ALTRUIST_URBAN)
+			Serial.println(F("[URBAN] Device Status:"));
+			#endif
 			bool senders_ok = true;
 			for (const auto& [api_name, status] : deviceStatus.apis_status) {
 				Serial.print(F("API Name: "));
@@ -306,14 +317,32 @@ void buttonsWorker(void *pvParameters) {
 	}
 }
 
+void metricsWorker(void *pvParameters) {
+	// Wait a bit for system to stabilize
+	vTaskDelay(2000 / portTICK_PERIOD_MS);
+	
+	// Log first metrics immediately
+	logMetrics();
+	
+	// Then log every 3 seconds
+	for (;;) {
+		vTaskDelay(3000 / portTICK_PERIOD_MS);  // Wait 3 seconds
+		logMetrics();
+	}
+}
+
 
 void setup(void) {
 	delay(300);
-	// Debug.begin(115200);		// Output to Serial at 115200 from web console 
-	// Debug.println("Start Setup");
-	// printf("Start Setup print");
 	Serial.begin(115200);
-	Serial.println("Start setup");
+	delay(500);
+	#if defined(ALTRUIST_INSIDE)
+	Serial.println(F("[INSIGHT] Start setup"));
+	#elif defined(ALTRUIST_URBAN)
+	Serial.println(F("[URBAN] Start setup"));
+	#endif
+	Serial.flush();
+	delay(200);
 
 	// If SET button pressed while turn on, reset the configuration
 #ifdef ALTRUIST_URBAN
@@ -353,6 +382,42 @@ void setup(void) {
 	String esp_chipid = get_chipid();
 	cfg::initNonTrivials(esp_chipid.c_str());
 	WiFi.persistent(false);
+	
+	// Initialize metrics (load boot counter, etc.) - works for both Urban and Insight
+	#if defined(ALTRUIST_INSIDE)
+	Serial.print(F("[INSIGHT][Setup] Initializing metrics system...\r\n"));
+	#elif defined(ALTRUIST_URBAN)
+	Serial.print(F("[URBAN][Setup] Initializing metrics system...\r\n"));
+	#endif
+	Serial.flush();
+	delay(10);
+	initMetrics();
+	#if defined(ALTRUIST_INSIDE)
+	Serial.print(F("[INSIGHT][Setup] Metrics initialized. Boot counter: "));
+	#elif defined(ALTRUIST_URBAN)
+	Serial.print(F("[URBAN][Setup] Metrics initialized. Boot counter: "));
+	#endif
+	Serial.print(system_metrics.boot_counter);
+	Serial.println();
+	Serial.flush();
+	delay(10);
+	
+	// Initialize ESP32-C6 temperature sensor
+	#if defined(ALTRUIST_URBAN)
+	Serial.print(F("[URBAN][Setup] Initializing ESP temperature sensor...\r\n"));
+	#elif defined(ALTRUIST_INSIDE)
+	Serial.print(F("[INSIGHT][Setup] Initializing ESP temperature sensor...\r\n"));
+	#endif
+	Serial.flush();
+	delay(10);
+	initESPTemperatureSensor();
+	#if defined(ALTRUIST_URBAN)
+	Serial.print(F("[URBAN][Setup] ESP temperature sensor initialized\r\n"));
+	#elif defined(ALTRUIST_INSIDE)
+	Serial.print(F("[INSIGHT][Setup] ESP temperature sensor initialized\r\n"));
+	#endif
+	Serial.flush();
+	delay(10);
 
 	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
 
@@ -386,7 +451,8 @@ void setup(void) {
 	webserver.setup();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
 	debug_outln_info(get_reset_reason_text());
-	twoStageOTAUpdate(deviceStatus);
+	// OTA disabled - metrics code in development
+	// twoStageOTAUpdate(deviceStatus);
 
 	sensors_data["service_data"]["robonomics_address"] = robonomics.getSs58Address();
 	sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
@@ -395,7 +461,11 @@ void setup(void) {
 
 	debug_outln_info(F("Active Sensors count: "), activeSensorsCount);
 
-	Serial.print(F("Sensors: "));
+	#if defined(ALTRUIST_INSIDE)
+	Serial.print(F("[INSIGHT] Sensors: "));
+	#elif defined(ALTRUIST_URBAN)
+	Serial.print(F("[URBAN] Sensors: "));
+	#endif
     for (const auto &sensor : deviceStatus.sensor_names) {
         Serial.print(sensor.c_str());
         Serial.print(F(" "));
@@ -440,10 +510,63 @@ void setup(void) {
 		NULL,                // task handle (optional)
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
+	
+	// Create metrics worker task for both Urban and Insight
+	#if defined(ALTRUIST_INSIDE)
+	Serial.print(F("[INSIGHT][Setup] Creating metrics worker task...\r\n"));
+	#elif defined(ALTRUIST_URBAN)
+	Serial.print(F("[URBAN][Setup] Creating metrics worker task...\r\n"));
+	#endif
+	Serial.flush();
+	delay(10);
+	TaskHandle_t metricsTaskHandle = NULL;
+	BaseType_t metricsTaskResult = xTaskCreatePinnedToCore(
+		metricsWorker,  // task function
+		"MetricsWorker",   // name
+		4096,                // stack size
+		NULL,                // parameters
+		2,                   // priority
+		&metricsTaskHandle,  // task handle
+		0                    // core 0
+	);
+	if (metricsTaskResult != pdPASS) {
+		#if defined(ALTRUIST_INSIDE)
+		Serial.print(F("[INSIGHT][ERROR] Failed to create metrics worker task! Result: "));
+		#elif defined(ALTRUIST_URBAN)
+		Serial.print(F("[URBAN][ERROR] Failed to create metrics worker task! Result: "));
+		#endif
+		Serial.println(metricsTaskResult);
+		Serial.flush();
+	} else {
+		#if defined(ALTRUIST_INSIDE)
+		Serial.print(F("[INSIGHT][Setup] Metrics worker task created successfully! Handle: 0x"));
+		#elif defined(ALTRUIST_URBAN)
+		Serial.print(F("[URBAN][Setup] Metrics worker task created successfully! Handle: 0x"));
+		#endif
+		Serial.println((uint32_t)metricsTaskHandle, HEX);
+		Serial.flush();
+	}
+	delay(10);
+	
 #ifdef ALTRUIST_INSIDE
 	displayManager.setScreen(ScreenPage::MAIN);
 #endif
 	debug_outln_info(F("Setup finished"));
+	#if defined(ALTRUIST_INSIDE)
+	Serial.print(F("[INSIGHT][Setup] All tasks created, testing logMetrics()...\r\n"));
+	#elif defined(ALTRUIST_URBAN)
+	Serial.print(F("[URBAN][Setup] All tasks created, testing logMetrics()...\r\n"));
+	#endif
+	Serial.flush();
+	delay(10);
+	logMetrics();
+	#if defined(ALTRUIST_INSIDE)
+	Serial.print(F("[INSIGHT][Setup] Metrics test complete\r\n"));
+	#elif defined(ALTRUIST_URBAN)
+	Serial.print(F("[URBAN][Setup] Metrics test complete\r\n"));
+	#endif
+	Serial.flush();
+	
 	// button_controller.init();
 }
 
