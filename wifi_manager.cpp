@@ -5,6 +5,12 @@
 #include "utils.h"
 #include "config_manager/config_helpers.h"
 #include "wifi_info.h"
+#ifdef ALTRUIST_INSIDE
+#include "display/display_manager.h"
+#include "buttons/button_manager.h"
+extern DisplayManager displayManager;
+extern button_pressed_t btn_press;
+#endif
 
 bool wificonfig_loop;
 struct struct_wifiInfo *wifiInfo;
@@ -93,6 +99,10 @@ void wifiConfig(SensorWebServer &webserver) {
 	while (true) {
 		dnsServer.processNextRequest();
 		webserver.handleClient();
+#ifdef ALTRUIST_INSIDE
+		// Process display manager to handle button presses (e.g., sleep mode) even during WiFi config
+		displayManager.process(btn_press);
+#endif
 		if (millis() - start_setup_time > 15 * 60 * 1000) {
 			debug_outln_error(F("WiFi config timeout, restarting..."));
 			esp_restart();

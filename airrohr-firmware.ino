@@ -432,6 +432,16 @@ void setup(void) {
 		displayManager.process(btn_press);
 	}
 #endif
+	// Create button worker task BEFORE wifiConfig so buttons work during WiFi setup
+	xTaskCreatePinnedToCore(
+		buttonsWorker,  // task function
+		"ButtonWorker",   // name
+		2048,                // stack size
+		NULL,                // parameters
+		1,                   // priority (>=1 to not be preempted too much)
+		NULL,                // task handle (optional)
+		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
+	);
 	if (strcmp(cfg::wlanssid, WLANSSID) == 0 || !connectWifi(webserver)) {
 #ifdef ALTRUIST_INSIDE
 		displayManager.setScreen(ScreenPage::SETUP);
@@ -492,15 +502,7 @@ void setup(void) {
 		NULL,                // task handle (optional)
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
-	xTaskCreatePinnedToCore(
-		buttonsWorker,  // task function
-		"ButtonWorker",   // name
-		2048,                // stack size
-		NULL,                // parameters
-		1,                   // priority (>=1 to not be preempted too much)
-		NULL,                // task handle (optional)
-		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
-	);
+	// Note: buttonsWorker task is created earlier (before wifiConfig) so buttons work during WiFi setup
 	xTaskCreatePinnedToCore(
 		ledsWorker,  // task function
 		"LedsWorker",   // name

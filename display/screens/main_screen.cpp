@@ -15,6 +15,7 @@
 #include "../icons/icons/icons_35x35.h"
 #include "../../defines.h"
 #include "../utils.h"
+#include "../../utils.h"
 #include "../../config_manager/config_helpers.h"
 #include "display_common.h"
 #include <qrcode.h>
@@ -379,23 +380,51 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
         }
     }
     
-    // Indoor CO2 with validation (300-5000 ppm)
+    // Update metrics to get current uptime
+    updateMetrics();
+    
+    // Determine which sensor to use for temperature and humidity based on uptime
+    // First 6 minutes (360 seconds): use BME680
+    // After 5 minutes: use SCD4x
+    bool use_bme680_for_temp_hum = (system_metrics.uptime_sec < 360);
+    
+    // Indoor CO2 with validation (300-5000 ppm) - always from SCD4x
     if (data.containsKey("SCD4x")) {
-        float co2 = data["SCD4x"]["co2"]["value"].as<float>();
-        values.co2 = isValidRange(co2, 300, 5000) ? co2 : -1;
+        auto scd = data["SCD4x"];
+        if (scd.containsKey("co2")) {
+            float co2 = scd["co2"]["value"].as<float>();
+            values.co2 = isValidRange(co2, 300, 5000) ? co2 : -1;
+        }
+        
+        // SCD4x also provides temperature and humidity - use after 5 minutes
+        if (!use_bme680_for_temp_hum) {
+            if (scd.containsKey("temperature")) {
+                float temp = scd["temperature"]["value"].as<float>();
+                values.temp_indoor = isValidRange(temp, -40, 80) ? temp : -1;
+            }
+            if (scd.containsKey("humidity")) {
+                float hum = scd["humidity"]["value"].as<float>();
+                values.hum_indoor = isValidRange(hum, 0, 100) ? hum : -1;
+            }
+        }
     }
     
     // Indoor environment with validation
+    // BME680: use for temp/humidity during first 5 minutes, always use for pressure
     if (data.containsKey("BME680")) {
         auto bme = data["BME680"];
-        if (bme.containsKey("temperature")) {
-            float temp = bme["temperature"]["value"].as<float>();
-            values.temp_indoor = isValidRange(temp, -40, 80) ? temp : -1;
+        if (use_bme680_for_temp_hum) {
+            // First 6 minutes: use BME680 for temperature and humidity
+            if (bme.containsKey("temperature")) {
+                float temp = bme["temperature"]["value"].as<float>();
+                values.temp_indoor = isValidRange(temp, -40, 80) ? temp : -1;
+            }
+            if (bme.containsKey("humidity")) {
+                float hum = bme["humidity"]["value"].as<float>();
+                values.hum_indoor = isValidRange(hum, 0, 100) ? hum : -1;
+            }
         }
-        if (bme.containsKey("humidity")) {
-            float hum = bme["humidity"]["value"].as<float>();
-            values.hum_indoor = isValidRange(hum, 0, 100) ? hum : -1;
-        }
+        // Always use BME680 for pressure (SCD4x doesn't provide pressure)
         if (bme.containsKey("pressure")) {
             float press = bme["pressure"]["value"].as<float>() * 0.0075;
             values.press_indoor = isValidRange(press, 500, 1000) ? press : -1;

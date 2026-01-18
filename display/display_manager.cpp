@@ -7,6 +7,7 @@
 #include "../defines.h"
 #include "utils.h"
 #include <SPIFFS.h>
+#include <WiFi.h>
 #include "../leds/leds_controller_insight.h"
 #include "../config_manager/config_helpers.h"
 #ifdef DISPLAY_4IN2
@@ -78,46 +79,25 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             epdResetState();
             // FULL initialization (like on first power-on)
             EPD_4IN2_V2_Init();
-            EPD_4IN2_V2_Clear();
-            DEV_Delay_ms(100);
+            Paint_Clear(WHITE);
             display_sleeping = false;
             // Restore LEDs after wake - do this BEFORE screen update
-            leds_controller_insight.setSleepMode(false);
-            // Set FULL mode and initialized state
-            epdSetInitialized(true, DisplayMode::FULL);
-            DEV_Delay_ms(100);
+            leds_controller_insight.setSleepMode(false);            
+            // Start wake-up loading screen sequence
+            // currentScreenID = ScreenPage::LOADING;
+            wake_loading_active = true;
+            wake_loading_deadline_ms = millis() + WAKE_LOADING_DURATION_MS;
+            force_full_refresh = true; // Force full refresh after wake
             
-            // Immediately draw and update screen after wake
-            currentScreenID = ScreenPage::SENSOR_MAP;
+            // Draw and display loading screen immediately to avoid white screen flash
             Paint_SelectImage(BlackImage);
-            Paint_Clear(WHITE);
-            
-            // Draw sensor map
-            if (sensors_data.containsKey("service_data")) {
-                auto service = sensors_data["service_data"].as<JsonObject>();
-                if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
-                    String urban_addr = service["urban_robonomics_address"].as<String>();
-                    if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
-                        cached_urban_address = urban_addr;
-                    }
-                }
-            }
-            String addr = cached_urban_address;
-            showSensorsMapPage(addr);
-            drawScreenIndicator(ScreenPage::SENSOR_MAP);
-            
-            // FULL update after wake - this will overwrite any old content without showing white
-            debug_outln_info(F("[EPD] FULL refresh after wake"));
+            showLoadingPage(BlackImage);
             epdDisplay(DisplayMode::FULL, BlackImage);
-            last_refresh_time = millis();
             
-            // Start 30s auto-transition back to MAIN after wake
-            auto_to_main_active = true;
-            auto_to_main_deadline_ms = millis() + 30000;
             return;
         }
         else {
-            // Global: long DOWN to sleep from any screen
+            // Global: long DOWN to sleep from any screen (works on MAIN, GRAPHS, SENSOR_MAP, SETTINGS, SETUP, CONNECTING, LOADING, LOGO)
             if (btn_press.button_num == ButtonNum::DOWN && btn_press.press_type == PressType::LONG) {
                 debug_outln_info(F("[EPD] Going to sleep - starting sleep cycle"));
                 initAndClearScreen();
@@ -253,12 +233,23 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         return;
     }
 
-    // Handle auto-navigation from SENSOR_MAP to MAIN ~30s after wake
-    if (auto_to_main_active && currentScreenID == ScreenPage::SENSOR_MAP) {
-        if ((int32_t)(millis() - auto_to_main_deadline_ms) >= 0) {
-            auto_to_main_active = false;
-            setScreen(ScreenPage::MAIN);
+    // Handle wake-up loading screen: show loading for 15-20s, then check WiFi and show MAIN or SETUP
+    if (wake_loading_active) {
+        if ((int32_t)(millis() - wake_loading_deadline_ms) >= 0) {
+            // Loading period complete, check WiFi and transition to appropriate screen
+            wake_loading_active = false;
+            bool wifi_connected = (WiFi.status() == WL_CONNECTED);
+            if (wifi_connected) {
+                currentScreenID = ScreenPage::MAIN;
+                debug_outln_info(F("[EPD] Wake complete - WiFi connected, showing MAIN screen"));
+            } else {
+                currentScreenID = ScreenPage::SETUP;
+                debug_outln_info(F("[EPD] Wake complete - WiFi not connected, showing SETUP screen"));
+            }
+            refresh_now = true; // Force refresh to show the new screen
+            force_full_refresh = true; // Force full refresh for the transition
         }
+        // Continue showing loading screen while timer is active
     }
 
     // Update cached Urban address every cycle; if it changes and we're on SENSOR_MAP, trigger redraw

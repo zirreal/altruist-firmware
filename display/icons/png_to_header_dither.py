@@ -71,15 +71,16 @@ for y in range(height):
         error = old_pixel - new_pixel
         pixels_2d[y][x] = new_pixel
         
-        # Distribute error to neighboring pixels
+        # Distribute error to neighboring pixels (full intensity for maximum detail preservation)
+        dither_strength = 1.0  # 100% dithering
         if x < width - 1:
-            pixels_2d[y][x+1] = min(255, max(0, pixels_2d[y][x+1] + error * 7 // 16))
+            pixels_2d[y][x+1] = min(255, max(0, pixels_2d[y][x+1] + int(error * 7 * dither_strength // 16)))
         if y < height - 1:
             if x > 0:
-                pixels_2d[y+1][x-1] = min(255, max(0, pixels_2d[y+1][x-1] + error * 3 // 16))
-            pixels_2d[y+1][x] = min(255, max(0, pixels_2d[y+1][x] + error * 5 // 16))
+                pixels_2d[y+1][x-1] = min(255, max(0, pixels_2d[y+1][x-1] + int(error * 3 * dither_strength // 16)))
+            pixels_2d[y+1][x] = min(255, max(0, pixels_2d[y+1][x] + int(error * 5 * dither_strength // 16)))
             if x < width - 1:
-                pixels_2d[y+1][x+1] = min(255, max(0, pixels_2d[y+1][x+1] + error * 1 // 16))
+                pixels_2d[y+1][x+1] = min(255, max(0, pixels_2d[y+1][x+1] + int(error * 1 * dither_strength // 16)))
 
 # Flatten back to 1D
 pixels = [pixel for row in pixels_2d for pixel in row]
