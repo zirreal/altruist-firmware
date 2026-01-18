@@ -86,7 +86,12 @@ void drawValue(const char *label, float value, uint8_t precision,
     // Add a small right padding so values don't touch the border
     uint16_t effective_column_right = (column_right_x > 4) ? (column_right_x - 4) : column_right_x;
 
-    if (value < 0) {
+    // Check for "no data" sentinel value (-1) instead of all negative values
+    // This allows valid negative temperatures (like -6°C) to be displayed
+    // Use epsilon comparison to account for floating point precision
+    const float NO_DATA_SENTINEL = -1.0f;
+    const float EPSILON = 0.1f;
+    if (value < (NO_DATA_SENTINEL + EPSILON) && value > (NO_DATA_SENTINEL - EPSILON)) {
         // No data: show "--" right-aligned within the column
         const char *no_data = "--";
         uint16_t nd_width = strlen(no_data) * Font12.Width;
