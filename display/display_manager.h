@@ -49,9 +49,10 @@ private:
     ScreenPage getNextScreen(ScreenPage current);
     ScreenPage getPrevScreen(ScreenPage current);
 
-    // Auto navigation after wake: SENSOR_MAP -> MAIN in ~30s
-    bool auto_to_main_active = false;
-    uint32_t auto_to_main_deadline_ms = 0;
+    // Wake-up loading screen state (show loading for 12s, then check WiFi)
+    bool wake_loading_active = false;
+    uint32_t wake_loading_deadline_ms = 0;
+    static constexpr uint32_t WAKE_LOADING_DURATION_MS = 12000; // 12 seconds
     
     // Force full refresh on next update (e.g., after wake from sleep)
     bool force_full_refresh = false;

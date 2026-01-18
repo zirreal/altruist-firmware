@@ -337,13 +337,31 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
     dotted.style = LINE_STYLE_DOTTED;
     // Keep normal thickness - will be adjusted per graph if needed
 
+    // Update metrics to get current uptime
+    updateMetrics();
+    
+    // Determine which sensor to use for temperature and humidity based on uptime
+    // First 5 minutes (300 seconds): use BME680
+    // After 5 minutes: use SCD4x
+    bool use_bme680_for_temp_hum = (system_metrics.uptime_sec < 300);
+
     switch (value) {
         case GraphValue::INSIGHT_TEMP:
             // Single-line Insight graphs: show only "Insight: <value>" in legend
-            addLine("BME680", "temperature", "Insight", solid);
+            // Use BME680 for first 5 minutes, then switch to SCD4x
+            if (use_bme680_for_temp_hum) {
+                addLine("BME680", "temperature", "Insight", solid);
+            } else {
+                addLine("SCD4x", "temperature", "Insight", solid);
+            }
             break;
         case GraphValue::INSIGHT_HUM:
-            addLine("BME680", "humidity", "Insight", solid);
+            // Use BME680 for first 5 minutes, then switch to SCD4x
+            if (use_bme680_for_temp_hum) {
+                addLine("BME680", "humidity", "Insight", solid);
+            } else {
+                addLine("SCD4x", "humidity", "Insight", solid);
+            }
             break;
         case GraphValue::INSIGHT_CO2:
             addLine("SCD4x", "co2", "Insight", solid);
