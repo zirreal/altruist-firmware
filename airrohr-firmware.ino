@@ -258,8 +258,6 @@ void sensorAndAPIWorker(void *pvParameters) {
 				Serial.println(status.is_ok ? F("Yes") : F("No"));
 				senders_ok = senders_ok && status.is_ok;
 			}
-
-			sensors_data.shrinkToFit();
 #ifdef ALTRUIST_URBAN
 			if (senders_ok) {
 				leds_controller_urban.setMode(LedMode::BLINK_GREEN);
@@ -269,6 +267,15 @@ void sensorAndAPIWorker(void *pvParameters) {
 #endif
 			}
 		}
+
+		// IMPORTANT (INSIGHT):
+		// On Insight we must *not* shrink sensors_data, otherwise there is no
+		// free capacity left to add new keys later (like altruist_urban when
+		// Urban appears after boot). For Urban firmware this was used to save
+		// RAM, but on Insight it prevents dynamic updates.
+#if defined(ALTRUIST_URBAN)
+		sensors_data.shrinkToFit();
+#endif
 
 		vTaskDelay(100 / portTICK_PERIOD_MS);  // yield to other tasks, run ~10x/sec
 	}
@@ -466,6 +473,14 @@ void setup(void) {
 
 	sensors_data["service_data"]["robonomics_address"] = robonomics.getSs58Address();
 	sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
+#ifdef ALTRUIST_INSIDE
+	// Pre-create Urban block at boot while the JSON document is still mostly empty.
+	// This avoids allocation failures later when Urban appears after Insight has
+	// already filled sensors_data with other keys.
+	if (sensors_data[ATRUIST_URBAN_SENSOR].isNull()) {
+		sensors_data.createNestedObject(ATRUIST_URBAN_SENSOR);
+	}
+#endif
 
 	delay(50);
 

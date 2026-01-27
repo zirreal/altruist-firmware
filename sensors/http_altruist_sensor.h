@@ -14,7 +14,6 @@ class HTTPAltruistSensor : public Sensor
 
 public:
     HTTPAltruistSensor(unsigned long sending_timeout = 1000UL);
-
     bool begin() override;
 
 private:
@@ -25,6 +24,10 @@ private:
     String chosen_address;
     unsigned long last_success_time = 0;
     uint8_t       consecutive_failures = 0;
+    // Discovery retry bookkeeping: when Urban is not initially present,
+    // we perform a limited number of rediscovery attempts spaced in time.
+    unsigned long last_discovery_attempt_time = 0;
+    uint8_t       discovery_attempts = 0;
 };
 
 #endif // __HTTP_ALTRUIST_H__

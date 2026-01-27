@@ -7,7 +7,11 @@
 #include "sensor_names.h"
 #include <ESPmDNS.h>
 
-#define HTTP_ALTRUIST_SENSOR_MIN_TIMEOUT 300000UL
+#define HTTP_ALTRUIST_SENSOR_MIN_TIMEOUT 300000UL  // 5 minutes
+// Maximum discovery attempts when Urban is not initially present.
+// We will try to find Urban up to this many times, spaced 5 minutes apart.
+static const uint8_t URBAN_MAX_DISCOVERY_ATTEMPTS = 3;
+static const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL; // 5 minutes
 
 HTTPAltruistSensor::HTTPAltruistSensor(unsigned long sending_timeout)
     : Sensor(sending_timeout) {
@@ -20,6 +24,20 @@ HTTPAltruistSensor::HTTPAltruistSensor(unsigned long sending_timeout)
 }
 
 bool HTTPAltruistSensor::_discoverSensors() {
+    // Bookkeeping for discovery attempts when we don't yet know an Urban IP.
+    // We only increment the attempts counter if neither a discovered address
+    // nor a configured chosen address is available.
+    if (sensor_addresses.empty() && strlen(cfg::chosen_altruist_urban) == 0) {
+        if (discovery_attempts < URBAN_MAX_DISCOVERY_ATTEMPTS) {
+            discovery_attempts++;
+        }
+    } else {
+        // If we already have some address info, reset attempts so future
+        // "no Urban" phases can start their own limited sequence.
+        discovery_attempts = 0;
+    }
+    last_discovery_attempt_time = millis();
+
     sensor_addresses.clear();
     debug_outln_info(F("HTTPAltruistSensor: discovering Urban devices via mDNS"));
     int nrOfServices = MDNS.queryService("altruist", "tcp");
@@ -103,6 +121,34 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
             addresses.add(ip_address);
         }
     }
+
+    // If we don't yet know which Urban IP to use, try to (re)discover it
+    // or fall back to the last configured IP before attempting an HTTP
+    // request. This avoids calling HTTP with an empty host and makes sure we give Urban multiple chances to appear.
+    if (chosen_address.length() == 0) {
+        // 1) If a chosen Urban IP is already stored in config (from a previous successful run), use it directly even if mDNS hasn't found it yet.
+        if (strlen(cfg::chosen_altruist_urban) != 0) {
+            chosen_address = String(cfg::chosen_altruist_urban);
+            debug_outln_info(F("HTTPAltruistSensor: using configured chosen_altruist_urban IP "),
+                             chosen_address);
+        } else {
+            // 2) No configured IP at all: drive mDNS rediscovery up to a limited number of attempts, spaced in time.
+            if (discovery_attempts < URBAN_MAX_DISCOVERY_ATTEMPTS) {
+                bool first_attempt     = (discovery_attempts == 0);
+                bool interval_elapsed = (last_discovery_attempt_time == 0) ||
+                                        (msSince(last_discovery_attempt_time) >= URBAN_REDISCOVER_INTERVAL_MS);
+
+                if (first_attempt || interval_elapsed) {
+                    debug_outln_info(F("HTTPAltruistSensor: proactive rediscovery from _fetch, attempt "),
+                                     String(discovery_attempts + 1));
+                    if (_discoverSensors()) {
+                        // After rediscovery, chosen_address may now be populated
+                        consecutive_failures = 0;
+                    }
+                }
+            }
+        }
+
     _fetch_one_sensor(data, http, chosen_address);
     // sensor_name = HTTP_ALTRUIST_SENSOR_NAME;
 }
@@ -115,7 +161,34 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
 
     if (httpCode == HTTP_CODE_OK) {
         debug_outln_info(F("Success request to Altruis Urban"));
-        addValueToJSON(data, F("IP_address"), ip_address, INTL_IP_ADDRESS, "");
+
+        // Ensure we have a dedicated Urban block in the global sensors_data:
+        // "altruist_urban": { IP_address, SDS_P1, SDS_P2, ... }
+        // It is pre-created at boot in setup(), but if for some reason it's missing, create it here without clearing the rest of sensors_data.
+        JsonObject urbanRoot = data[ATRUIST_URBAN_SENSOR];
+        if (urbanRoot.isNull()) {
+            debug_outln_info(F("HTTPAltruistSensor: altruist_urban missing in sensors_data, creating on the fly"));
+            urbanRoot = data.createNestedObject(ATRUIST_URBAN_SENSOR);
+            if (urbanRoot.isNull()) {
+                debug_outln_info(F("HTTPAltruistSensor: FAILED to create altruist_urban (JSON memory issue)"));
+                serializeJson(data, Serial);
+                http.end();
+                return;
+            }
+        }
+
+        // Store IP address inside the Urban block in the same "value/int_name/units" shape
+        {
+            JsonObject ipObj = urbanRoot["IP_address"];
+            if (ipObj.isNull()) {
+                ipObj = urbanRoot.createNestedObject("IP_address");
+            }
+            ipObj[F("value")]    = ip_address;
+            ipObj[F("intl_name")] = INTL_IP_ADDRESS;
+            ipObj[F("units")]     = "";
+        }
+
+        // Parse Urban's /data.json payload and map sensordatavalues into altruist_urban
         String payload = http.getString();
         DynamicJsonDocument doc(2048);
         DeserializationError err = deserializeJson(doc, payload);
@@ -124,11 +197,14 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             http.end();
             return;
         }
+
         JsonArray values = doc["sensordatavalues"];
+        debug_outln_info(F("HTTPAltruistSensor: sensordatavalues count "),
+                         String(values.size()));
+
         for (JsonObject v : values) {
-            String type = v["value_type"];
-            const char* name = type.c_str();
-            float value = v["value"].as<float>();
+            String type  = v["value_type"];
+            float  value = v["value"].as<float>();
 
             // Пример соответствия intl_name и units
             String units;
@@ -155,11 +231,18 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
                 intl_name = INTL_NOISE_MEAN;
                 units = F("db");
             } else {
-                intl_name = type;  // по умолчанию просто тип
+                // Unknown/extra types are still stored so they are visible in JSON
+                intl_name = type;
                 units = "";
             }
 
-            addValueToJSON(data, type, value, intl_name, units);
+            JsonObject measObj = urbanRoot[type];
+            if (measObj.isNull()) {
+                measObj = urbanRoot.createNestedObject(type);
+            }
+            measObj[F("value")]     = value;
+            measObj[F("intl_name")] = intl_name;
+            measObj[F("units")]     = units;
         }
         // Capture Urban device's Robonomics address from data.json, or fallback to HTML extraction
         bool has_urban_addr = false;
@@ -206,18 +289,39 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
     } else {
         debug_outln_info(F("Request to Altruist Urban failed, code: "), httpCode);
         consecutive_failures++;
+.
 
-        // If we've never succeeded or it's been a long time since last success,
-        // try to re-discover Urban devices via mDNS. This avoids needing a
-        // manual replug when Urban's IP or availability changes.
-        const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL; // 5 minutes
-        bool long_since_success = (last_success_time != 0 && msSince(last_success_time) > URBAN_REDISCOVER_INTERVAL_MS);
+        bool never_succeeded = (last_success_time == 0);
+        bool have_any_address = !sensor_addresses.empty() || strlen(cfg::chosen_altruist_urban) != 0;
 
-        if (last_success_time == 0 || long_since_success) {
-            debug_outln_info(F("HTTPAltruistSensor: attempting rediscovery after failures"));
-            if (_discoverSensors()) {
-                // After rediscovery, reset counters
-                consecutive_failures = 0;
+        if (never_succeeded && !have_any_address) {
+            // Limited discovery sequence while Urban is "possibly not present".
+            if (discovery_attempts < URBAN_MAX_DISCOVERY_ATTEMPTS) {
+                unsigned long now = millis();
+                bool first_attempt = (discovery_attempts == 0);
+                bool interval_elapsed = msSince(last_discovery_attempt_time) >= URBAN_REDISCOVER_INTERVAL_MS;
+
+                if (first_attempt || interval_elapsed) {
+                    debug_outln_info(F("HTTPAltruistSensor: scheduled rediscovery attempt "), String(discovery_attempts + 1));
+                    if (_discoverSensors()) {
+                        // After rediscovery, reset failure counter; success time will be updated
+                        // once we actually fetch data successfully.
+                        consecutive_failures = 0;
+                    }
+                }
+            } else {
+                debug_outln_info(F("HTTPAltruistSensor: reached max discovery attempts, Urban assumed absent"));
+            }
+        } else {
+            // We had at least one successful communication before (or know an address);
+            // occasionally re-discover in case of IP / network changes.
+            bool long_since_success = (last_success_time != 0 && msSince(last_success_time) > URBAN_REDISCOVER_INTERVAL_MS);
+
+            if (long_since_success) {
+                debug_outln_info(F("HTTPAltruistSensor: attempting rediscovery after prolonged failures"));
+                if (_discoverSensors()) {
+                    consecutive_failures = 0;
+                }
             }
         }
     }

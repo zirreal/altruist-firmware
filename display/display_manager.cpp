@@ -16,6 +16,12 @@
 
 extern LedControllerInsight leds_controller_insight;
 
+// Sensor map Urban ID waiting policy:
+// If Urban ID is not yet known, we will perform up to 3 checks,
+// each spaced 5 minutes apart, before falling back to the default QR.
+static const uint8_t SENSOR_MAP_MAX_WAIT_TRIES      = 3;
+static const unsigned long SENSOR_MAP_WAIT_INTERVAL = 5UL * 60UL * 1000UL; // 30 seconds
+
 bool display_sleeping = false;
 
 // Cycle order for screens when navigating with UP/SET
@@ -363,11 +369,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 Paint_Clear(WHITE);
                 Paint_DrawString_EN_Center("Waiting for Urban ID...", &Font16, WHITE, BLACK);
 
-                // Schedule next check; after a few tries, give up and show default QR
+                // Schedule next check; after a limited number of tries, give up and show default QR.
                 sensor_map_waiting_tries++;
-                if (sensor_map_waiting_tries < 3) {
-                    next_sensor_map_check_ms = millis() + 3000; // wait ~3s between checks
+                if (sensor_map_waiting_tries < SENSOR_MAP_MAX_WAIT_TRIES) {
+                    // Wait 5 minutes between checks to give Urban time to appear / boot.
+                    next_sensor_map_check_ms = millis() + SENSOR_MAP_WAIT_INTERVAL;
                 } else {
+                    // We've checked multiple times and still have no Urban ID:
+                    // fall back to default QR (without specific sensor parameter).
                     sensor_map_waiting_addr  = false;
                     sensor_map_waiting_tries = 0;
                     String addr; // empty => default link in showSensorsMapPage
