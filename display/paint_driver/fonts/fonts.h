@@ -86,6 +86,9 @@ extern sFONT Font16;
 extern sFONT Font12;
 extern sFONT Font8;
 
+// Russian/Cyrillic font (same style/height as Font16)
+extern sFONT Font16_RU;
+
 extern cFONT Font12CN;
 extern cFONT Font24CN;
 // extern const unsigned char Font16_Table[];

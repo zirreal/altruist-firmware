@@ -11,10 +11,12 @@ struct main_screen_values_t {
     float pm25 = -1;
     float noise_avg = -1;
     float noise_max = -1;
-    float temp_outdoor = -1;
+    // Use a sentinel outside valid temperature range so -1°C can be displayed.
+    float temp_outdoor = -1000;
     float hum_outdoor = -1;
     float press_outdoor = -1;
-    float temp_indoor = -1;
+    // Use a sentinel outside valid temperature range so -1°C can be displayed.
+    float temp_indoor = -1000;
     float hum_indoor = -1;
     float press_indoor = -1;
     float co2 = -1;

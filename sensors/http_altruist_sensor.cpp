@@ -148,6 +148,12 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
                 }
             }
         }
+    }
+
+    // If we still don't have a target Urban address, skip this cycle.
+    if (chosen_address.length() == 0) {
+        return;
+    }
 
     _fetch_one_sensor(data, http, chosen_address);
     // sensor_name = HTTP_ALTRUIST_SENSOR_NAME;
@@ -289,8 +295,6 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
     } else {
         debug_outln_info(F("Request to Altruist Urban failed, code: "), httpCode);
         consecutive_failures++;
-.
-
         bool never_succeeded = (last_success_time == 0);
         bool have_any_address = !sensor_addresses.empty() || strlen(cfg::chosen_altruist_urban) != 0;
 

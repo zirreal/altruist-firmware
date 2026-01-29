@@ -86,12 +86,16 @@ void drawValue(const char *label, float value, uint8_t precision,
     // Add a small right padding so values don't touch the border
     uint16_t effective_column_right = (column_right_x > 4) ? (column_right_x - 4) : column_right_x;
 
-    // Check for "no data" sentinel value (-1) instead of all negative values
-    // This allows valid negative temperatures (like -6°C) to be displayed
+    // "No data" handling:
+    // - Most values use -1 as the no-data sentinel
+    // - Temperature uses a sentinel outside valid range so -1°C can be displayed
     // Use epsilon comparison to account for floating point precision
-    const float NO_DATA_SENTINEL = -1.0f;
+    const float NO_DATA_SENTINEL      = -1.0f;
+    const float NO_TEMP_DATA_SENTINEL = -1000.0f;
     const float EPSILON = 0.1f;
-    if (value < (NO_DATA_SENTINEL + EPSILON) && value > (NO_DATA_SENTINEL - EPSILON)) {
+    const bool  is_temperature = (strcmp(label, "Temperature") == 0);
+    const float sentinel = is_temperature ? NO_TEMP_DATA_SENTINEL : NO_DATA_SENTINEL;
+    if (value < (sentinel + EPSILON) && value > (sentinel - EPSILON)) {
         // No data: show "--" right-aligned within the column
         const char *no_data = "--";
         uint16_t nd_width = strlen(no_data) * Font12.Width;
@@ -365,10 +369,10 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
             float hum = urban["BME280_humidity"]["value"].as<float>();
             values.hum_outdoor = isValidRange(hum, 0, 100) ? hum : -1;
         }
-        if (urban.containsKey("BME280_temperature")) {
-            float temp = urban["BME280_temperature"]["value"].as<float>();
-            values.temp_outdoor = isValidRange(temp, -40, 80) ? temp : -1;
-        }
+            if (urban.containsKey("BME280_temperature")) {
+                float temp = urban["BME280_temperature"]["value"].as<float>();
+                values.temp_outdoor = isValidRange(temp, -40, 80) ? temp : -1000;
+            }
         if (urban.containsKey("BME280_pressure")) {
             float press = urban["BME280_pressure"]["value"].as<float>() * 0.0075;
             values.press_outdoor = isValidRange(press, 500, 1000) ? press : -1;
@@ -405,7 +409,7 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
         if (!use_bme680_for_temp_hum) {
             if (scd.containsKey("temperature")) {
                 float temp = scd["temperature"]["value"].as<float>();
-                values.temp_indoor = isValidRange(temp, -40, 80) ? temp : -1;
+                values.temp_indoor = isValidRange(temp, -40, 80) ? temp : -1000;
             }
             if (scd.containsKey("humidity")) {
                 float hum = scd["humidity"]["value"].as<float>();
@@ -422,7 +426,7 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
             // First 6 minutes: use BME680 for temperature and humidity
             if (bme.containsKey("temperature")) {
                 float temp = bme["temperature"]["value"].as<float>();
-                values.temp_indoor = isValidRange(temp, -40, 80) ? temp : -1;
+                values.temp_indoor = isValidRange(temp, -40, 80) ? temp : -1000;
             }
             if (bme.containsKey("humidity")) {
                 float hum = bme["humidity"]["value"].as<float>();

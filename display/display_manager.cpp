@@ -20,9 +20,15 @@ extern LedControllerInsight leds_controller_insight;
 // If Urban ID is not yet known, we will perform up to 3 checks,
 // each spaced 5 minutes apart, before falling back to the default QR.
 static const uint8_t SENSOR_MAP_MAX_WAIT_TRIES      = 3;
-static const unsigned long SENSOR_MAP_WAIT_INTERVAL = 5UL * 60UL * 1000UL; // 30 seconds
+static const unsigned long SENSOR_MAP_WAIT_INTERVAL = 5UL * 60UL * 1000UL; // 5 minutes
 
 bool display_sleeping = false;
+
+// For MAIN screen we want the refresh to be aligned with the real time
+// minute boundary (xx:00) instead of a fixed "every N ms since boot".
+// This keeps the clock in the header changing exactly when the minute
+// changes, instead of "late" in the middle of a minute.
+static unsigned long next_main_refresh_ms = 0;
 
 // Cycle order for screens when navigating with UP/SET
 // Order: MAIN -> GRAPHS -> SENSOR_MAP -> SETTINGS -> MAIN
@@ -282,9 +288,30 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         refresh_now = true;
     }
 
-    // Always refresh on first run (loading screen) or when explicitly requested
+    // Always refresh on first run (loading screen) or when explicitly requested.
+    //
+    // On MAIN screen, instead of a fixed "every DISPLAY_REFRESH_INTERVAL ms"
+    // cadence (which can drift far away from the actual minute boundary),
+    // we try to align the refresh with the *real* local time, so that the
+    // minute in the header changes right when the clock minute changes.
+    bool time_based_refresh = false;
+    if (currentScreenID == ScreenPage::MAIN) {
+        if (next_main_refresh_ms == 0) {
+            // Before we know the next aligned time, fall back to interval-based refresh.
+            time_based_refresh = msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL;
+        } else {
+            time_based_refresh = (int32_t)(millis() - next_main_refresh_ms) >= 0;
+        }
+    } else {
+        // All other screens keep the simple fixed interval behaviour.
+        time_based_refresh = msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL;
+        // Reset alignment when we leave MAIN so that we recalculate it
+        // when we come back.
+        next_main_refresh_ms = 0;
+    }
+
     bool should_refresh = (last_refresh_time == (unsigned long)-DISPLAY_REFRESH_INTERVAL) || 
-                          msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL || 
+                          time_based_refresh || 
                           refresh_now || 
                           currentScreenID == ScreenPage::CONNECTING;
     
@@ -410,6 +437,30 @@ draw_complete:
         drawScreenIndicator(currentScreenID);
         
         last_refresh_time = millis();
+
+        // For MAIN screen schedule the next refresh close to the next
+        // local minute boundary so that the displayed time is always
+        // up-to-date right after the minute changes.
+        if (currentScreenID == ScreenPage::MAIN) {
+            struct tm timeinfo;
+            if (getLocalTime(&timeinfo)) {
+                int sec = timeinfo.tm_sec;
+                // How many seconds left until the next minute tick.
+                int seconds_to_next_minute = (sec == 0) ? 60 : (60 - sec);
+                unsigned long now_ms = millis();
+                unsigned long ms_to_next_minute = (unsigned long)seconds_to_next_minute * 1000UL;
+                // Small safety margin so that getLocalTime() used in drawMainScreen
+                // already reports the new minute when we refresh.
+                const unsigned long safety_margin_ms = 150;
+                if (ms_to_next_minute > safety_margin_ms) {
+                    ms_to_next_minute -= safety_margin_ms;
+                }
+                next_main_refresh_ms = now_ms + ms_to_next_minute;
+            } else {
+                // If we cannot get time yet, keep simple behaviour.
+                next_main_refresh_ms = last_refresh_time + DISPLAY_REFRESH_INTERVAL;
+            }
+        }
         // After wake use FULL mode for first update
         if (force_full_refresh) {
             force_full_refresh = false; // Reset flag after use

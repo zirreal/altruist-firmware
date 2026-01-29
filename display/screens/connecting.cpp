@@ -1,6 +1,7 @@
 #ifdef ALTRUIST_INSIDE
 
 #include "connecting.h"
+#include "../utils.h"
 #include "../paint_driver/GUI_Paint.h"
 #include "../../config_manager/config_helpers.h"
 #include "../icons/icons/40x40/robo_hw_logo_black_40x40.h"  // team logo

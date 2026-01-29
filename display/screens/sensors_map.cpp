@@ -5,6 +5,7 @@
 #include "main_screen.h"
 #include "../driver/EPD.h"
 #include "setup.h"
+#include "../utils.h"
 #include "../../utils.h"
 #include "display_common.h"
 #include "../icons/icons/icons_15x15.h"

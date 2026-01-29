@@ -5,6 +5,7 @@
 #include "../../config_manager/config_helpers.h"
 #include "../driver/EPD.h"
 #include "settings.h"
+#include "../utils.h"
 #include "../../utils.h"
 #include "../../defines.h"
 #include "../paint_driver/GUI_Paint.h"
