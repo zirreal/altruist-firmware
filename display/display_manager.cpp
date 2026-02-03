@@ -6,6 +6,8 @@
 #include "screens/display_common.h"
 #include "../defines.h"
 #include "utils.h"
+#include "../intl.h"
+#include "paint_driver/fonts/fonts.h"
 #include <SPIFFS.h>
 #include <WiFi.h>
 #include "../leds/leds_controller_insight.h"
@@ -116,7 +118,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 // Clear the image buffer to white before drawing sleep message
                 Paint_SelectImage(BlackImage);
                 Paint_Clear(WHITE);
-                Paint_DrawString_EN_Center("Going to sleep...", &Font24, WHITE, BLACK);
+                Paint_DrawString_Display_Center(INTL_DISP_GOING_TO_SLEEP, &Font24, &font_24_cyrillic, &font_24_ascii, WHITE, BLACK);
                 // Full cycle: init (FULL) -> display -> clear -> sleep.
                 epdInit(DisplayMode::FULL);
                 DEV_Delay_ms(200);
@@ -394,7 +396,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
 
                 // Draw a simple "waiting for ID" screen so user understands
                 Paint_Clear(WHITE);
-                Paint_DrawString_EN_Center("Waiting for Urban ID...", &Font16, WHITE, BLACK);
+                Paint_DrawString_Display_Center(INTL_DISP_WAITING_URBAN_ID, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
                 // Schedule next check; after a limited number of tries, give up and show default QR.
                 sensor_map_waiting_tries++;

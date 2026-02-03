@@ -3,6 +3,8 @@
 #include "logo.h"
 #include "../icons/icons/icons_200x200.h"
 #include "../paint_driver/GUI_Paint.h"
+#include "../utils.h"
+#include "../../intl.h"
 #include "../driver/EPD.h"
 #include <string.h>
 
@@ -33,11 +35,11 @@ void showLogoPage() {
     const uint16_t top_margin = 16;
 
     // Product name above logo
-    const char *product = "Altruist Insight";
-    uint16_t product_width = strlen(product) * Font12.Width;
+    const char *product = INTL_DISP_PRODUCT_INSIGHT;
+    uint16_t product_width = Paint_GetStringWidth_Display(product, &Font12, &font_12_cyrillic, &font_12_ascii);
     uint16_t product_x = (DISPLAY_WIDTH - product_width) / 2;
     uint16_t product_y = top_margin;
-    Paint_DrawString_EN(product_x, product_y, product, &Font12, WHITE, BLACK);
+    Paint_DrawString_Display(product_x, product_y, product, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
 
     // Full logo 200x158
     uint16_t logo_x = (DISPLAY_WIDTH - LOGO_DRAWN_WIDTH) / 2;
@@ -46,16 +48,16 @@ void showLogoPage() {
 
     // Status block below logo
     const uint16_t text_block_y = logo_y + LOGO_DRAWN_HEIGHT + 12;
-    const char *msg1 = "WiFi credentials cleared";
-    const char *msg2 = "Restarting device...";
-    uint16_t msg1_width = strlen(msg1) * Font16.Width;
-    uint16_t msg2_width = strlen(msg2) * Font12.Width;
+    const char *msg1 = INTL_DISP_WIFI_CLEARED;
+    const char *msg2 = INTL_DISP_RESTARTING;
+    uint16_t msg1_width = Paint_GetStringWidth_Display(msg1, &Font16, &font_16_cyrillic, &font_16_ascii);
+    uint16_t msg2_width = Paint_GetStringWidth_Display(msg2, &Font12, &font_12_cyrillic, &font_12_ascii);
     uint16_t msg1_x = (DISPLAY_WIDTH - msg1_width) / 2;
     uint16_t msg2_x = (DISPLAY_WIDTH - msg2_width) / 2;
     uint16_t msg1_y = text_block_y;
     uint16_t msg2_y = msg1_y + Font16.Height + 10;
-    Paint_DrawString_EN(msg1_x, msg1_y, msg1, &Font16, WHITE, BLACK);
-    Paint_DrawString_EN(msg2_x, msg2_y, msg2, &Font12, WHITE, BLACK);
+    Paint_DrawString_Display(msg1_x, msg1_y, msg1, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    Paint_DrawString_Display(msg2_x, msg2_y, msg2, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
 }
 
 #endif

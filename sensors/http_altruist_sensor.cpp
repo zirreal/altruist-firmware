@@ -250,6 +250,8 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             measObj[F("intl_name")] = intl_name;
             measObj[F("units")]     = units;
         }
+        // Mark JSON as updated so SD card logger (and graph data) see Urban data
+        _jsonUpdated = true;
         // Capture Urban device's Robonomics address from data.json, or fallback to HTML extraction
         bool has_urban_addr = false;
         if (doc.containsKey("service_data") && doc["service_data"].containsKey("robonomics_address")) {

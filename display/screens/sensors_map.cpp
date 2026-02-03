@@ -8,6 +8,8 @@
 #include "../utils.h"
 #include "../../utils.h"
 #include "display_common.h"
+#include "../../intl.h"
+#include "../paint_driver/fonts/fonts.h"
 #include "../icons/icons/icons_15x15.h"
 #include "../icons/icons/40x40/location_40x40.h" // location icon
 
@@ -42,7 +44,7 @@ void showSensorsMapPage(const String& robonomics_address) {
     }
     qrcode_initText(&QRSensorMap, qrcodeData, 12, ECC_LOW, qr_data);
 
-    // Medium-size QR to balance readability and space
+    // QR size: scale 3 (~117px) with strict bottom limit so it stays above "Powered by"
     int scale_factor = 3;
     int quiet_zone = 3; 
     int scaled_qr_width = QRSensorMap.size * scale_factor;
@@ -92,41 +94,65 @@ void showSensorsMapPage(const String& robonomics_address) {
         strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
         strftime(time_buf, sizeof(time_buf), "%H:%M",    &timeinfo);
 
-        // Center: time
-        int time_width = strlen(time_buf) * Font16.Width;
+        // Center: time (same display font as rest of UI)
+        int time_width = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         int time_x = (DISPLAY_WIDTH - time_width) / 2;
         int time_y = header_top_y;
-        Paint_DrawString_EN(time_x, time_y, time_buf, &Font16, WHITE, BLACK);
+        Paint_DrawString_Display(time_x, time_y, time_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-        // Right: date
-        int date_width = strlen(date_buf) * Font12.Width;
+        // Right: date (same display font as rest of UI)
+        int date_width = (int)Paint_GetStringWidth_Display(date_buf, &Font12, &font_12_cyrillic, &font_12_ascii);
         const int right_margin = 4;
         int date_x = DISPLAY_WIDTH - right_margin - date_width;
         int date_y = header_top_y + 2;
-        Paint_DrawString_EN(date_x,     date_y, date_buf, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(date_x + 1, date_y, date_buf, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(date_x,     date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(date_x + 1, date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 
     // Header bottom border
     Paint_DrawLine(0, header_bottom_border_y, DISPLAY_WIDTH, header_bottom_border_y,
                    BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
-    uint16_t content_top_y = header_bottom_border_y + 10;
+    uint16_t content_top_y = header_bottom_border_y + 6;
 
     // Subtitle just under header
-    const char* subtitle_main = "Sensors Map";
-    int subtitle_main_x = (DISPLAY_WIDTH - strlen(subtitle_main) * Font16.Width) / 2;
+    const char* subtitle_main = INTL_DISP_SENSORS_MAP;
+    int subtitle_main_x = (DISPLAY_WIDTH - (int)Paint_GetStringWidth_Display(subtitle_main, &Font16, &font_16_cyrillic, &font_16_ascii)) / 2;
     int subtitle_main_y = content_top_y;
-    Paint_DrawString_EN(subtitle_main_x, subtitle_main_y, subtitle_main, &Font16, WHITE, BLACK);
+    Paint_DrawString_Display(subtitle_main_x, subtitle_main_y, subtitle_main, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-    // Center QR in the remaining vertical space
-    int qr_top_after_text = subtitle_main_y + Font16.Height + 8;
-    int available_height = DISPLAY_HEIGHT - qr_top_after_text - (Font12.Height + 8);
-    if (available_height < (int)total_height) {
-        available_height = total_height;
+    // Tighter spacing so "Scan to open" and QR sit higher, leaving room for "Powered by" below
+    const int gap_after_subtitle = 6;
+    const int gap_after_scan = 4;
+    const int scan_line_offset = 4;  /* nudge "Scan to open" bar + text slightly lower */
+    int subtitle_scan_y = content_top_y + Font16.Height + gap_after_subtitle + scan_line_offset;
+    const char* subtitle_scan = INTL_DISP_SCAN_TO_OPEN;
+    int subtitle_scan_w = (int)Paint_GetStringWidth_Display(subtitle_scan, &Font16, &font_16_cyrillic, &font_16_ascii);
+    int subtitle_scan_x = (DISPLAY_WIDTH - subtitle_scan_w) / 2;
+    int scan_bar_pad = 6;
+    int scan_bar_left = subtitle_scan_x - scan_bar_pad;
+    if (scan_bar_left < 0) scan_bar_left = 0;
+    int scan_bar_right = subtitle_scan_x + subtitle_scan_w + scan_bar_pad;
+    if (scan_bar_right > (int)DISPLAY_WIDTH) scan_bar_right = DISPLAY_WIDTH;
+    Paint_DrawRectangle(scan_bar_left, subtitle_scan_y, scan_bar_right, subtitle_scan_y + Font16.Height + 4, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_Display_OnBlack(subtitle_scan_x, subtitle_scan_y + 2, subtitle_scan, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+
+    int qr_area_top = subtitle_scan_y + Font16.Height + gap_after_scan;
+    /* "Powered by" position first; QR must end above this with a clear gap */
+    const int gap_below_qr = 24;
+    int powered_y = DISPLAY_HEIGHT - Font12.Height - 8;
+    int qr_max_bottom = powered_y - gap_below_qr;
+    int available_height = qr_max_bottom - qr_area_top;
+    if (available_height < 32) {
+        available_height = 32;
     }
-    int qr_area_top = qr_top_after_text;
     int qr_y = qr_area_top + (available_height - total_height) / 2;
+    if (qr_y + total_height > qr_max_bottom) {
+        qr_y = qr_max_bottom - total_height;
+    }
+    if (qr_y < qr_area_top) {
+        qr_y = qr_area_top;
+    }
     int qr_x = DISPLAY_WIDTH / 2 - total_width / 2;
     Paint_DrawImage(qr_bitmap_scaled, qr_x, qr_y, total_width, total_height);
 
@@ -137,17 +163,10 @@ void showSensorsMapPage(const String& robonomics_address) {
     if (icon_y < 0) icon_y = 0;
     Paint_DrawImage(location_40x40, icon_x, icon_y, 40, 40);
 
-    // "Scan to open online" label just above QR
-    const char* subtitle_scan = "Scan to open online";
-    int subtitle_scan_x = (DISPLAY_WIDTH - strlen(subtitle_scan) * Font16.Width) / 2;
-    int subtitle_scan_y = qr_y - Font16.Height + 4;
-    Paint_DrawString_EN(subtitle_scan_x, subtitle_scan_y, subtitle_scan, &Font16, BLACK, WHITE);
-
-    // Powered by (bottom)
-    const char* powered = "Powered by Robonomics";
-    int powered_x = (DISPLAY_WIDTH - strlen(powered) * Font12.Width) / 2;
-    int powered_y = DISPLAY_HEIGHT - Font12.Height - 5;
-    Paint_DrawString_EN(powered_x, powered_y, powered, &Font12, WHITE, BLACK);
+    // Powered by (bottom) — drawn last so it stays on top of the QR
+    const char* powered = INTL_DISP_POWERED_BY;
+    int powered_x = (DISPLAY_WIDTH - (int)Paint_GetStringWidth_Display(powered, &Font12, &font_12_cyrillic, &font_12_ascii)) / 2;
+    Paint_DrawString_Display(powered_x, powered_y, powered, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
 
     free(qr_bitmap_scaled);
 }

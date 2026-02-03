@@ -4,9 +4,11 @@
 #include "graph.h"
 #include "../utils.h"
 #include "../../utils.h"
+#include "../../intl.h"
 #include "../../sd_card/sd_card.h"
 #include "../../config_manager/config_helpers.h"
 #include "../icons/icons/icons_15x15.h"
+#include "../paint_driver/fonts/fonts.h"
 #include <vector>
 
 #if defined(USE_SD_CARD)
@@ -22,19 +24,19 @@ static const char* getGraphTitle(GraphValue value) {
     switch (value) {
         case GraphValue::INSIGHT_TEMP:
         case GraphValue::URBAN_TEMP:
-            return "Temperature";
+            return INTL_DISP_TEMPERATURE;
         case GraphValue::INSIGHT_HUM:
         case GraphValue::URBAN_HUM:
-            return "Humidity";
+            return INTL_DISP_HUMIDITY;
         case GraphValue::INSIGHT_CO2:
-            return "CO2";
+            return INTL_CO2;
         case GraphValue::INSIGHT_PRESSURE:
         case GraphValue::URBAN_PRESSURE:
-            return "Pressure";
+            return INTL_DISP_PRESSURE;
         case GraphValue::URBAN_AIR:
-            return "Air quality";
+            return INTL_DISP_AIR_QUALITY;
         case GraphValue::URBAN_NOISE:
-            return "Noise";
+            return INTL_DISP_NOISE;
         default:
             return "";
     }
@@ -429,11 +431,11 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
                 uint16_t availableHeight = navTop - topMargin;
                 uint16_t graphCenterY = topMargin + availableHeight / 2;
                 
-                const char* msg1 = "Not enough data yet";
-                const char* msg2 = "Collecting data...";
+                const char* msg1 = INTL_DISP_NOT_ENOUGH_DATA_YET;
+                const char* msg2 = INTL_DISP_COLLECTING_DATA;
                 
-                uint16_t msg1Width = strlen(msg1) * Font16.Width;
-                uint16_t msg2Width = strlen(msg2) * Font12.Width;
+                uint16_t msg1Width = Paint_GetStringWidth_Display(msg1, &Font16, &font_16_cyrillic, &font_16_ascii);
+                uint16_t msg2Width = Paint_GetStringWidth_Display(msg2, &Font12, &font_12_cyrillic, &font_12_ascii);
                 
                 
                 uint16_t line_spacing = 8;
@@ -444,8 +446,8 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
                 uint16_t msg1Y = graphCenterY - total_msg_height / 2;
                 uint16_t msg2Y = msg1Y + Font16.Height + line_spacing;
                 
-                Paint_DrawString_EN(msg1X, msg1Y, msg1, &Font16, WHITE, BLACK);
-                Paint_DrawString_EN(msg2X, msg2Y, msg2, &Font12, WHITE, BLACK);
+                Paint_DrawString_Display(msg1X, msg1Y, msg1, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+                Paint_DrawString_Display(msg2X, msg2Y, msg2, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
                 
                 for (int i = 0; i < lineCount; i++) {
                     if (lineData[i].values) {
@@ -484,19 +486,19 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
             uint16_t graphCenterX = graphLeft + graphWidth / 2;
             uint16_t graphCenterY = navTop - (navTop - topMargin) / 2;
             
-            const char* msg1 = "No data available";
-            const char* msg2 = "Collecting data...";
+            const char* msg1 = INTL_DISP_NO_DATA_AVAILABLE;
+            const char* msg2 = INTL_DISP_COLLECTING_DATA;
             
-            uint16_t msg1Width = strlen(msg1) * Font16.Width;
-            uint16_t msg2Width = strlen(msg2) * Font12.Width;
+            uint16_t msg1Width = Paint_GetStringWidth_Display(msg1, &Font16, &font_16_cyrillic, &font_16_ascii);
+            uint16_t msg2Width = Paint_GetStringWidth_Display(msg2, &Font12, &font_12_cyrillic, &font_12_ascii);
             
             uint16_t msg1X = graphCenterX - msg1Width / 2;
             uint16_t msg2X = graphCenterX - msg2Width / 2;
             uint16_t msg1Y = graphCenterY - Font16.Height / 2 - 4;
             uint16_t msg2Y = graphCenterY + Font12.Height / 2 + 4;
             
-            Paint_DrawString_EN(msg1X, msg1Y, msg1, &Font16, WHITE, BLACK);
-            Paint_DrawString_EN(msg2X, msg2Y, msg2, &Font12, WHITE, BLACK);
+            Paint_DrawString_Display(msg1X, msg1Y, msg1, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+            Paint_DrawString_Display(msg2X, msg2Y, msg2, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
             
             // Clean up and return early
             for (int i = 0; i < lineCount; i++) {
@@ -519,19 +521,19 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         uint16_t graphCenterX = graphLeft + graphWidth / 2;
         uint16_t graphCenterY = navTop - (navTop - topMargin) / 2;
         
-        const char* msg1 = "No data available";
-        const char* msg2 = "Collecting data...";
+        const char* msg1 = INTL_DISP_NO_DATA_AVAILABLE;
+        const char* msg2 = INTL_DISP_COLLECTING_DATA;
         
-        uint16_t msg1Width = strlen(msg1) * Font16.Width;
-        uint16_t msg2Width = strlen(msg2) * Font12.Width;
+        uint16_t msg1Width = Paint_GetStringWidth_Display(msg1, &Font16, &font_16_cyrillic, &font_16_ascii);
+        uint16_t msg2Width = Paint_GetStringWidth_Display(msg2, &Font12, &font_12_cyrillic, &font_12_ascii);
         
         uint16_t msg1X = graphCenterX - msg1Width / 2;
         uint16_t msg2X = graphCenterX - msg2Width / 2;
         uint16_t msg1Y = graphCenterY - Font16.Height / 2 - 4;
         uint16_t msg2Y = graphCenterY + Font12.Height / 2 + 4;
         
-        Paint_DrawString_EN(msg1X, msg1Y, msg1, &Font16, WHITE, BLACK);
-        Paint_DrawString_EN(msg2X, msg2Y, msg2, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(msg1X, msg1Y, msg1, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(msg2X, msg2Y, msg2, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         return;
     }
 
@@ -635,7 +637,7 @@ void drawGraphScreen() {
     int time_x = 0;
     if (getLocalTime(&timeinfo)) {
         strftime(time_buf, sizeof(time_buf), "%H:%M", &timeinfo);
-        int time_width = strlen(time_buf) * Font16.Width;
+        int time_width = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         const int right_margin = 4;
         time_x = DISPLAY_WIDTH - right_margin - time_width;
         has_time = true;
@@ -643,7 +645,7 @@ void drawGraphScreen() {
 
     // Title area: graph title
     const char* graph_title = getGraphTitle(current_graph_value);
-    uint16_t title_pixel_width = strlen(graph_title) * Font16.Width;
+    uint16_t title_pixel_width = Paint_GetStringWidth_Display(graph_title, &Font16, &font_16_cyrillic, &font_16_ascii);
 
     // Start from screen-centered position
     int title_x = (DISPLAY_WIDTH - title_pixel_width) / 2;
@@ -665,12 +667,12 @@ void drawGraphScreen() {
     uint16_t title_y = header_top_y;
 
     // Draw title
-    Paint_DrawString_EN(title_x, title_y, graph_title, &Font16, WHITE, BLACK);
+    Paint_DrawString_Display(title_x, title_y, graph_title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-    // Right: time 
+    // Right: time (same display font as rest of UI)
     if (has_time) {
         int time_y = header_top_y;
-        Paint_DrawString_EN(time_x, time_y, time_buf, &Font16, WHITE, BLACK);
+        Paint_DrawString_Display(time_x, time_y, time_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     }
 
     // Bottom border for header
@@ -689,16 +691,17 @@ void drawGraphScreen() {
         uint16_t total_height = Font16.Height + Font12.Height * 2 + line_spacing * 2;
         uint16_t start_y = (navTop - total_height) / 2;  // Account for nav bar at bottom
         
-        uint16_t x1 = DISPLAY_WIDTH / 2 - strlen("SD card not found") * Font16.Width / 2;
-        Paint_DrawString_EN(x1, start_y, "SD card not found", &Font16, WHITE, BLACK);
-        
+        const char* sd1 = INTL_DISP_SD_NOT_FOUND;
+        const char* sd2 = INTL_DISP_INSERT_SD;
+        const char* sd3 = INTL_DISP_FAT32_FORMATTED;
+        uint16_t x1 = DISPLAY_WIDTH / 2 - Paint_GetStringWidth_Display(sd1, &Font16, &font_16_cyrillic, &font_16_ascii) / 2;
+        Paint_DrawString_Display(x1, start_y, sd1, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
         uint16_t y2 = start_y + Font16.Height + line_spacing;
-        uint16_t x2 = DISPLAY_WIDTH / 2 - strlen("Please insert SD card") * Font12.Width / 2;
-        Paint_DrawString_EN(x2, y2, "Please insert SD card", &Font12, WHITE, BLACK);
-        
+        uint16_t x2 = DISPLAY_WIDTH / 2 - Paint_GetStringWidth_Display(sd2, &Font12, &font_12_cyrillic, &font_12_ascii) / 2;
+        Paint_DrawString_Display(x2, y2, sd2, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t y3 = y2 + Font12.Height + line_spacing;
-        uint16_t x3 = DISPLAY_WIDTH / 2 - strlen("(FAT32 formatted)") * Font12.Width / 2;
-        Paint_DrawString_EN(x3, y3, "(FAT32 formatted)", &Font12, WHITE, BLACK);
+        uint16_t x3 = DISPLAY_WIDTH / 2 - Paint_GetStringWidth_Display(sd3, &Font12, &font_12_cyrillic, &font_12_ascii) / 2;
+        Paint_DrawString_Display(x3, y3, sd3, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         // Continue to draw nav bar below
     }
     // Check if any data files exist (only if SD card is available)
@@ -707,20 +710,21 @@ void drawGraphScreen() {
         uint16_t total_height = Font16.Height + Font12.Height * 3 + line_spacing * 3;
         uint16_t start_y = (navTop - total_height) / 2;  
         
-        uint16_t x1 = DISPLAY_WIDTH / 2 - strlen("No data files found") * Font16.Width / 2;
-        Paint_DrawString_EN(x1, start_y, "No data files found", &Font16, WHITE, BLACK);
-        
+        const char* nd1 = INTL_DISP_NO_DATA_FILES;
+        const char* nd2 = INTL_DISP_DEVICE_WILL_CREATE;
+        const char* nd3 = INTL_DISP_FILES_AUTOMATICALLY;
+        const char* nd4 = INTL_DISP_AFTER_COLLECTING;
+        uint16_t x1 = DISPLAY_WIDTH / 2 - Paint_GetStringWidth_Display(nd1, &Font16, &font_16_cyrillic, &font_16_ascii) / 2;
+        Paint_DrawString_Display(x1, start_y, nd1, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
         uint16_t y2 = start_y + Font16.Height + line_spacing;
-        uint16_t x2 = DISPLAY_WIDTH / 2 - strlen("Device will create") * Font12.Width / 2;
-        Paint_DrawString_EN(x2, y2, "Device will create", &Font12, WHITE, BLACK);
-        
+        uint16_t x2 = DISPLAY_WIDTH / 2 - Paint_GetStringWidth_Display(nd2, &Font12, &font_12_cyrillic, &font_12_ascii) / 2;
+        Paint_DrawString_Display(x2, y2, nd2, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t y3 = y2 + Font12.Height + line_spacing;
-        uint16_t x3 = DISPLAY_WIDTH / 2 - strlen("files automatically") * Font12.Width / 2;
-        Paint_DrawString_EN(x3, y3, "files automatically", &Font12, WHITE, BLACK);
-        
+        uint16_t x3 = DISPLAY_WIDTH / 2 - Paint_GetStringWidth_Display(nd3, &Font12, &font_12_cyrillic, &font_12_ascii) / 2;
+        Paint_DrawString_Display(x3, y3, nd3, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t y4 = y3 + Font12.Height + line_spacing;
-        uint16_t x4 = DISPLAY_WIDTH / 2 - strlen("after collecting data") * Font12.Width / 2;
-        Paint_DrawString_EN(x4, y4, "after collecting data", &Font12, WHITE, BLACK);
+        uint16_t x4 = DISPLAY_WIDTH / 2 - Paint_GetStringWidth_Display(nd4, &Font12, &font_12_cyrillic, &font_12_ascii) / 2;
+        Paint_DrawString_Display(x4, y4, nd4, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         // Continue to draw nav bar below
     }
     else {
@@ -736,16 +740,17 @@ void drawGraphScreen() {
     uint16_t total_height = Font16.Height + Font12.Height * 2 + line_spacing * 2;
     uint16_t start_y = (navTop - total_height) / 2;  // Account for nav bar at bottom
     
-    uint16_t x1 = DISPLAY_WIDTH / 2 - strlen("SD card not available") * Font16.Width / 2;
-    Paint_DrawString_EN(x1, start_y, "SD card not available", &Font16, WHITE, BLACK);
-    
+    const char* sa1 = INTL_DISP_SD_NOT_AVAILABLE;
+    const char* sa2 = INTL_DISP_GRAPHS_REQUIRE_SD;
+    const char* sa3 = INTL_DISP_ENABLE_SD;
+    uint16_t x1 = DISPLAY_WIDTH / 2 - Paint_GetStringWidth_Display(sa1, &Font16, &font_16_cyrillic, &font_16_ascii) / 2;
+    Paint_DrawString_Display(x1, start_y, sa1, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     uint16_t y2 = start_y + Font16.Height + line_spacing;
-    uint16_t x2 = DISPLAY_WIDTH / 2 - strlen("Graphs require SD card") * Font12.Width / 2;
-    Paint_DrawString_EN(x2, y2, "Graphs require SD card", &Font12, WHITE, BLACK);
-    
+    uint16_t x2 = DISPLAY_WIDTH / 2 - Paint_GetStringWidth_Display(sa2, &Font12, &font_12_cyrillic, &font_12_ascii) / 2;
+    Paint_DrawString_Display(x2, y2, sa2, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     uint16_t y3 = y2 + Font12.Height + line_spacing;
-    uint16_t x3 = DISPLAY_WIDTH / 2 - strlen("Please enable SD card") * Font12.Width / 2;
-    Paint_DrawString_EN(x3, y3, "Please enable SD card", &Font12, WHITE, BLACK);
+    uint16_t x3 = DISPLAY_WIDTH / 2 - Paint_GetStringWidth_Display(sa3, &Font12, &font_12_cyrillic, &font_12_ascii) / 2;
+    Paint_DrawString_Display(x3, y3, sa3, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     // Nav bar will be drawn after #endif (below)
 #endif
 
@@ -753,34 +758,29 @@ void drawGraphScreen() {
     if (areGraphsAvailable()) {
         Paint_DrawLine(0, navTop, DISPLAY_WIDTH, navTop, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
-    // Left/right padding inside bar
     const uint16_t paddingX = 6;
 
-    // Section widths: small icon column on the left, then Insight + Urban sections
-    const uint16_t iconColWidth = 24; 
+    // Icon column: full icon (15x25) centered in column and vertically in nav bar
+    const uint16_t iconColWidth = 24;
     uint16_t x = paddingX;
-
-    // Icon column
     uint16_t iconAreaRight = x + iconColWidth;
     const uint16_t iconSizeWidth  = 15;
     const uint16_t iconSizeHeight = 25;
-    uint16_t sectionHeaderH = Font8.Height + 6;
-    uint16_t headerTop      = navTop + 1;
-    uint16_t headerCenterY  = headerTop + sectionHeaderH / 2;
-    uint16_t iconY          = headerCenterY - iconSizeHeight / 2 + 20;
-    uint16_t iconX = x + (iconColWidth - iconSizeWidth) / 2 - 1;
+    uint16_t iconX = x + (iconColWidth - iconSizeWidth) / 2;
+    uint16_t iconY = navTop + navBarHeight / 2 - iconSizeHeight / 2;
     Paint_DrawImage(buttons_nav_15x15, iconX, iconY, iconSizeWidth, iconSizeHeight);
 
     x = iconAreaRight;
-
-    // Vertical divider after icon column
     Paint_DrawLine(x, navTop, x, DISPLAY_HEIGHT - 1, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    x += 2; // small gap after divider
+    x += 2;
 
-    // Available width for Insight + Urban sections
+    // Insight vs Urban: 4:5 ratio (Urban slightly wider for longer labels)
     uint16_t availableWidth = DISPLAY_WIDTH - x - paddingX;
-    uint16_t insightWidth   = (availableWidth * 4) / 9; 
+    uint16_t insightWidth   = (availableWidth * 4) / 9;
     uint16_t urbanWidth     = availableWidth - insightWidth;
+
+    uint16_t sectionHeaderH = Font12.Height + 6;
+    uint16_t headerTop      = navTop + 1;
 
     // --- Insight section ---
     uint16_t insightX       = x;
@@ -790,19 +790,19 @@ void drawGraphScreen() {
                         insightX + insightWidth - 2,
                         insightHeaderY + sectionHeaderH,
                         BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawString_EN(insightX, insightHeaderY + 2, "Insight", &Font8, BLACK, WHITE);
+    Paint_DrawString_EN(insightX + 2, insightHeaderY + 3, INTL_DISP_INSIGHT_HEADER, &Font12, BLACK, WHITE);
 
     uint16_t insightTextY = insightHeaderY + sectionHeaderH + 4;
     uint16_t textX        = insightX + 4;
 
     // Temperature
-    const char* tempLabel = "Temperature";
-    uint16_t    tempWidth = strlen(tempLabel) * Font12.Width;
+    const char* tempLabel = INTL_DISP_TEMPERATURE;
+    uint16_t    tempWidth = Paint_GetStringWidth_Display(tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
     bool        tempActive = (current_graph_value == GraphValue::INSIGHT_TEMP);
     if (tempActive) {
         // Bold-ish text
-        Paint_DrawString_EN(textX,     insightTextY, tempLabel, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(textX + 1, insightTextY, tempLabel, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(textX,     insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(textX + 1, insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t tempCenterX = textX + tempWidth / 2;
         uint16_t tempArrowTopY  = insightTextY + Font12.Height + 1;
         if (tempArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
@@ -814,17 +814,17 @@ void drawGraphScreen() {
         Paint_DrawLine(tempCenterX,     tempTipY,  tempCenterX + 3, tempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
         Paint_DrawLine(tempCenterX - 3, tempBaseY, tempCenterX + 3, tempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     } else {
-        Paint_DrawString_EN(textX, insightTextY, tempLabel, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(textX, insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 
     // Humidity
     textX += tempWidth + Font12.Width; // gap between words
-    const char* humLabel = "Humidity";
+    const char* humLabel = INTL_DISP_HUMIDITY;
     bool        humActive = (current_graph_value == GraphValue::INSIGHT_HUM);
     if (humActive) {
-        Paint_DrawString_EN(textX,     insightTextY, humLabel, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(textX + 1, insightTextY, humLabel, &Font12, WHITE, BLACK);
-        uint16_t humWidth   = strlen(humLabel) * Font12.Width;
+        Paint_DrawString_Display(textX,     insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(textX + 1, insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        uint16_t humWidth   = Paint_GetStringWidth_Display(humLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
         uint16_t humCenterX = textX + humWidth / 2;
         uint16_t humArrowTopY  = insightTextY + Font12.Height + 1;
         if (humArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
@@ -836,18 +836,18 @@ void drawGraphScreen() {
         Paint_DrawLine(humCenterX,     humTipY,  humCenterX + 3, humBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
         Paint_DrawLine(humCenterX - 3, humBaseY, humCenterX + 3, humBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     } else {
-        Paint_DrawString_EN(textX, insightTextY, humLabel, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(textX, insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 
     // CO2 
     uint16_t insightTextY2 = insightTextY + Font12.Height + 8;
-    const char* co2Label = "CO2";
+    const char* co2Label = INTL_CO2;
     uint16_t co2X = insightX + 4;
     bool     co2Active = (current_graph_value == GraphValue::INSIGHT_CO2);
     if (co2Active) {
-        Paint_DrawString_EN(co2X,     insightTextY2, co2Label, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(co2X + 1, insightTextY2, co2Label, &Font12, WHITE, BLACK);
-        uint16_t co2Width   = strlen(co2Label) * Font12.Width;
+        Paint_DrawString_Display(co2X,     insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(co2X + 1, insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        uint16_t co2Width   = Paint_GetStringWidth_Display(co2Label, &Font12, &font_12_cyrillic, &font_12_ascii);
         uint16_t co2CenterX = co2X + co2Width / 2;
         uint16_t co2ArrowTopY  = insightTextY2 + Font12.Height + 1;
         if (co2ArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
@@ -859,17 +859,17 @@ void drawGraphScreen() {
         Paint_DrawLine(co2CenterX,     co2TipY,  co2CenterX + 3, co2BaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
         Paint_DrawLine(co2CenterX - 3, co2BaseY, co2CenterX + 3, co2BaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     } else {
-        Paint_DrawString_EN(co2X, insightTextY2, co2Label, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(co2X, insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 
     // Pressure
-    const char* pressLabel = "Pressure";
+    const char* pressLabel = INTL_DISP_PRESSURE;
     uint16_t    pressX     = insightX + 4 + 4 * Font12.Width;
     bool        pressActive = (current_graph_value == GraphValue::INSIGHT_PRESSURE);
     if (pressActive) {
-        Paint_DrawString_EN(pressX,     insightTextY2, pressLabel, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(pressX + 1, insightTextY2, pressLabel, &Font12, WHITE, BLACK);
-        uint16_t pressWidth   = strlen(pressLabel) * Font12.Width;
+        Paint_DrawString_Display(pressX,     insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(pressX + 1, insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        uint16_t pressWidth   = Paint_GetStringWidth_Display(pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
         uint16_t pressCenterX = pressX + pressWidth / 2;
         uint16_t pressArrowTopY  = insightTextY2 + Font12.Height + 1;
         if (pressArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
@@ -881,7 +881,7 @@ void drawGraphScreen() {
         Paint_DrawLine(pressCenterX,     pressTipY,  pressCenterX + 3, pressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
         Paint_DrawLine(pressCenterX - 3, pressBaseY, pressCenterX + 3, pressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     } else {
-        Paint_DrawString_EN(pressX, insightTextY2, pressLabel, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(pressX, insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 
     // --- Urban section ---
@@ -895,21 +895,21 @@ void drawGraphScreen() {
                         urbanX + urbanWidth - 2,
                         urbanHeaderY + sectionHeaderH,
                         BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawString_EN(urbanX, urbanHeaderY + 2, "Urban", &Font8, BLACK, WHITE);
+    Paint_DrawString_EN(urbanX + 2, urbanHeaderY + 3, INTL_DISP_URBAN_HEADER, &Font12, BLACK, WHITE);
 
     uint16_t urbanTextY = urbanHeaderY + sectionHeaderH + 4;
     uint16_t uTextX     = urbanX + 4;
 
     // Air
-    const char* airLabel = "Air";
+    const char* airLabel = INTL_DISP_AIR;
     bool        airActive = (current_graph_value == GraphValue::URBAN_AIR);
     if (airActive) {
-        Paint_DrawString_EN(uTextX,     urbanTextY, airLabel, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(uTextX + 1, urbanTextY, airLabel, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(uTextX,     urbanTextY, airLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(uTextX + 1, urbanTextY, airLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     } else {
-        Paint_DrawString_EN(uTextX, urbanTextY, airLabel, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(uTextX, urbanTextY, airLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
-    uint16_t airWidth   = strlen(airLabel) * Font12.Width;
+    uint16_t airWidth   = Paint_GetStringWidth_Display(airLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
     uint16_t airCenterX = uTextX + airWidth / 2;
     if (airActive) {
         uint16_t airArrowTopY  = urbanTextY + Font12.Height + 1;
@@ -923,14 +923,14 @@ void drawGraphScreen() {
         Paint_DrawLine(airCenterX - 3, airBaseY, airCenterX + 3, airBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     }
 
-    // Noise 
+    // Noise
     uTextX += airWidth + Font12.Width;
-    const char* noiseLabel = "Noise";
+    const char* noiseLabel = INTL_DISP_NOISE;
+    uint16_t    noiseWidth = Paint_GetStringWidth_Display(noiseLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
     bool        noiseActive = (current_graph_value == GraphValue::URBAN_NOISE);
     if (noiseActive) {
-        Paint_DrawString_EN(uTextX,     urbanTextY, noiseLabel, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(uTextX + 1, urbanTextY, noiseLabel, &Font12, WHITE, BLACK);
-        uint16_t noiseWidth   = strlen(noiseLabel) * Font12.Width;
+        Paint_DrawString_Display(uTextX,     urbanTextY, noiseLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(uTextX + 1, urbanTextY, noiseLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t noiseCenterX = uTextX + noiseWidth / 2;
         uint16_t noiseArrowTopY  = urbanTextY + Font12.Height + 1;
         if (noiseArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
@@ -942,16 +942,16 @@ void drawGraphScreen() {
         Paint_DrawLine(noiseCenterX,     noiseTipY,  noiseCenterX + 3, noiseBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
         Paint_DrawLine(noiseCenterX - 3, noiseBaseY, noiseCenterX + 3, noiseBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     } else {
-        Paint_DrawString_EN(uTextX, urbanTextY, noiseLabel, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(uTextX, urbanTextY, noiseLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
-    uTextX += 6 * Font12.Width;
+    uTextX += noiseWidth + Font12.Width;
     // Temperature
-    const char* urbanTempLabel = "Temperature";
+    const char* urbanTempLabel = INTL_DISP_TEMPERATURE;
     bool        urbanTempActive = (current_graph_value == GraphValue::URBAN_TEMP);
     if (urbanTempActive) {
-        Paint_DrawString_EN(uTextX,     urbanTextY, urbanTempLabel, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(uTextX + 1, urbanTextY, urbanTempLabel, &Font12, WHITE, BLACK);
-        uint16_t urbanTempWidth   = strlen(urbanTempLabel) * Font12.Width;
+        Paint_DrawString_Display(uTextX,     urbanTextY, urbanTempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(uTextX + 1, urbanTextY, urbanTempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        uint16_t urbanTempWidth   = Paint_GetStringWidth_Display(urbanTempLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
         uint16_t urbanTempCenterX = uTextX + urbanTempWidth / 2;
         uint16_t urbanTempArrowTopY  = urbanTextY + Font12.Height + 1;
         if (urbanTempArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
@@ -963,19 +963,19 @@ void drawGraphScreen() {
         Paint_DrawLine(urbanTempCenterX,     urbanTempTipY,  urbanTempCenterX + 3, urbanTempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
         Paint_DrawLine(urbanTempCenterX - 3, urbanTempBaseY, urbanTempCenterX + 3, urbanTempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     } else {
-        Paint_DrawString_EN(uTextX, urbanTextY, urbanTempLabel, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(uTextX, urbanTextY, urbanTempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 
     // Second row
     uint16_t urbanTextY2 = urbanTextY + Font12.Height + 8;
     // Humidity
-    const char* urbanHumLabel = "Humidity";
+    const char* urbanHumLabel = INTL_DISP_HUMIDITY;
     uint16_t    urbanHumX     = urbanX + 4;
+    uint16_t    urbanHumWidth = Paint_GetStringWidth_Display(urbanHumLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
     bool        urbanHumActive = (current_graph_value == GraphValue::URBAN_HUM);
     if (urbanHumActive) {
-        Paint_DrawString_EN(urbanHumX,     urbanTextY2, urbanHumLabel, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(urbanHumX + 1, urbanTextY2, urbanHumLabel, &Font12, WHITE, BLACK);
-        uint16_t urbanHumWidth   = strlen(urbanHumLabel) * Font12.Width;
+        Paint_DrawString_Display(urbanHumX,     urbanTextY2, urbanHumLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(urbanHumX + 1, urbanTextY2, urbanHumLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t urbanHumCenterX = urbanHumX + urbanHumWidth / 2;
         uint16_t urbanHumArrowTopY  = urbanTextY2 + Font12.Height + 1;
         if (urbanHumArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
@@ -987,17 +987,17 @@ void drawGraphScreen() {
         Paint_DrawLine(urbanHumCenterX,     urbanHumTipY,  urbanHumCenterX + 3, urbanHumBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
         Paint_DrawLine(urbanHumCenterX - 3, urbanHumBaseY, urbanHumCenterX + 3, urbanHumBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     } else {
-        Paint_DrawString_EN(urbanHumX, urbanTextY2, urbanHumLabel, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(urbanHumX, urbanTextY2, urbanHumLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 
-    // Pressure
-    const char* urbanPressLabel = "Pressure";
-    uint16_t    urbanPressX     = urbanX + 4 + 9 * Font12.Width;
+    // Pressure (gap after Humidity = Font12.Width, same as other label spacing)
+    const char* urbanPressLabel = INTL_DISP_PRESSURE;
+    uint16_t    urbanPressX     = urbanHumX + urbanHumWidth + Font12.Width;
     bool        urbanPressActive = (current_graph_value == GraphValue::URBAN_PRESSURE);
     if (urbanPressActive) {
-        Paint_DrawString_EN(urbanPressX,     urbanTextY2, urbanPressLabel, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(urbanPressX + 1, urbanTextY2, urbanPressLabel, &Font12, WHITE, BLACK);
-        uint16_t urbanPressWidth   = strlen(urbanPressLabel) * Font12.Width;
+        Paint_DrawString_Display(urbanPressX,     urbanTextY2, urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(urbanPressX + 1, urbanTextY2, urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        uint16_t urbanPressWidth   = Paint_GetStringWidth_Display(urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
         uint16_t urbanPressCenterX = urbanPressX + urbanPressWidth / 2;
         uint16_t urbanPressArrowTopY  = urbanTextY2 + Font12.Height + 1;
         if (urbanPressArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
@@ -1009,7 +1009,7 @@ void drawGraphScreen() {
         Paint_DrawLine(urbanPressCenterX,     urbanPressTipY,  urbanPressCenterX + 3, urbanPressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
         Paint_DrawLine(urbanPressCenterX - 3, urbanPressBaseY, urbanPressCenterX + 3, urbanPressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     } else {
-        Paint_DrawString_EN(urbanPressX, urbanTextY2, urbanPressLabel, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(urbanPressX, urbanTextY2, urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
     } 
 }

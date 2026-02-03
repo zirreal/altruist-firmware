@@ -86,8 +86,20 @@ extern sFONT Font16;
 extern sFONT Font12;
 extern sFONT Font8;
 
-// Russian/Cyrillic font (same style/height as Font16)
+// Russian/Cyrillic font (same style/height as Font16) — legacy sFONT placeholder
 extern sFONT Font16_RU;
+
+// Glyph-based fonts from display/fontgen/out (Cyrillic for RU, ASCII for English in RU builds)
+#include "../../fontgen/out/font_8_cyrillic.h"
+extern const Font font_12_cyrillic;
+extern const Font font_16_cyrillic;
+extern const Font font_20_cyrillic;
+extern const Font font_24_cyrillic;
+extern const Font font_8_ascii;
+extern const Font font_12_ascii;
+extern const Font font_16_ascii;
+extern const Font font_20_ascii;
+extern const Font font_24_ascii;
 
 extern cFONT Font12CN;
 extern cFONT Font24CN;

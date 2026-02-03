@@ -18,6 +18,8 @@
 #include "../../utils.h"
 #include "../../config_manager/config_helpers.h"
 #include "display_common.h"
+#include "../../intl.h"
+#include "../paint_driver/fonts/fonts.h"
 #include <qrcode.h>
 
 // Helper function to draw an image flipped vertically (upside down)
@@ -71,7 +73,7 @@ void drawValue(const char *label, float value, uint8_t precision,
     uint16_t label_x = x_start;
     uint16_t label_y = y_start;
     // Slightly smaller font for measure titles 
-    uint16_t label_width = strlen(label) * Font12.Width;
+    uint16_t label_width = Paint_GetStringWidth_Display(label, &Font12, &font_12_cyrillic, &font_12_ascii);
 
     // Decide danger direction and whether we show warning state
     int dir = danger_direction;
@@ -81,7 +83,7 @@ void drawValue(const char *label, float value, uint8_t precision,
     bool has_warning = (dir != 0);
 
     // Draw label 
-    Paint_DrawString_EN(label_x, label_y, label, &Font12, WHITE, BLACK);
+    Paint_DrawString_Display(label_x, label_y, label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
 
     // Add a small right padding so values don't touch the border
     uint16_t effective_column_right = (column_right_x > 4) ? (column_right_x - 4) : column_right_x;
@@ -93,18 +95,18 @@ void drawValue(const char *label, float value, uint8_t precision,
     const float NO_DATA_SENTINEL      = -1.0f;
     const float NO_TEMP_DATA_SENTINEL = -1000.0f;
     const float EPSILON = 0.1f;
-    const bool  is_temperature = (strcmp(label, "Temperature") == 0);
+    const bool  is_temperature = (strcmp(label, INTL_DISP_TEMPERATURE) == 0);
     const float sentinel = is_temperature ? NO_TEMP_DATA_SENTINEL : NO_DATA_SENTINEL;
     if (value < (sentinel + EPSILON) && value > (sentinel - EPSILON)) {
         // No data: show "--" right-aligned within the column
-        const char *no_data = "--";
+        const char *no_data = INTL_DISP_NO_DATA;
         uint16_t nd_width = strlen(no_data) * Font12.Width;
         uint16_t min_value_x = label_x + label_width + 8;
         uint16_t value_x = (effective_column_right > nd_width && effective_column_right - nd_width > min_value_x)
                                ? (effective_column_right - nd_width)
                                : min_value_x;
         uint16_t value_y = label_y;
-        Paint_DrawString_EN(value_x, value_y, no_data, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(value_x, value_y, no_data, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     } else {
         char value_str[12];
         stringFromFloat(value_str, value, precision);
@@ -112,10 +114,16 @@ void drawValue(const char *label, float value, uint8_t precision,
         // Use the same font as labels for values
         sFONT* value_font = &Font12;
         
-        uint16_t value_pixel_width = strlen(value_str) * value_font->Width;
-        uint16_t units_pixel_width = strlen(units) * Font12.Width;
+        uint16_t value_pixel_width = Paint_GetStringWidth_Display(value_str, value_font, &font_12_cyrillic, &font_12_ascii);
+        const int8_t bold_letter_spacing = 1;  /* extra px between digits when bold for readability (e.g. CO2 1058) */
+        uint16_t value_width_for_layout = value_pixel_width;
+        if (has_warning) {
+            size_t len = strlen(value_str);
+            if (len > 1) value_width_for_layout += (uint16_t)((len - 1) * bold_letter_spacing);
+        }
+        uint16_t units_pixel_width = Paint_GetStringWidth_Display(units, &Font12, &font_12_cyrillic, &font_12_ascii);
         const uint16_t gap_value_units = 4;
-        uint16_t total_width = value_pixel_width + gap_value_units + units_pixel_width;
+        uint16_t total_width = value_width_for_layout + gap_value_units + units_pixel_width;
 
 
         const uint16_t warning_icon_width = 16; // warning icon 16x16 (manually drawn)
@@ -128,17 +136,17 @@ void drawValue(const char *label, float value, uint8_t precision,
                                ? (effective_column_right - total_width)
                                : min_value_x;
         uint16_t value_y = label_y;
-        uint16_t units_x = value_x + value_pixel_width + gap_value_units;
+        uint16_t units_x = value_x + value_width_for_layout + gap_value_units;
         uint16_t units_y = label_y;
 
-        // Make the numeric value bold if there is a warning; otherwise normal
+        // Make the numeric value bold if there is a warning (with letter spacing for readability); otherwise normal
         if (has_warning) {
-            Paint_DrawString_EN(value_x,     value_y, value_str, value_font, WHITE, BLACK);
-            Paint_DrawString_EN(value_x + 1, value_y, value_str, value_font, WHITE, BLACK);
+            Paint_DrawString_Display_WithSpacing(value_x,     value_y, value_str, value_font, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK, bold_letter_spacing);
+            Paint_DrawString_Display_WithSpacing(value_x + 1, value_y, value_str, value_font, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK, bold_letter_spacing);
         } else {
-            Paint_DrawString_EN(value_x, value_y, value_str, value_font, WHITE, BLACK);
+            Paint_DrawString_Display(value_x, value_y, value_str, value_font, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         }
-        Paint_DrawString_EN(units_x, units_y, units, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(units_x, units_y, units, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 
     // Draw warning icon and arrow next to the title (label)
@@ -466,19 +474,19 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
         const uint16_t header_icon_y    = header_top_y;
         Paint_DrawImage(home_nav_15x15, header_icon_x, header_icon_y, header_icon_size, header_icon_size);
 
-        // Center: time in bold 
-        int time_width = strlen(time_buf) * Font16.Width;
+        // Center: time in bold (same display font as rest of UI)
+        int time_width = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         int time_x = (DISPLAY_WIDTH - time_width) / 2;
         int time_y = header_top_y;
-        Paint_DrawString_EN(time_x, time_y, time_buf, &Font16, WHITE, BLACK);
+        Paint_DrawString_Display(time_x, time_y, time_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-        // Right: date, smaller but still bold-ish
-        int date_width = strlen(date_buf) * Font12.Width;
+        // Right: date, smaller but still bold-ish (same display font as rest of UI)
+        int date_width = (int)Paint_GetStringWidth_Display(date_buf, &Font12, &font_12_cyrillic, &font_12_ascii);
         const int right_margin = 4;
         int date_x = DISPLAY_WIDTH - right_margin - date_width;
         int date_y = header_top_y + 2;
-        Paint_DrawString_EN(date_x,     date_y, date_buf, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(date_x + 1, date_y, date_buf, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(date_x,     date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(date_x + 1, date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 
     // Draw bottom border for header 
@@ -495,6 +503,7 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     // Split content into two equal columns: Urban (left) and Insight (right)
     uint16_t urban_width   = usable_width / 2;
     uint16_t insight_width = usable_width - urban_width;
+    const uint16_t column_right_margin = 6;  /* same gap from right edge in both columns */
 
     uint16_t divider_x = urban_width + 3;
     Paint_DrawLine(divider_x, y_start - 4, divider_x, DISPLAY_HEIGHT - 4,
@@ -505,7 +514,7 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     // === URBAN SECTION HEADER (left column) ===
     const uint16_t header_icon_size        = 30;
     const uint16_t header_icon_text_offset = 4;
-    const char*    urban_title             = "URBAN";
+    const char*    urban_title             = INTL_DISP_MAIN_URBAN;
 
     uint16_t subheader_top_y     = (y_start > 2) ? (y_start - 2) : y_start;
     uint16_t urban_header_icon_x = 0;
@@ -513,13 +522,13 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     uint16_t urban_text_y        = subheader_top_y + (header_icon_size - Font16.Height) / 2;
 
     Paint_DrawImage(urban_30x30, urban_header_icon_x, subheader_top_y - 2, header_icon_size, header_icon_size);
-    Paint_DrawString_EN(urban_header_text_x, urban_text_y, urban_title, &Font16, WHITE, BLACK);
+    Paint_DrawString_Display(urban_header_text_x, urban_text_y, urban_title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
     // WiFi status icon for Urban
     bool urban_wifi_ok = (values.ip_address.length() > 0);
     const uint16_t urban_wifi_icon_size = 20;
     const uint16_t urban_wifi_margin    = 4;
-    int urban_title_width = strlen(urban_title) * Font16.Width;
+    int urban_title_width = (int)Paint_GetStringWidth_Display(urban_title, &Font16, &font_16_cyrillic, &font_16_ascii);
     uint16_t urban_wifi_x = urban_header_text_x + urban_title_width + urban_wifi_margin;
     uint16_t urban_wifi_y = subheader_top_y + (header_icon_size - urban_wifi_icon_size) / 2;
     const unsigned char* urban_wifi_icon = urban_wifi_ok ? wifi_20x20 : wifi_x_20x20;
@@ -555,37 +564,37 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     int noise_dir     = noiseDangerDirection(values.noise_max); // use max for direction
 
     uint16_t urban_x_start   = 8;
-    uint16_t urban_col_right = urban_width - 2; 
-    drawValue("Temperature", values.temp_outdoor, 1, wi_thermometer_cropped_20x20, "C",
+    uint16_t urban_col_right = urban_width - column_right_margin; 
+    drawValue(INTL_DISP_TEMPERATURE, values.temp_outdoor, 1, wi_thermometer_cropped_20x20, "C",
               20, urban_x_start, urban_y,                 urban_col_right, 5, false, SOURCE_URBAN, (temp_out_dir != 0),  temp_out_dir);
-    drawValue("Humidity",    values.hum_outdoor,  0, wi_humidity_cropped_20x20,     "%",
+    drawValue(INTL_DISP_HUMIDITY,    values.hum_outdoor,  0, wi_humidity_cropped_20x20,     "%",
               20, urban_x_start, urban_y + value_spacing, urban_col_right, 5, false, SOURCE_URBAN, (hum_out_dir != 0),   hum_out_dir);
-    drawValue("Pressure",    values.press_outdoor,0, pressure_20x20,               "mmHg",
+    drawValue(INTL_DISP_PRESSURE,    values.press_outdoor,0, pressure_20x20,               "mmHg",
               20, urban_x_start, urban_y + 2 * value_spacing, urban_col_right, 2, false, SOURCE_URBAN, (press_out_dir != 0), press_out_dir);
     drawValue("PM10",        values.pm10,      1, air_filter_20x20,    "ppm",
               20, urban_x_start, urban_y + 3 * value_spacing, urban_col_right, 5, false, SOURCE_URBAN, (pm_dir != 0),    pm_dir);
     drawValue("PM2.5",       values.pm25,      1, air_pollution_20x20, "ppm",
               20, urban_x_start, urban_y + 4 * value_spacing, urban_col_right, 5, false, SOURCE_URBAN, (pm_dir != 0),    pm_dir);
-    drawValue("Noise Max.",  values.noise_max, 0, ear_hearing_20x20,   "dB",
+    drawValue(INTL_DISP_NOISE_MAX,  values.noise_max, 0, ear_hearing_20x20,   "dB",
               20, urban_x_start, urban_y + 5 * value_spacing, urban_col_right, 5, false, SOURCE_URBAN, (noise_dir != 0), noise_dir);
-    drawValue("Noise Avg.",  values.noise_avg, 0, ear_hearing_20x20,   "dB",
+    drawValue(INTL_DISP_NOISE_AVG,  values.noise_avg, 0, ear_hearing_20x20,   "dB",
               20, urban_x_start, urban_y + 6 * value_spacing, urban_col_right, 5, false, SOURCE_URBAN, (noise_dir != 0), noise_dir);
 
     // === INSIGHT DEVICE SECTION HEADER (right column) ===
-    const char* insight_title = "INSIGHT";
+    const char* insight_title = INTL_DISP_MAIN_INSIGHT;
     uint16_t insight_column_start_x = urban_width;
     uint16_t insight_header_icon_x  = insight_column_start_x + 8;
     uint16_t insight_header_text_x  = insight_header_icon_x + header_icon_size + header_icon_text_offset;
     uint16_t insight_text_y         = subheader_top_y + (header_icon_size - Font16.Height) / 2;
 
     Paint_DrawImage(insight_30x30, insight_header_icon_x, subheader_top_y - 2, header_icon_size, header_icon_size);
-    Paint_DrawString_EN(insight_header_text_x, insight_text_y, insight_title, &Font16, WHITE, BLACK);
+    Paint_DrawString_Display(insight_header_text_x, insight_text_y, insight_title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
     // WiFi status icon for Insight
     bool insight_online = (device_ip.length() > 0);
     const uint16_t insight_wifi_icon_size = 20;
     const uint16_t insight_wifi_margin    = 4;
-    int insight_title_width = strlen(insight_title) * Font16.Width;
+    int insight_title_width = (int)Paint_GetStringWidth_Display(insight_title, &Font16, &font_16_cyrillic, &font_16_ascii);
     uint16_t insight_wifi_x = insight_header_text_x + insight_title_width + insight_wifi_margin;
     uint16_t insight_wifi_y = subheader_top_y + (header_icon_size - insight_wifi_icon_size) / 2;
     const unsigned char* insight_wifi_icon = insight_online ? wifi_20x20 : wifi_x_20x20;
@@ -700,14 +709,14 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     int co2_dir      = co2DangerDirection(values.co2);
 
     uint16_t insight_x_start  = insight_column_start_x + 8;
-    uint16_t insight_col_right = usable_width - 2;
-    drawValue("Temperature", values.temp_indoor, 1, house_thermometer_20x20, "C",
+    uint16_t insight_col_right = usable_width - column_right_margin;
+    drawValue(INTL_DISP_TEMPERATURE, values.temp_indoor, 1, house_thermometer_20x20, "C",
               20, insight_x_start, insight_y,                 insight_col_right, 2, false, SOURCE_INSIGHT, (temp_in_dir != 0),  temp_in_dir);
-    drawValue("Humidity",    values.hum_indoor,  0, wi_humidity_cropped_20x20,     "%",
+    drawValue(INTL_DISP_HUMIDITY,    values.hum_indoor,  0, wi_humidity_cropped_20x20,     "%",
               20, insight_x_start, insight_y + value_spacing, insight_col_right, 2, false, SOURCE_INSIGHT, (hum_in_dir != 0),   hum_in_dir);
-    drawValue("Pressure",    values.press_indoor,0, pressure_20x20,               "mmHg",
+    drawValue(INTL_DISP_PRESSURE, values.press_indoor,0, pressure_20x20,               "mmHg",
               20, insight_x_start, insight_y + 2 * value_spacing, insight_col_right, 2, false, SOURCE_INSIGHT, (press_in_dir != 0), press_in_dir);
-    drawValue("CO2",         values.co2,         0, co2_svgrepo_com_20x20,        "ppm",
+    drawValue(INTL_CO2,         values.co2,         0, co2_svgrepo_com_20x20,        "ppm",
               20, insight_x_start, insight_y + 3 * value_spacing, insight_col_right, 5, false, SOURCE_INSIGHT, (co2_dir != 0),      co2_dir);
 }
 
