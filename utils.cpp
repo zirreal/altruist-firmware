@@ -212,8 +212,11 @@ void debug_outln(const String& text, unsigned int level) {
 }
 
 void debug_outln_info(const String& text) {
-	String dated_text = "[" + String(millis()) + "] " + text; 
-	debug_level_check(DEBUG_MIN_INFO); Debug.println(text); Serial.println(dated_text);
+	String tagged = "[INFO] " + text;
+	String dated_text = "[" + String(millis()) + "] " + tagged; 
+	debug_level_check(DEBUG_MIN_INFO);
+	Debug.println(tagged);
+	Serial.println(dated_text);
 }
 
 void debug_outln_verbose(const String& text) {
@@ -221,25 +224,37 @@ void debug_outln_verbose(const String& text) {
 }
 
 void debug_outln_error(const __FlashStringHelper* text) {
-	debug_level_check(DEBUG_ERROR); Debug.println(text); Serial.println(text);
+	debug_level_check(DEBUG_ERROR);
+	String tagged = "[ERROR] ";
+	tagged += String(text);
+	Debug.println(tagged);
+	Serial.println(tagged);
 }
 
 void debug_outln_info(const __FlashStringHelper* text) {
-	String dated_text = "[" + String(millis()) + "] " + text; 
+	String tagged = "[INFO] ";
+	tagged += String(text);
+	String dated_text = "[" + String(millis()) + "] " + tagged; 
 	debug_level_check(DEBUG_MIN_INFO); Debug.println(text); Serial.println(dated_text);
 }
 
 void debug_outln_verbose(const __FlashStringHelper* text) {
-	debug_level_check(DEBUG_MED_INFO); Debug.println(text); Serial.println(text);
+	debug_level_check(DEBUG_MED_INFO);
+	String tagged = "[DEBUG] ";
+	tagged += String(text);
+	Debug.println(tagged);
+	Serial.println(tagged);
 }
 
 void debug_outln_info(const __FlashStringHelper* text, const String& option) {
-	String dated_text = "[" + String(millis()) + "] " + text; 
+	String tagged = "[INFO] ";
+	tagged += String(text);
+	String dated_text = "[" + String(millis()) + "] " + tagged; 
 	debug_level_check(DEBUG_MIN_INFO);
-	Debug.print(text);
-	Debug.println(option);
+	Debug.print(tagged);
+	Debug.println(": " + option);
 	Serial.print(dated_text);
-	Serial.println(option);
+	Serial.println(": " + option);
 }
 
 void debug_outln_info(const __FlashStringHelper* text, float value) {
@@ -248,18 +263,22 @@ void debug_outln_info(const __FlashStringHelper* text, float value) {
 
 void debug_outln_verbose(const __FlashStringHelper* text, const String& option) {
 	debug_level_check(DEBUG_MED_INFO);
-	Debug.print(text);
-	Debug.println(option);
-	Serial.print(text);
-	Serial.println(option);
+	String tagged = "[DEBUG] ";
+	tagged += String(text);
+	Debug.print(tagged);
+	Debug.println(": " + option);
+	Serial.print(tagged);
+	Serial.println(": " + option);
 }
 
 void debug_outln_info_bool(const __FlashStringHelper* text, const bool option) {
 	debug_level_check(DEBUG_MIN_INFO);
-	Debug.print(text);
-	Debug.println(String(option));
-	Serial.print(text);
-	Serial.println(String(option));
+	String tagged = "[INFO] ";
+	tagged += String(text);
+	Debug.print(tagged);
+	Debug.println(": " + String(option));
+	Serial.print(tagged);
+	Serial.println(": " + String(option));
 }
 
 #undef debug_level_check

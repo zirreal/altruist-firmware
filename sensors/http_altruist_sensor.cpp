@@ -39,14 +39,14 @@ bool HTTPAltruistSensor::_discoverSensors() {
     last_discovery_attempt_time = millis();
 
     sensor_addresses.clear();
-    debug_outln_info(F("HTTPAltruistSensor: discovering Urban devices via mDNS"));
+    debug_outln_verbose(F("HTTPAltruistSensor: discovering Urban devices via mDNS"));
     int nrOfServices = MDNS.queryService("altruist", "tcp");
    
     if (nrOfServices == 0) {
         debug_outln_info(F("No services were found."));
         return false;
     } 
-    debug_outln_info(F("Number of services found: "), nrOfServices);
+    debug_outln_verbose(F("Number of services found: "), String(nrOfServices));
 
     bool found_chosen = false;
 
@@ -57,12 +57,12 @@ bool HTTPAltruistSensor::_discoverSensors() {
             device_type = MDNS.txt(i, DEVICE_MODEL_MDNS_PROPERTY);
         }
 
-        debug_outln_info(F("---------------"));
-        debug_outln_info(F("Hostname: "), MDNS.hostname(i));
-        debug_outln_info(F("IP address: "), ip_str);
-        debug_outln_info(F("Port: "), MDNS.port(i));
-        debug_outln_info(F("Device type: "), device_type);
-        debug_outln_info(F("---------------"));
+        debug_outln_verbose(F("---------------"));
+        debug_outln_verbose(F("Hostname: "), MDNS.hostname(i));
+        debug_outln_verbose(F("IP address: "), ip_str);
+        debug_outln_verbose(F("Port: "), String(MDNS.port(i)));
+        debug_outln_verbose(F("Device type: "), device_type);
+        debug_outln_verbose(F("---------------"));
 
         if (device_type == DEVICE_MODEL_URBAN) {
             sensor_addresses.push_back(ip_str);
@@ -74,7 +74,7 @@ bool HTTPAltruistSensor::_discoverSensors() {
     }
     if (cfg::use_custom_urban) {
         chosen_address = String(cfg::custom_altruist_urban);
-        debug_outln_info(F("Use custom altruist urban address "), chosen_address);
+        debug_outln_verbose(F("Use custom altruist urban address "), chosen_address);
     } else {
         if (!found_chosen && !sensor_addresses.empty()) {
             config_set_string_by_key("chosen_altruist_urban", sensor_addresses[0].c_str());
@@ -83,7 +83,7 @@ bool HTTPAltruistSensor::_discoverSensors() {
         }
         chosen_address = String(cfg::chosen_altruist_urban);
     }
-    debug_outln_info(F("Http Altruis Sensor started with fetch interval (sec): "), String(timeout/1000));
+    debug_outln_verbose(F("Http Altruis Sensor started with fetch interval (sec): "), String(timeout/1000));
     last_fetch_time = millis() - timeout;
     return true;
 }
@@ -106,7 +106,7 @@ bool HTTPAltruistSensor::begin() {
 }
 
 void HTTPAltruistSensor::_fetch(JsonDocument &data) {
-    debug_outln_info(F("fetch HTTP Altruist"));
+    debug_outln_verbose(F("fetch HTTP Altruist"));
     HTTPClient http;
     JsonArray addresses = data["service_data"].createNestedArray("altruist_addresses");
     for (const auto& ip_address : sensor_addresses) {
@@ -129,7 +129,7 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
         // 1) If a chosen Urban IP is already stored in config (from a previous successful run), use it directly even if mDNS hasn't found it yet.
         if (strlen(cfg::chosen_altruist_urban) != 0) {
             chosen_address = String(cfg::chosen_altruist_urban);
-            debug_outln_info(F("HTTPAltruistSensor: using configured chosen_altruist_urban IP "),
+            debug_outln_verbose(F("HTTPAltruistSensor: using configured chosen_altruist_urban IP "),
                              chosen_address);
         } else {
             // 2) No configured IP at all: drive mDNS rediscovery up to a limited number of attempts, spaced in time.
@@ -139,7 +139,7 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
                                         (msSince(last_discovery_attempt_time) >= URBAN_REDISCOVER_INTERVAL_MS);
 
                 if (first_attempt || interval_elapsed) {
-                    debug_outln_info(F("HTTPAltruistSensor: proactive rediscovery from _fetch, attempt "),
+                    debug_outln_verbose(F("HTTPAltruistSensor: proactive rediscovery from _fetch, attempt "),
                                      String(discovery_attempts + 1));
                     if (_discoverSensors()) {
                         // After rediscovery, chosen_address may now be populated
@@ -160,13 +160,13 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
 }
 
 void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http, const String &ip_address) {
-    debug_outln_info(F("fetch HTTP Altruist "), ip_address);
+    debug_outln_verbose(F("fetch HTTP Altruist "), ip_address);
     String sensor_url = SENSOR_URL_PREFIX + ip_address + JSON_DATA_PATH;
     http.begin(sensor_url);
     int httpCode = http.GET();
 
     if (httpCode == HTTP_CODE_OK) {
-        debug_outln_info(F("Success request to Altruis Urban"));
+        debug_outln_verbose(F("Success request to Altruis Urban"));
 
         // Ensure we have a dedicated Urban block in the global sensors_data:
         // "altruist_urban": { IP_address, SDS_P1, SDS_P2, ... }
@@ -205,7 +205,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
         }
 
         JsonArray values = doc["sensordatavalues"];
-        debug_outln_info(F("HTTPAltruistSensor: sensordatavalues count "),
+        debug_outln_verbose(F("HTTPAltruistSensor: sensordatavalues count "),
                          String(values.size()));
 
         for (JsonObject v : values) {
@@ -289,11 +289,16 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             }
             http2.end();
         }
+        #ifdef DEV
         serializeJson(data, Serial);
+        #endif
 
         // Mark successful communication with Urban
         last_success_time    = millis();
         consecutive_failures = 0;
+        
+        // IMPORTANT: Close the HTTP connection to free resources
+        http.end();
     } else {
         debug_outln_info(F("Request to Altruist Urban failed, code: "), httpCode);
         consecutive_failures++;
@@ -330,6 +335,9 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
                 }
             }
         }
+        
+        // Close the HTTP connection even on failure
+        http.end();
     }
 }
 

@@ -63,6 +63,10 @@
  * Includes                                                      *
  *****************************************************************/
 
+// ESP32 system includes for reset reason
+#include <esp_system.h>
+#include <Preferences.h>
+
 #define ARDUINOJSON_ENABLE_ARDUINO_STREAM 0
 #define ARDUINOJSON_ENABLE_ARDUINO_PRINT 0
 #define ARDUINOJSON_DECODE_UNICODE 0
@@ -102,7 +106,7 @@ SDCard sdCardLogger;
 #endif
 
 #if defined(ALTRUIST_INSIDE)
-DisplayManager displayManager(sensors_data, deviceStatus);
+DisplayManager displayManager(sensors_data, deviceStatus, mutex);
 #endif
 ButtonManager button_manager;
 
@@ -112,10 +116,220 @@ button_pressed_t btn_press;
 LedControllerUrban leds_controller_urban;
 #endif
 #if defined(ALTRUIST_INSIDE)
-LedControllerInsight leds_controller_insight(sensors_data);
+LedControllerInsight leds_controller_insight(sensors_data, mutex);
 #endif
 
 SensorWebServer webserver(sensors_data, deviceStatus, mutex);
+
+/*****************************************************************
+ * Crash Instrumentation (simplified)                            *
+ *****************************************************************/
+#define CRASH_SECTION_IDLE              0
+#define CRASH_SECTION_FETCH_SENSORS     1
+#define CRASH_SECTION_ROBONOMICS_DATALOG 2
+#define CRASH_SECTION_ROBONOMICS_HTTP_MAP 3
+#define CRASH_SECTION_CUSTOM_HTTP       4
+#define CRASH_SECTION_DISPLAY_UPDATE    5
+#define CRASH_SECTION_LED_UPDATE        6
+#define CRASH_SECTION_WIFI_RECONNECT    7
+#define CRASH_SECTION_SD_WRITE          8
+
+// Struct must be defined before functions that use it (for Arduino auto-prototyping)
+struct CrashContextData {
+	bool valid;
+	uint8_t section;
+	uint32_t uptime_sec;
+	uint32_t free_heap;
+};
+
+static uint8_t crash_last_section = 0;
+
+void markCrashSection(uint8_t section) {
+	crash_last_section = section;
+}
+
+const char* getCrashSectionName(uint8_t section) {
+	switch (section) {
+		case CRASH_SECTION_IDLE:              return "Idle/MainLoop";
+		case CRASH_SECTION_FETCH_SENSORS:     return "FetchSensors";
+		case CRASH_SECTION_ROBONOMICS_DATALOG: return "RobonomicsDatalog";
+		case CRASH_SECTION_ROBONOMICS_HTTP_MAP: return "RobonomicsHTTPMap";
+		case CRASH_SECTION_CUSTOM_HTTP:       return "CustomHTTP";
+		case CRASH_SECTION_DISPLAY_UPDATE:    return "DisplayUpdate";
+		case CRASH_SECTION_LED_UPDATE:        return "LEDUpdate";
+		case CRASH_SECTION_WIFI_RECONNECT:    return "WiFiReconnect";
+		case CRASH_SECTION_SD_WRITE:          return "SDWrite";
+		default:                              return "Unknown";
+	}
+}
+
+void saveCrashContext() {
+	Preferences prefs;
+	prefs.begin("crash", false);
+	prefs.putUChar("section", crash_last_section);
+	prefs.putULong("uptime", millis() / 1000);
+	prefs.putULong("heap", ESP.getFreeHeap());
+	prefs.putBool("valid", true);
+	prefs.end();
+}
+
+CrashContextData loadCrashContext() {
+	CrashContextData ctx;
+	ctx.valid = false;
+	ctx.section = 0;
+	ctx.uptime_sec = 0;
+	ctx.free_heap = 0;
+	
+	Preferences prefs;
+	prefs.begin("crash", true);
+	ctx.valid = prefs.getBool("valid", false);
+	if (ctx.valid) {
+		ctx.section = prefs.getUChar("section", 0);
+		ctx.uptime_sec = prefs.getULong("uptime", 0);
+		ctx.free_heap = prefs.getULong("heap", 0);
+	}
+	prefs.end();
+	
+	Preferences prefs2;
+	prefs2.begin("crash", false);
+	prefs2.putBool("valid", false);
+	prefs2.end();
+	
+	return ctx;
+}
+
+#if defined(USE_SD_CARD) && defined(ALTRUIST_INSIDE)
+// Write a boot diagnostic file to SD card with crash context from NVS
+void writeBootFile() {
+	if (!deviceStatus.sd_card_connected) return;
+	
+	// Make sure exceptions folder exists
+	if (!SD.exists(EXCEPTIONS_FOLDER)) {
+		SD.mkdir(EXCEPTIONS_FOLDER);
+	}
+	
+	// Build boot file path
+	String bootPath = String(EXCEPTIONS_FOLDER) + "/boot_" + String(system_metrics.boot_counter) + ".txt";
+	
+	// Get reset reason
+	esp_reset_reason_t reason = esp_reset_reason();
+	
+	// Load crash context from NVS (saved before crash)
+	CrashContextData ctx = loadCrashContext();
+	
+	// Build content
+	String content;
+	content.reserve(512);
+	
+	content += "reset_reason: ";
+	content += get_reset_reason_text();
+	content += "\n";
+	
+	content += "reset_reason_code: ";
+	content += String((int)reason);
+	content += "\n";
+	
+	content += "boot_counter: ";
+	content += String(system_metrics.boot_counter);
+	content += "\n";
+	
+	content += "crash_data_valid: ";
+	content += ctx.valid ? "yes" : "no (first boot or no saved context)";
+	content += "\n";
+	
+	if (ctx.valid) {
+		content += "prev_uptime_sec: ";
+		content += String(ctx.uptime_sec);
+		content += "\n";
+		
+		content += "prev_free_heap: ";
+		content += String(ctx.free_heap);
+		content += "\n";
+		
+		content += "last_section_id: ";
+		content += String(ctx.section);
+		content += "\n";
+		
+		content += "last_section_name: ";
+		content += getCrashSectionName(ctx.section);
+		content += "\n";
+	} else {
+		content += "prev_uptime_sec: 0\n";
+		content += "prev_free_heap: 0\n";
+		content += "last_section_id: 0\n";
+		content += "last_section_name: N/A (no saved context)\n";
+	}
+	
+	content += "current_free_heap: ";
+	content += String(ESP.getFreeHeap());
+	content += "\n";
+	
+	content += "rssi: ";
+	content += String(WiFi.RSSI());
+	content += "\n";
+	
+	// Write the file
+	if (sdCardLogger.writeTextFile(bootPath, content)) {
+		debug_outln_info(F("[Boot] Wrote crash diagnostic to: "), bootPath);
+	} else {
+		debug_outln_error(F("[Boot] Failed to write crash diagnostic"));
+	}
+}
+
+// Background worker that continuously drains Debug logs to SD card so we
+// can inspect them later even without a serial connection.
+static void exceptionsLogWorker(void *pvParameters) {
+	(void)pvParameters;
+	const String logPath  = String(EXCEPTIONS_FOLDER) + "/runtime.log";
+	const String logPath1 = String(EXCEPTIONS_FOLDER) + "/runtime.log.1";
+	const String logPath2 = String(EXCEPTIONS_FOLDER) + "/runtime.log.2";
+	const size_t MAX_LOG_BYTES = 128UL * 1024UL; // 128KB
+	String buffer;
+	buffer.reserve(512);
+
+	for (;;) {
+		vTaskDelay(500 / portTICK_PERIOD_MS);
+
+		if (!deviceStatus.sd_card_connected || !sdCardLogger.checkInserted()) {
+			continue;
+		}
+
+		// Drain the in-memory debug queue into a small buffer, then append to SD.
+		for (int i = 0; i < 20; i++) { // cap work per cycle
+			String line = Debug.popLines();
+			if (line.length() == 0) break;
+			buffer += "[" + String(millis()) + "] " + line;
+			if (buffer.length() > 800) break;
+		}
+
+		if (buffer.length() > 0) {
+			// Rotate if the file would exceed the cap
+			size_t currentSize = 0;
+			if (SD.exists(logPath)) {
+				File f = SD.open(logPath, FILE_READ);
+				if (f) { currentSize = f.size(); f.close(); }
+			}
+			if (currentSize + buffer.length() > MAX_LOG_BYTES) {
+				// Keep up to 2 backups: runtime.log -> runtime.log.1 -> runtime.log.2
+				if (SD.exists(logPath2)) SD.remove(logPath2);
+				if (SD.exists(logPath1)) SD.rename(logPath1, logPath2);
+				if (SD.exists(logPath))  SD.rename(logPath,  logPath1);
+
+				// Start a new file with a simple header
+				String header;
+				header.reserve(128);
+				header += "\n--- rotated at ms=";
+				header += String(millis());
+				header += " ---\n";
+				sdCardLogger.writeTextFile(logPath, header);
+			}
+
+			sdCardLogger.appendTextFile(logPath, buffer);
+			buffer = "";
+		}
+	}
+}
+#endif
 
 /*****************************************************************
  * Variables for Robonomics                                      *
@@ -201,6 +415,7 @@ void fetchSensors() {
 					xSemaphoreGive(mutex);
 				}
 #if defined(USE_SD_CARD)
+				// SD logging outside mutex - SD writes are slow and would block display
 				deviceStatus.sd_card_connected = sdCardLogger.checkInserted();
 				if (deviceStatus.sd_card_connected && activeSensors[i]->jsonUpdated()) {
 					sdCardLogger.logData(activeSensors[i]->sensor_name, sensors_data);
@@ -213,25 +428,49 @@ void fetchSensors() {
 void sensorAndAPIWorker(void *pvParameters) {
 	int reconnected = 0;
 	for (;;) {  // infinite loop
+		// Mark that we're about to fetch sensor data
+		markCrashSection(CRASH_SECTION_FETCH_SENSORS);
 		fetchSensors();
+		markCrashSection(CRASH_SECTION_IDLE);
 
 		for (int i = 0; i < ActiveAPIsCount; i++) {
 			if (activeAPIs[i]->isTimeToSend()) {
+			#ifdef DEV
 			#if defined(ALTRUIST_INSIDE)
 			Serial.printf("[INSIGHT] WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
 			#elif defined(ALTRUIST_URBAN)
 			Serial.printf("[URBAN] WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
 			#endif
+			#endif
 			if (WiFi.status() != WL_CONNECTED) {
+				markCrashSection(CRASH_SECTION_WIFI_RECONNECT);
 				WiFi.reconnect();
 				reconnected++;
 				incrementWiFiReconnectError();
+				markCrashSection(CRASH_SECTION_IDLE);
 			}
 
-			sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
+			// Mark based on which API we're sending to
+			// API index 0 is typically Robonomics Datalog, 1 is HTTP Map, etc.
+			if (i == 0) {
+				markCrashSection(CRASH_SECTION_ROBONOMICS_DATALOG);
+			} else if (i == 1) {
+				markCrashSection(CRASH_SECTION_ROBONOMICS_HTTP_MAP);
+			} else {
+				markCrashSection(CRASH_SECTION_CUSTOM_HTTP);
+			}
+			
+			// Only hold mutex briefly for the quick signal strength update
+			// Don't hold during send() - it does slow HTTP operations
+			if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+				sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
+				xSemaphoreGive(mutex);
+			}
 			activeAPIs[i]->send(sensors_data);
 			incrementTXCounter(); // Track successful telemetry send
 			activeAPIs[i]->updateDeviceStatus(deviceStatus);
+			
+			markCrashSection(CRASH_SECTION_IDLE);
 
 			if (msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
 				// OTA disabled - metrics code in development
@@ -239,15 +478,16 @@ void sensorAndAPIWorker(void *pvParameters) {
 				deviceStatus.last_update_attempt = millis();
 			}
 
-			debug_outln_info(get_reset_reason_text());
-
+			#ifdef DEV
 			#if defined(ALTRUIST_INSIDE)
 			Serial.println(F("[INSIGHT] Device Status:"));
 			#elif defined(ALTRUIST_URBAN)
 			Serial.println(F("[URBAN] Device Status:"));
 			#endif
+			#endif
 			bool senders_ok = true;
 			for (const auto& [api_name, status] : deviceStatus.apis_status) {
+				#ifdef DEV
 				Serial.print(F("API Name: "));
 				Serial.println(api_name.c_str());
 				Serial.print(F("  Count Sends: "));
@@ -256,6 +496,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 				Serial.println(ctime(&status.last_send_time));
 				Serial.print(F("  Is OK: "));
 				Serial.println(status.is_ok ? F("Yes") : F("No"));
+				#endif
 				senders_ok = senders_ok && status.is_ok;
 			}
 #ifdef ALTRUIST_URBAN
@@ -284,12 +525,14 @@ void sensorAndAPIWorker(void *pvParameters) {
 void ledsWorker(void *pvParameters) {
 	for (;;) {
 		vTaskDelay(10 / portTICK_PERIOD_MS);
+		markCrashSection(CRASH_SECTION_LED_UPDATE);
 #ifdef ALTRUIST_URBAN
 		leds_controller_urban.process();
 #endif
 #ifdef ALTRUIST_INSIDE
 		leds_controller_insight.process();
 #endif
+		markCrashSection(CRASH_SECTION_IDLE);
 	}
 }
 
@@ -324,19 +567,47 @@ void buttonsWorker(void *pvParameters) {
 	}
 }
 
+#ifdef DEV
 void metricsWorker(void *pvParameters) {
 	// Wait a bit for system to stabilize
 	vTaskDelay(2000 / portTICK_PERIOD_MS);
 	
-	// Log first metrics immediately
+	// Log first metrics immediately and save initial crash context
 	logMetrics();
+	saveCrashContext();
+	
+	// Track when we last saved crash context
+	static unsigned long last_crash_save_ms = 0;
+	const unsigned long CRASH_SAVE_INTERVAL_MS = 30UL * 1000UL; // save every 30s
 	
 	// Then log every 3 seconds
 	for (;;) {
 		vTaskDelay(3000 / portTICK_PERIOD_MS);  // Wait 3 seconds
+		
+		// Periodic memory telemetry: log remaining heap so we can see trends
+		// and potential leaks over hours/days in the SD runtime log.
+#if defined(ESP32)
+		static unsigned long last_mem_log_ms = 0;
+		const unsigned long MEM_LOG_INTERVAL_MS = 60UL * 1000UL; // log every 60s
+		uint32_t free_heap = ESP.getFreeHeap();
+		if (msSince(last_mem_log_ms) > MEM_LOG_INTERVAL_MS) {
+			last_mem_log_ms = millis();
+			debug_outln_info(F("[MEM] Free heap bytes"), String(free_heap));
+			if (free_heap < 50000) {
+				debug_outln_info(F("[MEM][WARN] Low free heap bytes"), String(free_heap));
+			}
+		}
+#endif
+
 		logMetrics();
+		
+		if (msSince(last_crash_save_ms) > CRASH_SAVE_INTERVAL_MS) {
+			last_crash_save_ms = millis();
+			saveCrashContext();
+		}
 	}
 }
+#endif
 
 
 void setup(void) {
@@ -391,14 +662,17 @@ void setup(void) {
 	WiFi.persistent(false);
 	
 	// Initialize metrics (load boot counter, etc.) - works for both Urban and Insight
+	#ifdef DEV
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] Initializing metrics system...\r\n"));
 	#elif defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] Initializing metrics system...\r\n"));
 	#endif
+	#endif
 	Serial.flush();
 	delay(10);
 	initMetrics();
+	#ifdef DEV
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] Metrics initialized. Boot counter: "));
 	#elif defined(ALTRUIST_URBAN)
@@ -406,22 +680,27 @@ void setup(void) {
 	#endif
 	Serial.print(system_metrics.boot_counter);
 	Serial.println();
+	#endif
 	Serial.flush();
 	delay(10);
 	
 	// Initialize ESP32-C6 temperature sensor
+	#ifdef DEV
 	#if defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] Initializing ESP temperature sensor...\r\n"));
 	#elif defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] Initializing ESP temperature sensor...\r\n"));
 	#endif
 	Serial.flush();
+	#endif
 	delay(10);
 	initESPTemperatureSensor();
+	#ifdef DEV
 	#if defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] ESP temperature sensor initialized\r\n"));
 	#elif defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] ESP temperature sensor initialized\r\n"));
+	#endif
 	#endif
 	Serial.flush();
 	delay(10);
@@ -486,6 +765,7 @@ void setup(void) {
 
 	debug_outln_info(F("Active Sensors count: "), activeSensorsCount);
 
+	#ifdef DEV
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT] Sensors: "));
 	#elif defined(ALTRUIST_URBAN)
@@ -496,10 +776,28 @@ void setup(void) {
         Serial.print(F(" "));
     }
     Serial.println();
+	#endif
 
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
 #if defined(USE_SD_CARD)
 	deviceStatus.sd_card_connected = sdCardLogger.begin();
+#endif
+
+#if defined(USE_SD_CARD) && defined(ALTRUIST_INSIDE)
+	// Write boot diagnostic file immediately after SD init - captures RTC crash context
+	writeBootFile();
+	
+	// Background logger: keep a rolling runtime log on SD so we have context
+	// leading up to random panics/resets (panic backtrace itself is not SD-safe).
+	xTaskCreatePinnedToCore(
+		exceptionsLogWorker,
+		"ExceptionsLogWorker",
+		4096,
+		NULL,
+		1,
+		NULL,
+		0
+	);
 #endif
 	fetchSensors();
 	deviceStatus.ip_address = WiFi.localIP().toString();
@@ -528,7 +826,8 @@ void setup(void) {
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
 	
-	// Create metrics worker task for both Urban and Insight
+	// Create metrics worker task only for DEV builds
+	#ifdef DEV
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] Creating metrics worker task...\r\n"));
 	#elif defined(ALTRUIST_URBAN)
@@ -564,11 +863,13 @@ void setup(void) {
 		Serial.flush();
 	}
 	delay(10);
+	#endif
 	
 #ifdef ALTRUIST_INSIDE
 	displayManager.setScreen(ScreenPage::MAIN);
 #endif
 	debug_outln_info(F("Setup finished"));
+	#ifdef DEV
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] All tasks created, testing logMetrics()...\r\n"));
 	#elif defined(ALTRUIST_URBAN)
@@ -583,6 +884,7 @@ void setup(void) {
 	Serial.print(F("[URBAN][Setup] Metrics test complete\r\n"));
 	#endif
 	Serial.flush();
+	#endif
 	
 	// button_controller.init();
 }
@@ -590,7 +892,9 @@ void setup(void) {
 void loop(void) {
 	webserver.handleClient();
 #if defined(ALTRUIST_INSIDE)
+	markCrashSection(CRASH_SECTION_DISPLAY_UPDATE);
 	displayManager.process(btn_press);
+	markCrashSection(CRASH_SECTION_IDLE);
 #endif
 	yield();
 }

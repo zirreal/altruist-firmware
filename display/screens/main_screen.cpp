@@ -450,7 +450,7 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
 }
 
 // Draw the full main screen with Urban 2-subcolumn layout
-void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &device_ip) {
+void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &device_ip, const String &insight_robonomics_address, const String &urban_robonomics_address) {
     main_screen_values_t values;
     _parseJsonToStruct(jsonString, values);
 
@@ -600,20 +600,20 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
     const unsigned char* insight_wifi_icon = insight_online ? wifi_20x20 : wifi_x_20x20;
     Paint_DrawImage(insight_wifi_icon, insight_wifi_x, insight_wifi_y, insight_wifi_icon_size, insight_wifi_icon_size);
 
-    // QR code with device IP on the far right
-    if (insight_online) {
+    // QR code with sensors.social map link for Insight (on the far right)
+    if (insight_online && insight_robonomics_address.length() > 0) {
         QRCode mainScreenQR;
-        // Build URL or plain IP for QR
-        char qr_data[64];
-        snprintf(qr_data, sizeof(qr_data), "%s", device_ip.c_str());
+        // Compact URL with sensor parameter (fits in smaller QR)
+        char qr_data[128];
+        snprintf(qr_data, sizeof(qr_data), "sensors.social/?sensor=%s", insight_robonomics_address.c_str());
 
-        // Small QR version
-        uint8_t qr_version = 3;
+        // Version 5 for ~39px QR
+        uint8_t qr_version = 5;
         uint8_t qrcodeData[qrcode_getBufferSize(qr_version)];
         qrcode_initText(&mainScreenQR, qrcodeData, qr_version, ECC_LOW, qr_data);
 
         int scale_factor = 1;
-        int quiet_zone   = 2;
+        int quiet_zone   = 1;
         int total_width  = mainScreenQR.size * scale_factor + 2 * quiet_zone;
         int total_height = mainScreenQR.size * scale_factor + 2 * quiet_zone;
         int qr_bitmap_width_bytes = (total_width + 7) / 8;
@@ -641,9 +641,9 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
                 }
             }
 
-            // Place QR on the far right of the Insight header band, slightly higher from the bottom border
-            int qr_x = usable_width - total_width - 4; // small right margin
-            int qr_y = subheader_top_y + (header_icon_size - total_height) / 2 - 4;
+            // Place QR on the far right of the Insight header band
+            int qr_x = usable_width - total_width - 4;
+            int qr_y = subheader_top_y + (header_icon_size - total_height) / 2 - 1;
             if (qr_y < 0) qr_y = 0;
             Paint_DrawImage(qr_bitmap_scaled, qr_x, qr_y, total_width, total_height);
 
@@ -651,18 +651,20 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
         }
     }
 
-    // QR code for URBAN IP
-    if (values.ip_address.length() > 0) {
+    // QR code with sensors.social map link for Urban
+    if (urban_robonomics_address.length() > 0) {
         QRCode urbanQR;
-        char qr_data_urban[64];
-        snprintf(qr_data_urban, sizeof(qr_data_urban), "%s", values.ip_address.c_str());
+        // Compact URL with sensor parameter (fits in smaller QR)
+        char qr_data_urban[128];
+        snprintf(qr_data_urban, sizeof(qr_data_urban), "sensors.social/?sensor=%s", urban_robonomics_address.c_str());
 
-        uint8_t qr_version_u = 3;
+        // Version 5 for ~39px QR
+        uint8_t qr_version_u = 5;
         uint8_t qrcodeData_u[qrcode_getBufferSize(qr_version_u)];
         qrcode_initText(&urbanQR, qrcodeData_u, qr_version_u, ECC_LOW, qr_data_urban);
 
         int scale_factor_u = 1;
-        int quiet_zone_u   = 2;
+        int quiet_zone_u   = 1;
         int total_width_u  = urbanQR.size * scale_factor_u + 2 * quiet_zone_u;
         int total_height_u = urbanQR.size * scale_factor_u + 2 * quiet_zone_u;
         int qr_bitmap_width_bytes_u = (total_width_u + 7) / 8;
@@ -692,7 +694,7 @@ void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &d
 
             // Place Urban QR on the far right of the Urban column
             int qr_x_u = urban_width - total_width_u - 4;
-            int qr_y_u = subheader_top_y + (header_icon_size - total_height_u) / 2 - 4;
+            int qr_y_u = subheader_top_y + (header_icon_size - total_height_u) / 2 - 1;
             if (qr_y_u < 0) qr_y_u = 0;
             Paint_DrawImage(qr_bitmap_scaled_u, qr_x_u, qr_y_u, total_width_u, total_height_u);
 

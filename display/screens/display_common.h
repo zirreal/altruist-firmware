@@ -45,6 +45,9 @@ void epdIncrementScreenCounter(ScreenPage screen);
 // Set display state (for wake from sleep)
 void epdSetInitialized(bool initialized, DisplayMode mode);
 
+// Attempt to recover from a stuck display (hardware reset + reinit)
+void epdRecoverFromStuck();
+
 #ifdef DISPLAY_4IN2
 #define EPD_DisplayFull(img)   EPD_4IN2_V2_Display(img)
 #define EPD_DisplayPartial(img,xs,ys,xe,ye)  EPD_4IN2_V2_PartialDisplay(img,xs,ys,xe,ye)

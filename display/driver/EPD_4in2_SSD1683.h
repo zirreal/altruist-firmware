@@ -58,6 +58,11 @@ void EPD_4IN2_V2_PartialDisplay(UBYTE *Image, UWORD Xstart, UWORD Ystart, UWORD 
 void EPD_4IN2_V2_PartialDisplay(UBYTE *Image);
 void EPD_4IN2_V2_Sleep(void);
 
+// Wait for display ready with timeout. Returns true if ready, false if timed out.
+bool EPD_4IN2_V2_ReadBusy(void);
+// Force a hardware reset of the display (can help recover from stuck state)
+void EPD_4IN2_V2_Reset(void);
+
 #endif
 
 #endif

@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <ArduinoJson.h>
+#include <freertos/semphr.h>
 #include "paint_driver/GUI_Paint.h"
 #include "driver/EPD.h"
 #include "driver/DEV_Config.h"
@@ -12,7 +13,6 @@
 #include "../buttons/button_manager.h"
 
 #define DISPLAY_REFRESH_INTERVAL 60000L  // 1 minute (was 5 minutes)
-#define QR_MAP_AUTO_INTERVAL 7200000L   // 2 hours in milliseconds
 
 enum class ScreenPage {
     MAIN,
@@ -27,7 +27,8 @@ enum class ScreenPage {
 
 class DisplayManager {
 public:
-    DisplayManager(JsonDocument &_data, device_status_t &_deviceStatus) : sensors_data(_data), deviceStatus(_deviceStatus) {}
+    DisplayManager(JsonDocument &_data, device_status_t &_deviceStatus, SemaphoreHandle_t _mutex) 
+        : sensors_data(_data), deviceStatus(_deviceStatus), mutex(_mutex) {}
 
     void setup();
     void process(button_pressed_t &btn_press);
@@ -36,14 +37,23 @@ public:
 private:
     device_status_t &deviceStatus;
     JsonDocument &sensors_data;
+    SemaphoreHandle_t mutex;
     bool refresh_now = false;
     String robonomics_address;
     String cached_urban_address; // cached Urban Robonomics address once discovered
-    unsigned long last_qr_map_show_time = 0; // Track when QR map was last auto-shown
     UBYTE *BlackImage;
 
     ScreenPage currentScreenID = ScreenPage::MAIN;
     unsigned long last_refresh_time = -DISPLAY_REFRESH_INTERVAL;
+
+    // Watchdog-style safety: periodically force a full EPD re-init and
+    // full refresh, in case the panel/driver gets into a bad state while
+    // the rest of the device keeps running.
+    unsigned long last_epd_reinit_time_ms = 0;
+    // Watchdog interval: how often we proactively re-init the EPD driver.
+    // With 25 minutes, we very rarely add extra FULL refreshes, but still
+    // occasionally "kick" a stuck panel back to life.
+    static constexpr unsigned long EPD_REINIT_INTERVAL_MS = 25UL * 60UL * 1000UL; // 25 minutes
 
     // Screen navigation helpers
     ScreenPage getNextScreen(ScreenPage current);

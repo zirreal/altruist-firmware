@@ -48,14 +48,14 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
 	if (msSince(last_measure_time) < (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
 		if (is_SDS_running) {
 			is_SDS_running = cmd(PmSensorCmd::Stop);
-            debug_outln_info(F("SDS011 stopped"));
+            debug_outln_verbose(F("SDS011 stopped"));
 		}
         return;
 	} else {
 		if (! is_SDS_running) {
 			is_SDS_running = cmd(PmSensorCmd::Start);
 			SDS_waiting_for = SDS_REPLY_HDR;
-            debug_outln_info(F("SDS011 started"));
+            debug_outln_verbose(F("SDS011 started"));
 		}
 
 		while (serialSDS.available() >= SDS_waiting_for) {
@@ -104,12 +104,14 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
             last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
             addValueToJSON(data, F("P1"), last_value_SDS_P1, "PM10", F("ppm"));
             addValueToJSON(data, F("P2"), last_value_SDS_P2, "PM2.5", F("ppm"));
-            debug_outln_info(F("PM10: "), last_value_SDS_P1);
-            debug_outln_info(F("PM2.5: "), last_value_SDS_P2);
+            debug_outln_verbose(F("PM10: "), String(last_value_SDS_P1));
+            debug_outln_verbose(F("PM2.5: "), String(last_value_SDS_P2));
+            #ifdef DEV
             serializeJson(data, Serial);
-			debug_outln_info(F("\r\nJSON memory usage: "), data.memoryUsage());
             Serial.println();
             Serial.println();
+            #endif
+            debug_outln_verbose(F("\r\nJSON memory usage: "), String(data.memoryUsage()));
             if (sds_val_count < 3) {
                 SDS_error_count++;
             }

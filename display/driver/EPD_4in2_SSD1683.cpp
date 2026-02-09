@@ -101,7 +101,7 @@ const unsigned char LUT_ALL[233]= {
 function :	Software reset
 parameter:
 ******************************************************************************/
-static void EPD_4IN2_V2_Reset(void)
+void EPD_4IN2_V2_Reset(void)
 {
     DEV_Digital_Write(EPD_RST_PIN, 1);
     DEV_Delay_ms(100);
@@ -138,19 +138,45 @@ static void EPD_4IN2_V2_SendData(UBYTE Data)
 }
 
 /******************************************************************************
-function :	Wait until the busy_pin goes LOW
+function :	Wait until the busy_pin goes LOW (with timeout to prevent freeze)
 parameter:
+returns  :  true if display is ready, false if timed out
 ******************************************************************************/
-void EPD_4IN2_V2_ReadBusy(void)
+bool EPD_4IN2_V2_ReadBusy(void)
 {
-    // Block until panel is ready, like the original Waveshare driver.
     Serial.println(F("[EPD] busy..."));
     Serial.flush();
+    
+    const unsigned long timeout_ms = 30000; // 30 second timeout (display ops can be slow)
+    unsigned long start = millis();
+    unsigned long last_log = start;
+    
     while (DEV_Digital_Read(EPD_BUSY_PIN) == 1) { // LOW: idle, HIGH: busy
+        unsigned long now = millis();
+        
+        // Check for timeout
+        if (now - start > timeout_ms) {
+            Serial.println(F("[EPD] ERROR: busy timeout after 30s! Display may be stuck."));
+            Serial.flush();
+            return false; // Timed out - display stuck
+        }
+        
+        // Log progress every 5 seconds so we know it's still waiting
+        if (now - last_log > 5000) {
+            Serial.print(F("[EPD] still busy... "));
+            Serial.print((now - start) / 1000);
+            Serial.println(F("s"));
+            Serial.flush();
+            last_log = now;
+        }
+        
+        yield(); // Let FreeRTOS run other tasks (WiFi, buttons, LEDs)
         DEV_Delay_ms(10);
     }
+    
     Serial.println(F("[EPD] busy release"));
     Serial.flush();
+    return true; // Success
 }
 
 /******************************************************************************

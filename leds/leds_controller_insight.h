@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 #include <ArduinoJson.h>
+#include <freertos/semphr.h>
 #include "../defines.h"
 
 #define LED_COUNT 28
@@ -54,13 +55,15 @@ namespace SensorConfigs {
 
 class LedControllerInsight {
     public:
-        LedControllerInsight(const JsonDocument &_data) : sensors_data(_data), pixels(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800) {}
+        LedControllerInsight(const JsonDocument &_data, SemaphoreHandle_t _mutex) 
+            : sensors_data(_data), mutex(_mutex), pixels(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800) {}
         void init();
         void process();
         void setSleepMode(bool enabled);
 
     private:
         const JsonDocument &sensors_data;
+        SemaphoreHandle_t mutex;
         Adafruit_NeoPixel pixels;
         uint32_t last_refresh_time = 0;
         uint8_t current_time_brightness = 255;

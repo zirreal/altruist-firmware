@@ -29,8 +29,60 @@ bool SDCard::_beginSD(SPIClass &spi) {
 
     cardSizeMB = (float)SD.cardSize() / (1024 * 1024);
     usedMemMB = (float)SD.usedBytes() / (1024 * 1024);
-    debug_outln_info(F("SD Card Size (MB): "), cardSizeMB);
-    debug_outln_info(F("Used space (MB): "), usedMemMB);
+    debug_outln_verbose(F("SD Card Size (MB): "), String(cardSizeMB));
+    debug_outln_verbose(F("Used space (MB): "), String(usedMemMB));
+    return true;
+}
+
+bool SDCard::writeTextFile(const String& fullPath, const String& content) {
+    int slash = fullPath.lastIndexOf('/');
+    if (slash > 0) {
+        String folder = fullPath.substring(0, slash);
+        if (!SD.exists(folder)) {
+            if (!SD.mkdir(folder)) {
+                debug_outln_info(F("[SDCardLogger] Failed to create folder for text file: "), folder);
+                return false;
+            }
+        }
+    }
+
+    File file = SD.open(fullPath, FILE_WRITE);
+    if (!file) {
+        debug_outln_info(F("[SDCardLogger] Failed to open text file for write: "), fullPath);
+        return false;
+    }
+    size_t written = file.print(content);
+    file.close();
+    if (written != content.length()) {
+        debug_outln_info(F("[SDCardLogger] Short write when writing text file: "), fullPath);
+        return false;
+    }
+    return true;
+}
+
+bool SDCard::appendTextFile(const String& fullPath, const String& content) {
+    int slash = fullPath.lastIndexOf('/');
+    if (slash > 0) {
+        String folder = fullPath.substring(0, slash);
+        if (!SD.exists(folder)) {
+            if (!SD.mkdir(folder)) {
+                debug_outln_info(F("[SDCardLogger] Failed to create folder for append: "), folder);
+                return false;
+            }
+        }
+    }
+
+    File file = SD.open(fullPath, FILE_APPEND);
+    if (!file) {
+        debug_outln_info(F("[SDCardLogger] Failed to open text file for append: "), fullPath);
+        return false;
+    }
+    size_t written = file.print(content);
+    file.close();
+    if (written != content.length()) {
+        debug_outln_info(F("[SDCardLogger] Short write when appending text file: "), fullPath);
+        return false;
+    }
     return true;
 }
 
@@ -40,7 +92,7 @@ void SDCard::refreshCache() {
 
     if (!SD.exists(ROOT_FOLDER)) {
         if (SD.mkdir(ROOT_FOLDER)) {
-            debug_outln_info(F("[SDCardLogger] Root folder created"));
+            debug_outln_verbose(F("[SDCardLogger] Root folder created"));
         } else {
             debug_outln_info("[SDCardLogger] mkdir failed");
         }
@@ -121,7 +173,7 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
     if (!SD.exists(folder)) {
         if (SD.mkdir(folder)) {
             _sensorList.push_back(sensorName);
-            debug_outln_info(F("[SDCardLogger] folder created: "), folder);
+            debug_outln_verbose(F("[SDCardLogger] folder created: "), folder);
         } else {
             debug_outln_info(F("[SDCardLogger] folder not created: "), folder);
             return;
@@ -138,22 +190,22 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
         return;
     }
 
-    debug_outln_info(F("[SDCardLogger] Start writing data to file "), fullPath);
+    debug_outln_verbose(F("[SDCardLogger] Start writing data to file "), fullPath);
 
     _sensorLastFiles[sensorName] = filename;
 
     // Если файл новый — пишем заголовок
     if (!fileExists || file.size() == 0) {
         if (file.println(header)) {
-            debug_outln_info(F("[SDCardLogger] Header writed: "), header);
+            debug_outln_verbose(F("[SDCardLogger] Header writed: "), header);
         } else {
             debug_outln_info(F("Can't write header "));
         }
     }
 
     if (file.println(values)) {
-        debug_outln_info(F("[SDCardLogger] Logged to: "), fullPath);
-        debug_outln_info(F("[SDCardLogger] Data: "), values);
+        debug_outln_verbose(F("[SDCardLogger] Logged to: "), fullPath);
+        debug_outln_verbose(F("[SDCardLogger] Data: "), values);
     } else {
         debug_outln_info(F("[SDCardLogger] Can't write data: "));
         incrementSDWriteError();
@@ -273,7 +325,7 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
     }
     
     if (need_yesterday) {
-        debug_outln_info(F("[SDCard] Reading from yesterday's file to get more data"));
+        debug_outln_verbose(F("[SDCard] Reading from yesterday's file to get more data"));
         readFromDateFile(yesterday_tm.tm_year + 1900, yesterday_tm.tm_mon + 1, yesterday_tm.tm_mday);
     }
 
@@ -302,12 +354,18 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
         result.values[i] = combined[i].second;
     }
     
-    debug_outln_info(String(F("[SDCard] Read total of ")) + String(result.count) + F(" data points from CSV"));
+    debug_outln_verbose(String(F("[SDCard] Read total of ")) + String(result.count) + F(" data points from CSV"));
 }
 
 bool SDCard::checkInserted() {
+    static sdcard_type_t last_type = CARD_NONE;
+
     sdcard_type_t card_type = SD.cardType();
-    debug_outln_info(F("[SDCardLogger] Check sd card, type: "), _getCardTypeName(card_type));
+    // Only log when the type changes, or when we hit an error below.
+    if (card_type != last_type) {
+        last_type = card_type;
+        debug_outln_verbose(F("[SDCardLogger] Card type: "), _getCardTypeName(card_type));
+    }
     
     if (card_type == CARD_NONE) {
         debug_outln_info("[SDCardLogger] No SD card present, retry begin...");

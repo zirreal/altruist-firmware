@@ -138,14 +138,16 @@ void BMX280Sensor::_fetch(JsonDocument &data) {
         addValueToJSON(data, F("pressure"), pressure, INTL_PRESSURE, F("hPa"));
 
 	}
-    debug_outln_info(F("BME temperature: "), String(temperature));
-    debug_outln_info(F("BME humidity: "), String(humidity));
-    debug_outln_info(F("BME pressure: "), String(pressure));
+    debug_outln_verbose(F("BME temperature: "), String(temperature));
+    debug_outln_verbose(F("BME humidity: "), String(humidity));
+    debug_outln_verbose(F("BME pressure: "), String(pressure));
+    #ifdef DEV
     serializeJson(data, Serial);
-    debug_outln_info(F("\r\nJSON memory usage: "), data.memoryUsage());
-	Serial.println();
-	Serial.println();
-	debug_outln_info(FPSTR(DBG_TXT_SEP));
+    Serial.println();
+    Serial.println();
+    #endif
+    debug_outln_verbose(F("\r\nJSON memory usage: "), String(data.memoryUsage()));
+	debug_outln_verbose(FPSTR(DBG_TXT_SEP));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(sensor_name));
 	deinit_i2c();
 

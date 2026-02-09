@@ -247,6 +247,24 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         return;
     }
 
+    // Periodic EPD re-initialization watchdog:
+    // This helps recover from stuck display states after many partial updates.
+    if (currentScreenID == ScreenPage::MAIN) {
+        unsigned long now_ms = millis();
+        if (last_epd_reinit_time_ms == 0) {
+            // Initialize baseline on first run after boot
+            last_epd_reinit_time_ms = now_ms;
+        } else if (msSince(last_epd_reinit_time_ms) >= EPD_REINIT_INTERVAL_MS) {
+            debug_outln_verbose(F("[EPD] Periodic watchdog: recovering display and scheduling FULL refresh"));
+            last_epd_reinit_time_ms = now_ms;
+            // Use recovery function to reset and re-init the controller
+            epdRecoverFromStuck();
+            // Force a full refresh on the next draw of MAIN
+            force_full_refresh = true;
+            refresh_now = true;
+        }
+    }
+
     // Handle wake-up loading screen: show loading for 15-20s, then check WiFi and show MAIN or SETUP
     if (wake_loading_active) {
         if ((int32_t)(millis() - wake_loading_deadline_ms) >= 0) {
@@ -255,10 +273,10 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             bool wifi_connected = (WiFi.status() == WL_CONNECTED);
             if (wifi_connected) {
                 currentScreenID = ScreenPage::MAIN;
-                debug_outln_info(F("[EPD] Wake complete - WiFi connected, showing MAIN screen"));
+                debug_outln_verbose(F("[EPD] Wake complete - WiFi connected, showing MAIN screen"));
             } else {
                 currentScreenID = ScreenPage::SETUP;
-                debug_outln_info(F("[EPD] Wake complete - WiFi not connected, showing SETUP screen"));
+                debug_outln_verbose(F("[EPD] Wake complete - WiFi not connected, showing SETUP screen"));
             }
             refresh_now = true; // Force refresh to show the new screen
             force_full_refresh = true; // Force full refresh for the transition
@@ -267,23 +285,27 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     }
 
     // Update cached Urban address every cycle; if it changes and we're on SENSOR_MAP, trigger redraw
-    if (sensors_data.containsKey("service_data")) {
-        auto service = sensors_data["service_data"].as<JsonObject>();
-        if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
-            String urban_addr = service["urban_robonomics_address"].as<String>();
-            if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
-                bool was_empty = cached_urban_address.length() == 0;
-                cached_urban_address = urban_addr;
-                if (currentScreenID == ScreenPage::SENSOR_MAP || was_empty) {
-                    refresh_now = true; // force first render after boot/flash
-                }
-                // Persist to SPIFFS so we have it after power cycles
-                if (SPIFFS.begin(true)) {
-                    File f = SPIFFS.open("/urban_ss58.cache", "w");
-                    if (f) { f.print(cached_urban_address); f.close(); }
+    // Acquire mutex to safely read sensors_data (it may be modified by sensor task)
+    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100))) {
+        if (sensors_data.containsKey("service_data")) {
+            auto service = sensors_data["service_data"].as<JsonObject>();
+            if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
+                String urban_addr = service["urban_robonomics_address"].as<String>();
+                if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
+                    bool was_empty = cached_urban_address.length() == 0;
+                    cached_urban_address = urban_addr;
+                    if (currentScreenID == ScreenPage::SENSOR_MAP || was_empty) {
+                        refresh_now = true; // force first render after boot/flash
+                    }
+                    // Persist to SPIFFS so we have it after power cycles
+                    if (SPIFFS.begin(true)) {
+                        File f = SPIFFS.open("/urban_ss58.cache", "w");
+                        if (f) { f.print(cached_urban_address); f.close(); }
+                    }
                 }
             }
         }
+        xSemaphoreGive(mutex);
     }
 
     if (currentScreenID == ScreenPage::SENSOR_MAP && sensor_map_waiting_addr && (int32_t)(millis() - next_sensor_map_check_ms) >= 0) {
@@ -318,44 +340,21 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                           currentScreenID == ScreenPage::CONNECTING;
     
     if (should_refresh) {
+        debug_outln_verbose(F("[Display] Starting refresh cycle for screen "), String((int)currentScreenID));
         refresh_now = false;
         Paint_SelectImage(BlackImage);
         Paint_Clear(WHITE);
         
-        // Show sensors map QR screen automatically every 2 hours when on main screen
-        if (currentScreenID == ScreenPage::MAIN) {
-            unsigned long now = millis();
-            // Initialize on first check (don't show immediately on boot)
-            if (last_qr_map_show_time == 0) {
-                last_qr_map_show_time = now;
-            }
-            // Check if 2 hours have passed since last QR map display
-            if (msSince(last_qr_map_show_time) >= QR_MAP_AUTO_INTERVAL) {
-                last_qr_map_show_time = now;
-                // Update cached Urban address if present in sensors_data
-                if (sensors_data.containsKey("service_data")) {
-                    auto service = sensors_data["service_data"].as<JsonObject>();
-                    if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
-                        String urban_addr = service["urban_robonomics_address"].as<String>();
-                        if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
-                            cached_urban_address = urban_addr;
-                        }
-                    }
-                }
-                String addr = cached_urban_address; // may be empty => default link
-                showSensorsMapPage(addr);
-                drawScreenIndicator(ScreenPage::SENSOR_MAP);
-                last_refresh_time = millis();
-                showImageFast(BlackImage, ScreenPage::SENSOR_MAP);
-                return;
-            }
-        }
-        
         if (currentScreenID == ScreenPage::MAIN) {
             String jsonString;
-		    serializeJson(sensors_data, jsonString);
-            debug_outln_info(F("Refresh main screen"));
-            drawMainScreen(BlackImage, jsonString, deviceStatus.ip_address);
+            // Acquire mutex while serializing sensors_data to prevent race conditions
+            // Use longer timeout since display refresh is infrequent (every 60s)
+            if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
+                serializeJson(sensors_data, jsonString);
+                xSemaphoreGive(mutex);
+            }
+            debug_outln_verbose(F("[Display] Refresh MAIN screen"));
+            drawMainScreen(BlackImage, jsonString, deviceStatus.ip_address, robonomics_address, cached_urban_address);
         } else if (currentScreenID == ScreenPage::GRAPHS) {
             // Always draw graph screen - it will show appropriate message if no data/card
             drawGraphScreen();
@@ -369,20 +368,23 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             showLoadingPage(BlackImage);
         } else if (currentScreenID == ScreenPage::CONNECTING) {
             // Simple static connecting screen
-            debug_outln_info(F("Showing connecting screen"));
+            debug_outln_verbose(F("Showing connecting screen"));
             showConnectingPage(BlackImage, 25);
         } else if (currentScreenID == ScreenPage::LOGO) {
             showLogoPage();
         } else if (currentScreenID == ScreenPage::SENSOR_MAP) {
-            // Refresh cache if Urban address present; if it appears newly, use it
-            if (sensors_data.containsKey("service_data")) {
-                auto service = sensors_data["service_data"].as<JsonObject>();
-                if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
-                    String urban_addr = service["urban_robonomics_address"].as<String>();
-                    if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
-                        cached_urban_address = urban_addr;
+            // Refresh cache if Urban address present; if it appears newly, use it (with mutex)
+            if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100))) {
+                if (sensors_data.containsKey("service_data")) {
+                    auto service = sensors_data["service_data"].as<JsonObject>();
+                    if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
+                        String urban_addr = service["urban_robonomics_address"].as<String>();
+                        if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
+                            cached_urban_address = urban_addr;
+                        }
                     }
                 }
+                xSemaphoreGive(mutex);
             }
 
             // If we don't yet have an Urban address, wait a few cycles before
@@ -421,14 +423,19 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         } else if (currentScreenID == ScreenPage::SETTINGS) {
             // Get urban IP address from config or sensors_data
             String urban_ip = String(cfg::chosen_altruist_urban);
-            // Fallback: try to get from sensors_data if config is empty
-            if (urban_ip.length() == 0 && sensors_data.containsKey("service_data")) {
-                auto service = sensors_data["service_data"].as<JsonObject>();
-                if (!service.isNull() && service.containsKey("altruist_addresses")) {
-                    JsonArray addresses = service["altruist_addresses"];
-                    if (addresses.size() > 0) {
-                        urban_ip = addresses[0].as<String>();
+            // Fallback: try to get from sensors_data if config is empty (with mutex)
+            if (urban_ip.length() == 0) {
+                if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100))) {
+                    if (sensors_data.containsKey("service_data")) {
+                        auto service = sensors_data["service_data"].as<JsonObject>();
+                        if (!service.isNull() && service.containsKey("altruist_addresses")) {
+                            JsonArray addresses = service["altruist_addresses"];
+                            if (addresses.size() > 0) {
+                                urban_ip = addresses[0].as<String>();
+                            }
+                        }
                     }
+                    xSemaphoreGive(mutex);
                 }
             }
             showSettingsPage(BlackImage, deviceStatus, urban_ip, robonomics_address);
@@ -467,12 +474,13 @@ draw_complete:
         if (force_full_refresh) {
             force_full_refresh = false; // Reset flag after use
             epdResetPeriodPosition(); // Reset period counter after full refresh
-            debug_outln_info(F("[EPD] FULL refresh after wake"));
+            debug_outln_verbose(F("[EPD] FULL refresh (watchdog/wake/main) pushed to panel"));
             epdDisplay(DisplayMode::FULL, BlackImage);
         } else {
             // Pass current screen to showImageFast for adaptive update logic:
             // MAIN screen: 10 partial + 1 full
             // Other pages: 5 partial + 1 full
+            debug_outln_verbose(F("[EPD] FAST/partial refresh pushed for screen "), String((int)currentScreenID));
             showImageFast(BlackImage, currentScreenID);
         }
     }
