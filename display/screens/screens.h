@@ -8,6 +8,7 @@
 #include "graph.h"
 #include "setup.h"
 #include "loading.h"
+#include "ota_update.h"
 #include "display_common.h"
 #include "logo.h"
 #include "sensors_map.h"

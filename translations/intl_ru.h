@@ -218,6 +218,8 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_INSIGHT_HEADER "Insight"
 #define INTL_DISP_URBAN_HEADER "Urban"
 #define INTL_DISP_GOING_TO_SLEEP "Уход в сон..."
+#define INTL_DISP_OTA_UPDATING "Обновление прошивки"
+#define INTL_DISP_OTA_DO_NOT_DISCONNECT "Не отключайте питание"
 #define INTL_DISP_WAITING_URBAN_ID "Ожидание Urban ID..."
 #define INTL_DISP_URBAN_IP "IP Urban:"
 #define INTL_DISP_INSIGHT_IP "IP Insight:"
@@ -248,4 +250,3 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_NO_DATA_AVAILABLE "Нет данных"
 #define INTL_DISP_NOT_ENOUGH_DATA_YET "Пока недостаточно данных"
 #define INTL_DISP_COLLECTING_DATA "Сбор данных..."
-

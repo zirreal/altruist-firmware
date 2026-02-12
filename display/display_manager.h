@@ -13,6 +13,8 @@
 #include "../buttons/button_manager.h"
 
 #define DISPLAY_REFRESH_INTERVAL 60000L  // 1 minute (was 5 minutes)
+#define OTA_DISPLAY_REFRESH_INTERVAL 15000L   // 15 seconds - OTA screen shows progress during download
+#define OTA_FULL_REFRESH_EVERY_N 5            // Every 5th OTA refresh is FULL (1-4: partial, 5: full)
 
 enum class ScreenPage {
     MAIN,
@@ -41,7 +43,7 @@ private:
     bool refresh_now = false;
     String robonomics_address;
     String cached_urban_address; // cached Urban Robonomics address once discovered
-    UBYTE *BlackImage;
+    UBYTE *BlackImage = nullptr;
 
     ScreenPage currentScreenID = ScreenPage::MAIN;
     unsigned long last_refresh_time = -DISPLAY_REFRESH_INTERVAL;
@@ -75,6 +77,10 @@ private:
     // Cached JSON string for MAIN screen - reused when mutex is busy
     String cached_json_string;
 
+    // OTA screen: last time we displayed it (0 = not yet shown this session)
+    unsigned long last_ota_display_ms = 0;
+    // OTA refresh counter: 1-4 = partial, 5 = full (then reset)
+    uint8_t ota_display_refresh_count = 0;
 };
 
 #endif // DISPLAY_MANAGER_H

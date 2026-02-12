@@ -13,7 +13,7 @@ extern button_pressed_t btn_press;
 #endif
 
 bool wificonfig_loop;
-struct struct_wifiInfo *wifiInfo;
+struct struct_wifiInfo *wifiInfo = nullptr;
 uint8_t count_wifiInfo;
 
 static int selectChannelForAp() {

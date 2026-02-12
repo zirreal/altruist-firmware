@@ -477,7 +477,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 
 			if (msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
 				// OTA disabled - metrics code in development
-				// twoStageOTAUpdate(deviceStatus);
+				twoStageOTAUpdate(deviceStatus);
 				deviceStatus.last_update_attempt = millis();
 			}
 
@@ -750,8 +750,8 @@ void setup(void) {
 	webserver.setup();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
 	debug_outln_info(get_reset_reason_text());
-	// OTA disabled - metrics code in development
-	// twoStageOTAUpdate(deviceStatus);
+	// OTA runs from sensorAndAPIWorker (not here) so display can show "Updating" screen
+	// when loop() is already running
 
 	sensors_data["service_data"]["robonomics_address"] = robonomics.getSs58Address();
 	sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
