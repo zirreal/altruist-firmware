@@ -132,7 +132,8 @@ String form_select_altruist(JsonDocument& data) {
 	String s_select = F(" selected='selected'");
 	String s = F("<div class='form-group'>"
 				"<label for='chosen_altruist_urban'>Altruist Urban</label>"
-				"<select id='chosen_altruist_urban' name='chosen_altruist_urban'>");
+				"<div style='display:flex;gap:8px;align-items:center;'>"
+				"<select id='chosen_altruist_urban' name='chosen_altruist_urban' style='flex:1;'>");
 
 	JsonArray addresses = data["service_data"]["altruist_addresses"];
 	for (JsonVariant v : addresses) {
@@ -151,7 +152,39 @@ String form_select_altruist(JsonDocument& data) {
 		s += "</option>";
 	}
 
-	s += F("</select></div>");
+	s += F("</select>"
+		"<button type='button' id='btn_scan_urbans' onclick='scanUrbans()' "
+		"style='padding:6px 14px;border:1px solid #ccc;border-radius:4px;background:#f8f8f8;cursor:pointer;white-space:nowrap;'>"
+		"&#x1F50D; " INTL_SCAN_BTN "</button></div>"
+		"<span id='scan_status' style='font-size:12px;color:#666;'></span>"
+		"</div>"
+		"<script>"
+		"function scanUrbans(){"
+			"var btn=document.getElementById('btn_scan_urbans');"
+			"var sel=document.getElementById('chosen_altruist_urban');"
+			"var st=document.getElementById('scan_status');"
+			"btn.disabled=true;st.textContent='" INTL_SCAN_SCANNING "';"
+			"fetch('/scan_urbans').then(function(r){return r.json();}).then(function(devices){"
+				"var cur=sel.value;"
+				"sel.innerHTML='';"
+				"if(devices.length===0){"
+					"st.textContent='" INTL_SCAN_NO_URBANS "';"
+				"}else{"
+					"st.textContent='" INTL_SCAN_FOUND_PREFIX "'+devices.length+'" INTL_SCAN_FOUND_SUFFIX "';"
+					"devices.forEach(function(d){"
+						"var o=document.createElement('option');"
+						"o.value=d.ip;o.textContent=d.hostname+' ('+d.ip+')';"
+						"if(d.ip===cur)o.selected=true;"
+						"sel.appendChild(o);"
+					"});"
+				"}"
+				"btn.disabled=false;"
+			"}).catch(function(e){"
+				"st.textContent='" INTL_SCAN_FAILED "'+e;"
+				"btn.disabled=false;"
+			"});"
+		"}"
+		"</script>");
 	return s;
 }
 

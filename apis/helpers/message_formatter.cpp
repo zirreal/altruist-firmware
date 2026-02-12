@@ -1,5 +1,6 @@
 #include "message_formatter.h"
 #include "../../utils.h"
+#include "../../config_manager/config_defaults.h"
 
 void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
     datalog_data = "";
@@ -20,18 +21,21 @@ void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
 				value = measurementData["value"].as<String>();
 			}
 
-            if (type == "P1") datalog_data += "p1:" + value + ",";
-            else if (type == "P2") datalog_data += "p2:" + value + ",";
-            else if (type == "noiseMax") datalog_data += "nm:" + value + ",";
-            else if (type == "noiseAvg") datalog_data += "na:" + value + ",";
-            else if (type == "temperature" && datalog_data.indexOf("t:") == -1) datalog_data += "t:" + value + ",";
-            else if (type == "pressure") datalog_data += "p:" + value + ",";
-            else if (type == "humidity" && datalog_data.indexOf("h:") == -1) datalog_data += "h:" + value + ",";
+            // Check data sharing preferences before including each measurement
+            if (type == "P1" && cfg::share_pm) datalog_data += "p1:" + value + ",";
+            else if (type == "P2" && cfg::share_pm) datalog_data += "p2:" + value + ",";
+            else if (type == "noiseMax" && cfg::share_noise) datalog_data += "nm:" + value + ",";
+            else if (type == "noiseAvg" && cfg::share_noise) datalog_data += "na:" + value + ",";
+            else if (type == "temperature" && cfg::share_temperature && datalog_data.indexOf("t:") == -1) datalog_data += "t:" + value + ",";
+            else if (type == "pressure" && cfg::share_pressure) datalog_data += "p:" + value + ",";
+            else if (type == "humidity" && cfg::share_humidity && datalog_data.indexOf("h:") == -1) datalog_data += "h:" + value + ",";
             else if (type == "radiation") datalog_data += "gc:" + value + ",";
-            else if (type == "co2") datalog_data += "co:" + value + ","; 
+            else if (type == "co2" && cfg::share_co2) datalog_data += "co:" + value + ","; 
         }
     }
-    datalog_data.remove(datalog_data.length() - 1);
+    if (datalog_data.length() > 0) {
+        datalog_data.remove(datalog_data.length() - 1);
+    }
     debug_outln_info(F("Datalog data: "), datalog_data);
 }
 

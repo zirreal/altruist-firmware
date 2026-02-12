@@ -49,18 +49,21 @@ void LedControllerInsight::process() {
     
     uint32_t color;
     if (msSince(last_refresh_time) > REFRESH_INTERVAL) {
-        // Calculate time-based brightness and apply it
+        // Calculate brightness:
+        // 1. Scale user setting to 30% max (so 100% user = 30% actual)
+        // 2. Apply time-based dimming as a percentage of that
         uint8_t scaled_brightness = (cfg::leds_brightness * 30) / 100;
         if (scaled_brightness > 100) scaled_brightness = 100;
-        current_time_brightness = _calculateTimeBrightness();
-        uint8_t final_brightness = (scaled_brightness * current_time_brightness) / 100;
+        uint8_t time_percent = _calculateTimeBrightness(); // 0-100 percent
+        uint8_t final_brightness = (scaled_brightness * 255 / 100); // Convert to 0-255
+        final_brightness = (final_brightness * time_percent) / 100;  // Apply time dimming
         if (final_brightness > 255) final_brightness = 255;
         pixels.setBrightness(final_brightness);
         
-        // Calculate percentage for logging (final_brightness is 0-255, convert to 0-100%)
+        // Calculate percentage for logging
         float brightness_percent = (final_brightness * 100.0f) / 255.0f;
         debug_outln_verbose(F("LED brightness: user_setting="), String(cfg::leds_brightness) + F("% -> scaled=") + 
-                        String(scaled_brightness) + F("% -> final=") + String(brightness_percent, 1) + F("%"));
+                        String(scaled_brightness) + F("% -> time=") + String(time_percent) + F("% -> final=") + String(brightness_percent, 1) + F("%"));
         
         // Acquire mutex while reading sensors_data to prevent race conditions
         // If we can't get it (display is updating), skip this cycle - try again next time
@@ -247,11 +250,12 @@ uint32_t LedControllerInsight::_getPressureColor(float pressure) {
 }
 
 // Calculate brightness based on time of day
+// Returns 0-100 (percentage of brightness to apply)
 uint8_t LedControllerInsight::_calculateTimeBrightness() {
     struct tm timeinfo;
     if (!getLocalTime(&timeinfo)) {
         // If we can't get time, use full brightness
-        return 255;
+        return 100;
     }
     
     int hour = timeinfo.tm_hour;
@@ -262,27 +266,22 @@ uint8_t LedControllerInsight::_calculateTimeBrightness() {
     
     // Time schedule:
     // 06:00 - 22:00 (360 - 1320): Full brightness (100%)
-    // 22:00 - 23:00 (1320 - 1380): Gradual dim from 100% to 20%
-    // 23:00 - 24:00 (1380 - 1440): Gradual dim from 20% to 5%
+    // 22:00 - 00:00 (1320 - 1440): Gradual dim from 100% to 0%
     // 00:00 - 06:00 (0 - 360): Off (handled by _isNightTime)
     
     if (minutes_since_midnight >= 360 && minutes_since_midnight < 1320) {
         // Daytime: Full brightness
-        return 255;
-    } else if (minutes_since_midnight >= 1320 && minutes_since_midnight < 1380) {
-        // 22:00 - 23:00: Gradual dimming from 100% to 20%
-        int minutes_into_dimming = minutes_since_midnight - 1320;
-        float brightness_percent = 100.0 - (80.0 * minutes_into_dimming / 60.0); // 100% to 20%
-        return (uint8_t)(255 * brightness_percent / 100.0);
-    } else if (minutes_since_midnight >= 1380 && minutes_since_midnight < 1440) {
-        // 23:00 - 24:00: Further dimming from 20% to 5%
-        int minutes_into_late_dimming = minutes_since_midnight - 1380;
-        float brightness_percent = 20.0 - (15.0 * minutes_into_late_dimming / 60.0); // 20% to 5%
-        return (uint8_t)(255 * brightness_percent / 100.0);
+        return 100;
+    } else if (minutes_since_midnight >= 1320 && minutes_since_midnight < 1440) {
+        // 22:00 - 00:00: Gradual dimming from 100% to 0%
+        int minutes_into_dimming = minutes_since_midnight - 1320; // 0 to 120
+        int percent = 100 - (100 * minutes_into_dimming / 120);   // 100% down to 0%
+        if (percent < 0) percent = 0;
+        return (uint8_t)percent;
     }
     
     // Default to full brightness if something goes wrong
-    return 255;
+    return 100;
 }
 
 // Check if it's night time (complete LED turn-off period)

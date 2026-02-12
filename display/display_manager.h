@@ -72,6 +72,9 @@ private:
     uint32_t next_sensor_map_check_ms  = 0;
     uint8_t  sensor_map_waiting_tries  = 0;
 
+    // Cached JSON string for MAIN screen - reused when mutex is busy
+    String cached_json_string;
+
 };
 
 #endif // DISPLAY_MANAGER_H

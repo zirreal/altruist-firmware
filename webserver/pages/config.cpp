@@ -85,6 +85,28 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_input(page_content, Config_rws_owner, FPSTR(INTL_RWS_OWNER), LEN_RWS_OWNER-1);
 	add_form_input(page_content, Config_datalog_sending_intervall_ms, FPSTR(INTL_DATALOG_SENDING_INTERVAL), 5);
 	add_form_input(page_content, Config_robonomics_public_node, FPSTR(INTL_ROBONOMICS_PUBLIC_NODE), LEN_ROBONOMICS_PUBLIC_NODE-1);
+
+	// Data postin to the map (inside Robonomics panel) - only visible in dev builds for now
+#ifdef DEV
+	page_content += F("<h3 class='panel-subtitle' style='margin-top:16px;'>" INTL_PANEL_TITLE_DATA_SHARING "</h3>");
+	page_content += F("<p style='font-size:0.9em;color:#555;margin-bottom:12px;'>"
+		INTL_DATA_SHARING_DISCLAIMER
+		"</p>");
+
+	server.sendContent(page_content);
+	page_content = emptyString;
+
+	add_form_checkbox(Config_share_temperature, FPSTR(INTL_SHARE_TEMPERATURE), true);
+	add_form_checkbox(Config_share_humidity, FPSTR(INTL_SHARE_HUMIDITY), true);
+	add_form_checkbox(Config_share_pressure, FPSTR(INTL_SHARE_PRESSURE), true);
+#ifdef ALTRUIST_INSIDE
+	add_form_checkbox(Config_share_co2, FPSTR(INTL_SHARE_CO2), true);
+#endif
+#ifdef ALTRUIST_URBAN
+	add_form_checkbox(Config_share_pm, FPSTR(INTL_SHARE_PM), true);
+	add_form_checkbox(Config_share_noise, FPSTR(INTL_SHARE_NOISE), true);
+#endif
+#endif // DEV
 	page_content += F("</div>");
 
 	server.sendContent(page_content);

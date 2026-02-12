@@ -286,6 +286,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
 
     // Update cached Urban address every cycle; if it changes and we're on SENSOR_MAP, trigger redraw
     // Acquire mutex to safely read sensors_data (it may be modified by sensor task)
+    bool need_spiffs_save = false;
     if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100))) {
         if (sensors_data.containsKey("service_data")) {
             auto service = sensors_data["service_data"].as<JsonObject>();
@@ -294,18 +295,21 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
                     bool was_empty = cached_urban_address.length() == 0;
                     cached_urban_address = urban_addr;
+                    need_spiffs_save = true;
                     if (currentScreenID == ScreenPage::SENSOR_MAP || was_empty) {
                         refresh_now = true; // force first render after boot/flash
-                    }
-                    // Persist to SPIFFS so we have it after power cycles
-                    if (SPIFFS.begin(true)) {
-                        File f = SPIFFS.open("/urban_ss58.cache", "w");
-                        if (f) { f.print(cached_urban_address); f.close(); }
                     }
                 }
             }
         }
         xSemaphoreGive(mutex);
+    }
+    // Persist to SPIFFS outside mutex - SPIFFS writes are slow
+    if (need_spiffs_save) {
+        if (SPIFFS.begin(true)) {
+            File f = SPIFFS.open("/urban_ss58.cache", "w");
+            if (f) { f.print(cached_urban_address); f.close(); }
+        }
     }
 
     if (currentScreenID == ScreenPage::SENSOR_MAP && sensor_map_waiting_addr && (int32_t)(millis() - next_sensor_map_check_ms) >= 0) {
@@ -346,15 +350,16 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         Paint_Clear(WHITE);
         
         if (currentScreenID == ScreenPage::MAIN) {
-            String jsonString;
             // Acquire mutex while serializing sensors_data to prevent race conditions
             // Use longer timeout since display refresh is infrequent (every 60s)
             if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
-                serializeJson(sensors_data, jsonString);
+                cached_json_string = "";
+                serializeJson(sensors_data, cached_json_string);
                 xSemaphoreGive(mutex);
             }
+            // If mutex failed, cached_json_string still has previous data - display stays consistent
             debug_outln_verbose(F("[Display] Refresh MAIN screen"));
-            drawMainScreen(BlackImage, jsonString, deviceStatus.ip_address, robonomics_address, cached_urban_address);
+            drawMainScreen(BlackImage, cached_json_string, deviceStatus.ip_address, robonomics_address, cached_urban_address);
         } else if (currentScreenID == ScreenPage::GRAPHS) {
             // Always draw graph screen - it will show appropriate message if no data/card
             drawGraphScreen();

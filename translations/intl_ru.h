@@ -43,6 +43,24 @@ const char INTL_DNMS_CORRECTION[] PROGMEM = "поправка в dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Коррекция температуры в °C";
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Пользовательский адрес Altruist Urban";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Использовать пользовательский адрес Altruist Urban";
+
+// Выбор Urban (настройка и страница конфигурации)
+#define INTL_SCANNING_URBANS "Поиск устройств Altruist Urban..."
+#define INTL_SELECT_URBAN_TITLE "Выберите устройство Altruist Urban"
+#define INTL_SELECT_URBAN_DESC "Выберите устройство Urban, с которого этот Insight будет получать данные уличных датчиков."
+#define INTL_NO_URBANS_FOUND "Устройства Altruist Urban не найдены в этой сети. Убедитесь, что Urban включён и подключён к той же сети WiFi. Вы можете ввести IP-адрес вручную или пропустить этот шаг и настроить позже."
+#define INTL_USE_CUSTOM_IP "Указать IP-адрес вручную:"
+#define INTL_SKIP_URBAN_SELECTION "Пропустить &mdash; настроить позже в Настройках"
+#define INTL_SETUP_COMPLETE "Настройка завершена"
+#define INTL_SETTINGS_SAVED "Настройки сохранены!"
+#define INTL_DEVICE_RESTARTING "Перезапуск устройства..."
+#define INTL_SCAN_BTN "Поиск"
+#define INTL_SCAN_SCANNING "Поиск..."
+#define INTL_SCAN_NO_URBANS "Устройства Urban не найдены."
+#define INTL_SCAN_FOUND_PREFIX "Найдено "
+#define INTL_SCAN_FOUND_SUFFIX " устройств(о) Urban."
+#define INTL_SCAN_FAILED "Ошибка поиска: "
+
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "Адрес владельца подписки";
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Адрес публичной ноды Робономики";
@@ -62,6 +80,14 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Пользовательский API"
 #define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
+#define INTL_PANEL_TITLE_DATA_SHARING "Публикация на карту"
+#define INTL_DATA_SHARING_DISCLAIMER "По умолчанию все данные датчиков отправляются на публичную карту. Вы можете выбрать, какие данные передавать. Остальные данные будут отображаться на экране устройства и доступны локально."
+const char INTL_SHARE_TEMPERATURE[] PROGMEM = "Температура";
+const char INTL_SHARE_HUMIDITY[] PROGMEM = "Влажность";
+const char INTL_SHARE_PRESSURE[] PROGMEM = "Давление";
+const char INTL_SHARE_CO2[] PROGMEM = "CO2";
+const char INTL_SHARE_PM[] PROGMEM = "Пыль (PM2.5/PM10)";
+const char INTL_SHARE_NOISE[] PROGMEM = "Уровень шума";
 
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "Название WiFi устройства в режиме конфигурации";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Имя";

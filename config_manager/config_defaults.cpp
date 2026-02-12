@@ -72,6 +72,14 @@ namespace cfg {
 	unsigned leds_brightness = 100; // Default 100% = 30% actual brightness (scaled down)
 	bool leds_on = true;
 
+	// data sharing preferences (all shared by default)
+	bool share_temperature = true;
+	bool share_humidity = true;
+	bool share_pressure = true;
+	bool share_co2 = true;
+	bool share_pm = true;
+	bool share_noise = true;
+
 	void initNonTrivials(const char* id) {
 		strcpy(cfg::current_lang, CURRENT_LANG);
 		strcpy(cfg::current_reg, CURRENT_REG);

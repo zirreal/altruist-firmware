@@ -276,8 +276,10 @@ void writeBootFile() {
 	}
 }
 
+#if defined(DEV)
 // Background worker that continuously drains Debug logs to SD card so we
 // can inspect them later even without a serial connection.
+// Only active in dev builds to avoid unnecessary SD card wear in production.
 static void exceptionsLogWorker(void *pvParameters) {
 	(void)pvParameters;
 	const String logPath  = String(EXCEPTIONS_FOLDER) + "/runtime.log";
@@ -329,7 +331,8 @@ static void exceptionsLogWorker(void *pvParameters) {
 		}
 	}
 }
-#endif
+#endif // DEV
+#endif // USE_SD_CARD && ALTRUIST_INSIDE
 
 /*****************************************************************
  * Variables for Robonomics                                      *
@@ -787,8 +790,10 @@ void setup(void) {
 	// Write boot diagnostic file immediately after SD init - captures RTC crash context
 	writeBootFile();
 	
+#if defined(DEV)
 	// Background logger: keep a rolling runtime log on SD so we have context
 	// leading up to random panics/resets (panic backtrace itself is not SD-safe).
+	// Only active in dev builds to avoid unnecessary SD card wear in production.
 	xTaskCreatePinnedToCore(
 		exceptionsLogWorker,
 		"ExceptionsLogWorker",
@@ -798,7 +803,8 @@ void setup(void) {
 		NULL,
 		0
 	);
-#endif
+#endif // DEV
+#endif // USE_SD_CARD && ALTRUIST_INSIDE
 	fetchSensors();
 	deviceStatus.ip_address = WiFi.localIP().toString();
 

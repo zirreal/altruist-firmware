@@ -43,6 +43,24 @@ const char INTL_DNMS_CORRECTION[] PROGMEM = "correction in dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Temperature correction in °C";
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Custom Altruist Urban Address";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Use Custom Altruist Urban Address";
+
+// Urban selection (guest setup & config page)
+#define INTL_SCANNING_URBANS "Scanning for Altruist Urban devices..."
+#define INTL_SELECT_URBAN_TITLE "Select Altruist Urban Device"
+#define INTL_SELECT_URBAN_DESC "Choose which Urban device this Insight should read outdoor sensor data from."
+#define INTL_NO_URBANS_FOUND "No Altruist Urban devices found on this network. Make sure your Urban device is powered on and connected to the same WiFi network. You can enter a custom IP address below or skip and configure later."
+#define INTL_USE_CUSTOM_IP "Use custom IP address:"
+#define INTL_SKIP_URBAN_SELECTION "Skip &mdash; configure later from Settings page"
+#define INTL_SETUP_COMPLETE "Setup Complete"
+#define INTL_SETTINGS_SAVED "Settings Saved!"
+#define INTL_DEVICE_RESTARTING "Restarting device..."
+#define INTL_SCAN_BTN "Scan"
+#define INTL_SCAN_SCANNING "Scanning..."
+#define INTL_SCAN_NO_URBANS "No Urban devices found."
+#define INTL_SCAN_FOUND_PREFIX "Found "
+#define INTL_SCAN_FOUND_SUFFIX " Urban device(s)."
+#define INTL_SCAN_FAILED "Scan failed: "
+
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "RWS Owner Address";
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Robonomics Public Node";
@@ -62,6 +80,14 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Custom API"
 #define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
+#define INTL_PANEL_TITLE_DATA_SHARING "Publish to Map"
+#define INTL_DATA_SHARING_DISCLAIMER "By default, all sensor data is shared to the public sensors map. You can choose which data types to share below. Unshared data will still be displayed on your device screen and available locally."
+const char INTL_SHARE_TEMPERATURE[] PROGMEM = "Temperature";
+const char INTL_SHARE_HUMIDITY[] PROGMEM = "Humidity";
+const char INTL_SHARE_PRESSURE[] PROGMEM = "Pressure";
+const char INTL_SHARE_CO2[] PROGMEM = "CO2";
+const char INTL_SHARE_PM[] PROGMEM = "Particulate Matter (PM2.5/PM10)";
+const char INTL_SHARE_NOISE[] PROGMEM = "Noise Level";
 
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "WiFi Sensor in configuration mode";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Network name";
