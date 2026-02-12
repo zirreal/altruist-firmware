@@ -51,6 +51,12 @@ UInt		leds_brightness
 Bool        leds_on
 String      custom_altruist_urban
 Bool		use_custom_urban
+Bool		share_temperature
+Bool		share_humidity
+Bool		share_pressure
+Bool		share_co2
+Bool		share_pm
+Bool		share_noise
 """
 
 with open("airrohr-cfg.h", "w") as h:

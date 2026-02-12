@@ -79,6 +79,12 @@ enum ConfigShapeId {
 	Config_leds_on,
 	Config_custom_altruist_urban,
 	Config_use_custom_urban,
+	Config_share_temperature,
+	Config_share_humidity,
+	Config_share_pressure,
+	Config_share_co2,
+	Config_share_pm,
+	Config_share_noise,
 };
 static constexpr char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 static constexpr char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
@@ -130,6 +136,12 @@ static constexpr char CFG_KEY_LEDS_BRIGHTNESS[] PROGMEM = "leds_brightness";
 static constexpr char CFG_KEY_LEDS_ON[] PROGMEM = "leds_on";
 static constexpr char CFG_KEY_CUSTOM_ALTRUIST_URBAN[] PROGMEM = "custom_altruist_urban";
 static constexpr char CFG_KEY_USE_CUSTOM_URBAN[] PROGMEM = "use_custom_urban";
+static constexpr char CFG_KEY_SHARE_TEMPERATURE[] PROGMEM = "share_temperature";
+static constexpr char CFG_KEY_SHARE_HUMIDITY[] PROGMEM = "share_humidity";
+static constexpr char CFG_KEY_SHARE_PRESSURE[] PROGMEM = "share_pressure";
+static constexpr char CFG_KEY_SHARE_CO2[] PROGMEM = "share_co2";
+static constexpr char CFG_KEY_SHARE_PM[] PROGMEM = "share_pm";
+static constexpr char CFG_KEY_SHARE_NOISE[] PROGMEM = "share_noise";
 static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::current_lang)-1, CFG_KEY_CURRENT_LANG, cfg::current_lang },
 	{ Config_Type_String, sizeof(cfg::wlanssid)-1, CFG_KEY_WLANSSID, cfg::wlanssid },
@@ -181,6 +193,12 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_LEDS_ON, &cfg::leds_on },
 	{ Config_Type_String, sizeof(cfg::custom_altruist_urban)-1, CFG_KEY_CUSTOM_ALTRUIST_URBAN, cfg::custom_altruist_urban },
 	{ Config_Type_Bool, 0, CFG_KEY_USE_CUSTOM_URBAN, &cfg::use_custom_urban },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_TEMPERATURE, &cfg::share_temperature },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_HUMIDITY, &cfg::share_humidity },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_PRESSURE, &cfg::share_pressure },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_CO2, &cfg::share_co2 },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_PM, &cfg::share_pm },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_NOISE, &cfg::share_noise },
 };
           
 #endif // __CONFIG_H__

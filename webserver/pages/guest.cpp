@@ -54,6 +54,24 @@ void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig
 		page_content += F("</li>");
     }
 	page_content += F("</ul>");
+
+	// Data posting to the map disclaimer and configuration - only visible in dev builds for now
+#ifdef DEV
+	page_content += F("<h3 class='guest-subtitle'>" INTL_PANEL_TITLE_DATA_SHARING "</h3>");
+	page_content += F("<p class='disclaimer' style='font-size:0.9em;color:#555;margin-bottom:12px;'>"
+		INTL_DATA_SHARING_DISCLAIMER
+		"</p>");
+	page_content += form_checkbox(Config_share_temperature, FPSTR(INTL_SHARE_TEMPERATURE), false);
+	page_content += form_checkbox(Config_share_humidity, FPSTR(INTL_SHARE_HUMIDITY), false);
+	page_content += form_checkbox(Config_share_pressure, FPSTR(INTL_SHARE_PRESSURE), false);
+#ifdef ALTRUIST_INSIDE
+	page_content += form_checkbox(Config_share_co2, FPSTR(INTL_SHARE_CO2), false);
+#endif
+#ifdef ALTRUIST_URBAN
+	page_content += form_checkbox(Config_share_pm, FPSTR(INTL_SHARE_PM), false);
+	page_content += form_checkbox(Config_share_noise, FPSTR(INTL_SHARE_NOISE), false);
+#endif
+#endif // DEV
 }
 
 void webserver_guest_create_body_get_part2(String& page_content, bool wificonfig_loop) {

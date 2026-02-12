@@ -12,6 +12,7 @@
 #include "../utils.h"
 
 #define ROOT_FOLDER "/sensors_data/"
+#define EXCEPTIONS_FOLDER "/exceptions"
 
 struct LineData {
     float* values;
@@ -71,6 +72,11 @@ public:
         }
     }
     bool checkInserted();
+
+    // Generic text file helpers used by exception/runtime logging.
+    // These make sure parent folders exist and then write/append content.
+    bool writeTextFile(const String& fullPath, const String& content);
+    bool appendTextFile(const String& fullPath, const String& content);
 
 private:
     std::map<String, String> _sensorLastFiles;

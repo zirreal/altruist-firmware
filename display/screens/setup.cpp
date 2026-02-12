@@ -5,8 +5,10 @@
 #include "main_screen.h"
 #include "../driver/EPD.h"
 #include "setup.h"
-#include "../../utils.h"
+#include "../utils.h"
 #include "display_common.h"
+#include "../../intl.h"
+#include "../paint_driver/fonts/fonts.h"
 #include "../icons/icons/40x40/wifi_40x40.h"
 #include "../icons/icons/40x40/robo_hw_logo_black_40x40.h"
 
@@ -24,10 +26,10 @@ void showSetupPage(UBYTE *BlackImage) {
     Paint_DrawImage(wifi_40x40, DISPLAY_WIDTH - 45, 5, 40, 40);
 
     // Title centered
-    const char* title = "Wi-Fi Setup";
-    int title_x = (DISPLAY_WIDTH - strlen(title) * Font24.Width) / 2;
+    const char* title = INTL_DISP_WIFI_SETUP;
+    int title_x = (DISPLAY_WIDTH - (int)Paint_GetStringWidth_Display(title, &Font24, &font_24_cyrillic, &font_24_ascii)) / 2;
     int title_y = 10;
-    Paint_DrawString_EN(title_x, title_y, title, &Font24, BLACK, WHITE);
+    Paint_DrawString_Display(title_x, title_y, title, &Font24, &font_24_cyrillic, &font_24_ascii, BLACK, WHITE);
 
     // QR code generation
     uint8_t qrcodeData[qrcode_getBufferSize(3)];
@@ -70,12 +72,16 @@ void showSetupPage(UBYTE *BlackImage) {
 
     int label_y = qr_y + total_height + (DISPLAY_HEIGHT - (qr_y + total_height)) / 2 - (3 * Font16.Height + 10) / 2;
 
-    Paint_DrawString_EN(DISPLAY_WIDTH / 2 - 5*Font16.Width, label_y, "Connect to", &Font16, WHITE, BLACK);
-    Paint_DrawString_EN(DISPLAY_WIDTH / 2 - strlen(cfg::fs_ssid)*Font16.Width / 2, label_y + Font16.Height + 5, cfg::fs_ssid, &Font16, WHITE, BLACK);
+    const char* connect_label = INTL_DISP_CONNECT_TO;
+    int connect_w = (int)Paint_GetStringWidth_Display(connect_label, &Font16, &font_16_cyrillic, &font_16_ascii);
+    Paint_DrawString_Display(DISPLAY_WIDTH / 2 - connect_w / 2, label_y, connect_label, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    int ssid_w = (int)Paint_GetStringWidth_Display(cfg::fs_ssid, &Font16, &font_16_cyrillic, &font_16_ascii);
+    Paint_DrawString_Display(DISPLAY_WIDTH / 2 - ssid_w / 2, label_y + Font16.Height + 5, cfg::fs_ssid, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     char output_str[100];
-    strcpy(output_str, "Password: ");
+    strcpy(output_str, INTL_DISP_PASSWORD_PREFIX);
     strcat(output_str, cfg::fs_pwd);
-    Paint_DrawString_EN(DISPLAY_WIDTH / 2 - strlen(output_str)*Font16.Width / 2, label_y + 2*Font16.Height + 10, output_str, &Font16, WHITE, BLACK);
+    int pwd_w = (int)Paint_GetStringWidth_Display(output_str, &Font16, &font_16_cyrillic, &font_16_ascii);
+    Paint_DrawString_Display(DISPLAY_WIDTH / 2 - pwd_w / 2, label_y + 2*Font16.Height + 10, output_str, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     
     // Clean up
     free(qr_bitmap_scaled);

@@ -73,6 +73,14 @@ namespace cfg {
 	extern unsigned leds_brightness;
 	extern bool leds_on;
 
+	// data sharing preferences
+	extern bool share_temperature;
+	extern bool share_humidity;
+	extern bool share_pressure;
+	extern bool share_co2;
+	extern bool share_pm;
+	extern bool share_noise;
+
 	extern void initNonTrivials(const char* id);
 }
 

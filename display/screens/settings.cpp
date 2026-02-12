@@ -5,6 +5,7 @@
 #include "../../config_manager/config_helpers.h"
 #include "../driver/EPD.h"
 #include "settings.h"
+#include "../utils.h"
 #include "../../utils.h"
 #include "../../defines.h"
 #include "../paint_driver/GUI_Paint.h"
@@ -18,6 +19,8 @@
 #include "../icons/icons/15x15/location_15x15.h"
 #include "../icons/icons/15x15/circuit_15x15.h"
 #include "../icons/icons/15x15/settings_15x15.h"
+#include "../../intl.h"
+#include "../paint_driver/fonts/fonts.h"
 
 QRCode settingsQR;
 
@@ -94,24 +97,24 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
     const uint16_t header_icon_y    = header_top_y;
     Paint_DrawImage(settings_15x15, header_icon_x, header_icon_y, header_icon_size, header_icon_size);
 
-    // Center: time (bold like main screen)
+    // Center: time (same display font as rest of UI)
     if (getLocalTime(&timeinfo)) {
         char date_buf[12], time_buf[8];
         strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
         strftime(time_buf, sizeof(time_buf), "%H:%M",    &timeinfo);
 
-        int time_width = strlen(time_buf) * Font16.Width;
+        int time_width = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         int time_x = (DISPLAY_WIDTH - time_width) / 2;
         int time_y = header_top_y;
-        Paint_DrawString_EN(time_x, time_y, time_buf, &Font16, WHITE, BLACK);
+        Paint_DrawString_Display(time_x, time_y, time_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-        // Right: date
-        int date_width = strlen(date_buf) * Font12.Width;
+        // Right: date (same display font as rest of UI)
+        int date_width = (int)Paint_GetStringWidth_Display(date_buf, &Font12, &font_12_cyrillic, &font_12_ascii);
         const int right_margin = 4;
         int date_x = DISPLAY_WIDTH - right_margin - date_width;
         int date_y = header_top_y + 2;
-        Paint_DrawString_EN(date_x,     date_y, date_buf, &Font12, WHITE, BLACK);
-        Paint_DrawString_EN(date_x + 1, date_y, date_buf, &Font12, WHITE, BLACK);
+        Paint_DrawString_Display(date_x,     date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(date_x + 1, date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 
     // Header bottom border
@@ -169,13 +172,13 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
         int text_y = qr_y;
         
         // "Device info" title
-        const char* device_info_title = "Device info";
-        Paint_DrawString_EN(text_x, text_y, device_info_title, &Font20, WHITE, BLACK);
+        const char* device_info_title = INTL_DISP_DEVICE_INFO;
+        Paint_DrawString_Display(text_x, text_y, device_info_title, &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
         
         // "Scan for more" below "Device info"
-        const char* title = "Scan for more";
+        const char* title = INTL_DISP_SCAN_FOR_MORE;
         int title_y = text_y + Font20.Height + 4;
-        Paint_DrawString_EN(text_x, title_y, title, &Font16, WHITE, BLACK);
+        Paint_DrawString_Display(text_x, title_y, title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
         
         free(qr_bitmap_scaled);
     }
@@ -199,9 +202,9 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
 
     // Urban IP Address
     Paint_DrawImage(ip_address_15x15, icon_indent, info_y, icon_size, icon_size);
-    Paint_DrawString_EN(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, "Urban IP:", &Font16, WHITE, BLACK);
-    String urban_display = urban_ip.length() > 0 ? urban_ip : "Not connected";
-    Paint_DrawString_EN(value_indent, info_y + (icon_size - Font12.Height) / 2, urban_display.c_str(), &Font12, WHITE, BLACK);
+    Paint_DrawString_Display(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, INTL_DISP_URBAN_IP, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    String urban_display = urban_ip.length() > 0 ? urban_ip : INTL_DISP_NOT_CONNECTED;
+    Paint_DrawString_Display(value_indent, info_y + (icon_size - Font12.Height) / 2, urban_display.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     info_y += line_spacing;
     // Divider
     Paint_DrawLine(icon_indent, info_y + divider_spacing, usable_width - 8, info_y + divider_spacing, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
@@ -209,9 +212,9 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
 
     // Altruist IP Address
     Paint_DrawImage(ip_address_15x15, icon_indent, info_y, icon_size, icon_size);
-    Paint_DrawString_EN(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, "Insight IP:", &Font16, WHITE, BLACK);
-    String altruist_display = deviceStatus.ip_address.length() > 0 ? deviceStatus.ip_address : "Not connected";
-    Paint_DrawString_EN(value_indent, info_y + (icon_size - Font12.Height) / 2, altruist_display.c_str(), &Font12, WHITE, BLACK);
+    Paint_DrawString_Display(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, INTL_DISP_INSIGHT_IP, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    String altruist_display = deviceStatus.ip_address.length() > 0 ? deviceStatus.ip_address : INTL_DISP_NOT_CONNECTED;
+    Paint_DrawString_Display(value_indent, info_y + (icon_size - Font12.Height) / 2, altruist_display.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     info_y += line_spacing;
     // Divider
     Paint_DrawLine(icon_indent, info_y + divider_spacing, usable_width - 8, info_y + divider_spacing, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
@@ -219,9 +222,9 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
 
     // Firmware Version
     Paint_DrawImage(circuit_15x15, icon_indent, info_y, icon_size, icon_size);
-    Paint_DrawString_EN(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, "Firmware:", &Font16, WHITE, BLACK);
+    Paint_DrawString_Display(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, INTL_FIRMWARE, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     String fw_version = String(SOFTWARE_VERSION_STR);
-    Paint_DrawString_EN(value_indent, info_y + (icon_size - Font12.Height) / 2, fw_version.c_str(), &Font12, WHITE, BLACK);
+    Paint_DrawString_Display(value_indent, info_y + (icon_size - Font12.Height) / 2, fw_version.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     info_y += line_spacing;
     // Divider
     Paint_DrawLine(icon_indent, info_y + divider_spacing, usable_width - 8, info_y + divider_spacing, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
@@ -237,9 +240,9 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
     bool sd_card_currently_connected = deviceStatus.sd_card_connected;
 #endif
     Paint_DrawImage(sd_card_15x15, icon_indent, info_y, icon_size, icon_size);
-    Paint_DrawString_EN(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, "SD Card:", &Font16, WHITE, BLACK);
-    const char* sd_status = sd_card_currently_connected ? "Connected" : "Not connected";
-    Paint_DrawString_EN(value_indent, info_y + (icon_size - Font12.Height) / 2, sd_status, &Font12, WHITE, BLACK);
+    Paint_DrawString_Display(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, INTL_DISP_SD_CARD, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    const char* sd_status = sd_card_currently_connected ? INTL_DISP_CONNECTED : INTL_DISP_NOT_CONNECTED;
+    Paint_DrawString_Display(value_indent, info_y + (icon_size - Font12.Height) / 2, sd_status, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     info_y += line_spacing;
     // Divider
     Paint_DrawLine(icon_indent, info_y + divider_spacing, usable_width - 8, info_y + divider_spacing, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
@@ -247,10 +250,10 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
 
     // WiFi Status
     Paint_DrawImage(wifi_15x15, icon_indent, info_y, icon_size, icon_size);
-    Paint_DrawString_EN(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, "WiFi Status:", &Font16, WHITE, BLACK);
+    Paint_DrawString_Display(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, INTL_DISP_WIFI_STATUS, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     bool wifi_connected = (WiFi.status() == WL_CONNECTED);
-    const char* wifi_status = wifi_connected ? "Connected" : "Disconnected";
-    Paint_DrawString_EN(value_indent, info_y + (icon_size - Font12.Height) / 2, wifi_status, &Font12, WHITE, BLACK);
+    const char* wifi_status = wifi_connected ? INTL_DISP_CONNECTED : INTL_DISP_DISCONNECTED;
+    Paint_DrawString_Display(value_indent, info_y + (icon_size - Font12.Height) / 2, wifi_status, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     info_y += line_spacing;
     // Divider
     Paint_DrawLine(icon_indent, info_y + divider_spacing, usable_width - 8, info_y + divider_spacing, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
@@ -258,7 +261,7 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
 
     // WiFi Name
     Paint_DrawImage(wifi_15x15, icon_indent, info_y, icon_size, icon_size);
-    Paint_DrawString_EN(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, "WiFi Name:", &Font16, WHITE, BLACK);
+    Paint_DrawString_Display(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, INTL_DISP_WIFI_NAME, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     String wifi_name;
     if (wifi_connected) {
         String ssid = WiFi.SSID();
@@ -273,10 +276,10 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
         if (ssid.length() > 0 && strcmp(cfg::wlanssid, WLANSSID) != 0) {
             wifi_name = ssid;
         } else {
-            wifi_name = "Not set";
+            wifi_name = INTL_DISP_NOT_SET;
         }
     }
-    Paint_DrawString_EN(value_indent, info_y + (icon_size - Font12.Height) / 2, wifi_name.c_str(), &Font12, WHITE, BLACK);
+    Paint_DrawString_Display(value_indent, info_y + (icon_size - Font12.Height) / 2, wifi_name.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     info_y += line_spacing;
     // Divider
     Paint_DrawLine(icon_indent, info_y + divider_spacing, usable_width - 8, info_y + divider_spacing, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
@@ -284,8 +287,8 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
 
     // Robonomics Address (with word wrapping)
     Paint_DrawImage(location_15x15, icon_indent, info_y, icon_size, icon_size);
-    Paint_DrawString_EN(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, "Unique Addr:", &Font16, WHITE, BLACK);
-    String robonomics_display = robonomics_address.length() > 0 ? robonomics_address : "Not set";
+    Paint_DrawString_Display(label_indent_after_icon, info_y + (icon_size - Font16.Height) / 2, INTL_DISP_UNIQUE_ADDR, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    String robonomics_display = robonomics_address.length() > 0 ? robonomics_address : INTL_DISP_NOT_SET;
     int robonomics_height = 0;
     drawWrappedText(value_indent, info_y + (icon_size - Font12.Height) / 2, robonomics_display, &Font12, WHITE, BLACK, value_max_width, robonomics_height);
 }

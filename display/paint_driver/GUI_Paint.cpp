@@ -602,6 +602,204 @@ void Paint_DrawString_EN(UWORD Xstart, UWORD Ystart, const char * pString,
     }
 }
 
+/******************************************************************************
+function: Display UTF-8 string using glyph-based Cyrillic (RU) font
+parameter:
+    Xstart, Ystart   : start position
+    pString          : UTF-8 string (e.g. Russian, or mixed "SD карта")
+    font             : glyph-based Font from fontgen (font_8_cyrillic, etc.)
+    Color_Foreground, Color_Background
+    ascii_fallback   : sFONT for ASCII when ascii_glyph_font not used
+    ascii_glyph_font : optional Font from fontgen (font_*_ascii) for same-style English in RU build
+******************************************************************************/
+static void draw_glyph_bitmap(const Glyph* g, UWORD x, UWORD y, UWORD ink)
+{
+    if (!g || !g->bitmap) return;
+    uint16_t bw = g->width;
+    uint16_t bh = g->height;
+    uint16_t top = g->top;
+    uint16_t bytes_per_row = (bw + 7) / 8;
+    const uint8_t* ptr = g->bitmap;
+    for (uint16_t row = 0; row < bh; row++) {
+        uint16_t py = y + top + row;
+        if (py >= Paint.Height) continue;
+        for (uint16_t col = 0; col < bw; col++) {
+            uint16_t px = x + col;
+            if (px >= Paint.Width) continue;
+            uint16_t byte_idx = row * bytes_per_row + col / 8;
+            uint8_t bit = (ptr[byte_idx] >> (7 - (col % 8))) & 1;
+            if (bit) {
+                Paint_SetPixel(px, py, ink);
+            }
+        }
+    }
+}
+
+static void Paint_DrawString_RU_impl(UWORD Xstart, UWORD Ystart, const char * pString, const Font* font,
+                                     UWORD Color_Foreground, UWORD Color_Background, sFONT* ascii_fallback, const Font* ascii_glyph_font,
+                                     bool preserve_foreground, int8_t letter_spacing_extra)
+{
+    if (!pString || !font || font->count == 0) return;
+    if (Xstart > Paint.Width || Ystart > Paint.Height) return;
+    if (letter_spacing_extra < 0) letter_spacing_extra = 0;
+
+    UWORD x = Xstart;
+    UWORD y = Ystart;
+    uint16_t line_height = font->line_height;
+    UWORD ink_fg = preserve_foreground ? Color_Foreground : ((Color_Foreground == (UWORD)WHITE) ? (UWORD)BLACK : Color_Foreground);
+
+    while (*pString != '\0') {
+        uint32_t codepoint;
+        const char* next;
+        if ((unsigned char)*pString <= 0x7F) {
+            codepoint = (unsigned char)*pString;
+            next = pString + 1;
+        } else if ((unsigned char)*pString >= 0xC2 && (unsigned char)*pString <= 0xDF && pString[1]) {
+            codepoint = ((unsigned char)*pString & 0x1F) << 6 | ((unsigned char)pString[1] & 0x3F);
+            next = pString + 2;
+        } else if ((unsigned char)*pString >= 0xE0 && (unsigned char)*pString <= 0xEF && pString[1] && pString[2]) {
+            codepoint = ((unsigned char)*pString & 0x0F) << 12 | ((unsigned char)pString[1] & 0x3F) << 6 | ((unsigned char)pString[2] & 0x3F);
+            next = pString + 3;
+        } else if ((unsigned char)*pString >= 0xF0 && (unsigned char)*pString <= 0xF4 && pString[1] && pString[2] && pString[3]) {
+            codepoint = ((unsigned char)*pString & 0x07) << 18 | ((unsigned char)pString[1] & 0x3F) << 12 | ((unsigned char)pString[2] & 0x3F) << 6 | ((unsigned char)pString[3] & 0x3F);
+            next = pString + 4;
+        } else {
+            pString++;
+            continue;
+        }
+        pString = next;
+
+        /* Printable ASCII: prefer glyph font (font_*_ascii) for same look as RU; else sFONT fallback */
+        if (codepoint >= 0x20 && codepoint <= 0x7E) {
+            const Glyph* ascii_g = nullptr;
+            if (ascii_glyph_font && ascii_glyph_font->count > 0) {
+                for (uint16_t i = 0; i < ascii_glyph_font->count; i++) {
+                    if (ascii_glyph_font->glyphs[i].codepoint == codepoint) {
+                        ascii_g = &ascii_glyph_font->glyphs[i];
+                        break;
+                    }
+                }
+            }
+            if (ascii_g && ascii_g->bitmap) {
+                uint16_t w = (codepoint == 0x20) ? ((line_height >= 16) ? 5 : (line_height >= 12) ? 4 : 3) : (ascii_g->width + 1);
+                if (x + w > Paint.Width) { x = Xstart; y += line_height; }
+                if (y + line_height > Paint.Height) { x = Xstart; y = Ystart; }
+                if (codepoint != 0x20)
+                    draw_glyph_bitmap(ascii_g, x, y, ink_fg);
+                x += w + letter_spacing_extra;
+                continue;
+            }
+            if (ascii_fallback) {
+                if (x + ascii_fallback->Width > Paint.Width) { x = Xstart; y += line_height; }
+                if (y + ascii_fallback->Height > Paint.Height) { x = Xstart; y = Ystart; }
+                Paint_DrawChar(x, y, (char)codepoint, ascii_fallback, ink_fg, (UWORD)WHITE);
+                x += ascii_fallback->Width + letter_spacing_extra;
+                continue;
+            }
+        }
+
+        const Glyph* g = nullptr;
+        for (uint16_t i = 0; i < font->count; i++) {
+            if (font->glyphs[i].codepoint == codepoint) {
+                g = &font->glyphs[i];
+                break;
+            }
+        }
+
+        uint16_t w;
+        if (codepoint == 0x20) {
+            w = (line_height >= 16) ? 5 : (line_height >= 12) ? 4 : 3;
+        } else {
+            w = g ? g->width : (line_height / 2);
+        }
+        if (x + w > Paint.Width) { x = Xstart; y += line_height; }
+        if (y + line_height > Paint.Height) { x = Xstart; y = Ystart; }
+
+        if (g && g->bitmap) {
+            draw_glyph_bitmap(g, x, y, ink_fg);
+        }
+        x += w + 1 + letter_spacing_extra;
+    }
+}
+
+void Paint_DrawString_RU(UWORD Xstart, UWORD Ystart, const char * pString, const Font* font,
+                         UWORD Color_Foreground, UWORD Color_Background, sFONT* ascii_fallback, const Font* ascii_glyph_font)
+{
+    Paint_DrawString_RU_impl(Xstart, Ystart, pString, font, Color_Foreground, Color_Background, ascii_fallback, ascii_glyph_font, false, 0);
+}
+
+void Paint_DrawString_RU_Ex(UWORD Xstart, UWORD Ystart, const char * pString, const Font* font,
+                            UWORD Color_Foreground, UWORD Color_Background, sFONT* ascii_fallback, const Font* ascii_glyph_font, bool preserve_foreground)
+{
+    Paint_DrawString_RU_impl(Xstart, Ystart, pString, font, Color_Foreground, Color_Background, ascii_fallback, ascii_glyph_font, preserve_foreground, 0);
+}
+
+void Paint_DrawString_RU_WithSpacing(UWORD Xstart, UWORD Ystart, const char * pString, const Font* font,
+                                     UWORD Color_Foreground, UWORD Color_Background, sFONT* ascii_fallback, const Font* ascii_glyph_font, int8_t letter_spacing)
+{
+    Paint_DrawString_RU_impl(Xstart, Ystart, pString, font, Color_Foreground, Color_Background, ascii_fallback, ascii_glyph_font, false, letter_spacing);
+}
+
+/******************************************************************************
+function: Get pixel width of UTF-8 string when drawn with glyph-based Font (for centering)
+******************************************************************************/
+uint16_t Paint_GetStringWidth_RU(const char * pString, const Font* font, sFONT* ascii_fallback, const Font* ascii_glyph_font)
+{
+    if (!pString || !font || font->count == 0) return 0;
+    uint16_t line_height = font->line_height;
+    uint16_t total = 0;
+    while (*pString != '\0') {
+        uint32_t codepoint;
+        const char* next;
+        if ((unsigned char)*pString <= 0x7F) {
+            codepoint = (unsigned char)*pString;
+            next = pString + 1;
+        } else if ((unsigned char)*pString >= 0xC2 && (unsigned char)*pString <= 0xDF && pString[1]) {
+            codepoint = ((unsigned char)*pString & 0x1F) << 6 | ((unsigned char)pString[1] & 0x3F);
+            next = pString + 2;
+        } else if ((unsigned char)*pString >= 0xE0 && (unsigned char)*pString <= 0xEF && pString[1] && pString[2]) {
+            codepoint = ((unsigned char)*pString & 0x0F) << 12 | ((unsigned char)pString[1] & 0x3F) << 6 | ((unsigned char)pString[2] & 0x3F);
+            next = pString + 3;
+        } else if ((unsigned char)*pString >= 0xF0 && (unsigned char)*pString <= 0xF4 && pString[1] && pString[2] && pString[3]) {
+            codepoint = ((unsigned char)*pString & 0x07) << 18 | ((unsigned char)pString[1] & 0x3F) << 12 | ((unsigned char)pString[2] & 0x3F) << 6 | ((unsigned char)pString[3] & 0x3F);
+            next = pString + 4;
+        } else {
+            pString++;
+            continue;
+        }
+        pString = next;
+        if (codepoint >= 0x20 && codepoint <= 0x7E) {
+            const Glyph* ascii_g = nullptr;
+            if (ascii_glyph_font && ascii_glyph_font->count > 0) {
+                for (uint16_t i = 0; i < ascii_glyph_font->count; i++) {
+                    if (ascii_glyph_font->glyphs[i].codepoint == codepoint) {
+                        ascii_g = &ascii_glyph_font->glyphs[i];
+                        break;
+                    }
+                }
+            }
+            if (ascii_g) {
+                total += (codepoint == 0x20) ? ((line_height >= 16) ? 5 : (line_height >= 12) ? 4 : 3) : (ascii_g->width + 1);
+            } else if (ascii_fallback) {
+                total += ascii_fallback->Width;
+            }
+            continue;
+        }
+        const Glyph* g = nullptr;
+        for (uint16_t i = 0; i < font->count; i++) {
+            if (font->glyphs[i].codepoint == codepoint) {
+                g = &font->glyphs[i];
+                break;
+            }
+        }
+        if (codepoint == 0x20) {
+            total += (line_height >= 16) ? 6 : (line_height >= 12) ? 5 : 4;
+        } else {
+            total += g ? (g->width + 1) : (line_height / 2 + 1);
+        }
+    }
+    return total;
+}
 
 /******************************************************************************
 function: Display the string

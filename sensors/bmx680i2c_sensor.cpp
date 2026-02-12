@@ -68,7 +68,7 @@ bool BME680Sensor::begin() {
 // }
 
 void BME680Sensor::_fetch(JsonDocument &data) {
-    debug_outln_info(F("fetch BME680"));
+    debug_outln_verbose(F("fetch BME680"));
 
     i2c_master_init();
 
@@ -106,7 +106,7 @@ void BME680Sensor::_fetch(JsonDocument &data) {
         if (corrected_temp < -40.0f) corrected_temp = -40.0f;
         if (corrected_temp > 85.0f)  corrected_temp = 85.0f;
 
-        debug_outln_info(
+        debug_outln_verbose(
             F("[BME680] Temp comp: raw="),
             String(raw_temp, 1) +
             F("°C, offset=") + String(ROOM_TEMP_OFFSET_C, 1) +
@@ -115,7 +115,7 @@ void BME680Sensor::_fetch(JsonDocument &data) {
             F("°C, final=") + String(corrected_temp, 1) + F("°C")
         );
     } else {
-        debug_outln_info(F("[BME680] ESP temp unavailable, skipping ESP compensation"));
+        debug_outln_verbose(F("[BME680] ESP temp unavailable, skipping ESP compensation"));
     }
 
     // ---------------- ВЛАЖНОСТЬ ----------------
@@ -142,15 +142,15 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     last_pressure_value    = pressure;
 
     // ---------------- ОТЛАДКА ----------------
-    debug_outln_info(F("BME680 temperature: "), String(last_temperature_value, 1));
-    debug_outln_info(
+    debug_outln_verbose(F("BME680 temperature: "), String(last_temperature_value, 1));
+    debug_outln_verbose(
         F("[BME680] Humidity comp: raw="),
         String(raw_humidity, 1) +
         F("%, temp_error=") + String(temp_error, 2) +
         F("°C, corrected=") + String(corrected_humidity, 1) +
         F("%, smoothed=") + String(smoothed_humidity, 1) + F("%")
     );
-    debug_outln_info(F("BME680 pressure: "), String(last_pressure_value));
+    debug_outln_verbose(F("BME680 pressure: "), String(last_pressure_value));
 
     // ---------------- JSON ----------------
     addValueToJSON(data, F("temperature"), last_temperature_value, INTL_TEMPERATURE, F("°C"));

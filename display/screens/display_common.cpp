@@ -225,6 +225,32 @@ void epdSleep() {
 #endif
 }
 
+// Attempt to recover from a stuck display by hardware reset and reinit
+void epdRecoverFromStuck() {
+#ifdef DISPLAY_4IN2
+    Serial.println(F("[EPD] Attempting display recovery..."));
+    
+    // Hardware reset
+    EPD_4IN2_V2_Reset();
+    DEV_Delay_ms(100);
+    
+    // Mark as uninitialized so next operation does full init
+    epd_initialized = false;
+    epd_current_mode = DisplayMode::FULL;
+    
+    // Force a full init
+    EPD_4IN2_V2_Init();
+    epd_initialized = true;
+    
+    // Reset all counters to trigger full refresh on next update
+    for (int i = 0; i < 8; i++) {
+        period_position_per_screen[i] = 0;
+    }
+    
+    Serial.println(F("[EPD] Display recovery complete"));
+#endif
+}
+
 void epdResetState() {
 #ifdef DISPLAY_4IN2
     // Reset display state (like on first power-on)

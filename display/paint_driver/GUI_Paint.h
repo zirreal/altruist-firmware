@@ -212,6 +212,12 @@ void Paint_DrawCircle(UWORD X_Center, UWORD Y_Center, UWORD Radius, UWORD Color,
 void Paint_DrawChar(UWORD Xstart, UWORD Ystart, const char Acsii_Char, sFONT* Font, UWORD Color_Foreground, UWORD Color_Background);
 void Paint_DrawString_EN(UWORD Xstart, UWORD Ystart, const char * pString, sFONT* Font, UWORD Color_Foreground, UWORD Color_Background);
 void Paint_DrawString_CN(UWORD Xstart, UWORD Ystart, const char * pString, cFONT* font, UWORD Color_Foreground, UWORD Color_Background);
+void Paint_DrawString_RU(UWORD Xstart, UWORD Ystart, const char * pString, const Font* font, UWORD Color_Foreground, UWORD Color_Background, sFONT* ascii_fallback, const Font* ascii_glyph_font);
+/* Same as Paint_DrawString_RU but when preserve_foreground is true, do not flip WHITE to BLACK (for white text on black bg). */
+void Paint_DrawString_RU_Ex(UWORD Xstart, UWORD Ystart, const char * pString, const Font* font, UWORD Color_Foreground, UWORD Color_Background, sFONT* ascii_fallback, const Font* ascii_glyph_font, bool preserve_foreground);
+/* Draw with extra pixels between characters (e.g. for bold numbers). letter_spacing is added after each character. */
+void Paint_DrawString_RU_WithSpacing(UWORD Xstart, UWORD Ystart, const char * pString, const Font* font, UWORD Color_Foreground, UWORD Color_Background, sFONT* ascii_fallback, const Font* ascii_glyph_font, int8_t letter_spacing);
+uint16_t Paint_GetStringWidth_RU(const char * pString, const Font* font, sFONT* ascii_fallback, const Font* ascii_glyph_font);
 void Paint_DrawNum(UWORD Xpoint, UWORD Ypoint, int32_t Nummber, sFONT* Font, UWORD Color_Foreground, UWORD Color_Background);
 void Paint_DrawTime(UWORD Xstart, UWORD Ystart, PAINT_TIME *pTime, sFONT* Font, UWORD Color_Foreground, UWORD Color_Background);
 

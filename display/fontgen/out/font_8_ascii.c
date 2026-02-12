@@ -1,0 +1,923 @@
+#include "font_8_ascii.h"
+
+// U+0020 ' '
+static const uint8_t bmp_8_ascii_0020[] = {
+0x00, 
+};
+
+// U+0021 '!'
+static const uint8_t bmp_8_ascii_0021[] = {
+0x80, 
+0x80, 
+0x80, 
+0x00, 
+0x80, 
+};
+
+// U+0022 '"'
+static const uint8_t bmp_8_ascii_0022[] = {
+0xC0, 
+0xC0, 
+};
+
+// U+0023 '#'
+static const uint8_t bmp_8_ascii_0023[] = {
+0x30, 
+0x78, 
+0x50, 
+0xF0, 
+0x60, 
+};
+
+// U+0024 '$'
+static const uint8_t bmp_8_ascii_0024[] = {
+0x20, 
+0x70, 
+0x50, 
+0x20, 
+0xD0, 
+0x70, 
+0x20, 
+};
+
+// U+0025 '%'
+static const uint8_t bmp_8_ascii_0025[] = {
+0xC0, 
+0xD0, 
+0x38, 
+0x58, 
+0x18, 
+};
+
+// U+0026 '&'
+static const uint8_t bmp_8_ascii_0026[] = {
+0x60, 
+0xA0, 
+0x40, 
+0xB0, 
+0xF0, 
+};
+
+// U+0027 '''
+static const uint8_t bmp_8_ascii_0027[] = {
+0x80, 
+0x80, 
+};
+
+// U+0028 '('
+static const uint8_t bmp_8_ascii_0028[] = {
+0x40, 
+0x40, 
+0x80, 
+0x80, 
+0x80, 
+0x80, 
+0x40, 
+0x00, 
+};
+
+// U+0029 ')'
+static const uint8_t bmp_8_ascii_0029[] = {
+0x80, 
+0x80, 
+0x40, 
+0x40, 
+0x40, 
+0x40, 
+0x80, 
+0x00, 
+};
+
+// U+002A '*'
+static const uint8_t bmp_8_ascii_002A[] = {
+0x40, 
+0xE0, 
+0xA0, 
+};
+
+// U+002B '+'
+static const uint8_t bmp_8_ascii_002B[] = {
+0x40, 
+0x40, 
+0xE0, 
+0x40, 
+0x40, 
+};
+
+// U+002C ','
+static const uint8_t bmp_8_ascii_002C[] = {
+0x80, 
+0x80, 
+};
+
+// U+002D '-'
+static const uint8_t bmp_8_ascii_002D[] = {
+0xC0, 
+};
+
+// U+002E '.'
+static const uint8_t bmp_8_ascii_002E[] = {
+0x80, 
+};
+
+// U+002F '/'
+static const uint8_t bmp_8_ascii_002F[] = {
+0x20, 
+0x40, 
+0x40, 
+0x40, 
+0x80, 
+0x80, 
+};
+
+// U+0030 '0'
+static const uint8_t bmp_8_ascii_0030[] = {
+0x60, 
+0x90, 
+0x90, 
+0x90, 
+0x60, 
+};
+
+// U+0031 '1'
+static const uint8_t bmp_8_ascii_0031[] = {
+0xC0, 
+0x40, 
+0x40, 
+0x40, 
+0x40, 
+};
+
+// U+0032 '2'
+static const uint8_t bmp_8_ascii_0032[] = {
+0xE0, 
+0xA0, 
+0x20, 
+0x40, 
+0xF0, 
+};
+
+// U+0033 '3'
+static const uint8_t bmp_8_ascii_0033[] = {
+0x70, 
+0x10, 
+0x30, 
+0x90, 
+0x70, 
+};
+
+// U+0034 '4'
+static const uint8_t bmp_8_ascii_0034[] = {
+0x10, 
+0x30, 
+0x50, 
+0xF8, 
+0x10, 
+};
+
+// U+0035 '5'
+static const uint8_t bmp_8_ascii_0035[] = {
+0x70, 
+0x70, 
+0x10, 
+0x90, 
+0x60, 
+};
+
+// U+0036 '6'
+static const uint8_t bmp_8_ascii_0036[] = {
+0x60, 
+0xE0, 
+0x90, 
+0x90, 
+0x60, 
+};
+
+// U+0037 '7'
+static const uint8_t bmp_8_ascii_0037[] = {
+0xF0, 
+0x10, 
+0x20, 
+0x20, 
+0x40, 
+};
+
+// U+0038 '8'
+static const uint8_t bmp_8_ascii_0038[] = {
+0xF0, 
+0x90, 
+0xF0, 
+0x90, 
+0xF0, 
+};
+
+// U+0039 '9'
+static const uint8_t bmp_8_ascii_0039[] = {
+0xE0, 
+0x90, 
+0xF0, 
+0x10, 
+0x60, 
+};
+
+// U+003A ':'
+static const uint8_t bmp_8_ascii_003A[] = {
+0xC0, 
+0x00, 
+0x00, 
+0xC0, 
+};
+
+// U+003B ';'
+static const uint8_t bmp_8_ascii_003B[] = {
+0xC0, 
+0x00, 
+0x00, 
+0x40, 
+0x40, 
+};
+
+// U+003C '<'
+static const uint8_t bmp_8_ascii_003C[] = {
+0x30, 
+0xC0, 
+0x60, 
+};
+
+// U+003D '='
+static const uint8_t bmp_8_ascii_003D[] = {
+0xE0, 
+0xE0, 
+};
+
+// U+003E '>'
+static const uint8_t bmp_8_ascii_003E[] = {
+0x80, 
+0x70, 
+0xC0, 
+};
+
+// U+003F '?'
+static const uint8_t bmp_8_ascii_003F[] = {
+0xE0, 
+0xA0, 
+0x40, 
+0x00, 
+0x80, 
+};
+
+// U+0040 '@'
+static const uint8_t bmp_8_ascii_0040[] = {
+0x3C, 
+0xDE, 
+0xAA, 
+0xAA, 
+0xFC, 
+0x78, 
+};
+
+// U+0041 'A'
+static const uint8_t bmp_8_ascii_0041[] = {
+0x20, 
+0x50, 
+0x50, 
+0x78, 
+0x88, 
+};
+
+// U+0042 'B'
+static const uint8_t bmp_8_ascii_0042[] = {
+0xF0, 
+0x90, 
+0xE0, 
+0x90, 
+0xF0, 
+};
+
+// U+0043 'C'
+static const uint8_t bmp_8_ascii_0043[] = {
+0x70, 
+0x90, 
+0x80, 
+0x90, 
+0x70, 
+};
+
+// U+0044 'D'
+static const uint8_t bmp_8_ascii_0044[] = {
+0xE0, 
+0x90, 
+0x90, 
+0x90, 
+0xE0, 
+};
+
+// U+0045 'E'
+static const uint8_t bmp_8_ascii_0045[] = {
+0xF0, 
+0x80, 
+0xE0, 
+0x80, 
+0xF0, 
+};
+
+// U+0046 'F'
+static const uint8_t bmp_8_ascii_0046[] = {
+0xF0, 
+0x80, 
+0xE0, 
+0x80, 
+0x80, 
+};
+
+// U+0047 'G'
+static const uint8_t bmp_8_ascii_0047[] = {
+0x70, 
+0x88, 
+0x98, 
+0x88, 
+0x70, 
+};
+
+// U+0048 'H'
+static const uint8_t bmp_8_ascii_0048[] = {
+0x88, 
+0x88, 
+0xF8, 
+0x88, 
+0x88, 
+};
+
+// U+0049 'I'
+static const uint8_t bmp_8_ascii_0049[] = {
+0x80, 
+0x80, 
+0x80, 
+0x80, 
+0x80, 
+};
+
+// U+004A 'J'
+static const uint8_t bmp_8_ascii_004A[] = {
+0x10, 
+0x10, 
+0x10, 
+0x90, 
+0x70, 
+};
+
+// U+004B 'K'
+static const uint8_t bmp_8_ascii_004B[] = {
+0x90, 
+0xA0, 
+0xE0, 
+0xA0, 
+0x90, 
+};
+
+// U+004C 'L'
+static const uint8_t bmp_8_ascii_004C[] = {
+0x80, 
+0x80, 
+0x80, 
+0x80, 
+0xF0, 
+};
+
+// U+004D 'M'
+static const uint8_t bmp_8_ascii_004D[] = {
+0xCC, 
+0xCC, 
+0xD4, 
+0xB4, 
+0xB4, 
+};
+
+// U+004E 'N'
+static const uint8_t bmp_8_ascii_004E[] = {
+0x88, 
+0xC8, 
+0xA8, 
+0x98, 
+0x88, 
+};
+
+// U+004F 'O'
+static const uint8_t bmp_8_ascii_004F[] = {
+0x70, 
+0x88, 
+0x88, 
+0x88, 
+0x70, 
+};
+
+// U+0050 'P'
+static const uint8_t bmp_8_ascii_0050[] = {
+0xF0, 
+0x90, 
+0xF0, 
+0x80, 
+0x80, 
+};
+
+// U+0051 'Q'
+static const uint8_t bmp_8_ascii_0051[] = {
+0x70, 
+0x88, 
+0x88, 
+0x88, 
+0x70, 
+0x08, 
+};
+
+// U+0052 'R'
+static const uint8_t bmp_8_ascii_0052[] = {
+0xF0, 
+0x90, 
+0xF0, 
+0xA0, 
+0x90, 
+};
+
+// U+0053 'S'
+static const uint8_t bmp_8_ascii_0053[] = {
+0xE0, 
+0x90, 
+0x60, 
+0x90, 
+0xF0, 
+};
+
+// U+0054 'T'
+static const uint8_t bmp_8_ascii_0054[] = {
+0xF8, 
+0x20, 
+0x20, 
+0x20, 
+0x20, 
+};
+
+// U+0055 'U'
+static const uint8_t bmp_8_ascii_0055[] = {
+0x90, 
+0x90, 
+0x90, 
+0x90, 
+0x60, 
+};
+
+// U+0056 'V'
+static const uint8_t bmp_8_ascii_0056[] = {
+0x88, 
+0x58, 
+0x50, 
+0x50, 
+0x20, 
+};
+
+// U+0057 'W'
+static const uint8_t bmp_8_ascii_0057[] = {
+0x94, 
+0xB4, 
+0xB4, 
+0xAC, 
+0x48, 
+};
+
+// U+0058 'X'
+static const uint8_t bmp_8_ascii_0058[] = {
+0x58, 
+0x50, 
+0x20, 
+0x50, 
+0xD8, 
+};
+
+// U+0059 'Y'
+static const uint8_t bmp_8_ascii_0059[] = {
+0x88, 
+0x50, 
+0x20, 
+0x20, 
+0x20, 
+};
+
+// U+005A 'Z'
+static const uint8_t bmp_8_ascii_005A[] = {
+0xF0, 
+0x20, 
+0x60, 
+0x40, 
+0xF0, 
+};
+
+// U+005B '['
+static const uint8_t bmp_8_ascii_005B[] = {
+0xC0, 
+0x80, 
+0x80, 
+0x80, 
+0x80, 
+0x80, 
+0xC0, 
+};
+
+// U+005C '\'
+static const uint8_t bmp_8_ascii_005C[] = {
+0x80, 
+0x40, 
+0x40, 
+0x20, 
+0x20, 
+0x20, 
+};
+
+// U+005D ']'
+static const uint8_t bmp_8_ascii_005D[] = {
+0xC0, 
+0x40, 
+0x40, 
+0x40, 
+0x40, 
+0x40, 
+0xC0, 
+};
+
+// U+005E '^'
+static const uint8_t bmp_8_ascii_005E[] = {
+0x40, 
+0x60, 
+0xA0, 
+};
+
+// U+005F '_'
+static const uint8_t bmp_8_ascii_005F[] = {
+0xF0, 
+};
+
+// U+0060 '`'
+static const uint8_t bmp_8_ascii_0060[] = {
+0x40, 
+};
+
+// U+0061 'a'
+static const uint8_t bmp_8_ascii_0061[] = {
+0x70, 
+0x70, 
+0x90, 
+0x70, 
+};
+
+// U+0062 'b'
+static const uint8_t bmp_8_ascii_0062[] = {
+0x80, 
+0xE0, 
+0x90, 
+0x90, 
+0xF0, 
+};
+
+// U+0063 'c'
+static const uint8_t bmp_8_ascii_0063[] = {
+0x60, 
+0x90, 
+0x90, 
+0x60, 
+};
+
+// U+0064 'd'
+static const uint8_t bmp_8_ascii_0064[] = {
+0x10, 
+0x70, 
+0x90, 
+0x90, 
+0x70, 
+};
+
+// U+0065 'e'
+static const uint8_t bmp_8_ascii_0065[] = {
+0x60, 
+0xE0, 
+0x80, 
+0x60, 
+};
+
+// U+0066 'f'
+static const uint8_t bmp_8_ascii_0066[] = {
+0x60, 
+0xE0, 
+0x40, 
+0x40, 
+0x40, 
+};
+
+// U+0067 'g'
+static const uint8_t bmp_8_ascii_0067[] = {
+0x70, 
+0x90, 
+0x90, 
+0x70, 
+0x70, 
+};
+
+// U+0068 'h'
+static const uint8_t bmp_8_ascii_0068[] = {
+0x80, 
+0xF0, 
+0x90, 
+0x90, 
+0x90, 
+};
+
+// U+0069 'i'
+static const uint8_t bmp_8_ascii_0069[] = {
+0xC0, 
+0x40, 
+0x40, 
+0x40, 
+0x40, 
+};
+
+// U+006A 'j'
+static const uint8_t bmp_8_ascii_006A[] = {
+0xC0, 
+0x40, 
+0x40, 
+0x40, 
+0x40, 
+0xC0, 
+};
+
+// U+006B 'k'
+static const uint8_t bmp_8_ascii_006B[] = {
+0x80, 
+0xA0, 
+0xC0, 
+0xA0, 
+0xA0, 
+};
+
+// U+006C 'l'
+static const uint8_t bmp_8_ascii_006C[] = {
+0x80, 
+0x80, 
+0x80, 
+0x80, 
+0x80, 
+};
+
+// U+006D 'm'
+static const uint8_t bmp_8_ascii_006D[] = {
+0xFE, 
+0x92, 
+0x92, 
+0x92, 
+};
+
+// U+006E 'n'
+static const uint8_t bmp_8_ascii_006E[] = {
+0xF0, 
+0x90, 
+0x90, 
+0x90, 
+};
+
+// U+006F 'o'
+static const uint8_t bmp_8_ascii_006F[] = {
+0x60, 
+0x90, 
+0x90, 
+0x60, 
+};
+
+// U+0070 'p'
+static const uint8_t bmp_8_ascii_0070[] = {
+0xE0, 
+0x90, 
+0x90, 
+0xE0, 
+0x80, 
+};
+
+// U+0071 'q'
+static const uint8_t bmp_8_ascii_0071[] = {
+0x70, 
+0x90, 
+0x90, 
+0x70, 
+0x10, 
+};
+
+// U+0072 'r'
+static const uint8_t bmp_8_ascii_0072[] = {
+0xC0, 
+0x80, 
+0x80, 
+0x80, 
+};
+
+// U+0073 's'
+static const uint8_t bmp_8_ascii_0073[] = {
+0x70, 
+0x40, 
+0x30, 
+0x70, 
+};
+
+// U+0074 't'
+static const uint8_t bmp_8_ascii_0074[] = {
+0x40, 
+0xE0, 
+0x40, 
+0x40, 
+0x60, 
+};
+
+// U+0075 'u'
+static const uint8_t bmp_8_ascii_0075[] = {
+0x90, 
+0x90, 
+0x90, 
+0xF0, 
+};
+
+// U+0076 'v'
+static const uint8_t bmp_8_ascii_0076[] = {
+0x90, 
+0xA0, 
+0x60, 
+0x40, 
+};
+
+// U+0077 'w'
+static const uint8_t bmp_8_ascii_0077[] = {
+0x94, 
+0x74, 
+0x68, 
+0x48, 
+};
+
+// U+0078 'x'
+static const uint8_t bmp_8_ascii_0078[] = {
+0xD0, 
+0x60, 
+0x60, 
+0x90, 
+};
+
+// U+0079 'y'
+static const uint8_t bmp_8_ascii_0079[] = {
+0x90, 
+0x60, 
+0x60, 
+0x40, 
+0xC0, 
+};
+
+// U+007A 'z'
+static const uint8_t bmp_8_ascii_007A[] = {
+0xF0, 
+0x60, 
+0x40, 
+0xF0, 
+};
+
+// U+007B '{'
+static const uint8_t bmp_8_ascii_007B[] = {
+0x40, 
+0x40, 
+0x40, 
+0xC0, 
+0x40, 
+0x40, 
+0x40, 
+};
+
+// U+007C '|'
+static const uint8_t bmp_8_ascii_007C[] = {
+0x80, 
+0x80, 
+0x80, 
+0x80, 
+0x80, 
+0x80, 
+};
+
+// U+007D '}'
+static const uint8_t bmp_8_ascii_007D[] = {
+0x40, 
+0x40, 
+0x40, 
+0x60, 
+0x40, 
+0x40, 
+0x40, 
+};
+
+// U+007E '~'
+static const uint8_t bmp_8_ascii_007E[] = {
+0x68, 
+0x90, 
+};
+
+static const Glyph glyphs_8_ascii[] = {
+  { 0x0020, 1, 1, 6, bmp_8_ascii_0020 }, // ' '
+  { 0x0021, 1, 5, 2, bmp_8_ascii_0021 }, // '!'
+  { 0x0022, 2, 2, 2, bmp_8_ascii_0022 }, // '"'
+  { 0x0023, 5, 5, 2, bmp_8_ascii_0023 }, // '#'
+  { 0x0024, 4, 7, 1, bmp_8_ascii_0024 }, // '$'
+  { 0x0025, 5, 5, 2, bmp_8_ascii_0025 }, // '%'
+  { 0x0026, 5, 5, 2, bmp_8_ascii_0026 }, // '&'
+  { 0x0027, 1, 2, 2, bmp_8_ascii_0027 }, // '''
+  { 0x0028, 2, 8, 1, bmp_8_ascii_0028 }, // '('
+  { 0x0029, 2, 8, 1, bmp_8_ascii_0029 }, // ')'
+  { 0x002A, 3, 3, 2, bmp_8_ascii_002A }, // '*'
+  { 0x002B, 3, 5, 2, bmp_8_ascii_002B }, // '+'
+  { 0x002C, 1, 2, 6, bmp_8_ascii_002C }, // ','
+  { 0x002D, 2, 1, 4, bmp_8_ascii_002D }, // '-'
+  { 0x002E, 1, 1, 6, bmp_8_ascii_002E }, // '.'
+  { 0x002F, 3, 6, 2, bmp_8_ascii_002F }, // '/'
+  { 0x0030, 4, 5, 2, bmp_8_ascii_0030 }, // '0'
+  { 0x0031, 2, 5, 2, bmp_8_ascii_0031 }, // '1'
+  { 0x0032, 4, 5, 2, bmp_8_ascii_0032 }, // '2'
+  { 0x0033, 4, 5, 2, bmp_8_ascii_0033 }, // '3'
+  { 0x0034, 5, 5, 2, bmp_8_ascii_0034 }, // '4'
+  { 0x0035, 4, 5, 2, bmp_8_ascii_0035 }, // '5'
+  { 0x0036, 4, 5, 2, bmp_8_ascii_0036 }, // '6'
+  { 0x0037, 4, 5, 2, bmp_8_ascii_0037 }, // '7'
+  { 0x0038, 4, 5, 2, bmp_8_ascii_0038 }, // '8'
+  { 0x0039, 4, 5, 2, bmp_8_ascii_0039 }, // '9'
+  { 0x003A, 2, 4, 3, bmp_8_ascii_003A }, // ':'
+  { 0x003B, 2, 5, 3, bmp_8_ascii_003B }, // ';'
+  { 0x003C, 4, 3, 3, bmp_8_ascii_003C }, // '<'
+  { 0x003D, 3, 2, 4, bmp_8_ascii_003D }, // '='
+  { 0x003E, 4, 3, 3, bmp_8_ascii_003E }, // '>'
+  { 0x003F, 3, 5, 2, bmp_8_ascii_003F }, // '?'
+  { 0x0040, 7, 6, 2, bmp_8_ascii_0040 }, // '@'
+  { 0x0041, 5, 5, 2, bmp_8_ascii_0041 }, // 'A'
+  { 0x0042, 4, 5, 2, bmp_8_ascii_0042 }, // 'B'
+  { 0x0043, 5, 5, 2, bmp_8_ascii_0043 }, // 'C'
+  { 0x0044, 4, 5, 2, bmp_8_ascii_0044 }, // 'D'
+  { 0x0045, 4, 5, 2, bmp_8_ascii_0045 }, // 'E'
+  { 0x0046, 4, 5, 2, bmp_8_ascii_0046 }, // 'F'
+  { 0x0047, 5, 5, 2, bmp_8_ascii_0047 }, // 'G'
+  { 0x0048, 5, 5, 2, bmp_8_ascii_0048 }, // 'H'
+  { 0x0049, 1, 5, 2, bmp_8_ascii_0049 }, // 'I'
+  { 0x004A, 4, 5, 2, bmp_8_ascii_004A }, // 'J'
+  { 0x004B, 5, 5, 2, bmp_8_ascii_004B }, // 'K'
+  { 0x004C, 4, 5, 2, bmp_8_ascii_004C }, // 'L'
+  { 0x004D, 6, 5, 2, bmp_8_ascii_004D }, // 'M'
+  { 0x004E, 5, 5, 2, bmp_8_ascii_004E }, // 'N'
+  { 0x004F, 5, 5, 2, bmp_8_ascii_004F }, // 'O'
+  { 0x0050, 4, 5, 2, bmp_8_ascii_0050 }, // 'P'
+  { 0x0051, 5, 6, 2, bmp_8_ascii_0051 }, // 'Q'
+  { 0x0052, 4, 5, 2, bmp_8_ascii_0052 }, // 'R'
+  { 0x0053, 4, 5, 2, bmp_8_ascii_0053 }, // 'S'
+  { 0x0054, 5, 5, 2, bmp_8_ascii_0054 }, // 'T'
+  { 0x0055, 4, 5, 2, bmp_8_ascii_0055 }, // 'U'
+  { 0x0056, 5, 5, 2, bmp_8_ascii_0056 }, // 'V'
+  { 0x0057, 6, 5, 2, bmp_8_ascii_0057 }, // 'W'
+  { 0x0058, 5, 5, 2, bmp_8_ascii_0058 }, // 'X'
+  { 0x0059, 5, 5, 2, bmp_8_ascii_0059 }, // 'Y'
+  { 0x005A, 4, 5, 2, bmp_8_ascii_005A }, // 'Z'
+  { 0x005B, 2, 7, 1, bmp_8_ascii_005B }, // '['
+  { 0x005C, 3, 6, 2, bmp_8_ascii_005C }, // '\'
+  { 0x005D, 2, 7, 1, bmp_8_ascii_005D }, // ']'
+  { 0x005E, 3, 3, 1, bmp_8_ascii_005E }, // '^'
+  { 0x005F, 4, 1, 7, bmp_8_ascii_005F }, // '_'
+  { 0x0060, 2, 1, 2, bmp_8_ascii_0060 }, // '`'
+  { 0x0061, 4, 4, 3, bmp_8_ascii_0061 }, // 'a'
+  { 0x0062, 4, 5, 2, bmp_8_ascii_0062 }, // 'b'
+  { 0x0063, 4, 4, 3, bmp_8_ascii_0063 }, // 'c'
+  { 0x0064, 4, 5, 2, bmp_8_ascii_0064 }, // 'd'
+  { 0x0065, 4, 4, 3, bmp_8_ascii_0065 }, // 'e'
+  { 0x0066, 3, 5, 2, bmp_8_ascii_0066 }, // 'f'
+  { 0x0067, 4, 5, 3, bmp_8_ascii_0067 }, // 'g'
+  { 0x0068, 4, 5, 2, bmp_8_ascii_0068 }, // 'h'
+  { 0x0069, 2, 5, 2, bmp_8_ascii_0069 }, // 'i'
+  { 0x006A, 2, 6, 2, bmp_8_ascii_006A }, // 'j'
+  { 0x006B, 4, 5, 2, bmp_8_ascii_006B }, // 'k'
+  { 0x006C, 1, 5, 2, bmp_8_ascii_006C }, // 'l'
+  { 0x006D, 7, 4, 3, bmp_8_ascii_006D }, // 'm'
+  { 0x006E, 4, 4, 3, bmp_8_ascii_006E }, // 'n'
+  { 0x006F, 4, 4, 3, bmp_8_ascii_006F }, // 'o'
+  { 0x0070, 4, 5, 3, bmp_8_ascii_0070 }, // 'p'
+  { 0x0071, 4, 5, 3, bmp_8_ascii_0071 }, // 'q'
+  { 0x0072, 2, 4, 3, bmp_8_ascii_0072 }, // 'r'
+  { 0x0073, 4, 4, 3, bmp_8_ascii_0073 }, // 's'
+  { 0x0074, 3, 5, 2, bmp_8_ascii_0074 }, // 't'
+  { 0x0075, 4, 4, 3, bmp_8_ascii_0075 }, // 'u'
+  { 0x0076, 4, 4, 3, bmp_8_ascii_0076 }, // 'v'
+  { 0x0077, 6, 4, 3, bmp_8_ascii_0077 }, // 'w'
+  { 0x0078, 4, 4, 3, bmp_8_ascii_0078 }, // 'x'
+  { 0x0079, 4, 5, 3, bmp_8_ascii_0079 }, // 'y'
+  { 0x007A, 4, 4, 3, bmp_8_ascii_007A }, // 'z'
+  { 0x007B, 3, 7, 1, bmp_8_ascii_007B }, // '{'
+  { 0x007C, 1, 6, 2, bmp_8_ascii_007C }, // '|'
+  { 0x007D, 3, 7, 1, bmp_8_ascii_007D }, // '}'
+  { 0x007E, 5, 2, 4, bmp_8_ascii_007E }, // '~'
+};
+
+const Font font_8_ascii = {
+  95, 8, glyphs_8_ascii
+};

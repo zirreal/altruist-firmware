@@ -43,6 +43,24 @@ const char INTL_DNMS_CORRECTION[] PROGMEM = "correction in dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Temperature correction in °C";
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Custom Altruist Urban Address";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Use Custom Altruist Urban Address";
+
+// Urban selection (guest setup & config page)
+#define INTL_SCANNING_URBANS "Scanning for Altruist Urban devices..."
+#define INTL_SELECT_URBAN_TITLE "Select Altruist Urban Device"
+#define INTL_SELECT_URBAN_DESC "Choose which Urban device this Insight should read outdoor sensor data from."
+#define INTL_NO_URBANS_FOUND "No Altruist Urban devices found on this network. Make sure your Urban device is powered on and connected to the same WiFi network. You can enter a custom IP address below or skip and configure later."
+#define INTL_USE_CUSTOM_IP "Use custom IP address:"
+#define INTL_SKIP_URBAN_SELECTION "Skip &mdash; configure later from Settings page"
+#define INTL_SETUP_COMPLETE "Setup Complete"
+#define INTL_SETTINGS_SAVED "Settings Saved!"
+#define INTL_DEVICE_RESTARTING "Restarting device..."
+#define INTL_SCAN_BTN "Scan"
+#define INTL_SCAN_SCANNING "Scanning..."
+#define INTL_SCAN_NO_URBANS "No Urban devices found."
+#define INTL_SCAN_FOUND_PREFIX "Found "
+#define INTL_SCAN_FOUND_SUFFIX " Urban device(s)."
+#define INTL_SCAN_FAILED "Scan failed: "
+
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "RWS Owner Address";
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Robonomics Public Node";
@@ -62,6 +80,14 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Custom API"
 #define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
+#define INTL_PANEL_TITLE_DATA_SHARING "Publish to Map"
+#define INTL_DATA_SHARING_DISCLAIMER "By default, all sensor data is shared to the public sensors map. You can choose which data types to share below. Unshared data will still be displayed on your device screen and available locally."
+const char INTL_SHARE_TEMPERATURE[] PROGMEM = "Temperature";
+const char INTL_SHARE_HUMIDITY[] PROGMEM = "Humidity";
+const char INTL_SHARE_PRESSURE[] PROGMEM = "Pressure";
+const char INTL_SHARE_CO2[] PROGMEM = "CO2";
+const char INTL_SHARE_PM[] PROGMEM = "Particulate Matter (PM2.5/PM10)";
+const char INTL_SHARE_NOISE[] PROGMEM = "Noise Level";
 
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "WiFi Sensor in configuration mode";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Network name";
@@ -111,7 +137,7 @@ const char INTL_DEVICE_STATUS[] PROGMEM = "Device status";
 #define INTL_REALLY_RESTART_SENSOR "Are you sure you want to restart the sensor?"
 #define INTL_RESTART "Restart"
 const char INTL_SAVE_AND_RESTART[] PROGMEM = "Save configuration and restart";
-#define INTL_FIRMWARE "Firmware version"
+#define INTL_FIRMWARE "Firmware:"
 #define INTL_IP_ADDRESS "IP Address"
 const char INTL_SD_CONNECTED[] PROGMEM = "SD Card connected";
 const char INTL_FREE_RAM[] PROGMEM = "Free Memory (RAM)";
@@ -169,3 +195,56 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_REGION_NA "North America"
 #define INTL_REGION_SA "South America"
 
+/* Insight display (e-paper) strings */
+#define INTL_DISP_PRODUCT_INSIGHT "Altruist Insight"
+#define INTL_DISP_WIFI_CLEARED "WiFi credentials cleared"
+#define INTL_DISP_RESTARTING "Restarting device..."
+#define INTL_DISP_WIFI_SETUP "Wi-Fi Setup"
+#define INTL_DISP_CONNECT_TO "Connect to"
+#define INTL_DISP_PASSWORD_PREFIX "Password: "
+#define INTL_DISP_TITLE_INSIGHT "ALTRUIST INSIGHT"
+#define INTL_DISP_CONNECTING_WIFI "Connecting to Wi-Fi"
+#define INTL_DISP_PLEASE_WAIT "Please wait..."
+#define INTL_DISP_SD_NOT_FOUND "SD card not found"
+#define INTL_DISP_INSERT_SD "Please insert SD card"
+#define INTL_DISP_FAT32_FORMATTED "(FAT32 formatted)"
+#define INTL_DISP_NO_DATA_FILES "No data files found"
+#define INTL_DISP_DEVICE_WILL_CREATE "Device will create"
+#define INTL_DISP_FILES_AUTOMATICALLY "files automatically"
+#define INTL_DISP_AFTER_COLLECTING "after collecting data"
+#define INTL_DISP_SD_NOT_AVAILABLE "SD card not available"
+#define INTL_DISP_GRAPHS_REQUIRE_SD "Graphs require SD card"
+#define INTL_DISP_ENABLE_SD "Please enable SD card"
+#define INTL_DISP_INSIGHT_HEADER "Insight"
+#define INTL_DISP_URBAN_HEADER "Urban"
+#define INTL_DISP_GOING_TO_SLEEP "Going to sleep..."
+#define INTL_DISP_WAITING_URBAN_ID "Waiting for Urban ID..."
+#define INTL_DISP_URBAN_IP "Urban IP:"
+#define INTL_DISP_INSIGHT_IP "Insight IP:"
+#define INTL_DISP_SD_CARD "SD Card:"
+#define INTL_DISP_WIFI_STATUS "WiFi Status:"
+#define INTL_DISP_WIFI_NAME "WiFi Name:"
+#define INTL_DISP_UNIQUE_ADDR "Unique Addr:"
+#define INTL_DISP_DEVICE_INFO "Device info"
+#define INTL_DISP_SCAN_FOR_MORE "Scan for more"
+#define INTL_DISP_NO_DATA "--"
+#define INTL_DISP_TEMPERATURE "Temperature"
+#define INTL_DISP_HUMIDITY "Humidity"
+#define INTL_DISP_PRESSURE "Pressure"
+#define INTL_DISP_AIR "Air"
+#define INTL_DISP_AIR_QUALITY "Air quality"
+#define INTL_DISP_NOISE "Noise"
+#define INTL_DISP_MAIN_URBAN "URBAN"
+#define INTL_DISP_MAIN_INSIGHT "INSIGHT"
+#define INTL_DISP_SENSORS_MAP "Sensors Map"
+#define INTL_DISP_SCAN_TO_OPEN "Scan to open online"
+#define INTL_DISP_POWERED_BY "Powered by Robonomics"
+#define INTL_DISP_NOT_CONNECTED "Not connected"
+#define INTL_DISP_CONNECTED "Connected"
+#define INTL_DISP_DISCONNECTED "Disconnected"
+#define INTL_DISP_NOT_SET "Not set"
+#define INTL_DISP_NOISE_MAX "Noise Max."
+#define INTL_DISP_NOISE_AVG "Noise Avg."
+#define INTL_DISP_NO_DATA_AVAILABLE "No data available"
+#define INTL_DISP_NOT_ENOUGH_DATA_YET "Not enough data yet"
+#define INTL_DISP_COLLECTING_DATA "Collecting data..."

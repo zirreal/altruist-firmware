@@ -49,17 +49,19 @@ void I2SNoiseSensor::_fetch(JsonDocument &data) {
     debug_outln_verbose(F("I2S noiseAvg: "), String(last_value_DBMETER_mean));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), sensor_name);
     if (msSince(last_send_time) > sending_timeout) {
-        debug_outln_info(FPSTR(DBG_TXT_SEP));
-        debug_outln_info(F("I2S noise: "), String(db_mean));
-        debug_outln_info(F("I2S noiseMax: "), String(last_value_DBMETER_max));
-        debug_outln_info(F("I2S noiseAvg: "), String(last_value_DBMETER_mean));
+        debug_outln_verbose(FPSTR(DBG_TXT_SEP));
+        debug_outln_verbose(F("I2S noise: "), String(db_mean));
+        debug_outln_verbose(F("I2S noiseMax: "), String(last_value_DBMETER_max));
+        debug_outln_verbose(F("I2S noiseAvg: "), String(last_value_DBMETER_mean));
+        #ifdef DEV
         serializeJson(data, Serial);
-        debug_outln_info(F("\r\nJSON memory usage: "), data.memoryUsage());
         Serial.println();
         Serial.println();
+        #endif
+        debug_outln_verbose(F("\r\nJSON memory usage: "), String(data.memoryUsage()));
         last_send_time = millis();
         reset_values();
-        debug_outln_info(F("Reset noise values"));
+        debug_outln_verbose(F("Reset noise values"));
     }
 }
 

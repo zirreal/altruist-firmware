@@ -29,7 +29,7 @@ bool SCD4xSensor::begin() {
 }
 
 void SCD4xSensor::_fetch(JsonDocument &data) {
-    debug_outln_info(F("fetch SCD4x"));
+    debug_outln_verbose(F("fetch SCD4x"));
     i2c_master_init();
     uint8_t counter = 0;
     bool is_meas = true;
@@ -46,9 +46,9 @@ void SCD4xSensor::_fetch(JsonDocument &data) {
         last_temerature_value = mySensor.getTemperature();
         last_humidity_value = mySensor.getHumidity();
 
-        debug_outln_info(F("SCD4x CO2: "), String(last_co2_value));
-        debug_outln_info(F("SCD4x temperature: "), String(last_temerature_value));
-        debug_outln_info(F("SCD4x humidity: "), String(last_humidity_value));
+        debug_outln_verbose(F("SCD4x CO2: "), String(last_co2_value));
+        debug_outln_verbose(F("SCD4x temperature: "), String(last_temerature_value));
+        debug_outln_verbose(F("SCD4x humidity: "), String(last_humidity_value));
 
         addValueToJSON(data, F("co2"), last_co2_value, INTL_CO2, F("ppm"));
         addValueToJSON(data, F("temperature"), last_temerature_value, INTL_TEMPERATURE, F("°C"));

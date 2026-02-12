@@ -43,6 +43,24 @@ const char INTL_DNMS_CORRECTION[] PROGMEM = "поправка в dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Коррекция температуры в °C";
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Пользовательский адрес Altruist Urban";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Использовать пользовательский адрес Altruist Urban";
+
+// Выбор Urban (настройка и страница конфигурации)
+#define INTL_SCANNING_URBANS "Поиск устройств Altruist Urban..."
+#define INTL_SELECT_URBAN_TITLE "Выберите устройство Altruist Urban"
+#define INTL_SELECT_URBAN_DESC "Выберите устройство Urban, с которого этот Insight будет получать данные уличных датчиков."
+#define INTL_NO_URBANS_FOUND "Устройства Altruist Urban не найдены в этой сети. Убедитесь, что Urban включён и подключён к той же сети WiFi. Вы можете ввести IP-адрес вручную или пропустить этот шаг и настроить позже."
+#define INTL_USE_CUSTOM_IP "Указать IP-адрес вручную:"
+#define INTL_SKIP_URBAN_SELECTION "Пропустить &mdash; настроить позже в Настройках"
+#define INTL_SETUP_COMPLETE "Настройка завершена"
+#define INTL_SETTINGS_SAVED "Настройки сохранены!"
+#define INTL_DEVICE_RESTARTING "Перезапуск устройства..."
+#define INTL_SCAN_BTN "Поиск"
+#define INTL_SCAN_SCANNING "Поиск..."
+#define INTL_SCAN_NO_URBANS "Устройства Urban не найдены."
+#define INTL_SCAN_FOUND_PREFIX "Найдено "
+#define INTL_SCAN_FOUND_SUFFIX " устройств(о) Urban."
+#define INTL_SCAN_FAILED "Ошибка поиска: "
+
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "Адрес владельца подписки";
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Адрес публичной ноды Робономики";
@@ -62,6 +80,14 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Пользовательский API"
 #define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
+#define INTL_PANEL_TITLE_DATA_SHARING "Публикация на карту"
+#define INTL_DATA_SHARING_DISCLAIMER "По умолчанию все данные датчиков отправляются на публичную карту. Вы можете выбрать, какие данные передавать. Остальные данные будут отображаться на экране устройства и доступны локально."
+const char INTL_SHARE_TEMPERATURE[] PROGMEM = "Температура";
+const char INTL_SHARE_HUMIDITY[] PROGMEM = "Влажность";
+const char INTL_SHARE_PRESSURE[] PROGMEM = "Давление";
+const char INTL_SHARE_CO2[] PROGMEM = "CO2";
+const char INTL_SHARE_PM[] PROGMEM = "Пыль (PM2.5/PM10)";
+const char INTL_SHARE_NOISE[] PROGMEM = "Уровень шума";
 
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "Название WiFi устройства в режиме конфигурации";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Имя";
@@ -111,7 +137,7 @@ const char INTL_DEVICE_STATUS[] PROGMEM = "Состояние устройств
 #define INTL_REALLY_RESTART_SENSOR "Подтвердите перезапуск устройства!"
 #define INTL_RESTART "Перезапустить"
 const char INTL_SAVE_AND_RESTART[] PROGMEM = "Сохранить и перезапустить";
-#define INTL_FIRMWARE "Прошивка"
+#define INTL_FIRMWARE "Прошивка:"
 #define INTL_IP_ADDRESS "IP адрес"
 const char INTL_SD_CONNECTED[] PROGMEM = "SD карта подключена";
 const char INTL_FREE_RAM[] PROGMEM = "Свободно памяти (ОЗУ)";
@@ -168,4 +194,58 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_REGION_AU "Австралия"
 #define INTL_REGION_NA "Северная Америка"
 #define INTL_REGION_SA "Южная Америка"
+
+/* Insight display (e-paper) strings */
+#define INTL_DISP_PRODUCT_INSIGHT "Altruist Insight"  /* keep in English */
+#define INTL_DISP_WIFI_CLEARED "Данные WiFi удалены"
+#define INTL_DISP_RESTARTING "Перезапуск..."
+#define INTL_DISP_WIFI_SETUP "Настройка Wi-Fi"
+#define INTL_DISP_CONNECT_TO "Подключиться к"
+#define INTL_DISP_PASSWORD_PREFIX "Пароль: "
+#define INTL_DISP_TITLE_INSIGHT "ALTRUIST INSIGHT"  /* keep in English */
+#define INTL_DISP_CONNECTING_WIFI "Подключение к Wi-Fi"
+#define INTL_DISP_PLEASE_WAIT "Подождите..."
+#define INTL_DISP_SD_NOT_FOUND "SD карта не найдена"
+#define INTL_DISP_INSERT_SD "Вставьте SD карту"
+#define INTL_DISP_FAT32_FORMATTED "(формат FAT32)"
+#define INTL_DISP_NO_DATA_FILES "Файлы данных не найдены"
+#define INTL_DISP_DEVICE_WILL_CREATE "Устройство создаст"
+#define INTL_DISP_FILES_AUTOMATICALLY "файлы автоматически"
+#define INTL_DISP_AFTER_COLLECTING "после сбора данных"
+#define INTL_DISP_SD_NOT_AVAILABLE "SD карта недоступна"
+#define INTL_DISP_GRAPHS_REQUIRE_SD "Графикам нужна SD карта"
+#define INTL_DISP_ENABLE_SD "Включите SD карту"
+#define INTL_DISP_INSIGHT_HEADER "Insight"
+#define INTL_DISP_URBAN_HEADER "Urban"
+#define INTL_DISP_GOING_TO_SLEEP "Уход в сон..."
+#define INTL_DISP_WAITING_URBAN_ID "Ожидание Urban ID..."
+#define INTL_DISP_URBAN_IP "IP Urban:"
+#define INTL_DISP_INSIGHT_IP "IP Insight:"
+#define INTL_DISP_SD_CARD "SD карта:"
+#define INTL_DISP_WIFI_STATUS "Статус WiFi:"
+#define INTL_DISP_WIFI_NAME "Имя WiFi:"
+#define INTL_DISP_UNIQUE_ADDR "Уник. адрес:"
+#define INTL_DISP_DEVICE_INFO "Информация об устройстве"
+#define INTL_DISP_SCAN_FOR_MORE "Сканируйте для подробностей"
+#define INTL_DISP_NO_DATA "--"
+#define INTL_DISP_TEMPERATURE "Температура"
+#define INTL_DISP_HUMIDITY "Влажность"
+#define INTL_DISP_PRESSURE "Давление"
+#define INTL_DISP_AIR "Воздух"
+#define INTL_DISP_AIR_QUALITY "Качество воздуха"
+#define INTL_DISP_NOISE "Шум"
+#define INTL_DISP_MAIN_URBAN "URBAN"
+#define INTL_DISP_MAIN_INSIGHT "INSIGHT"
+#define INTL_DISP_SENSORS_MAP "Карта датчиков"
+#define INTL_DISP_SCAN_TO_OPEN "Сканируйте для перехода"
+#define INTL_DISP_POWERED_BY "Powered by Robonomics"
+#define INTL_DISP_NOT_CONNECTED "Нет подключения"
+#define INTL_DISP_CONNECTED "Подключено"
+#define INTL_DISP_DISCONNECTED "Отключено"
+#define INTL_DISP_NOT_SET "Не задано"
+#define INTL_DISP_NOISE_MAX "Шум макс."
+#define INTL_DISP_NOISE_AVG "Шум ср."
+#define INTL_DISP_NO_DATA_AVAILABLE "Нет данных"
+#define INTL_DISP_NOT_ENOUGH_DATA_YET "Пока недостаточно данных"
+#define INTL_DISP_COLLECTING_DATA "Сбор данных..."
 

@@ -11,17 +11,21 @@ struct main_screen_values_t {
     float pm25 = -1;
     float noise_avg = -1;
     float noise_max = -1;
-    float temp_outdoor = -1;
+    // Use a sentinel outside valid temperature range so -1°C can be displayed.
+    float temp_outdoor = -1000;
     float hum_outdoor = -1;
     float press_outdoor = -1;
-    float temp_indoor = -1;
+    // Use a sentinel outside valid temperature range so -1°C can be displayed.
+    float temp_indoor = -1000;
     float hum_indoor = -1;
     float press_indoor = -1;
     float co2 = -1;
     String ip_address = "";
+    String urban_robonomics_address = "";
 };
 
-void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &device_ip_address);
+void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &device_ip_address, 
+                    const String &insight_robonomics_address = "", const String &urban_robonomics_address = "");
 
 
 #endif // _MAIN_SCREEN_H

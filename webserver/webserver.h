@@ -56,6 +56,11 @@ private:
     void _webserver_favicon();
     void _webserver_static();
     void _webserver_not_found();
+
+#ifdef ALTRUIST_INSIDE
+    void _webserver_select_urban();
+    void _webserver_scan_urbans();
+#endif
 };
 
 #endif // __WEBSERVER_H__
