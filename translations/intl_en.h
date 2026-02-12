@@ -218,6 +218,8 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_INSIGHT_HEADER "Insight"
 #define INTL_DISP_URBAN_HEADER "Urban"
 #define INTL_DISP_GOING_TO_SLEEP "Going to sleep..."
+#define INTL_DISP_OTA_UPDATING "Updating firmware"
+#define INTL_DISP_OTA_DO_NOT_DISCONNECT "Do not disconnect power"
 #define INTL_DISP_WAITING_URBAN_ID "Waiting for Urban ID..."
 #define INTL_DISP_URBAN_IP "Urban IP:"
 #define INTL_DISP_INSIGHT_IP "Insight IP:"

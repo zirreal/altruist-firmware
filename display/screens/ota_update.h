@@ -1,0 +1,12 @@
+#ifdef ALTRUIST_INSIDE
+
+#ifndef _OTA_UPDATE_H
+#define _OTA_UPDATE_H
+
+#include "../driver/EPD.h"
+
+struct device_status_t;
+void showOTAUpdatePage(UBYTE *BlackImage, const device_status_t &deviceStatus);
+
+#endif
+#endif

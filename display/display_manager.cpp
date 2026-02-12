@@ -322,20 +322,25 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     // cadence (which can drift far away from the actual minute boundary),
     // we try to align the refresh with the *real* local time, so that the
     // minute in the header changes right when the clock minute changes.
+    // OTA screen: 15 sec interval for progress updates; partial/full handled in draw_complete.
     bool time_based_refresh = false;
-    if (currentScreenID == ScreenPage::MAIN) {
-        if (next_main_refresh_ms == 0) {
-            // Before we know the next aligned time, fall back to interval-based refresh.
-            time_based_refresh = msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL;
-        } else {
-            time_based_refresh = (int32_t)(millis() - next_main_refresh_ms) >= 0;
-        }
+    if (deviceStatus.ota_in_progress) {
+        // First time: show immediately. Then refresh every 5 min.
+        bool ota_first_show = (last_ota_display_ms == 0);
+        bool ota_interval_passed = (last_ota_display_ms > 0) && (msSince(last_ota_display_ms) > OTA_DISPLAY_REFRESH_INTERVAL);
+        time_based_refresh = ota_first_show || ota_interval_passed;
     } else {
-        // All other screens keep the simple fixed interval behaviour.
-        time_based_refresh = msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL;
-        // Reset alignment when we leave MAIN so that we recalculate it
-        // when we come back.
-        next_main_refresh_ms = 0;
+        last_ota_display_ms = 0;  // reset so next OTA session shows immediately
+        if (currentScreenID == ScreenPage::MAIN) {
+            if (next_main_refresh_ms == 0) {
+                time_based_refresh = msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL;
+            } else {
+                time_based_refresh = (int32_t)(millis() - next_main_refresh_ms) >= 0;
+            }
+        } else {
+            time_based_refresh = msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL;
+            next_main_refresh_ms = 0;
+        }
     }
 
     bool should_refresh = (last_refresh_time == (unsigned long)-DISPLAY_REFRESH_INTERVAL) || 
@@ -348,6 +353,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         refresh_now = false;
         Paint_SelectImage(BlackImage);
         Paint_Clear(WHITE);
+        
+        if (deviceStatus.ota_in_progress) {
+            showOTAUpdatePage(BlackImage, deviceStatus);
+            last_ota_display_ms = millis();
+            goto draw_complete;
+        }
         
         if (currentScreenID == ScreenPage::MAIN) {
             // Acquire mutex while serializing sensors_data to prevent race conditions
@@ -447,10 +458,21 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         }
         
 draw_complete:
-        // Draw screen indicator dots in bottom right corner
-        drawScreenIndicator(currentScreenID);
+        // Draw screen indicator (skip for OTA - full-screen message)
+        if (!deviceStatus.ota_in_progress) {
+            drawScreenIndicator(currentScreenID);
+        }
         
         last_refresh_time = millis();
+
+
+        if (deviceStatus.ota_in_progress) {
+            ota_display_refresh_count++;
+            bool ota_do_full = (ota_display_refresh_count % OTA_FULL_REFRESH_EVERY_N == 0);
+            epdDisplay(ota_do_full ? DisplayMode::FULL : DisplayMode::PARTIAL, BlackImage);
+        } else {
+            ota_display_refresh_count = 0;  // reset for next OTA session
+        }
 
         // For MAIN screen schedule the next refresh close to the next
         // local minute boundary so that the displayed time is always
@@ -481,7 +503,7 @@ draw_complete:
             epdResetPeriodPosition(); // Reset period counter after full refresh
             debug_outln_verbose(F("[EPD] FULL refresh (watchdog/wake/main) pushed to panel"));
             epdDisplay(DisplayMode::FULL, BlackImage);
-        } else {
+        } else if (!deviceStatus.ota_in_progress) {
             // Pass current screen to showImageFast for adaptive update logic:
             // MAIN screen: 10 partial + 1 full
             // Other pages: 5 partial + 1 full

@@ -108,7 +108,7 @@ String form_checkbox(const ConfigShapeId cfgid, const String& info, const bool l
 }
 
 String form_submit(const String& value) {
-	String s = F(	"<button type='submit' class='submit-btn'>Save configuration and restart</button>");
+	String s = F(	"<button type='submit' class='submit-btn'>{v}</button>");
 	s.replace("{v}", value);
 	return s;
 }

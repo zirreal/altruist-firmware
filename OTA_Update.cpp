@@ -50,7 +50,7 @@ static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostr
 	return false;
 }
 
-bool downloadAndUpdate(const char* url, const String& expectedMD5) {
+bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status_t &deviceStatus) {
     WiFiClient client;
     HTTPClient http;
     http.begin(client, FPSTR(FW_DOWNLOAD_HOST), FW_DOWNLOAD_PORT, url);
@@ -95,15 +95,19 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5) {
 			if (bytesRead > 0) {
 				if (Update.write(buffer, bytesRead) != bytesRead) {
 					debug_outln_error(F("Update.write() failed"));
+					http.end();
 					return false;
 				}
 
 				written += bytesRead;
 
-				// Print progress
+				// Update progress for display (every 1% for responsive display)
 				int percent = (written * 100) / contentLength;
-				if (percent != lastPercent && percent % 5 == 0) {  // only print every 5%
-					debug_outln_info(F("OTA Progress: "), percent);
+				if (percent != lastPercent) {
+					deviceStatus.ota_progress_percent = percent;
+					if (percent % 5 == 0) {
+						debug_outln_info(F("OTA Progress: "), percent);
+					}
 					lastPercent = percent;
 				}
 			}
@@ -189,7 +193,16 @@ void twoStageOTAUpdate(device_status_t &deviceStatus) {
 	debug_outln_info(F("Update md5: "), newFwmd5);
 	debug_outln_info(F("Sketch md5: "), ESP.getSketchMD5());
 
-	if (downloadAndUpdate(fetch_name.c_str(), newFwmd5)) {
+	// Show "Updating firmware" screen before download starts
+	deviceStatus.ota_in_progress = true;
+	deviceStatus.ota_progress_percent = 0;
+	// Give display a chance to refresh (main loop runs displayManager.process)
+	vTaskDelay(pdMS_TO_TICKS(800));
+
+	if (downloadAndUpdate(fetch_name.c_str(), newFwmd5, deviceStatus)) {
         sensor_restart();
     }
+	// Download failed - hide OTA screen, user will see previous screen on next refresh
+	deviceStatus.ota_in_progress = false;
+	deviceStatus.ota_progress_percent = -1;
 }
