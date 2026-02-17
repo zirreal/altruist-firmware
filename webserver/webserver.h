@@ -56,6 +56,7 @@ private:
     void _webserver_favicon();
     void _webserver_static();
     void _webserver_not_found();
+    void _webserver_ota();
 
 #ifdef ALTRUIST_INSIDE
     void _webserver_select_urban();

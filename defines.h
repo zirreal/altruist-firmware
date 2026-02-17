@@ -3,7 +3,7 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIDE)
-#define SOFTWARE_VERSION_STR "R-INS_2025-08"
+#define SOFTWARE_VERSION_STR "R-INS_2026-02"
 #define PM_SENSOR_NAME "Altruist Insight"
 #endif
 #if defined(ALTRUIST_URBAN)
@@ -312,6 +312,7 @@ static const char URL_FSAPP[] PROGMEM = "/data.php";
 #define PORT_FSAPP 80
 
 static const char FW_DOWNLOAD_HOST[] PROGMEM = "upd.sensors.robonomics.network";
+static const char FW_DOWNLOAD_HOST_ALTERNATIVE[] PROGMEM = "updru.sensors.robonomics.network";
 #define FW_DOWNLOAD_PORT 80
 
 static const char FW_2ND_LOADER_URL[] PROGMEM = "/loader-002.bin";
@@ -361,10 +362,12 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define MHZ19_READ 0
 
 // automatic firmware updates
-#ifdef ALTRUIST_INSIDE
-#define AUTO_UPDATE 0
+// Production builds: auto-update on
+// DEV builds: auto-update off
+#ifdef DEV
+	#define AUTO_UPDATE 0
 #else
-#define AUTO_UPDATE 1
+	#define AUTO_UPDATE 1
 #endif
 
 // use beta firmware

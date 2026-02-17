@@ -48,8 +48,6 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		page_content += form_checkbox(cfgid, info, true, enabled);
 	};
 
-
-	// изменения в верстке
 	debug_outln_info(F("begin webserver_config_body_get ..."));
 	page_content += F("<form method='POST' action='/config' style='width:100%;'>\n"
   "<div class='tabs'>"

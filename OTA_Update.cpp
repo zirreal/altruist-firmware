@@ -12,141 +12,215 @@
  * OTAUpdate                                                     *
  *****************************************************************/
 
-static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostream, device_status_t &deviceStatus) {
+static const char* const FW_HOSTS[] = { FW_DOWNLOAD_HOST, FW_DOWNLOAD_HOST_ALTERNATIVE };
+static constexpr int FW_HOST_COUNT = 2;
+static constexpr unsigned long FW_HOST_TIMEOUT_MS = 30000;  // 30s per host attempt
 
-	HTTPClient http;
-	int bytes_written = -1;
-
-	// work with 128kbit/s downlinks
-	http.setTimeout(60 * 1000);
+static String buildUserAgent() {
 	String agent(SOFTWARE_VERSION_STR);
-    String esp_chipid = get_chipid();
 	agent += ' ';
-	agent += esp_chipid;
+	agent += get_chipid();
 	agent += ' ';
 	agent += String(cfg::current_lang);
 	agent += ' ';
 	agent += String(CURRENT_LANG);
-	agent += ' ';
+	return agent;
+}
 
-	http.setUserAgent(agent);
-	http.setReuse(false);
+static bool fwDownloadStream(WiFiClient& client, const String& url, Stream* ostream, device_status_t &deviceStatus) {
 
-	debug_outln_info(F("HTTP GET: "), String(FPSTR(FW_DOWNLOAD_HOST)) + ':' + String(FW_DOWNLOAD_PORT) + url);
+	String agent = buildUserAgent();
 
-	if (http.begin(client, FPSTR(FW_DOWNLOAD_HOST), FW_DOWNLOAD_PORT, url)) {
-		int r = http.GET();
-		debug_outln_info(F("GET r: "), String(r));
-		deviceStatus.last_update_returncode = r;
-		if (r == HTTP_CODE_OK) {
-			bytes_written = http.writeToStream(ostream);
+	for (int h = 0; h < FW_HOST_COUNT; h++) {
+		HTTPClient http;
+		http.setTimeout(FW_HOST_TIMEOUT_MS);
+		http.setUserAgent(agent);
+		http.setReuse(false);
+
+		debug_outln_info(F("HTTP GET: "), String(FW_HOSTS[h]) + ':' + String(FW_DOWNLOAD_PORT) + url);
+
+		if (http.begin(client, FW_HOSTS[h], FW_DOWNLOAD_PORT, url)) {
+			int r = http.GET();
+			debug_outln_info(F("GET r: "), String(r));
+			deviceStatus.last_update_returncode = r;
+			if (r == HTTP_CODE_OK) {
+				int bytes_written = http.writeToStream(ostream);
+				http.end();
+				if (bytes_written > 0) return true;
+			} else {
+				http.end();
+			}
 		}
-		http.end();
+		debug_outln_info(F("Host failed, trying next..."));
 	}
-
-	if (bytes_written > 0)
-		return true;
 
 	return false;
 }
 
-bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status_t &deviceStatus) {
-    WiFiClient client;
-    HTTPClient http;
-    http.begin(client, FPSTR(FW_DOWNLOAD_HOST), FW_DOWNLOAD_PORT, url);
-    int httpCode = http.GET();
-    if (httpCode != HTTP_CODE_OK) {
-        debug_outln_info(F("Failed to download file, http code: "), httpCode);
-        http.end();
-        return false;
-    }
+bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status_t &deviceStatus)
+{
+    static constexpr unsigned long OTA_TOTAL_TIMEOUT_MS = 600000;  // 10 min total across all attempts
+    static constexpr int MAX_ATTEMPTS = FW_HOST_COUNT * 2;         // each host gets 2 tries
 
-    int contentLength = http.getSize();
-    if (contentLength <= 0) {
-        debug_outln_error(F("Content-Length not defined or invalid"));
-        http.end();
-        return false;
-    }
+    const unsigned long totalStartTime = millis();
+    String agent = buildUserAgent();
 
-    bool canBegin = Update.begin(contentLength);
-    if (!canBegin) {
-        debug_outln_error(F("Not enough space to begin OTA"));
-        http.end();
-        return false;
-    }
+    for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        int hostIdx = attempt % FW_HOST_COUNT;
+        const char* host = FW_HOSTS[hostIdx];
 
-    debug_outln_info(F("Begin OTA. This may take some time..."));
-
-    // WiFiClient *stream = http.getStreamPtr();
-    // size_t written = Update.writeStream(*stream);
-
-	WiFiClient stream = http.getStream();
-	const size_t bufferSize = 1024;
-	uint8_t buffer[bufferSize];
-	size_t written = 0;
-	int lastPercent = -1;
-
-	while (stream.connected() && written < contentLength) {
-		size_t available = stream.available();
-		if (available) {
-			size_t toRead = (available > bufferSize) ? bufferSize : available;
-			int bytesRead = stream.readBytes(buffer, toRead);
-
-			if (bytesRead > 0) {
-				if (Update.write(buffer, bytesRead) != bytesRead) {
-					debug_outln_error(F("Update.write() failed"));
-					http.end();
-					return false;
-				}
-
-				written += bytesRead;
-
-				// Update progress for display (every 1% for responsive display)
-				int percent = (written * 100) / contentLength;
-				if (percent != lastPercent) {
-					deviceStatus.ota_progress_percent = percent;
-					if (percent % 5 == 0) {
-						debug_outln_info(F("OTA Progress: "), percent);
-					}
-					lastPercent = percent;
-				}
-			}
-		}
-		delay(1);  // yield
-	}
-
-    if (written == contentLength) {
-        debug_outln_info(F("Written successfully: "), written);
-    } else {
-		debug_outln_info(F("Content length: "), contentLength);
-        debug_outln_info(F("Written only: "), written);
-    }
-
-    if (Update.end()) {
-        if (Update.isFinished()) {
-            debug_outln_info(F("Update successfully completed."));
-            String md5String = Update.md5String();
-            if (md5String.equalsIgnoreCase(expectedMD5)) {
-                debug_outln_info(F("MD5 verified successfully."));
-                http.end();
-                return true;
-            } else {
-                debug_outln_error(F("MD5 verification failed."));
-            }
-        } else {
-            debug_outln_error(F("Update not finished? Something went wrong!"));
+        if (millis() - totalStartTime > OTA_TOTAL_TIMEOUT_MS) {
+            debug_outln_error(F("OTA total timeout exceeded"));
+            return false;
         }
-    } else {
-        debug_outln_error(F("Error Occurred during update"));
+
+        if (WiFi.status() != WL_CONNECTED) {
+            debug_outln_error(F("WiFi not connected, aborting OTA"));
+            return false;
+        }
+
+        debug_outln_info(F("OTA attempt "), String(attempt + 1) + F(" host: ") + String(host));
+
+        WiFiClient client;
+        HTTPClient http;
+        http.setTimeout(FW_HOST_TIMEOUT_MS);
+        http.setUserAgent(agent);
+        http.setReuse(false);
+
+        if (!http.begin(client, host, FW_DOWNLOAD_PORT, url)) {
+            debug_outln_error(F("HTTP begin failed"));
+            continue;
+        }
+
+        int httpCode = http.GET();
+        if (httpCode != HTTP_CODE_OK) {
+            debug_outln_info(F("HTTP GET failed, code: "), String(httpCode));
+            http.end();
+            continue;
+        }
+
+        int contentLength = http.getSize();
+        if (contentLength <= 0) {
+            debug_outln_error(F("Invalid content length"));
+            http.end();
+            continue;
+        }
+
+        debug_outln_info(F("Content Length: "), String(contentLength));
+
+        if (!Update.begin(contentLength)) {
+            debug_outln_error(F("Not enough space for OTA"));
+            http.end();
+            return false;
+        }
+
+        WiFiClient& stream = http.getStream();
+        const size_t bufferSize = 1024;
+        uint8_t buffer[bufferSize];
+
+        size_t written = 0;
+        int lastPercent = -1;
+        unsigned long lastDataTime = millis();
+        bool download_ok = true;
+
+        deviceStatus.ota_progress_percent = 0;
+
+        while (written < (size_t)contentLength) {
+
+            if (millis() - totalStartTime > OTA_TOTAL_TIMEOUT_MS) {
+                debug_outln_error(F("OTA total timeout exceeded during download"));
+                Update.abort();
+                http.end();
+                return false;
+            }
+
+            if (WiFi.status() != WL_CONNECTED) {
+                debug_outln_error(F("WiFi disconnected during OTA"));
+                Update.abort();
+                http.end();
+                return false;
+            }
+
+            size_t available = stream.available();
+
+            if (available) {
+                size_t toRead = (available > bufferSize) ? bufferSize : available;
+                int bytesRead = stream.readBytes(buffer, toRead);
+
+                if (bytesRead > 0) {
+                    lastDataTime = millis();
+
+                    if (Update.write(buffer, bytesRead) != (size_t)bytesRead) {
+                        debug_outln_error(F("Update.write failed"));
+                        Update.abort();
+                        http.end();
+                        return false;
+                    }
+
+                    written += bytesRead;
+
+                    int percent = (written * 100) / contentLength;
+                    if (percent != lastPercent) {
+                        deviceStatus.ota_progress_percent = percent;
+                        if (percent % 5 == 0) {
+                            debug_outln_info(F("OTA Progress: "), String(percent) + F("%"));
+                        }
+                        lastPercent = percent;
+                    }
+                }
+            } else {
+                if (millis() - lastDataTime > FW_HOST_TIMEOUT_MS) {
+                    debug_outln_error(F("OTA stalled, switching host..."));
+                    download_ok = false;
+                    break;
+                }
+            }
+
+            delay(1);
+        }
+
+        if (!download_ok) {
+            Update.abort();
+            http.end();
+            deviceStatus.ota_progress_percent = 0;
+            continue;
+        }
+
+        debug_outln_info(F("Download complete. Written: "), String(written));
+
+        if (!Update.end()) {
+            debug_outln_error(F("Update.end failed"));
+            Update.abort();
+            http.end();
+            continue;
+        }
+
+        if (!Update.isFinished()) {
+            debug_outln_error(F("Update not finished properly"));
+            http.end();
+            continue;
+        }
+
+        String md5String = Update.md5String();
+        if (!md5String.equalsIgnoreCase(expectedMD5)) {
+            debug_outln_error(F("MD5 mismatch!"));
+            debug_outln_info(F("Expected: "), expectedMD5);
+            debug_outln_info(F("Actual: "), md5String);
+            http.end();
+            continue;
+        }
+
+        debug_outln_info(F("OTA successful and verified"));
+        http.end();
+        return true;
     }
 
-    http.end();
+    debug_outln_error(F("OTA failed after all attempts"));
     return false;
 }
 
-
-void twoStageOTAUpdate(device_status_t &deviceStatus) {
-	if (!cfg::auto_update) return;
+void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {
+	if (!manual && !cfg::auto_update) return;
 
 	debug_outln_info(F("twoStageOTAUpdate"));
 	String lang_variant(cfg::current_lang);
@@ -202,7 +276,12 @@ void twoStageOTAUpdate(device_status_t &deviceStatus) {
 	if (downloadAndUpdate(fetch_name.c_str(), newFwmd5, deviceStatus)) {
         sensor_restart();
     }
-	// Download failed - hide OTA screen, user will see previous screen on next refresh
+
+	// Download failed — show error on display before returning to main screen
 	deviceStatus.ota_in_progress = false;
+	deviceStatus.ota_failed = true;
 	deviceStatus.ota_progress_percent = -1;
+	// Keep the failure screen visible for 15 seconds so the user can read it
+	vTaskDelay(pdMS_TO_TICKS(15000));
+	deviceStatus.ota_failed = false;
 }
