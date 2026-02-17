@@ -109,6 +109,7 @@ const char WEB_ROOT_PAGE_CONTENT[] PROGMEM = "<a class='b' href='/values'>{t}</a
 <a class='b' href='/status'>{s}</a>\
 <a class='b' href='https://sensors.social/' target='_blank' rel='noreferrer'>" INTL_ACTIVE_SENSORS_MAP "</a>\
 <a class='b' href='/config'>{conf}</a>\
+<a class='b' href='/ota'>" INTL_OTA_UPDATE "</a>\
 <a class='b danger' href='/removeConfig'>" INTL_CONFIGURATION_DELETE "</a>\
 <a class='b danger' href='/restart'>{restart}</a>\
 <a class='b' href='/debug'>{debug}</a>\

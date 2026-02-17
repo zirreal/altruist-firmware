@@ -142,6 +142,11 @@ const char INTL_SAVE_AND_RESTART[] PROGMEM = "Save configuration and restart";
 const char INTL_SD_CONNECTED[] PROGMEM = "SD Card connected";
 const char INTL_FREE_RAM[] PROGMEM = "Free Memory (RAM)";
 const char INTL_LAST_OTA[] PROGMEM = "Last OTA";
+#define INTL_OTA_UPDATE "Firmware Update"
+const char INTL_OTA_CHECK_UPDATE[] PROGMEM = "Check for update";
+const char INTL_OTA_CURRENT_VERSION[] PROGMEM = "Current version";
+const char INTL_OTA_CHECK_REQUESTED[] PROGMEM = "Update check requested. The device will download and install the new firmware if available.";
+const char INTL_OTA_NO_WIFI[] PROGMEM = "WiFi is not connected. Cannot check for updates.";
 const char INTL_UPTIME[] PROGMEM = "Uptime";
 const char INTL_RESET_REASON[] PROGMEM = "Reset Reason";
 const char INTL_OTA_RETURN[] PROGMEM = "OTA Return";
@@ -220,6 +225,8 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_GOING_TO_SLEEP "Going to sleep..."
 #define INTL_DISP_OTA_UPDATING "Updating firmware"
 #define INTL_DISP_OTA_DO_NOT_DISCONNECT "Do not disconnect power"
+#define INTL_DISP_OTA_FAILED "Update failed"
+#define INTL_DISP_OTA_WILL_RETRY "Will retry later"
 #define INTL_DISP_WAITING_URBAN_ID "Waiting for Urban ID..."
 #define INTL_DISP_URBAN_IP "Urban IP:"
 #define INTL_DISP_INSIGHT_IP "Insight IP:"

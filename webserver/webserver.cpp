@@ -2,6 +2,7 @@
 #include "pages/pages.h"
 #include "html-content.h"
 #include "script-js.h"
+#include "utils.h"
 #include "../config_manager/config_helpers.h"
 #include "robonomics-logo-common.h"
 
@@ -31,6 +32,7 @@ void SensorWebServer::setup() {
 	server.on(F("/data.json"), std::bind(&SensorWebServer::_webserver_data_json, this)); // x
 	server.on(F("/favicon.ico"), std::bind(&SensorWebServer::_webserver_favicon, this)); // x
 	server.on(F(STATIC_PREFIX), std::bind(&SensorWebServer::_webserver_static, this)); // x
+	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
 #ifdef ALTRUIST_INSIDE
 	server.on(F("/select_urban"), std::bind(&SensorWebServer::_webserver_select_urban, this));
 	server.on(F("/scan_urbans"), std::bind(&SensorWebServer::_webserver_scan_urbans, this));
@@ -432,6 +434,42 @@ void SensorWebServer::_webserver_select_urban() {
 	}
 }
 #endif
+
+void SensorWebServer::_webserver_ota() {
+	if (WiFi.status() != WL_CONNECTED) {
+		sendHttpRedirectGuest();
+		return;
+	}
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	RESERVE_STRING(page_content, LARGE_STR);
+	start_html_page(page_content, FPSTR(INTL_OTA_UPDATE));
+
+	if (server.method() == HTTP_POST) {
+		deviceStatus.ota_update_requested = true;
+		page_content += F("<div style='text-align:center;padding:30px;'>"
+			"<h3 style='color:#4CAF50;'>&#x2713; ");
+		page_content += FPSTR(INTL_OTA_CHECK_REQUESTED);
+		page_content += F("</h3></div>");
+	} else {
+		page_content += F("<div style='max-width:480px;margin:20px auto;padding:20px;'>");
+
+		page_content += F("<table>");
+		add_table_row_from_value(page_content, FPSTR(INTL_OTA_CURRENT_VERSION), String(SOFTWARE_VERSION_STR));
+		add_table_row_from_value(page_content, FPSTR(INTL_LAST_OTA),
+			delayToString(millis() - deviceStatus.last_update_attempt));
+		page_content += FPSTR(TABLE_TAG_CLOSE_BR);
+
+		page_content += F("<form method='POST' action='/ota' style='text-align:center;margin-top:20px;'>"
+			"<button type='submit' class='submit-btn'>");
+		page_content += FPSTR(INTL_OTA_CHECK_UPDATE);
+		page_content += F("</button></form></div>");
+	}
+
+	end_html_page(page_content);
+}
 
 void SensorWebServer::_webserver_config() {
     if (WiFi.status() != WL_CONNECTED) {

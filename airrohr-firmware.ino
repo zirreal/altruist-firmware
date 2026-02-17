@@ -474,12 +474,18 @@ void sensorAndAPIWorker(void *pvParameters) {
 			activeAPIs[i]->updateDeviceStatus(deviceStatus);
 			
 			markCrashSection(CRASH_SECTION_IDLE);
-
-			if (msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS) {
-				// OTA disabled - metrics code in development
-				twoStageOTAUpdate(deviceStatus);
-				deviceStatus.last_update_attempt = millis();
+				
+			bool manual_ota = deviceStatus.ota_update_requested;
+			if (manual_ota) {
+				deviceStatus.ota_update_requested = false;
 			}
+			if (WiFi.status() == WL_CONNECTED &&
+					(manual_ota || msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS)) {
+
+					twoStageOTAUpdate(deviceStatus, manual_ota);
+					deviceStatus.last_update_attempt = millis();
+			}
+
 
 			#ifdef DEV
 			#if defined(ALTRUIST_INSIDE)
@@ -751,7 +757,6 @@ void setup(void) {
 	debug_outln_info(F("\nChipId: "), esp_chipid);
 	debug_outln_info(get_reset_reason_text());
 	// OTA runs from sensorAndAPIWorker (not here) so display can show "Updating" screen
-	// when loop() is already running
 
 	sensors_data["service_data"]["robonomics_address"] = robonomics.getSs58Address();
 	sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
@@ -781,7 +786,7 @@ void setup(void) {
     Serial.println();
 	#endif
 
-	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
+	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis() - PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS;
 #if defined(USE_SD_CARD)
 	deviceStatus.sd_card_connected = sdCardLogger.begin();
 #endif

@@ -142,6 +142,11 @@ const char INTL_SAVE_AND_RESTART[] PROGMEM = "Сохранить и переза
 const char INTL_SD_CONNECTED[] PROGMEM = "SD карта подключена";
 const char INTL_FREE_RAM[] PROGMEM = "Свободно памяти (ОЗУ)";
 const char INTL_LAST_OTA[] PROGMEM = "Последний OTA";
+#define INTL_OTA_UPDATE "Обновление прошивки"
+const char INTL_OTA_CHECK_UPDATE[] PROGMEM = "Проверить обновление";
+const char INTL_OTA_CURRENT_VERSION[] PROGMEM = "Текущая версия";
+const char INTL_OTA_CHECK_REQUESTED[] PROGMEM = "Запрос на обновление отправлен. Устройство загрузит и установит новую прошивку, если она доступна.";
+const char INTL_OTA_NO_WIFI[] PROGMEM = "WiFi не подключен. Невозможно проверить обновления.";
 const char INTL_UPTIME[] PROGMEM = "Время работы";
 const char INTL_RESET_REASON[] PROGMEM = "Причина перезагрузки";
 const char INTL_OTA_RETURN[] PROGMEM = "OTA Ответ";
@@ -220,6 +225,8 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_GOING_TO_SLEEP "Уход в сон..."
 #define INTL_DISP_OTA_UPDATING "Обновление прошивки"
 #define INTL_DISP_OTA_DO_NOT_DISCONNECT "Не отключайте питание"
+#define INTL_DISP_OTA_FAILED "Ошибка обновления"
+#define INTL_DISP_OTA_WILL_RETRY "Повтор позже"
 #define INTL_DISP_WAITING_URBAN_ID "Ожидание Urban ID..."
 #define INTL_DISP_URBAN_IP "IP Urban:"
 #define INTL_DISP_INSIGHT_IP "IP Insight:"

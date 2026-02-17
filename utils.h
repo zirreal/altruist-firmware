@@ -82,7 +82,9 @@ struct device_status_t {
 	int last_update_returncode;
 	bool sd_card_connected = false;
 	bool ota_in_progress = false;  // When true, display shows "Updating firmware" screen
+	bool ota_failed = false;       // When true, display shows "Update failed" screen before returning
 	int ota_progress_percent = -1;  // 0-100 during download, -1 when not applicable
+	volatile bool ota_update_requested = false;  // Set by webserver to trigger manual OTA check
 	String ip_address;
 	std::map<std::string, api_status_t> apis_status;
 	std::vector<std::string> sensor_names;

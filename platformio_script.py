@@ -2,8 +2,13 @@ Import("env")
 import configparser
 import hashlib
 import os
+import pathlib
 import shutil
 from base64 import b64decode
+
+# Touch html-content.h so PlatformIO recompiles files that include it.
+# This keeps __DATE__ fresh instead of stale from cached object files.
+pathlib.Path(os.path.join(env.subst("$PROJECT_DIR"), "webserver", "html-content.h")).touch()
 
 config = configparser.ConfigParser()
 config.read("platformio.ini")
