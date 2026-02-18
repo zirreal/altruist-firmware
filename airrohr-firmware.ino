@@ -719,6 +719,12 @@ void setup(void) {
 	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
 
 	init_config();
+	// Sync config language with actual compiled firmware language.
+	// Covers: USB reflash with different locale, failed OTA language switch.
+	if (strcmp(cfg::current_lang, CURRENT_LANG) != 0) {
+		strcpy(cfg::current_lang, CURRENT_LANG);
+		writeConfig();
+	}
 	setupNetworkTime();
 	setupEnabledAPIs();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
