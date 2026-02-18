@@ -451,11 +451,31 @@ void SensorWebServer::_webserver_ota() {
 	start_html_page(page_content, FPSTR(INTL_OTA_UPDATE));
 
 	if (server.method() == HTTP_POST) {
-		deviceStatus.ota_update_requested = true;
-		page_content += F("<div style='text-align:center;padding:30px;'>"
-			"<h3 style='color:#4CAF50;'>&#x2713; ");
-		page_content += FPSTR(INTL_OTA_CHECK_REQUESTED);
-		page_content += F("</h3></div>");
+		if (server.hasArg("action") && server.arg("action") == F("switch_lang")) {
+			String new_lang = server.arg("current_lang");
+			new_lang.toUpperCase();
+			if (new_lang == String(CURRENT_LANG)) {
+				page_content += F("<div style='text-align:center;padding:30px;'>"
+					"<h3 style='color:#FF9800;'>&#x26A0; ");
+				page_content += FPSTR(INTL_OTA_LANG_SAME);
+				page_content += F("</h3></div>");
+			} else {
+				strncpy(cfg::current_lang, new_lang.c_str(), sizeof(cfg::current_lang) - 1);
+				cfg::current_lang[sizeof(cfg::current_lang) - 1] = '\0';
+				writeConfig();
+				deviceStatus.ota_update_requested = true;
+				page_content += F("<div style='text-align:center;padding:30px;'>"
+					"<h3 style='color:#4CAF50;'>&#x2713; ");
+				page_content += FPSTR(INTL_OTA_LANG_REQUESTED);
+				page_content += F("</h3></div>");
+			}
+		} else {
+			deviceStatus.ota_update_requested = true;
+			page_content += F("<div style='text-align:center;padding:30px;'>"
+				"<h3 style='color:#4CAF50;'>&#x2713; ");
+			page_content += FPSTR(INTL_OTA_CHECK_REQUESTED);
+			page_content += F("</h3></div>");
+		}
 	} else {
 		page_content += F("<div style='max-width:480px;margin:20px auto;padding:20px;'>");
 
@@ -468,7 +488,36 @@ void SensorWebServer::_webserver_ota() {
 		page_content += F("<form method='POST' action='/ota' style='text-align:center;margin-top:20px;'>"
 			"<button type='submit' class='submit-btn'>");
 		page_content += FPSTR(INTL_OTA_CHECK_UPDATE);
-		page_content += F("</button></form></div>");
+		page_content += F("</button></form>");
+
+		// Language switch section
+		page_content += F("<hr style='margin:30px 0;border:none;border-top:1px solid #ccc;'>");
+		page_content += F("<h3 style='text-align:center;'>");
+		page_content += FPSTR(INTL_OTA_SWITCH_LANG);
+		page_content += F("</h3>");
+
+		page_content += F("<table>");
+		add_table_row_from_value(page_content, FPSTR(INTL_OTA_CURRENT_LANG), String(CURRENT_LANG));
+		page_content += FPSTR(TABLE_TAG_CLOSE_BR);
+
+		String lang_select = F("<form method='POST' action='/ota' style='text-align:center;margin-top:10px;'>"
+			"<input type='hidden' name='action' value='switch_lang'>"
+			"<div class='form-group' style='margin-bottom:10px;'>"
+			"<select name='current_lang' style='padding:8px;font-size:14px;'>"
+			"<option value='EN'>English (EN)</option>"
+			"<option value='RU'>Русский (RU)</option>"
+			"</select></div>");
+		lang_select.replace("'" + String(CURRENT_LANG) + "'>",
+			"'" + String(CURRENT_LANG) + "' selected>");
+		page_content += lang_select;
+		page_content += F("<p style='color:#666;font-size:13px;margin:10px 0;'>");
+		page_content += FPSTR(INTL_OTA_SWITCH_LANG_NOTE);
+		page_content += F("</p>"
+			"<button type='submit' class='submit-btn'>");
+		page_content += FPSTR(INTL_OTA_SWITCH_LANG);
+		page_content += F("</button></form>");
+
+		page_content += F("</div>");
 	}
 
 	end_html_page(page_content);
