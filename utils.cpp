@@ -29,6 +29,16 @@
 #include <SPIFFS.h>
 #include <Preferences.h>
 #include <esp_system.h>
+#include <esp_attr.h>
+
+#define RESTART_REASON_MAGIC 0xA5C6F012
+RTC_NOINIT_ATTR static uint32_t rtc_restart_magic;
+RTC_NOINIT_ATTR static uint32_t rtc_restart_reason;
+
+void set_restart_reason(CustomRestartReason reason) {
+	rtc_restart_magic = RESTART_REASON_MAGIC;
+	rtc_restart_reason = static_cast<uint32_t>(reason);
+}
 #include <time.h>
 
 #ifdef ESP32
@@ -66,32 +76,47 @@ String tmpl(const __FlashStringHelper* patt, const String& value) {
 }
 
 const char* get_reset_reason_text() {
+    static const char* cached = nullptr;
+    if (cached) return cached;
+
     esp_reset_reason_t reason = esp_reset_reason();
 
-    switch (reason) {
-        case ESP_RST_POWERON:
-            return "Power-on reset";
-        case ESP_RST_EXT:
-            return "External reset (e.g., reset button)";
-        case ESP_RST_SW:
-            return "Software reset (esp_restart())";
-        case ESP_RST_PANIC:
-            return "Panic reset (e.g., unhandled exception)";
-        case ESP_RST_INT_WDT:
-            return "Interrupt watchdog timeout";
-        case ESP_RST_TASK_WDT:
-            return "Task watchdog timeout";
-        case ESP_RST_WDT:
-            return "Other watchdog reset";
-        case ESP_RST_DEEPSLEEP:
-            return "Wake from deep sleep";
-        case ESP_RST_BROWNOUT:
-            return "Brownout reset (voltage too low)";
-        case ESP_RST_SDIO:
-            return "Reset over SDIO";
-        default:
-            return "Unknown";
+    // Check custom restart reason stored in RTC memory (survives software resets)
+    if (reason == ESP_RST_SW && rtc_restart_magic == RESTART_REASON_MAGIC) {
+        uint32_t custom = rtc_restart_reason;
+        rtc_restart_magic = 0;
+        switch (custom) {
+            case RESTART_REASON_OTA:    cached = "OTA firmware update"; return cached;
+            case RESTART_REASON_CONFIG: cached = "Configuration saved"; return cached;
+            case RESTART_REASON_USER:   cached = "User restart (web)"; return cached;
+        }
     }
+    rtc_restart_magic = 0;
+
+    switch (reason) {
+        case ESP_RST_POWERON:   cached = "Power-on reset"; break;
+        case ESP_RST_EXT:       cached = "External reset"; break;
+        case ESP_RST_SW:        cached = "Software reset"; break;
+        case ESP_RST_PANIC:     cached = "Panic (unhandled exception)"; break;
+        case ESP_RST_INT_WDT:   cached = "Interrupt watchdog timeout"; break;
+        case ESP_RST_TASK_WDT:  cached = "Task watchdog timeout"; break;
+        case ESP_RST_WDT:       cached = "Other watchdog reset"; break;
+        case ESP_RST_DEEPSLEEP: cached = "Wake from deep sleep"; break;
+        case ESP_RST_BROWNOUT:  cached = "Brownout (voltage too low)"; break;
+        case ESP_RST_SDIO:      cached = "Reset over SDIO"; break;
+        case (esp_reset_reason_t)11: cached = "USB reset (flash/boot)"; break;
+        case (esp_reset_reason_t)12: cached = "JTAG reset"; break;
+        case (esp_reset_reason_t)13: cached = "eFuse error"; break;
+        case (esp_reset_reason_t)14: cached = "Power glitch"; break;
+        case (esp_reset_reason_t)15: cached = "CPU lock-up"; break;
+        default: {
+            static char unknown_buf[24];
+            snprintf(unknown_buf, sizeof(unknown_buf), "Unknown (%d)", (int)reason);
+            cached = unknown_buf;
+            break;
+        }
+    }
+    return cached;
 }
 
 String delayToString(unsigned time_ms) {

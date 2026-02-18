@@ -124,6 +124,7 @@ void SensorWebServer::_webserver_restart() {
 	if (server.method() == HTTP_GET) {
 		page_content += FPSTR(WEB_RESET_CONTENT);
 	} else {
+		set_restart_reason(RESTART_REASON_USER);
 		sensor_restart();
 	}
 	end_html_page(page_content);
@@ -361,6 +362,7 @@ void SensorWebServer::_webserver_guest() {
 			}
 
 			if (writeConfig()) {
+				set_restart_reason(RESTART_REASON_CONFIG);
 				sensor_restart();
 			}
 		}
@@ -430,6 +432,7 @@ void SensorWebServer::_webserver_select_urban() {
 	end_html_page(page_content);
 
 	if (writeConfig()) {
+		set_restart_reason(RESTART_REASON_CONFIG);
 		sensor_restart();
 	}
 }
@@ -506,6 +509,7 @@ void SensorWebServer::_webserver_config() {
 		if (server.method() == HTTP_POST) {
 
 			if (writeConfig()) {
+				set_restart_reason(RESTART_REASON_CONFIG);
 				sensor_restart();
 			}
 		}

@@ -227,6 +227,8 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_OTA_DO_NOT_DISCONNECT "Do not disconnect power"
 #define INTL_DISP_OTA_FAILED "Update failed"
 #define INTL_DISP_OTA_WILL_RETRY "Will retry later"
+#define INTL_DISP_OTA_SUCCESS "Firmware updated!"
+#define INTL_DISP_OTA_RESTARTING "Restarting..."
 #define INTL_DISP_WAITING_URBAN_ID "Waiting for Urban ID..."
 #define INTL_DISP_URBAN_IP "Urban IP:"
 #define INTL_DISP_INSIGHT_IP "Insight IP:"

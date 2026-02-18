@@ -83,6 +83,7 @@ struct device_status_t {
 	bool sd_card_connected = false;
 	bool ota_in_progress = false;  // When true, display shows "Updating firmware" screen
 	bool ota_failed = false;       // When true, display shows "Update failed" screen before returning
+	bool ota_success = false;      // When true, display shows "Update successful" screen before restart
 	int ota_progress_percent = -1;  // 0-100 during download, -1 when not applicable
 	volatile bool ota_update_requested = false;  // Set by webserver to trigger manual OTA check
 	String ip_address;
@@ -105,6 +106,14 @@ struct metrics_t {
 
 String get_chipid();
 String tmpl(const __FlashStringHelper* patt, const String& value);
+enum CustomRestartReason : uint32_t {
+	RESTART_REASON_NONE = 0,
+	RESTART_REASON_OTA = 1,
+	RESTART_REASON_CONFIG = 2,
+	RESTART_REASON_USER = 3,
+};
+
+void set_restart_reason(CustomRestartReason reason);
 const char* get_reset_reason_text();
 
 String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);
