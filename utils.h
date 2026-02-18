@@ -106,6 +106,14 @@ struct metrics_t {
 
 String get_chipid();
 String tmpl(const __FlashStringHelper* patt, const String& value);
+enum CustomRestartReason : uint32_t {
+	RESTART_REASON_NONE = 0,
+	RESTART_REASON_OTA = 1,
+	RESTART_REASON_CONFIG = 2,
+	RESTART_REASON_USER = 3,
+};
+
+void set_restart_reason(CustomRestartReason reason);
 const char* get_reset_reason_text();
 
 String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);

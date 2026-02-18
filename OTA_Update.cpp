@@ -278,6 +278,7 @@ void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {
 		deviceStatus.ota_success = true;
 		// Give display time to show success screen before sensor_restart() shuts down peripherals
 		vTaskDelay(pdMS_TO_TICKS(3000));
+		set_restart_reason(RESTART_REASON_OTA);
 		sensor_restart();
     }
 

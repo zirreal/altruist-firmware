@@ -502,12 +502,9 @@ draw_complete:
                 int seconds_to_next_minute = (sec == 0) ? 60 : (60 - sec);
                 unsigned long now_ms = millis();
                 unsigned long ms_to_next_minute = (unsigned long)seconds_to_next_minute * 1000UL;
-                // Small safety margin so that getLocalTime() used in drawMainScreen
-                // already reports the new minute when we refresh.
-                const unsigned long safety_margin_ms = 150;
-                if (ms_to_next_minute > safety_margin_ms) {
-                    ms_to_next_minute -= safety_margin_ms;
-                }
+
+                const unsigned long safety_margin_ms = 200;
+                ms_to_next_minute += safety_margin_ms;
                 next_main_refresh_ms = now_ms + ms_to_next_minute;
             } else {
                 // If we cannot get time yet, keep simple behaviour.
