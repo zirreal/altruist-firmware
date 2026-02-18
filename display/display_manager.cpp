@@ -325,8 +325,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     // OTA screen: 15 sec interval for progress updates; partial/full handled in draw_complete.
     bool time_based_refresh = false;
     static bool prev_ota_in_progress = false;
-    if (deviceStatus.ota_in_progress || deviceStatus.ota_failed) {
-        // Reset timer when transitioning from progress to failed so error screen shows immediately
+    if (deviceStatus.ota_in_progress || deviceStatus.ota_failed || deviceStatus.ota_success) {
+        // Reset timer when transitioning from progress to failed/success so screen shows immediately
         if (prev_ota_in_progress && !deviceStatus.ota_in_progress) {
             last_ota_display_ms = 0;
         }
@@ -359,6 +359,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         Paint_SelectImage(BlackImage);
         Paint_Clear(WHITE);
         
+        if (deviceStatus.ota_success) {
+            showOTASuccessPage(BlackImage);
+            last_ota_display_ms = millis();
+            goto draw_complete;
+        }
+
         if (deviceStatus.ota_failed) {
             showOTAFailedPage(BlackImage);
             last_ota_display_ms = millis();
@@ -470,14 +476,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         
 draw_complete:
         // Draw screen indicator (skip for OTA/failure - full-screen message)
-        if (!deviceStatus.ota_in_progress && !deviceStatus.ota_failed) {
+        if (!deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
             drawScreenIndicator(currentScreenID);
         }
         
         last_refresh_time = millis();
 
 
-        if (deviceStatus.ota_in_progress || deviceStatus.ota_failed) {
+        if (deviceStatus.ota_in_progress || deviceStatus.ota_failed || deviceStatus.ota_success) {
             ota_display_refresh_count++;
             bool ota_do_full = (ota_display_refresh_count % OTA_FULL_REFRESH_EVERY_N == 0);
             epdDisplay(ota_do_full ? DisplayMode::FULL : DisplayMode::PARTIAL, BlackImage);
@@ -514,7 +520,7 @@ draw_complete:
             epdResetPeriodPosition(); // Reset period counter after full refresh
             debug_outln_verbose(F("[EPD] FULL refresh (watchdog/wake/main) pushed to panel"));
             epdDisplay(DisplayMode::FULL, BlackImage);
-        } else if (!deviceStatus.ota_in_progress && !deviceStatus.ota_failed) {
+        } else if (!deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
             // Pass current screen to showImageFast for adaptive update logic:
             // MAIN screen: 10 partial + 1 full
             // Other pages: 5 partial + 1 full

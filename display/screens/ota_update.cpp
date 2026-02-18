@@ -73,4 +73,24 @@ void showOTAFailedPage(UBYTE *BlackImage) {
     Paint_DrawString_Display(line2_x, line2_y, line2, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 }
 
+void showOTASuccessPage(UBYTE *BlackImage) {
+    Paint_Clear(WHITE);
+
+    int logo_x = (DISPLAY_WIDTH - 40) / 2;
+    int logo_y = 30;
+    Paint_DrawImage(robo_hw_logo_black_40x40, logo_x, logo_y, 40, 32);
+
+    const char* line1 = INTL_DISP_OTA_SUCCESS;
+    uint16_t line1_w = Paint_GetStringWidth_Display(line1, &Font24, &font_24_cyrillic, &font_24_ascii);
+    uint16_t line1_x = (DISPLAY_WIDTH > line1_w) ? (DISPLAY_WIDTH - line1_w) / 2 : 0;
+    uint16_t line1_y = logo_y + 32 + 20;
+    Paint_DrawString_Display(line1_x, line1_y, line1, &Font24, &font_24_cyrillic, &font_24_ascii, WHITE, BLACK);
+
+    const char* line2 = INTL_DISP_OTA_RESTARTING;
+    uint16_t line2_w = Paint_GetStringWidth_Display(line2, &Font16, &font_16_cyrillic, &font_16_ascii);
+    uint16_t line2_x = (DISPLAY_WIDTH > line2_w) ? (DISPLAY_WIDTH - line2_w) / 2 : 0;
+    uint16_t line2_y = line1_y + Font24.Height + 12;
+    Paint_DrawString_Display(line2_x, line2_y, line2, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+}
+
 #endif

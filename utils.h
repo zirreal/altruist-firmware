@@ -83,6 +83,7 @@ struct device_status_t {
 	bool sd_card_connected = false;
 	bool ota_in_progress = false;  // When true, display shows "Updating firmware" screen
 	bool ota_failed = false;       // When true, display shows "Update failed" screen before returning
+	bool ota_success = false;      // When true, display shows "Update successful" screen before restart
 	int ota_progress_percent = -1;  // 0-100 during download, -1 when not applicable
 	volatile bool ota_update_requested = false;  // Set by webserver to trigger manual OTA check
 	String ip_address;

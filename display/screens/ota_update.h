@@ -8,6 +8,7 @@
 struct device_status_t;
 void showOTAUpdatePage(UBYTE *BlackImage, const device_status_t &deviceStatus);
 void showOTAFailedPage(UBYTE *BlackImage);
+void showOTASuccessPage(UBYTE *BlackImage);
 
 #endif
 #endif

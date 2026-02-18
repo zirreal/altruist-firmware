@@ -274,7 +274,11 @@ void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {
 	vTaskDelay(pdMS_TO_TICKS(800));
 
 	if (downloadAndUpdate(fetch_name.c_str(), newFwmd5, deviceStatus)) {
-        sensor_restart();
+		deviceStatus.ota_in_progress = false;
+		deviceStatus.ota_success = true;
+		// Give display time to show success screen before sensor_restart() shuts down peripherals
+		vTaskDelay(pdMS_TO_TICKS(3000));
+		sensor_restart();
     }
 
 	// Download failed — show error on display before returning to main screen

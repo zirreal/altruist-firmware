@@ -475,13 +475,15 @@ void sensorAndAPIWorker(void *pvParameters) {
 			
 			markCrashSection(CRASH_SECTION_IDLE);
 				
+			static bool first_ota_check = true;
 			bool manual_ota = deviceStatus.ota_update_requested;
 			if (manual_ota) {
 				deviceStatus.ota_update_requested = false;
 			}
 			if (WiFi.status() == WL_CONNECTED &&
-					(manual_ota || msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS)) {
+					(first_ota_check || manual_ota || msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS)) {
 
+					first_ota_check = false;
 					twoStageOTAUpdate(deviceStatus, manual_ota);
 					deviceStatus.last_update_attempt = millis();
 			}
@@ -786,7 +788,7 @@ void setup(void) {
     Serial.println();
 	#endif
 
-	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis() - PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS;
+	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
 #if defined(USE_SD_CARD)
 	deviceStatus.sd_card_connected = sdCardLogger.begin();
 #endif

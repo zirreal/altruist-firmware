@@ -227,6 +227,8 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_OTA_DO_NOT_DISCONNECT "Не отключайте питание"
 #define INTL_DISP_OTA_FAILED "Ошибка обновления"
 #define INTL_DISP_OTA_WILL_RETRY "Повтор позже"
+#define INTL_DISP_OTA_SUCCESS "Прошивка обновлена!"
+#define INTL_DISP_OTA_RESTARTING "Перезагрузка..."
 #define INTL_DISP_WAITING_URBAN_ID "Ожидание Urban ID..."
 #define INTL_DISP_URBAN_IP "IP Urban:"
 #define INTL_DISP_INSIGHT_IP "IP Insight:"
