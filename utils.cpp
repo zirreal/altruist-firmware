@@ -451,13 +451,12 @@ void incrementTXCounter() {
 
 // Log metrics to UART in the specified format
 void logMetrics() {
+#ifdef DEV
 	updateMetrics();
 	
-	// Determine status
 	const char* status = system_metrics.has_error ? "ERROR" : "ALIVE";
 	const char* status_symbol = system_metrics.has_error ? "✗" : "✓";
 	
-	// Get WiFi state
 	const char* wifi_state = "DISCONNECTED";
 	const char* wifi_symbol = "✗";
 	int rssi = 0;
@@ -467,19 +466,16 @@ void logMetrics() {
 		rssi = WiFi.RSSI();
 	}
 	
-	// Format uptime
 	unsigned long hours = system_metrics.uptime_sec / 3600;
 	unsigned long minutes = (system_metrics.uptime_sec % 3600) / 60;
 	unsigned long seconds = system_metrics.uptime_sec % 60;
 	
-	// Add device identification
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("\r\n=== [INSIGHT] METRICS ===\r\n"));
 	#elif defined(ALTRUIST_URBAN)
 	Serial.print(F("\r\n=== [URBAN] METRICS ===\r\n"));
 	#endif
 	
-	// Status line
 	Serial.print(F("Status: "));
 	Serial.print(status_symbol);
 	Serial.print(F(" "));
@@ -493,7 +489,6 @@ void logMetrics() {
 	}
 	Serial.print(F("\r\n"));
 	
-	// Uptime line
 	Serial.print(F("Uptime: "));
 	if (hours > 0) {
 		Serial.print(hours);
@@ -508,12 +503,10 @@ void logMetrics() {
 	Serial.print(system_metrics.uptime_sec);
 	Serial.print(F("s total)\r\n"));
 	
-	// Boot counter
 	Serial.print(F("Boot: "));
 	Serial.print(system_metrics.boot_counter);
 	Serial.print(F("\r\n"));
 	
-	// WiFi line
 	Serial.print(F("WiFi: "));
 	Serial.print(wifi_symbol);
 	Serial.print(F(" "));
@@ -525,7 +518,6 @@ void logMetrics() {
 	}
 	Serial.print(F("\r\n"));
 	
-	// TX counter
 	Serial.print(F("TX: "));
 	Serial.print(system_metrics.tx_counter);
 	if (system_metrics.last_telemetry_timestamp > 0) {
@@ -538,7 +530,6 @@ void logMetrics() {
 	}
 	Serial.print(F("\r\n"));
 	
-	// Error counters
 	Serial.print(F("Errors: WiFi="));
 	Serial.print(system_metrics.err_wifi_reconnects);
 	Serial.print(F(" Sensor="));
@@ -547,10 +538,10 @@ void logMetrics() {
 	Serial.print(system_metrics.err_sd_write);
 	Serial.print(F("\r\n"));
 	
-	// ESP temperature
 	Serial.print(F("ESP Temp: "));
 	Serial.print(system_metrics.esp_temperature, 1);
 	Serial.print(F("°C\r\n"));
 	
 	Serial.print(F("==========================\r\n"));
+#endif
 }

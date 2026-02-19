@@ -23,7 +23,10 @@ void deinit_i2c(void) {
     esp_err_t ret = i2c_driver_delete(I2C_MASTER_NUM);
     if (ret != ESP_OK) {
         Serial.printf("i2c_driver_delete error: %s\r\n", esp_err_to_name(ret));
-    } else {
+    }
+#ifdef DEV
+    else {
         Serial.printf("I2C driver deleted successfully.\r\n");
     }
+#endif
 }

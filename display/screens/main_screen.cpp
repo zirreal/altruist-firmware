@@ -151,8 +151,7 @@ void drawValue(const char *label, float value, uint8_t precision,
 
     // Draw warning icon and arrow next to the title (label)
     if (has_warning) {
-        String debug_msg = String(F("Drawing warning icon and arrow for dangerous value: ")) + String(label) + F(" = ") + String(value);
-        debug_outln_info(debug_msg);
+        debug_outln_verbose(String(F("Drawing warning icon and arrow for dangerous value: ")) + String(label) + F(" = ") + String(value));
 
         // Warning icon - manually drawn 16x16 filled triangle with exclamation
         const uint16_t warning_size = 16;

@@ -60,7 +60,7 @@ const char WEB_PAGE_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
     <small>\
     <span>ID</span>: {id}<br />\
     <span>" INTL_FIRMWARE "</span>: " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>\
-    <span>" INTL_ROBONOMICS_ADDR "</span>: {addr}\
+    <span>" INTL_ROBONOMICS_ADDR "</span>: <span style='cursor:pointer;border-bottom:1px dashed #999;font-weight:normal' title='Click to copy' onclick='var s=this,t=document.createElement(\"textarea\");t.value=s.innerText;t.style.position=\"fixed\";t.style.opacity=\"0\";document.body.appendChild(t);t.select();document.execCommand(\"copy\");document.body.removeChild(t);s.style.opacity=0.5;setTimeout(function(){s.style.opacity=1},300)'>{addr}</span>\
     </small>\
     </div>\
     </div><div class='content'><h4 class='content-subtitle'>" INTL_HOME " {n} {t}</h4>";
@@ -70,7 +70,7 @@ const char WEB_PAGE_DEBUG_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
     <small>\
     <span>ID</span>: {id}<br />\
     <span>" INTL_FIRMWARE "</span>: " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>\
-    <span>" INTL_ROBONOMICS_ADDR "</span>: {addr}\
+    <span>" INTL_ROBONOMICS_ADDR "</span>: <span style='cursor:pointer;border-bottom:1px dashed #999;font-weight:normal' title='Click to copy' onclick='var s=this,t=document.createElement(\"textarea\");t.value=s.innerText;t.style.position=\"fixed\";t.style.opacity=\"0\";document.body.appendChild(t);t.select();document.execCommand(\"copy\");document.body.removeChild(t);s.style.opacity=0.5;setTimeout(function(){s.style.opacity=1},300)'>{addr}</span>\
     </small>\
     </div>\
     </div><div class='content content-debug'><h4 class='content-subtitle'>" INTL_HOME " {n} {t}</h4>";
@@ -80,7 +80,7 @@ const char WEB_PAGE_CONFIG_HEADER_BODY[] PROGMEM = "<div class='canvas-info'>\
     <small>\
     <span>ID</span>: {id}<br />\
     <span>" INTL_FIRMWARE "</span>: " SOFTWARE_VERSION_STR "/" INTL_LANG "&nbsp;(" __DATE__ ")<br/>\
-    <span>" INTL_ROBONOMICS_ADDR "</span>: {addr}\
+    <span>" INTL_ROBONOMICS_ADDR "</span>: <span style='cursor:pointer;border-bottom:1px dashed #999;font-weight:normal' title='Click to copy' onclick='var s=this,t=document.createElement(\"textarea\");t.value=s.innerText;t.style.position=\"fixed\";t.style.opacity=\"0\";document.body.appendChild(t);t.select();document.execCommand(\"copy\");document.body.removeChild(t);s.style.opacity=0.5;setTimeout(function(){s.style.opacity=1},300)'>{addr}</span>\
     </small>\
     </div>\
     </div><div class='content content-config'><h4 class='content-subtitle'>" INTL_HOME " {n} {t}</h4>";

@@ -1,9 +1,16 @@
 #include "message_formatter.h"
 #include "../../utils.h"
 #include "../../config_manager/config_defaults.h"
+#include "../../sensors/sensor_names.h"
+
+#define SCD4X_WARMUP_SEC 360
 
 void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
     datalog_data = "";
+
+    bool has_scd4x = !data[SCD4X_SENSOR_NAME].isNull();
+    bool use_bme680_for_temp_hum = !has_scd4x || (millis() / 1000 < SCD4X_WARMUP_SEC);
+
     for (JsonPair sensor : data.as<JsonObject>())  {
         String sensor_name = sensor.key().c_str();
 
@@ -21,14 +28,20 @@ void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
 				value = measurementData["value"].as<String>();
 			}
 
-            // Check data sharing preferences before including each measurement
+            bool is_bme680 = (sensor_name == BME680_SENSOR_NAME);
+            bool is_scd4x = (sensor_name == SCD4X_SENSOR_NAME);
+            bool skip_temp_hum = (is_bme680 && !use_bme680_for_temp_hum)
+                              || (is_scd4x && use_bme680_for_temp_hum);
+
             if (type == "P1" && cfg::share_pm) datalog_data += "p1:" + value + ",";
             else if (type == "P2" && cfg::share_pm) datalog_data += "p2:" + value + ",";
             else if (type == "noiseMax" && cfg::share_noise) datalog_data += "nm:" + value + ",";
             else if (type == "noiseAvg" && cfg::share_noise) datalog_data += "na:" + value + ",";
-            else if (type == "temperature" && cfg::share_temperature && datalog_data.indexOf("t:") == -1) datalog_data += "t:" + value + ",";
+            else if (type == "temperature" && cfg::share_temperature && datalog_data.indexOf("t:") == -1
+                     && !skip_temp_hum) datalog_data += "t:" + value + ",";
             else if (type == "pressure" && cfg::share_pressure) datalog_data += "p:" + value + ",";
-            else if (type == "humidity" && cfg::share_humidity && datalog_data.indexOf("h:") == -1) datalog_data += "h:" + value + ",";
+            else if (type == "humidity" && cfg::share_humidity && datalog_data.indexOf("h:") == -1
+                     && !skip_temp_hum) datalog_data += "h:" + value + ",";
             else if (type == "radiation") datalog_data += "gc:" + value + ",";
             else if (type == "co2" && cfg::share_co2) datalog_data += "co:" + value + ","; 
         }

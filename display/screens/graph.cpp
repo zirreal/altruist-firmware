@@ -113,7 +113,7 @@ static bool checkSDCardAvailable() {
     bool isConnected = sdCardLogger.checkInserted();
     if (!isConnected) {
         // Card was removed - update device status
-        debug_outln_info(F("[Graph] SD card removed - updating status"));
+        debug_outln_verbose(F("[Graph] SD card removed - updating status"));
         return false;
     }
     return true;
@@ -122,21 +122,21 @@ static bool checkSDCardAvailable() {
 static bool checkDataFilesExist() {
     // First, verify card is still present (detect removal)
     if (!sdCardLogger.checkInserted()) {
-        debug_outln_info(F("[Graph] SD card removed during file check"));
+        debug_outln_verbose(F("[Graph] SD card removed during file check"));
         return false;
     }
     
     // Refresh SD card cache periodically to detect new files
     unsigned long now = millis();
     if (now - last_file_check_time > FILE_CHECK_INTERVAL_MS || last_file_check_time == 0) {
-        debug_outln_info(F("[Graph] Refreshing SD card cache..."));
+        debug_outln_verbose(F("[Graph] Refreshing SD card cache..."));
         sdCardLogger.refreshCache();
         last_file_check_time = now;
     }
     
     // Check if root folder exists
     if (!SD.exists("/sensors_data")) {
-        debug_outln_info(F("[Graph] /sensors_data folder does not exist"));
+        debug_outln_verbose(F("[Graph] /sensors_data folder does not exist"));
         return false;
     }
     
@@ -148,37 +148,37 @@ static bool checkDataFilesExist() {
              timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday);
     
     String dateInfo = "[Graph] Checking for date: " + String(dateStr);
-    debug_outln_info(dateInfo);
+    debug_outln_verbose(dateInfo);
     
     // Check common sensor folders for today's file
     const char* sensors[] = {"SCD4x", "BME680", ATRUIST_URBAN_SENSOR};
     for (int i = 0; i < 3; i++) {
         String filePath = "/sensors_data/" + String(sensors[i]) + "/" + String(dateStr) + ".csv";
         String checkMsg = "[Graph] Checking file: " + filePath;
-        debug_outln_info(checkMsg);
+        debug_outln_verbose(checkMsg);
         if (SD.exists(filePath)) {
             File testFile = SD.open(filePath, FILE_READ);
             if (testFile && testFile.size() > 0) {
                 String foundMsg = "[Graph] Found today's file: " + filePath + " size: " + String(testFile.size());
-                debug_outln_info(foundMsg);
+                debug_outln_verbose(foundMsg);
                 testFile.close();
                 return true;
             }
             if (testFile) {
                 String emptyMsg = "[Graph] File exists but empty or can't read: " + filePath;
-                debug_outln_info(emptyMsg);
+                debug_outln_verbose(emptyMsg);
                 testFile.close();
             }
         } else {
             String notFoundMsg = "[Graph] File does not exist: " + filePath;
-            debug_outln_info(notFoundMsg);
+            debug_outln_verbose(notFoundMsg);
         }
     }
     
     // If direct check didn't find files, do full directory scan
     File root = SD.open("/sensors_data");
     if (!root || !root.isDirectory()) {
-        debug_outln_info(F("[Graph] Failed to open /sensors_data directory"));
+        debug_outln_verbose(F("[Graph] Failed to open /sensors_data directory"));
         return false;
     }
     
@@ -201,7 +201,7 @@ static bool checkDataFilesExist() {
             // Build full path
             String sensorPath = "/sensors_data/" + sensorName;
             String folderInfo = "[Graph] Checking sensor folder: " + sensorPath;
-            debug_outln_info(folderInfo);
+            debug_outln_verbose(folderInfo);
             File sensorDir = SD.open(sensorPath);
             if (sensorDir && sensorDir.isDirectory()) {
                 File csvFile = sensorDir.openNextFile();
@@ -209,10 +209,10 @@ static bool checkDataFilesExist() {
                     String fileName = csvFile.name();
                     fileCount++;
                     String fileInfo = "[Graph] Found file: " + fileName + " size: " + String(csvFile.size());
-                    debug_outln_info(fileInfo);
+                    debug_outln_verbose(fileInfo);
                     if (fileName.endsWith(".csv") && csvFile.size() > 0) {
                         hasData = true;
-                        debug_outln_info(F("[Graph] Found valid CSV file with data"));
+                        debug_outln_verbose(F("[Graph] Found valid CSV file with data"));
                         csvFile.close();
                         sensorDir.close();
                         root.close();
@@ -230,7 +230,7 @@ static bool checkDataFilesExist() {
     root.close();
     
     String checkResult = "[Graph] Checked " + String(sensorCount) + " sensors, " + String(fileCount) + " files total. Has data: " + (hasData ? "yes" : "no");
-    debug_outln_info(checkResult);
+    debug_outln_verbose(checkResult);
     return hasData;
 }
 

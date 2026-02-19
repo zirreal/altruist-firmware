@@ -33,11 +33,14 @@ void GPSSensor::_fetch(JsonDocument &data) {
     // debug_outln_info(F("radiation "), last_value_gc);
     addValueToJSON(data, F("latitude"), gps.location.lat(), "Latitude", F(""));
     addValueToJSON(data, F("longitude"), gps.location.lng(), "Longitude", F(""));
+#ifdef DEV
     serializeJson(data, Serial);
+#endif
 }
 
 void GPSSensor::displayInfo()
 {
+#ifdef DEV
     Serial.print(F("Location: ")); 
     if (gps.location.isValid())
     {
@@ -85,4 +88,5 @@ void GPSSensor::displayInfo()
     }
 
     Serial.println();
+#endif
 }

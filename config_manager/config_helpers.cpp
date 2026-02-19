@@ -172,7 +172,9 @@ void readConfig(bool oldconfig) {
 	DynamicJsonDocument json(JSON_BUFFER_SIZE);
 	DeserializationError err = deserializeJson(json, configFile.readString());
 	configFile.close();
+#ifdef DEV
 	serializeJson(json, Serial);
+#endif
 #pragma GCC diagnostic pop
 
 	if (!err) {

@@ -11,7 +11,7 @@
 #define ESP_TEMP_FACTOR        0.25f   // °C датчика на °C ESP
 #define MAX_ESP_COMP_C         2.5f    // Ограничение безопасности
 
-#define RH_PER_DEG_C           4.5f    // %RH на °C
+#define RH_PER_DEG_C           2.0f    // %RH на °C
 
 BME680Sensor::BME680Sensor(unsigned long sending_timeout)
     : Sensor(sending_timeout) 
@@ -157,7 +157,9 @@ void BME680Sensor::_fetch(JsonDocument &data) {
     addValueToJSON(data, F("pressure"),    last_pressure_value,    INTL_PRESSURE,    F("Pa"));
     addValueToJSON(data, F("humidity"),    last_humidity_value,    INTL_HUMIDITY,    F("%"));
 
+#ifdef DEV
     serializeJson(data, Serial);
+#endif
 
     deinit_i2c();
 }

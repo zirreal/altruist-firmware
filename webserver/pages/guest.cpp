@@ -55,12 +55,13 @@ void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig
     }
 	page_content += F("</ul>");
 
-	// Data posting to the map disclaimer and configuration - only visible in dev builds for now
-#ifdef DEV
-	page_content += F("<h3 class='guest-subtitle'>" INTL_PANEL_TITLE_DATA_SHARING "</h3>");
-	page_content += F("<p class='disclaimer' style='font-size:0.9em;color:#555;margin-bottom:12px;'>"
-		INTL_DATA_SHARING_DISCLAIMER
-		"</p>");
+	page_content += F(
+		"<div style='margin-top:30px;padding:16px 20px;border:2px solid #2949d3;border-radius:10px;background:#f0f4ff;'>"
+		"<h3 class='guest-subtitle' style='margin-bottom:12px;'>" INTL_PANEL_TITLE_DATA_SHARING "</h3>"
+		"<p style='font-size:14px;color:#333;margin:0 0 14px;line-height:1.6;'>"
+		"&#9432;&nbsp;" INTL_DATA_SHARING_DISCLAIMER
+		"</p>"
+		"<div style='padding:8px 0;'>");
 	page_content += form_checkbox(Config_share_temperature, FPSTR(INTL_SHARE_TEMPERATURE), false);
 	page_content += form_checkbox(Config_share_humidity, FPSTR(INTL_SHARE_HUMIDITY), false);
 	page_content += form_checkbox(Config_share_pressure, FPSTR(INTL_SHARE_PRESSURE), false);
@@ -71,7 +72,7 @@ void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig
 	page_content += form_checkbox(Config_share_pm, FPSTR(INTL_SHARE_PM), false);
 	page_content += form_checkbox(Config_share_noise, FPSTR(INTL_SHARE_NOISE), false);
 #endif
-#endif // DEV
+	page_content += F("</div></div>");
 }
 
 void webserver_guest_create_body_get_part2(String& page_content, bool wificonfig_loop) {

@@ -8,8 +8,8 @@
 class API {
 protected:
     unsigned long timeout;  // Private variable for API timeout
-    unsigned long last_send_time;
-    time_t last_send_time_t;
+    unsigned long last_send_time = 0;
+    time_t last_send_time_t = 0;
     unsigned long count_sends = 0;
     unsigned long count_sends_success = 0;
     bool is_ok = true;
@@ -35,7 +35,7 @@ public:
 
     void updateDeviceStatus(device_status_t &deviceStatus) {
         debug_outln_info(F("Updating device status for "), api_name);
-        if (deviceStatus.apis_status.find("new_api") == deviceStatus.apis_status.end()) {
+        if (deviceStatus.apis_status.find(api_name) == deviceStatus.apis_status.end()) {
             debug_outln_info(F("Creating new API status"));
             deviceStatus.apis_status[api_name] = new_api_status;
             debug_outln_info(F("Created new API status"));
