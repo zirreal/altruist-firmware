@@ -50,7 +50,16 @@ void webserver_status_part2(String &page_content, device_status_t &deviceStatus)
     for (const auto& [key, value] : deviceStatus.apis_status) {
         String api_is_ok = value.is_ok ? "OK" : "ERROR";
         String api_count_sends = String(value.count_sends_success) + "/" + String(value.count_sends);
-        String api_last_send = ctime(&value.last_send_time);
+        String api_last_send;
+        if (value.last_send_time == 0) {
+            api_last_send = "N/A";
+        } else {
+            struct tm ti;
+            localtime_r(&value.last_send_time, &ti);
+            char buf[24];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &ti);
+            api_last_send = buf;
+        }
 		std::string boldKey = "<b>" + key + "</b>";
         add_table_row_from_value(page_content, boldKey.c_str(), api_is_ok);
         add_table_row_from_value(page_content, FPSTR(INTL_COUNT_SUCCESS_SENDS), api_count_sends);

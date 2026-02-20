@@ -43,8 +43,10 @@ bool SCD4x::begin(bool measBegin, bool autoCalibrate, bool skipStopPeriodicMeasu
     char serialNumber[13];
     success &= getSerialNumber(serialNumber);
 
+#ifdef DEV
     Serial.print(F("Begin SCD4x serial number: "));
     Serial.println(serialNumber);
+#endif
 
     if (pollAndSetDeviceType) {
         scd4x_sensor_type_e sensorType;

@@ -141,7 +141,7 @@ const char INTL_SAVE_AND_RESTART[] PROGMEM = "Save configuration and restart";
 #define INTL_IP_ADDRESS "IP Address"
 const char INTL_SD_CONNECTED[] PROGMEM = "SD Card connected";
 const char INTL_FREE_RAM[] PROGMEM = "Free Memory (RAM)";
-const char INTL_LAST_OTA[] PROGMEM = "Last OTA";
+const char INTL_LAST_OTA[] PROGMEM = "Last OTA check";
 #define INTL_OTA_UPDATE "Firmware Update"
 const char INTL_OTA_CHECK_UPDATE[] PROGMEM = "Check for update";
 const char INTL_OTA_CURRENT_VERSION[] PROGMEM = "Current version";

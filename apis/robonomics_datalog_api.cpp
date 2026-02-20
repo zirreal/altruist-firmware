@@ -23,8 +23,18 @@ void RobonomicsDatalogAPI::setup() {
 void RobonomicsDatalogAPI::_send(JsonDocument &data) {
     String datalog_data;
     formatRobonomicsString(data, datalog_data);
-    debug_outln_info(F("Start sending datalog: "), datalog_data);
+    if (datalog_data.length() == 0) {
+        debug_outln_error(F("[Datalog] WARNING: data string is empty (all sharing disabled or no sensor data?)"));
+    }
+    debug_outln_verbose(F("[Datalog] Sending: "), datalog_data);
+    debug_outln_verbose(F("[Datalog] RWS owner: "), rws_owner);
+    debug_outln_verbose(F("[Datalog] Node: "), robonomics_public_node);
     const char* res = robonomics->sendRWSDatalogRecord(datalog_data.c_str(), rws_owner.c_str());
-	debug_outln_info(F("Datalog result: "), res);
     is_ok = (strcmp(res, "error") != 0);
+    if (is_ok) {
+        debug_outln_verbose(F("[Datalog] OK, result: "), res);
+    } else {
+        debug_outln_error(F("[Datalog] FAILED"));
+        debug_outln_verbose(F("[Datalog] Error response: "), res);
+    }
 }

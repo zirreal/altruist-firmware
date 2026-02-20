@@ -469,6 +469,7 @@ void SensorWebServer::_webserver_ota() {
 				page_content += FPSTR(INTL_OTA_LANG_REQUESTED);
 				page_content += F("</h3></div>");
 			}
+			
 		} else {
 			deviceStatus.ota_update_requested = true;
 			page_content += F("<div style='text-align:center;padding:30px;'>"

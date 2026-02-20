@@ -26,6 +26,8 @@ void RadSensSensor::_fetch(JsonDocument &data) {
 	last_value_gc = radSens.getRadIntensyDynamic();
     debug_outln_info(F("radiation "), last_value_gc);
     addValueToJSON(data, F("radiation"), last_value_gc, INTL_RADIATION, F("µR/h"));
+#ifdef DEV
     serializeJson(data, Serial);
+#endif
     deinit_i2c();
 }

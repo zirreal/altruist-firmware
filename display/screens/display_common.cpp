@@ -228,7 +228,9 @@ void epdSleep() {
 // Attempt to recover from a stuck display by hardware reset and reinit
 void epdRecoverFromStuck() {
 #ifdef DISPLAY_4IN2
+#ifdef DEV
     Serial.println(F("[EPD] Attempting display recovery..."));
+#endif
     
     // Hardware reset
     EPD_4IN2_V2_Reset();
@@ -247,7 +249,9 @@ void epdRecoverFromStuck() {
         period_position_per_screen[i] = 0;
     }
     
+#ifdef DEV
     Serial.println(F("[EPD] Display recovery complete"));
+#endif
 #endif
 }
 

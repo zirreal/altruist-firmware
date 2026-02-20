@@ -625,12 +625,14 @@ void setup(void) {
 	delay(300);
 	Serial.begin(115200);
 	delay(500);
+	#ifdef DEV
 	#if defined(ALTRUIST_INSIDE)
 	Serial.println(F("[INSIGHT] Start setup"));
 	#elif defined(ALTRUIST_URBAN)
 	Serial.println(F("[URBAN] Start setup"));
 	#endif
 	Serial.flush();
+	#endif
 	delay(200);
 
 	// If SET button pressed while turn on, reset the configuration

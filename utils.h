@@ -73,7 +73,7 @@ struct api_status_t {
 	bool is_ok = true;
 	unsigned long count_sends = 0;
 	unsigned long count_sends_success = 0;
-	time_t last_send_time;
+	time_t last_send_time = 0;
 };
 
 struct device_status_t {
