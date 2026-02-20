@@ -249,17 +249,15 @@ void DisplayManager::process(button_pressed_t &btn_press) {
 
     // Periodic EPD re-initialization watchdog:
     // This helps recover from stuck display states after many partial updates.
-    if (currentScreenID == ScreenPage::MAIN) {
+    // Runs on all navigable screens, not just MAIN.
+    {
         unsigned long now_ms = millis();
         if (last_epd_reinit_time_ms == 0) {
-            // Initialize baseline on first run after boot
             last_epd_reinit_time_ms = now_ms;
         } else if (msSince(last_epd_reinit_time_ms) >= EPD_REINIT_INTERVAL_MS) {
             debug_outln_verbose(F("[EPD] Periodic watchdog: recovering display and scheduling FULL refresh"));
             last_epd_reinit_time_ms = now_ms;
-            // Use recovery function to reset and re-init the controller
             epdRecoverFromStuck();
-            // Force a full refresh on the next draw of MAIN
             force_full_refresh = true;
             refresh_now = true;
         }

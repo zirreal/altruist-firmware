@@ -21,8 +21,8 @@ void drawScreenIndicator(ScreenPage currentScreen);
 void epdInit(DisplayMode mode);
 
 // Display image in specified mode (full, fast, partial, 4-gray).
-// For PARTIAL, full window is used; can add rectangle parameters if needed.
-void epdDisplay(DisplayMode mode, UBYTE *Image);
+// Returns true on success, false if display was stuck (recovery attempted automatically).
+bool epdDisplay(DisplayMode mode, UBYTE *Image);
 
 // Put display to sleep.
 void epdSleep();

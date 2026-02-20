@@ -149,7 +149,7 @@ bool EPD_4IN2_V2_ReadBusy(void)
     Serial.flush();
 #endif
     
-    const unsigned long timeout_ms = 30000; // 30 second timeout (display ops can be slow)
+    const unsigned long timeout_ms = 10000; // 10 second timeout (full refresh takes ~2-4s)
     unsigned long start = millis();
     unsigned long last_log = start;
     
@@ -158,7 +158,7 @@ bool EPD_4IN2_V2_ReadBusy(void)
         
         // Check for timeout
         if (now - start > timeout_ms) {
-            Serial.println(F("[EPD] ERROR: busy timeout after 30s! Display may be stuck."));
+            Serial.println(F("[EPD] ERROR: busy timeout after 10s! Display may be stuck."));
             Serial.flush();
             return false; // Timed out - display stuck
         }
@@ -189,36 +189,36 @@ bool EPD_4IN2_V2_ReadBusy(void)
 function :	Turn On Display
 parameter:
 ******************************************************************************/
-static void EPD_4IN2_V2_TurnOnDisplay(void)
+static bool EPD_4IN2_V2_TurnOnDisplay(void)
 {
     EPD_4IN2_V2_SendCommand(0x22);
 	EPD_4IN2_V2_SendData(0xF7);
     EPD_4IN2_V2_SendCommand(0x20);
-    EPD_4IN2_V2_ReadBusy();
+    return EPD_4IN2_V2_ReadBusy();
 }
 
-static void EPD_4IN2_V2_TurnOnDisplay_Fast(void)
+static bool EPD_4IN2_V2_TurnOnDisplay_Fast(void)
 {
     EPD_4IN2_V2_SendCommand(0x22);
 	EPD_4IN2_V2_SendData(0xC7);
     EPD_4IN2_V2_SendCommand(0x20);
-    EPD_4IN2_V2_ReadBusy();
+    return EPD_4IN2_V2_ReadBusy();
 }
 
-static void EPD_4IN2_V2_TurnOnDisplay_Partial(void)
+static bool EPD_4IN2_V2_TurnOnDisplay_Partial(void)
 {
     EPD_4IN2_V2_SendCommand(0x22);
 	EPD_4IN2_V2_SendData(0xFF);
     EPD_4IN2_V2_SendCommand(0x20);
-    EPD_4IN2_V2_ReadBusy();
+    return EPD_4IN2_V2_ReadBusy();
 }
 
-static void EPD_4IN2_V2_TurnOnDisplay_4Gray(void)
+static bool EPD_4IN2_V2_TurnOnDisplay_4Gray(void)
 {
     EPD_4IN2_V2_SendCommand(0x22);
 	EPD_4IN2_V2_SendData(0xCF);
     EPD_4IN2_V2_SendCommand(0x20);
-    EPD_4IN2_V2_ReadBusy();
+    return EPD_4IN2_V2_ReadBusy();
 }
 
 /******************************************************************************
@@ -402,7 +402,7 @@ void EPD_4IN2_V2_Init_4Gray(void)
 function :	Clear screen
 parameter:
 ******************************************************************************/
-void EPD_4IN2_V2_Clear(void)
+bool EPD_4IN2_V2_Clear(void)
 {
     UWORD Width, Height;
     Width = (EPD_4IN2_V2_WIDTH % 8 == 0)? (EPD_4IN2_V2_WIDTH / 8 ): (EPD_4IN2_V2_WIDTH / 8 + 1);
@@ -421,14 +421,14 @@ void EPD_4IN2_V2_Clear(void)
             EPD_4IN2_V2_SendData(0xFF);
         }
     }
-    EPD_4IN2_V2_TurnOnDisplay();
+    return EPD_4IN2_V2_TurnOnDisplay();
 }
 
 /******************************************************************************
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_4IN2_V2_Display(UBYTE *Image)
+bool EPD_4IN2_V2_Display(UBYTE *Image)
 {
     UWORD Width, Height;
     Width = (EPD_4IN2_V2_WIDTH % 8 == 0)? (EPD_4IN2_V2_WIDTH / 8 ): (EPD_4IN2_V2_WIDTH / 8 + 1);
@@ -447,14 +447,14 @@ void EPD_4IN2_V2_Display(UBYTE *Image)
             EPD_4IN2_V2_SendData(Image[i + j * Width]);
         }
     }
-    EPD_4IN2_V2_TurnOnDisplay();
+    return EPD_4IN2_V2_TurnOnDisplay();
 }
 
 /******************************************************************************
 function :	Sends the image buffer in RAM to e-Paper and fast displays
 parameter:
 ******************************************************************************/
-void EPD_4IN2_V2_Display_Fast(UBYTE *Image)
+bool EPD_4IN2_V2_Display_Fast(UBYTE *Image)
 {
     UWORD Width, Height;
     Width = (EPD_4IN2_V2_WIDTH % 8 == 0)? (EPD_4IN2_V2_WIDTH / 8 ): (EPD_4IN2_V2_WIDTH / 8 + 1);
@@ -473,11 +473,11 @@ void EPD_4IN2_V2_Display_Fast(UBYTE *Image)
             EPD_4IN2_V2_SendData(Image[i + j * Width]);
         }
     }
-    EPD_4IN2_V2_TurnOnDisplay_Fast();
+    return EPD_4IN2_V2_TurnOnDisplay_Fast();
 }
 
 
-void EPD_4IN2_V2_Display_4Gray(const UBYTE *Image)
+bool EPD_4IN2_V2_Display_4Gray(const UBYTE *Image)
 {
     UDOUBLE i,j,k,m;
     UBYTE temp1,temp2,temp3;
@@ -570,17 +570,17 @@ void EPD_4IN2_V2_Display_4Gray(const UBYTE *Image)
 			 }
 			EPD_4IN2_V2_SendData(temp3);	
 		}
-    EPD_4IN2_V2_TurnOnDisplay_4Gray();
+    return EPD_4IN2_V2_TurnOnDisplay_4Gray();
 }
 
 // Send partial data for partial refresh (convenience overload: full screen)
-void EPD_4IN2_V2_PartialDisplay(UBYTE *Image)
+bool EPD_4IN2_V2_PartialDisplay(UBYTE *Image)
 {
-    EPD_4IN2_V2_PartialDisplay(Image, 0, 0, EPD_4IN2_V2_WIDTH, EPD_4IN2_V2_HEIGHT);
+    return EPD_4IN2_V2_PartialDisplay(Image, 0, 0, EPD_4IN2_V2_WIDTH, EPD_4IN2_V2_HEIGHT);
 }
 
 // Send partial data for partial refresh (region version from original driver)
-void EPD_4IN2_V2_PartialDisplay(UBYTE *Image, UWORD Xstart, UWORD Ystart, UWORD Xend, UWORD Yend)
+bool EPD_4IN2_V2_PartialDisplay(UBYTE *Image, UWORD Xstart, UWORD Ystart, UWORD Xend, UWORD Yend)
 {
     if((Xstart % 8 + Xend % 8 == 8 && Xstart % 8 > Xend % 8) || Xstart % 8 + Xend % 8 == 0 || (Xend - Xstart)%8 == 0)
     {
@@ -634,7 +634,7 @@ void EPD_4IN2_V2_PartialDisplay(UBYTE *Image, UWORD Xstart, UWORD Ystart, UWORD 
             EPD_4IN2_V2_SendData(Image[j]);
     }
 	
-	EPD_4IN2_V2_TurnOnDisplay_Partial();
+	return EPD_4IN2_V2_TurnOnDisplay_Partial();
 }
 /******************************************************************************
 function :	Enter sleep mode

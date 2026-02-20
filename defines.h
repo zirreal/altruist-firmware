@@ -7,7 +7,7 @@
 #define PM_SENSOR_NAME "Altruist Insight"
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_STR "R-URB_2025-08"
+#define SOFTWARE_VERSION_STR "R-URB_2026-02"
 #define PM_SENSOR_NAME "Altruist Urban"
 #endif
 

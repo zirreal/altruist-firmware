@@ -188,33 +188,47 @@ void showImageLong(UBYTE *&BlackImage) {
 }
 
 // High-level display function by mode.
-void epdDisplay(DisplayMode mode, UBYTE *Image) {
+// Returns true on success, false if display was stuck and recovery was attempted.
+bool epdDisplay(DisplayMode mode, UBYTE *Image) {
 #ifdef DISPLAY_4IN2
-    // Ensure initialization for selected mode (only when necessary).
     epdInit(mode);
 
+    bool ok = true;
     switch (mode) {
         case DisplayMode::FULL:
-            EPD_4IN2_V2_Display_Fast(Image);
+            ok = EPD_4IN2_V2_Display_Fast(Image);
             break;
         case DisplayMode::FAST:
-            EPD_4IN2_V2_Display_Fast(Image);
+            ok = EPD_4IN2_V2_Display_Fast(Image);
             break;
         case DisplayMode::PARTIAL:
-            // True partial mode of controller (by LUT), without white pre-clearing.
-            // This gives fast updates with less flickering, but some residual
-            // "ghosting" of previous pages is physically inevitable.
-            EPD_4IN2_V2_PartialDisplay(Image);
+            ok = EPD_4IN2_V2_PartialDisplay(Image);
             break;
         case DisplayMode::GRAY_4:
-            EPD_4IN2_V2_Display_4Gray(Image);
+            ok = EPD_4IN2_V2_Display_4Gray(Image);
             break;
     }
 
     epdIncrementUpdateCount();
+
+    if (!ok) {
+        Serial.println(F("[EPD] Display stuck detected — recovering and retrying with FULL refresh"));
+        epdRecoverFromStuck();
+        epdInit(DisplayMode::FULL);
+        EPD_4IN2_V2_Display_Fast(Image);
+        epdIncrementUpdateCount();
+        for (int i = 0; i < 8; i++) {
+            period_position_per_screen[i] = 0;
+        }
+        non_main_screen_switch_counter = 0;
+        return false;
+    }
+
+    return true;
 #else
     (void)mode;
     (void)Image;
+    return true;
 #endif
 }
 
@@ -225,32 +239,27 @@ void epdSleep() {
 #endif
 }
 
-// Attempt to recover from a stuck display by hardware reset and reinit
+// Attempt to recover from a stuck display by hardware reset.
+// Leaves epd_initialized = false so the next epdInit() call performs
+// a proper mode-specific initialization before any display operation.
 void epdRecoverFromStuck() {
 #ifdef DISPLAY_4IN2
 #ifdef DEV
-    Serial.println(F("[EPD] Attempting display recovery..."));
+    Serial.println(F("[EPD] Attempting display recovery (hardware reset)..."));
 #endif
     
-    // Hardware reset
     EPD_4IN2_V2_Reset();
     DEV_Delay_ms(100);
     
-    // Mark as uninitialized so next operation does full init
     epd_initialized = false;
     epd_current_mode = DisplayMode::FULL;
     
-    // Force a full init
-    EPD_4IN2_V2_Init();
-    epd_initialized = true;
-    
-    // Reset all counters to trigger full refresh on next update
     for (int i = 0; i < 8; i++) {
         period_position_per_screen[i] = 0;
     }
     
 #ifdef DEV
-    Serial.println(F("[EPD] Display recovery complete"));
+    Serial.println(F("[EPD] Hardware reset complete, awaiting re-init"));
 #endif
 #endif
 }
