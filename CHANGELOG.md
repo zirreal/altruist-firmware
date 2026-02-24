@@ -4,6 +4,56 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ---
 
+## [R_2026-02.2](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.2) — 2026-02-24
+
+## Summary
+
+- Reduce panic risk during unstable WiFi by guarding HTTP/API sends.
+- Add SD-card retention cleanup and synchronize SD access with a global mutex.
+- Improve crash diagnostics in web status by showing reset code + last crash section.
+
+## What Changed
+
+### 1) API/WiFi panic hardening
+
+- In `sensorAndAPIWorker`, if WiFi remains disconnected after reconnect attempt, skip API send for that cycle.
+- Added WiFi-connected guards in:
+  - `RobonomicsHTTPAPI`
+  - `CustomHTTPAPI`
+- Avoided risky transport-error body reads on failed connections by using safer error reporting.
+
+### 2) SD-card robustness and retention
+
+- Added SD retention policy:
+  - keep sensor CSV history for `14 days`
+  - keep only latest `100` boot diagnostic files
+- Added `sdRetentionWorker` periodic cleanup task (every 6h check window).
+- Added global recursive SD mutex (`sdCardLock`/`sdCardUnlock`) and applied locking across SD logging/cleanup/read paths.
+- Added SD locking around graph file discovery and runtime log rotation paths to reduce concurrent SD access issues.
+
+### 3) Better crash visibility in Web UI
+
+- Status page now includes:
+  - reset reason code
+  - last crash section (if saved)
+  - previous uptime before reset
+  - previous free heap before reset
+
+## Why
+
+Field logs showed:
+
+- Intermittent panic resets around network/API activity.
+- Growing SD diagnostic/data files over time.
+- Status page was too generic for fast root-cause triage.
+
+These changes target reliability and observability without changing core feature behavior.
+
+## Notes
+
+- This PR is stability-focused and safe for hotfix release.
+- Retention values are currently hardcoded (`14d` sensor CSV, `100` boot logs) and can be made configurable later.
+
 ## [R_2026-02.1](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.1) — 2026-02-20
 
 ### Bug Fixes

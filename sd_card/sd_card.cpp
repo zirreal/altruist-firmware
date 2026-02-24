@@ -5,7 +5,62 @@
 #include "../utils.h"
 #include <algorithm>
 
+namespace {
+SemaphoreHandle_t g_sd_mutex = nullptr;
+volatile uint32_t g_sd_csv_write_ok = 0;
+volatile uint32_t g_sd_csv_write_fail = 0;
+volatile uint32_t g_sd_lock_busy = 0;
+
+static void ensureSDMutex() {
+    if (g_sd_mutex == nullptr) {
+        g_sd_mutex = xSemaphoreCreateRecursiveMutex();
+    }
+}
+
+class SDLockGuard {
+public:
+    explicit SDLockGuard(uint32_t timeout_ms = 5000) : locked(false) {
+        ensureSDMutex();
+        if (g_sd_mutex) {
+            locked = (xSemaphoreTakeRecursive(g_sd_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE);
+        }
+    }
+    ~SDLockGuard() {
+        if (locked && g_sd_mutex) {
+            xSemaphoreGiveRecursive(g_sd_mutex);
+        }
+    }
+    bool ok() const { return locked; }
+private:
+    bool locked;
+};
+} // namespace
+
+bool sdCardLock(uint32_t timeout_ms) {
+    ensureSDMutex();
+    if (!g_sd_mutex) return false;
+    return xSemaphoreTakeRecursive(g_sd_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
+}
+
+void sdCardUnlock() {
+    if (g_sd_mutex) {
+        xSemaphoreGiveRecursive(g_sd_mutex);
+    }
+}
+
+void sdGetDevCounters(uint32_t &csv_ok, uint32_t &csv_fail, uint32_t &lock_busy) {
+    csv_ok = g_sd_csv_write_ok;
+    csv_fail = g_sd_csv_write_fail;
+    lock_busy = g_sd_lock_busy;
+}
+
 bool SDCard::begin() {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in begin()"));
+        g_sd_lock_busy++;
+        return false;
+    }
     SPI.begin(SPI_SCK_PIN, SPI_MISO_PIN, SPI_MOSI_PIN, SPI_CS_PIN);
     if (_beginSD(SPI)) {
         refreshCache();
@@ -35,6 +90,12 @@ bool SDCard::_beginSD(SPIClass &spi) {
 }
 
 bool SDCard::writeTextFile(const String& fullPath, const String& content) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in writeTextFile()"));
+        g_sd_lock_busy++;
+        return false;
+    }
     int slash = fullPath.lastIndexOf('/');
     if (slash > 0) {
         String folder = fullPath.substring(0, slash);
@@ -61,6 +122,12 @@ bool SDCard::writeTextFile(const String& fullPath, const String& content) {
 }
 
 bool SDCard::appendTextFile(const String& fullPath, const String& content) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in appendTextFile()"));
+        g_sd_lock_busy++;
+        return false;
+    }
     int slash = fullPath.lastIndexOf('/');
     if (slash > 0) {
         String folder = fullPath.substring(0, slash);
@@ -87,6 +154,12 @@ bool SDCard::appendTextFile(const String& fullPath, const String& content) {
 }
 
 void SDCard::refreshCache() {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in refreshCache()"));
+        g_sd_lock_busy++;
+        return;
+    }
     _sensorList.clear();
     _sensorLastFiles.clear();
 
@@ -145,6 +218,12 @@ String SDCard::_getCurrentDateFileName() {
 }
 
 String SDCard::_findLastFileInFolder(const String& path) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in _findLastFileInFolder()"));
+        g_sd_lock_busy++;
+        return "";
+    }
     File dir = SD.open(path);
     if (!dir || !dir.isDirectory()) return "";
 
@@ -169,6 +248,13 @@ String SDCard::_findLastFileInFolder(const String& path) {
 
 
 void SDCard::_logCSVRow(const String& sensorName, const String& header, const String& values) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in _logCSVRow()"));
+        g_sd_lock_busy++;
+        g_sd_csv_write_fail++;
+        return;
+    }
     String folder = ROOT_FOLDER + sensorName;
     if (!SD.exists(folder)) {
         if (SD.mkdir(folder)) {
@@ -187,6 +273,7 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
     File file = SD.open(fullPath, FILE_APPEND);
     if (!file) {
         debug_outln_info(F("[SDCardLogger] Failed to open file: "), fullPath);
+        g_sd_csv_write_fail++;
         return;
     }
 
@@ -206,15 +293,25 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
     if (file.println(values)) {
         debug_outln_verbose(F("[SDCardLogger] Logged to: "), fullPath);
         debug_outln_verbose(F("[SDCardLogger] Data: "), values);
+        g_sd_csv_write_ok++;
     } else {
         debug_outln_info(F("[SDCardLogger] Can't write data: "));
         incrementSDWriteError();
+        g_sd_csv_write_fail++;
     }
     file.close();
 }
 
 
 void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char* field_name, int hours_back) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        g_sd_lock_busy++;
+        result.count = 0;
+        result.values = nullptr;
+        result.timestamps = nullptr;
+        return;
+    }
 
     time_t now = time(nullptr);
     struct tm* timeinfo = localtime(&now);
@@ -358,6 +455,18 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
 }
 
 bool SDCard::checkInserted() {
+    SDLockGuard lock(250);
+    if (!lock.ok()) {
+        g_sd_lock_busy++;
+        // SD can be busy in another task (graph read/log rotation/retention).
+        // Don't treat temporary lock contention as card removal.
+        static unsigned long last_busy_log_ms = 0;
+        if (msSince(last_busy_log_ms) > 30000UL) {
+            last_busy_log_ms = millis();
+            debug_outln_verbose(F("[SDCardLogger] SD mutex busy in checkInserted(); will retry later"));
+        }
+        return true;
+    }
     static sdcard_type_t last_type = CARD_NONE;
 
     sdcard_type_t card_type = SD.cardType();
@@ -392,6 +501,134 @@ bool SDCard::checkInserted() {
     }
     root.close();
     
+    return true;
+}
+
+bool SDCard::applyRetentionPolicy(uint16_t sensorRetentionDays, uint16_t maxBootFiles) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in applyRetentionPolicy()"));
+        g_sd_lock_busy++;
+        return false;
+    }
+    if (!checkInserted()) {
+        return false;
+    }
+
+    bool changed = false;
+    auto toAbsolutePath = [](const String& parentDir, const String& pathOrName) -> String {
+        String p = pathOrName;
+        p.trim();
+        if (p.length() == 0) return "";
+        if (!p.startsWith("/")) {
+            String base = parentDir;
+            if (!base.endsWith("/")) base += "/";
+            p = base + p;
+        }
+        return p;
+    };
+
+    // 1) sensors_data retention: remove CSV files older than cutoff date.
+    // File names are expected as YYYY-MM-DD.csv so lexicographical comparison works.
+    if (sensorRetentionDays > 0) {
+        time_t now = time(nullptr);
+        if (now > 0) {
+            time_t cutoff = now - (time_t)sensorRetentionDays * 24 * 60 * 60;
+            struct tm cutoff_tm;
+            localtime_r(&cutoff, &cutoff_tm);
+            char cutoff_name[16];
+            strftime(cutoff_name, sizeof(cutoff_name), "%Y-%m-%d", &cutoff_tm);
+            String cutoff_date(cutoff_name);
+
+            File root = SD.open(ROOT_FOLDER);
+            if (root && root.isDirectory()) {
+                File sensorDir = root.openNextFile();
+                while (sensorDir) {
+                    if (sensorDir.isDirectory()) {
+                        String sensorDirPath = sensorDir.name();
+                        if (!sensorDirPath.startsWith("/")) {
+                            sensorDirPath = String(ROOT_FOLDER) + sensorDirPath;
+                        }
+                        File dayFile = sensorDir.openNextFile();
+                        while (dayFile) {
+                            if (!dayFile.isDirectory()) {
+                                String filePath = toAbsolutePath(sensorDirPath, dayFile.name());
+                                int slash = filePath.lastIndexOf('/');
+                                String name = (slash >= 0) ? filePath.substring(slash + 1) : filePath;
+                                if (name.length() == 14 && name.endsWith(".csv")) {
+                                    String datePart = name.substring(0, 10); // YYYY-MM-DD
+                                    if (datePart < cutoff_date) {
+                                        if (filePath.length() > 1 && filePath.startsWith("/")) {
+                                            if (SD.remove(filePath)) {
+                                                changed = true;
+                                                debug_outln_verbose(F("[SDCardLogger] Retention removed old sensor CSV: "), filePath);
+                                            }
+                                        } else {
+                                            debug_outln_info(F("[SDCardLogger] Retention skip invalid sensor CSV path: "), filePath);
+                                        }
+                                    }
+                                }
+                            }
+                            dayFile.close();
+                            dayFile = sensorDir.openNextFile();
+                        }
+                    }
+                    sensorDir.close();
+                    sensorDir = root.openNextFile();
+                }
+                root.close();
+            }
+        }
+    }
+
+    // 2) exceptions retention: keep only the newest N boot_*.txt files.
+    if (maxBootFiles > 0 && SD.exists(EXCEPTIONS_FOLDER)) {
+        std::vector<std::pair<uint32_t, String>> boots;
+        File ex = SD.open(EXCEPTIONS_FOLDER);
+        if (ex && ex.isDirectory()) {
+            File f = ex.openNextFile();
+            while (f) {
+                if (!f.isDirectory()) {
+                    String fullPath = toAbsolutePath(String(EXCEPTIONS_FOLDER), f.name());
+                    int slash = fullPath.lastIndexOf('/');
+                    String name = (slash >= 0) ? fullPath.substring(slash + 1) : fullPath;
+                    if (name.startsWith("boot_") && name.endsWith(".txt")) {
+                        int us = name.indexOf('_');
+                        int dot = name.lastIndexOf('.');
+                        String n = name.substring(us + 1, dot);
+                        uint32_t id = (uint32_t)n.toInt();
+                        boots.push_back({id, fullPath});
+                    }
+                }
+                f.close();
+                f = ex.openNextFile();
+            }
+            ex.close();
+        }
+
+        if (boots.size() > maxBootFiles) {
+            std::sort(boots.begin(), boots.end(),
+                      [](const std::pair<uint32_t, String>& a, const std::pair<uint32_t, String>& b) {
+                          return a.first < b.first;
+                      });
+            size_t removeCount = boots.size() - maxBootFiles;
+            for (size_t i = 0; i < removeCount; i++) {
+                const String& path = boots[i].second;
+                if (path.length() > 1 && path.startsWith("/")) {
+                    if (SD.remove(path)) {
+                        changed = true;
+                        debug_outln_verbose(F("[SDCardLogger] Retention removed old boot log: "), path);
+                    }
+                } else {
+                    debug_outln_info(F("[SDCardLogger] Retention skip invalid boot log path: "), path);
+                }
+            }
+        }
+    }
+
+    if (changed) {
+        refreshCache();
+    }
     return true;
 }
 

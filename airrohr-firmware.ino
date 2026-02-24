@@ -203,11 +203,6 @@ CrashContextData loadCrashContext() {
 void writeBootFile() {
 	if (!deviceStatus.sd_card_connected) return;
 	
-	// Make sure exceptions folder exists
-	if (!SD.exists(EXCEPTIONS_FOLDER)) {
-		SD.mkdir(EXCEPTIONS_FOLDER);
-	}
-	
 	// Build boot file path
 	String bootPath = String(EXCEPTIONS_FOLDER) + "/boot_" + String(system_metrics.boot_counter) + ".txt";
 	
@@ -307,16 +302,20 @@ static void exceptionsLogWorker(void *pvParameters) {
 		if (buffer.length() > 0) {
 			// Rotate if the file would exceed the cap
 			size_t currentSize = 0;
-			if (SD.exists(logPath)) {
-				File f = SD.open(logPath, FILE_READ);
-				if (f) { currentSize = f.size(); f.close(); }
+			if (sdCardLock(2000)) {
+				if (SD.exists(logPath)) {
+					File f = SD.open(logPath, FILE_READ);
+					if (f) { currentSize = f.size(); f.close(); }
+				}
+				if (currentSize + buffer.length() > MAX_LOG_BYTES) {
+					// Keep up to 2 backups: runtime.log -> runtime.log.1 -> runtime.log.2
+					if (SD.exists(logPath2)) SD.remove(logPath2);
+					if (SD.exists(logPath1)) SD.rename(logPath1, logPath2);
+					if (SD.exists(logPath))  SD.rename(logPath,  logPath1);
+				}
+				sdCardUnlock();
 			}
 			if (currentSize + buffer.length() > MAX_LOG_BYTES) {
-				// Keep up to 2 backups: runtime.log -> runtime.log.1 -> runtime.log.2
-				if (SD.exists(logPath2)) SD.remove(logPath2);
-				if (SD.exists(logPath1)) SD.rename(logPath1, logPath2);
-				if (SD.exists(logPath))  SD.rename(logPath,  logPath1);
-
 				// Start a new file with a simple header
 				String header;
 				header.reserve(128);
@@ -332,6 +331,31 @@ static void exceptionsLogWorker(void *pvParameters) {
 	}
 }
 #endif // DEV
+
+// Periodic retention worker:
+// - keep recent sensor CSV files for graph pages
+// - keep only a bounded number of boot diagnostics in /exceptions
+static void sdRetentionWorker(void *pvParameters) {
+	(void)pvParameters;
+	const uint16_t SENSOR_RETENTION_DAYS = 14;
+	const uint16_t MAX_BOOT_FILES = 100;
+	const unsigned long CLEANUP_INTERVAL_MS = 6UL * 60UL * 60UL * 1000UL; // 6 hours
+	unsigned long last_cleanup_ms = 0;
+
+	for (;;) {
+		vTaskDelay(60000 / portTICK_PERIOD_MS); // check once per minute
+
+		if (!deviceStatus.sd_card_connected || !sdCardLogger.checkInserted()) {
+			continue;
+		}
+
+		if (last_cleanup_ms == 0 || msSince(last_cleanup_ms) > CLEANUP_INTERVAL_MS) {
+			last_cleanup_ms = millis();
+			debug_outln_info(F("[SDCardLogger] Running retention cleanup..."));
+			sdCardLogger.applyRetentionPolicy(SENSOR_RETENTION_DAYS, MAX_BOOT_FILES);
+		}
+	}
+}
 #endif // USE_SD_CARD && ALTRUIST_INSIDE
 
 /*****************************************************************
@@ -451,6 +475,16 @@ void sensorAndAPIWorker(void *pvParameters) {
 				reconnected++;
 				incrementWiFiReconnectError();
 				markCrashSection(CRASH_SECTION_IDLE);
+				if (WiFi.status() != WL_CONNECTED) {
+#ifdef DEV
+#if defined(ALTRUIST_INSIDE)
+					Serial.println(F("[INSIGHT] Skip API send: WiFi still disconnected after reconnect attempt"));
+#elif defined(ALTRUIST_URBAN)
+					Serial.println(F("[URBAN] Skip API send: WiFi still disconnected after reconnect attempt"));
+#endif
+#endif
+					continue;
+				}
 			}
 
 			// Mark based on which API we're sending to
@@ -607,6 +641,17 @@ void metricsWorker(void *pvParameters) {
 			if (free_heap < 50000) {
 				debug_outln_info(F("[MEM][WARN] Low free heap bytes"), String(free_heap));
 			}
+#if defined(USE_SD_CARD)
+			uint32_t sd_ok = 0, sd_fail = 0, sd_busy = 0;
+			static uint32_t prev_sd_ok = 0, prev_sd_fail = 0, prev_sd_busy = 0;
+			sdGetDevCounters(sd_ok, sd_fail, sd_busy);
+			debug_outln_info(F("[SD][DEV] csv writes (+)"), String(sd_ok - prev_sd_ok));
+			debug_outln_info(F("[SD][DEV] csv write fails (+)"), String(sd_fail - prev_sd_fail));
+			debug_outln_info(F("[SD][DEV] sd lock busy (+)"), String(sd_busy - prev_sd_busy));
+			prev_sd_ok = sd_ok;
+			prev_sd_fail = sd_fail;
+			prev_sd_busy = sd_busy;
+#endif
 		}
 #endif
 
@@ -799,11 +844,28 @@ void setup(void) {
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
 #if defined(USE_SD_CARD)
 	deviceStatus.sd_card_connected = sdCardLogger.begin();
+	if (deviceStatus.sd_card_connected) {
+		debug_outln_info(F("[SDCardLogger] SD card connected"));
+	} else {
+		debug_outln_error(F("[SDCardLogger] SD card NOT connected"));
+	}
 #endif
 
 #if defined(USE_SD_CARD) && defined(ALTRUIST_INSIDE)
 	// Write boot diagnostic file immediately after SD init - captures RTC crash context
 	writeBootFile();
+
+	// SD retention cleanup worker (production + dev):
+	// keeps exceptions and sensor CSV history bounded.
+	xTaskCreatePinnedToCore(
+		sdRetentionWorker,
+		"SDRetentionWorker",
+		4096,
+		NULL,
+		1,
+		NULL,
+		0
+	);
 	
 #if defined(DEV)
 	// Background logger: keep a rolling runtime log on SD so we have context

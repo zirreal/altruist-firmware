@@ -6,6 +6,46 @@
 #include "../html-content.h"
 #include "../../config_manager/config_helpers.h"
 #include <HTTPClient.h>
+#include <Preferences.h>
+#include <esp_system.h>
+
+namespace {
+struct CrashContextStatus {
+	bool valid = false;
+	uint8_t section = 0;
+	uint32_t uptime_sec = 0;
+	uint32_t free_heap = 0;
+};
+
+CrashContextStatus loadCrashContextStatus() {
+	CrashContextStatus ctx;
+	Preferences prefs;
+	prefs.begin("crash", true);
+	ctx.valid = prefs.getBool("valid", false);
+	if (ctx.valid) {
+		ctx.section = prefs.getUChar("section", 0);
+		ctx.uptime_sec = prefs.getULong("uptime", 0);
+		ctx.free_heap = prefs.getULong("heap", 0);
+	}
+	prefs.end();
+	return ctx;
+}
+
+const char* getCrashSectionNameForStatus(uint8_t section) {
+	switch (section) {
+		case 0: return "Idle/MainLoop";
+		case 1: return "FetchSensors";
+		case 2: return "RobonomicsDatalog";
+		case 3: return "RobonomicsHTTPMap";
+		case 4: return "CustomHTTP";
+		case 5: return "DisplayUpdate";
+		case 6: return "LEDUpdate";
+		case 7: return "WiFiReconnect";
+		case 8: return "SDWrite";
+		default: return "Unknown";
+	}
+}
+} // namespace
 
 /*****************************************************************
  * Webserver root: show device status
@@ -39,6 +79,16 @@ void webserver_status_part1(String &page_content, device_status_t &deviceStatus)
 	}
 	add_table_row_from_value(page_content, FPSTR(INTL_UPTIME), delayToString(millis() - deviceStatus.time_point_device_start_ms));
 	add_table_row_from_value(page_content, FPSTR(INTL_RESET_REASON), get_reset_reason_text());
+	add_table_row_from_value(page_content, "Reset reason code", String((int)esp_reset_reason()));
+
+	CrashContextStatus crash_ctx = loadCrashContextStatus();
+	if (crash_ctx.valid) {
+		add_table_row_from_value(page_content, "Last crash section", getCrashSectionNameForStatus(crash_ctx.section));
+		add_table_row_from_value(page_content, "Prev uptime before reset (s)", String(crash_ctx.uptime_sec));
+		add_table_row_from_value(page_content, "Prev free heap before reset (bytes)", String(crash_ctx.free_heap));
+	} else {
+		add_table_row_from_value(page_content, "Last crash section", "N/A (no saved crash context)");
+	}
 }
 
 void webserver_status_part2(String &page_content, device_status_t &deviceStatus) {

@@ -3,11 +3,12 @@
 #include "../utils.h"
 #include "helpers/message_formatter.h"
 #include "../config_manager/config_helpers.h"
+#include <WiFi.h>
 
 void CustomHTTPAPI::setup() {
 	api_name = "Custom API";
     _client = new WiFiClient();
-    String esp_chipid = get_chipid();
+    esp_chipid = get_chipid();
     rws_owner = cfg::rws_owner;
     host_custom = cfg::host_custom;
     port_custom = cfg::port_custom;
@@ -17,8 +18,12 @@ void CustomHTTPAPI::setup() {
 }
 
 void CustomHTTPAPI::_send(JsonDocument &data) {
-    int num_of_host;
 	String data_to_send;
+	if (WiFi.status() != WL_CONNECTED) {
+		debug_outln_error(F("[Custom API] Skipping send: WiFi is disconnected"));
+		is_ok = false;
+		return;
+	}
 	formatDataToSend(data_to_send, data);
     debug_outln_info(F("custom api data: "), data_to_send);
 	is_ok = false;
@@ -52,6 +57,10 @@ bool CustomHTTPAPI::POSTRequest(const String& data) {
 	HTTPClient _http;
 	String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
     int result = 0;
+	if (WiFi.status() != WL_CONNECTED) {
+		debug_outln_error(F("[Custom API] POST skipped: WiFi disconnected"));
+		return false;
+	}
 	debug_outln_info(F("Start POST to "), host_custom);
     _http.setTimeout(20 * 1000);
 	_http.setUserAgent(SOFTWARE_VERSION + '/' + esp_chipid);
@@ -69,7 +78,7 @@ bool CustomHTTPAPI::POSTRequest(const String& data) {
 			debug_outln_info(F("Details:"), _http.getString());
 		} else {
 			debug_outln_info(F("Request failed with error: "), String(result));
-			debug_outln_info(F("Details:"), _http.getString());
+			debug_outln_info(F("Details:"), HTTPClient::errorToString(result));
 		}
         _http.end();
     } else {

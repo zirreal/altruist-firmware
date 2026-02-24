@@ -9,6 +9,7 @@
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
+#include <freertos/semphr.h>
 #include "../utils.h"
 
 #define ROOT_FOLDER "/sensors_data/"
@@ -72,6 +73,10 @@ public:
         }
     }
     bool checkInserted();
+    // Retention cleanup:
+    // - keep recent sensor CSV files (YYYY-MM-DD.csv) for each sensor folder
+    // - keep only the newest N boot diagnostic files in /exceptions
+    bool applyRetentionPolicy(uint16_t sensorRetentionDays, uint16_t maxBootFiles);
 
     // Generic text file helpers used by exception/runtime logging.
     // These make sure parent folders exist and then write/append content.
@@ -92,6 +97,11 @@ private:
 };
 
 void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char* field_name, int hours_back);
+// Global SD lock helpers for modules that still use direct SD.* access.
+bool sdCardLock(uint32_t timeout_ms = 5000);
+void sdCardUnlock();
+// DEV diagnostics counters for SD activity.
+void sdGetDevCounters(uint32_t &csv_ok, uint32_t &csv_fail, uint32_t &lock_busy);
 
 #endif
 #endif // __SD_CARD_H__

@@ -16,6 +16,19 @@
 #include "FS.h"
 #endif
 
+#if defined(USE_SD_CARD)
+namespace {
+class SDGraphLockGuard {
+public:
+    SDGraphLockGuard() : locked(sdCardLock(2000)) {}
+    ~SDGraphLockGuard() { if (locked) sdCardUnlock(); }
+    bool ok() const { return locked; }
+private:
+    bool locked;
+};
+} // namespace
+#endif
+
 uint8_t current_graph_screen = 1;
 static GraphValue current_graph_value = GraphValue::INSIGHT_TEMP;
 
@@ -120,6 +133,13 @@ static bool checkSDCardAvailable() {
 }
 
 static bool checkDataFilesExist() {
+#if defined(USE_SD_CARD)
+    SDGraphLockGuard sdLock;
+    if (!sdLock.ok()) {
+        debug_outln_verbose(F("[Graph] Failed to acquire SD lock"));
+        return false;
+    }
+#endif
     // First, verify card is still present (detect removal)
     if (!sdCardLogger.checkInserted()) {
         debug_outln_verbose(F("[Graph] SD card removed during file check"));
