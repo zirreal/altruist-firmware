@@ -345,16 +345,10 @@ int co2DangerDirection(float co2) {
     return (co2 >= 1000) ? 1 : 0;
 }
 
-// Parse JSON data into struct with validation
-void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) {
-    DynamicJsonDocument doc(2048);
-    DeserializationError error = deserializeJson(doc, jsonString);
-     if (error) {
-        debug_outln_info(F("deserializeJson() failed display: "), error.f_str());
-        return;
-    }
-
-    JsonObject data = doc.as<JsonObject>();
+// Extract main screen values directly from shared sensors data.
+// This avoids serialize->deserialize on every refresh.
+void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &values) {
+    JsonObjectConst data = doc.as<JsonObjectConst>();
     String urban_key = ATRUIST_URBAN_SENSOR;
 
     if (data.containsKey(urban_key)) {
@@ -449,9 +443,7 @@ void _parseJsonToStruct(const String &jsonString, main_screen_values_t &values) 
 }
 
 // Draw the full main screen with Urban 2-subcolumn layout
-void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &device_ip, const String &insight_robonomics_address, const String &urban_robonomics_address) {
-    main_screen_values_t values;
-    _parseJsonToStruct(jsonString, values);
+void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const String &device_ip, const String &insight_robonomics_address, const String &urban_robonomics_address) {
 
     // Clear screen first to remove any white lines
     Paint_Clear(WHITE);

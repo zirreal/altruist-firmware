@@ -4,6 +4,17 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ---
 
+## [R_2026-02.3](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.3) — 2026-03-02
+
+### Improvements
+
+- **LED resilience under mutex contention (Insight)** — added LED mutex diagnostics and a guarded daytime fallback that forces a neutral LED ON state when normal LED updates are blocked for too long, preventing random "stuck OFF after night" behavior.
+- **Main screen lock-time reduction (Insight)** — removed serialize/deserialize JSON path from display refresh; main screen now uses a typed cached snapshot extracted under a short mutex hold, reducing contention and stale-display risk.
+
+### Notes
+
+- The LED fallback is safety-guarded and does not activate during sleep mode, night-time window, or when LEDs are disabled in config.
+
 ## [R_2026-02.2](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.2) — 2026-02-24
 
 ## Summary

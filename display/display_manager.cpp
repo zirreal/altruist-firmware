@@ -376,16 +376,15 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         }
         
         if (currentScreenID == ScreenPage::MAIN) {
-            // Acquire mutex while serializing sensors_data to prevent race conditions
-            // Use longer timeout since display refresh is infrequent (every 60s)
+            // Acquire mutex only to copy required fields into cached_main_values.
+            // This keeps lock hold time short and reduces stale display risk.
             if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
-                cached_json_string = "";
-                serializeJson(sensors_data, cached_json_string);
+                extractMainScreenValues(sensors_data, cached_main_values);
                 xSemaphoreGive(mutex);
             }
-            // If mutex failed, cached_json_string still has previous data - display stays consistent
+            // If mutex failed, cached_main_values still has previous data - display stays consistent.
             debug_outln_verbose(F("[Display] Refresh MAIN screen"));
-            drawMainScreen(BlackImage, cached_json_string, deviceStatus.ip_address, robonomics_address, cached_urban_address);
+            drawMainScreen(BlackImage, cached_main_values, deviceStatus.ip_address, robonomics_address, cached_urban_address);
         } else if (currentScreenID == ScreenPage::GRAPHS) {
             // Always draw graph screen - it will show appropriate message if no data/card
             drawGraphScreen();

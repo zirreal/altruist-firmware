@@ -49,6 +49,17 @@ void LedControllerInsight::process() {
     
     uint32_t color;
     if (msSince(last_refresh_time) > REFRESH_INTERVAL) {
+        static unsigned long mutex_diag_window_start_ms = 0;
+        static unsigned long mutex_diag_last_warn_ms = 0;
+        static uint32_t mutex_diag_fails_in_window = 0;
+        static uint32_t mutex_diag_success_in_window = 0;
+        static uint32_t mutex_diag_fail_streak = 0;
+        static unsigned long last_forced_on_ms = 0;
+        const unsigned long mutex_diag_window_ms = 10000UL;       // 10s summary window
+        const unsigned long mutex_diag_warn_cooldown_ms = 5000UL; // throttle detailed warnings
+        const unsigned long led_force_on_after_ms = 90000UL;       // 90s without successful update
+        const unsigned long led_force_on_cooldown_ms = 10000UL;    // max one forced fallback per 10s
+
         // Calculate brightness:
         // 1. Scale user setting to 30% max (so 100% user = 30% actual)
         // 2. Apply time-based dimming as a percentage of that
@@ -68,8 +79,66 @@ void LedControllerInsight::process() {
         // Acquire mutex while reading sensors_data to prevent race conditions
         // If we can't get it (display is updating), skip this cycle - try again next time
         if (!xSemaphoreTake(mutex, pdMS_TO_TICKS(100))) {
+            const unsigned long now_ms = millis();
+            if (mutex_diag_window_start_ms == 0) {
+                mutex_diag_window_start_ms = now_ms;
+            }
+            mutex_diag_fails_in_window++;
+            mutex_diag_fail_streak++;
+
+            // Immediate warning for long fail streaks, throttled.
+            if (mutex_diag_fail_streak >= 20 &&
+                (now_ms - mutex_diag_last_warn_ms) > mutex_diag_warn_cooldown_ms) {
+                mutex_diag_last_warn_ms = now_ms;
+                debug_outln_info(F("[LED][WARN] mutex busy streak"),
+                    String(mutex_diag_fail_streak) + F(" (100ms timeout each)"));
+            }
+
+            // Periodic summary to correlate with "LEDs stuck OFF" reports.
+            if ((now_ms - mutex_diag_window_start_ms) >= mutex_diag_window_ms) {
+                debug_outln_info(F("[LED][DIAG] mutex window"),
+                    String(mutex_diag_window_ms / 1000) + F("s fails=") + String(mutex_diag_fails_in_window) +
+                    F(" ok=") + String(mutex_diag_success_in_window) +
+                    F(" streak=") + String(mutex_diag_fail_streak));
+                mutex_diag_window_start_ms = now_ms;
+                mutex_diag_fails_in_window = 0;
+                mutex_diag_success_in_window = 0;
+            }
+
+            // Daytime safety fallback:
+            // If we cannot update LEDs for a long time,
+            // force a neutral ON state without touching shared sensor data.
+            // This prevents "stuck OFF after night" behavior.
+            if (final_brightness > 0 &&
+                msSince(last_refresh_time) > led_force_on_after_ms &&
+                msSince(last_forced_on_ms) > led_force_on_cooldown_ms) {
+                pixels.setBrightness(final_brightness);
+                _setAllPixels(pixels.Color(255, 255, 255));
+                pixels.show();
+                last_forced_on_ms = now_ms;
+                debug_outln_info(F("[LED][FALLBACK] Forced neutral ON"),
+                    String(F("mutex busy, age_ms=")) + String(msSince(last_refresh_time)) +
+                    String(F(", fail_streak=")) + String(mutex_diag_fail_streak));
+            }
             // Couldn't get mutex, skip LED update this cycle (don't flash white)
             return;
+        }
+
+        // Successful lock acquisition: update diagnostics.
+        const unsigned long now_ms = millis();
+        if (mutex_diag_window_start_ms == 0) {
+            mutex_diag_window_start_ms = now_ms;
+        }
+        mutex_diag_success_in_window++;
+        mutex_diag_fail_streak = 0;
+        if ((now_ms - mutex_diag_window_start_ms) >= mutex_diag_window_ms) {
+            debug_outln_info(F("[LED][DIAG] mutex window"),
+                String(mutex_diag_window_ms / 1000) + F("s fails=") + String(mutex_diag_fails_in_window) +
+                F(" ok=") + String(mutex_diag_success_in_window) +
+                F(" streak=") + String(mutex_diag_fail_streak));
+            mutex_diag_window_start_ms = now_ms;
+            mutex_diag_fails_in_window = 0;
+            mutex_diag_success_in_window = 0;
         }
         
         // Got mutex - safe to update LEDs

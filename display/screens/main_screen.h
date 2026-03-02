@@ -24,7 +24,8 @@ struct main_screen_values_t {
     String urban_robonomics_address = "";
 };
 
-void drawMainScreen(UBYTE *BlackImage, const String &jsonString, const String &device_ip_address, 
+void extractMainScreenValues(const JsonDocument &data, main_screen_values_t &values);
+void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const String &device_ip_address, 
                     const String &insight_robonomics_address = "", const String &urban_robonomics_address = "");
 
 

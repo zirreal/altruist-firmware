@@ -9,6 +9,7 @@
 #include "paint_driver/GUI_Paint.h"
 #include "driver/EPD.h"
 #include "driver/DEV_Config.h"
+#include "screens/main_screen.h"
 #include "../utils.h"
 #include "../buttons/button_manager.h"
 
@@ -74,8 +75,9 @@ private:
     uint32_t next_sensor_map_check_ms  = 0;
     uint8_t  sensor_map_waiting_tries  = 0;
 
-    // Cached JSON string for MAIN screen - reused when mutex is busy
-    String cached_json_string;
+    // Cached values for MAIN screen - reused when mutex is busy.
+    // Keeping this snapshot avoids expensive JSON serialization under mutex.
+    main_screen_values_t cached_main_values;
 
     // OTA screen: last time we displayed it (0 = not yet shown this session)
     unsigned long last_ota_display_ms = 0;
