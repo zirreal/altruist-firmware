@@ -31,6 +31,33 @@ private:
 
 uint8_t current_graph_screen = 1;
 static GraphValue current_graph_value = GraphValue::INSIGHT_TEMP;
+constexpr uint8_t kGraphValueCount = static_cast<uint8_t>(GraphValue::URBAN_PRESSURE) + 1;
+static bool g_graph_had_data[kGraphValueCount] = {false};
+static uint8_t g_graph_no_data_streak[kGraphValueCount] = {0};
+
+static uint8_t graphValueIndex(GraphValue value) {
+    return static_cast<uint8_t>(value);
+}
+
+static void markGraphDataState(GraphValue value, bool has_data) {
+    const uint8_t idx = graphValueIndex(value);
+    if (idx >= kGraphValueCount) return;
+    if (has_data) {
+        g_graph_had_data[idx] = true;
+        g_graph_no_data_streak[idx] = 0;
+    } else if (g_graph_no_data_streak[idx] < 255) {
+        g_graph_no_data_streak[idx]++;
+    }
+}
+
+static bool shouldShowNoDataMessage(GraphValue value) {
+    const uint8_t idx = graphValueIndex(value);
+    if (idx >= kGraphValueCount) return true;
+    // If this graph has never had data in this boot, show message immediately.
+    if (!g_graph_had_data[idx]) return true;
+    // If we had data before, suppress one transient empty read to avoid flicker.
+    return g_graph_no_data_streak[idx] >= 2;
+}
 
 // Human‑readable title for the current graph (measure only, no source prefix)
 static const char* getGraphTitle(GraphValue value) {
@@ -440,6 +467,7 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         }
         
         if (oldest_timestamp != UINT32_MAX && newest_timestamp > 0) {
+            markGraphDataState(value, true);
             // Calculate total hours of data available
             uint32_t data_span_seconds = newest_timestamp - oldest_timestamp;
             float total_data_hours_float = (float)data_span_seconds / 3600.0f;
@@ -503,6 +531,21 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
             graph.setShowHours(display_hours);
         } else {
             // No timestamps found - show message
+            markGraphDataState(value, false);
+            if (!shouldShowNoDataMessage(value)) {
+                for (int i = 0; i < lineCount; i++) {
+                    if (lineData[i].values) {
+                        delete[] lineData[i].values;
+                        lineData[i].values = nullptr;
+                    }
+                    if (lineData[i].timestamps) {
+                        delete[] lineData[i].timestamps;
+                        lineData[i].timestamps = nullptr;
+                    }
+                    lineData[i].count = 0;
+                }
+                return;
+            }
             uint16_t graphCenterX = graphLeft + graphWidth / 2;
             uint16_t graphCenterY = navTop - (navTop - topMargin) / 2;
             
@@ -538,6 +581,10 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         graph.drawGraph();
     } else {
         // No data lines at all - show message
+        markGraphDataState(value, false);
+        if (!shouldShowNoDataMessage(value)) {
+            return;
+        }
         uint16_t graphCenterX = graphLeft + graphWidth / 2;
         uint16_t graphCenterY = navTop - (navTop - topMargin) / 2;
         

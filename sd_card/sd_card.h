@@ -14,11 +14,22 @@
 
 #define ROOT_FOLDER "/sensors_data/"
 #define EXCEPTIONS_FOLDER "/exceptions"
+#define ROLLUP_ROOT_FOLDER "/sensors_rollup"
+#define ROLLUP_DAILY_FOLDER "/sensors_rollup/daily"
+#define ROLLUP_MONTHLY_FOLDER "/sensors_rollup/monthly"
 
 struct LineData {
     float* values;
     uint32_t* timestamps;
     int count;
+};
+
+struct PeriodStats {
+    float min_v = 0.0f;
+    float max_v = 0.0f;
+    float avg_v = 0.0f;
+    uint32_t count = 0;
+    bool has_data = false;
 };
 
 class SDCard {
@@ -73,10 +84,17 @@ public:
         }
     }
     bool checkInserted();
+    // Build daily/monthly rollups used by analytics period views.
+    bool buildDailyRollupsIfNeeded();
+    bool buildMonthlyRollupsIfNeeded();
+    bool readPeriodStats(const char* sensor_name, const char* field_name, uint16_t period_days, float scale, PeriodStats &out_stats);
+
     // Retention cleanup:
-    // - keep recent sensor CSV files (YYYY-MM-DD.csv) for each sensor folder
+    // - raw sensor CSV retention (days)
+    // - daily rollup retention (days)
+    // - monthly rollup retention (months)
     // - keep only the newest N boot diagnostic files in /exceptions
-    bool applyRetentionPolicy(uint16_t sensorRetentionDays, uint16_t maxBootFiles);
+    bool applyRetentionPolicy(uint16_t rawSensorRetentionDays, uint16_t dailyRollupRetentionDays, uint16_t monthlyRollupRetentionMonths, uint16_t maxBootFiles);
 
     // Generic text file helpers used by exception/runtime logging.
     // These make sure parent folders exist and then write/append content.

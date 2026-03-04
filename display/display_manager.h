@@ -10,6 +10,7 @@
 #include "driver/EPD.h"
 #include "driver/DEV_Config.h"
 #include "screens/main_screen.h"
+#include "screens/analytics.h"
 #include "../utils.h"
 #include "../buttons/button_manager.h"
 
@@ -19,6 +20,7 @@
 
 enum class ScreenPage {
     MAIN,
+    ANALYTICS,
     GRAPHS,
     CONNECTING,
     SETUP,
@@ -78,6 +80,14 @@ private:
     // Cached values for MAIN screen - reused when mutex is busy.
     // Keeping this snapshot avoids expensive JSON serialization under mutex.
     main_screen_values_t cached_main_values;
+    analytics_screen_values_t cached_analytics_values;
+    analytics_screen_values_t cached_analytics_week_values;
+    analytics_screen_values_t cached_analytics_month_values;
+    unsigned long last_analytics_stats_refresh_ms = 0;
+    unsigned long last_analytics_week_stats_refresh_ms = 0;
+    unsigned long last_analytics_month_stats_refresh_ms = 0;
+    static constexpr unsigned long ANALYTICS_STATS_REFRESH_INTERVAL_MS = 5UL * 60UL * 1000UL; // 5 minutes
+    static constexpr unsigned long ANALYTICS_STATS_DEFER_ON_ENTER_MS = 10UL * 1000UL; // show screen first, then refresh stats
 
     // OTA screen: last time we displayed it (0 = not yet shown this session)
     unsigned long last_ota_display_ms = 0;

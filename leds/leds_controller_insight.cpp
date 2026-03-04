@@ -326,30 +326,46 @@ uint8_t LedControllerInsight::_calculateTimeBrightness() {
         // If we can't get time, use full brightness
         return 100;
     }
-    
-    int hour = timeinfo.tm_hour;
-    int minute = timeinfo.tm_min;
-    
-    // Convert to minutes since midnight for easier calculation
-    int minutes_since_midnight = hour * 60 + minute;
-    
-    // Time schedule:
-    // 06:00 - 22:00 (360 - 1320): Full brightness (100%)
-    // 22:00 - 00:00 (1320 - 1440): Gradual dim from 100% to 0%
-    // 00:00 - 06:00 (0 - 360): Off (handled by _isNightTime)
-    
-    if (minutes_since_midnight >= 360 && minutes_since_midnight < 1320) {
-        // Daytime: Full brightness
+
+    const int minutes_since_midnight = (timeinfo.tm_hour * 60) + timeinfo.tm_min;
+    const int off_hour = (cfg::leds_off_hour <= 23) ? (int)cfg::leds_off_hour : 0;
+    const int on_hour = (cfg::leds_on_hour <= 23) ? (int)cfg::leds_on_hour : 6;
+
+    // Equal values mean "no nightly auto-off period".
+    if (off_hour == on_hour) {
         return 100;
-    } else if (minutes_since_midnight >= 1320 && minutes_since_midnight < 1440) {
-        // 22:00 - 00:00: Gradual dimming from 100% to 0%
-        int minutes_into_dimming = minutes_since_midnight - 1320; // 0 to 120
-        int percent = 100 - (100 * minutes_into_dimming / 120);   // 100% down to 0%
+    }
+
+    // Smooth dimming starts 2 hours before configured off hour.
+    const int dim_duration_minutes = 120;
+    const int off_minutes = off_hour * 60;
+    const int dim_start_minutes = (off_minutes - dim_duration_minutes + 1440) % 1440;
+
+    bool in_dimming_window = false;
+    int minutes_into_dimming = 0;
+    if (dim_start_minutes <= off_minutes) {
+        in_dimming_window = (minutes_since_midnight >= dim_start_minutes) &&
+                            (minutes_since_midnight < off_minutes);
+        minutes_into_dimming = minutes_since_midnight - dim_start_minutes;
+    } else {
+        // Window wraps midnight (e.g. off at 01:00 => dim starts at 23:00).
+        in_dimming_window = (minutes_since_midnight >= dim_start_minutes) ||
+                            (minutes_since_midnight < off_minutes);
+        if (minutes_since_midnight >= dim_start_minutes) {
+            minutes_into_dimming = minutes_since_midnight - dim_start_minutes;
+        } else {
+            minutes_into_dimming = (1440 - dim_start_minutes) + minutes_since_midnight;
+        }
+    }
+
+    if (in_dimming_window) {
+        int percent = 100 - ((100 * minutes_into_dimming) / dim_duration_minutes);
         if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
         return (uint8_t)percent;
     }
-    
-    // Default to full brightness if something goes wrong
+
+    // Outside dimming window and outside night-time => full brightness.
     return 100;
 }
 
@@ -360,11 +376,21 @@ bool LedControllerInsight::_isNightTime() {
         // If we can't get time, don't turn off LEDs for safety
         return false;
     }
-    
-    int hour = timeinfo.tm_hour;
-    
-    // Night time: 00:00 - 06:00 (complete turn-off)
-    return (hour >= 0 && hour < 6);
+
+    const int hour = timeinfo.tm_hour;
+    const int off_hour = (cfg::leds_off_hour <= 23) ? (int)cfg::leds_off_hour : 0;
+    const int on_hour = (cfg::leds_on_hour <= 23) ? (int)cfg::leds_on_hour : 6;
+
+    // Equal values mean "no nightly auto-off period".
+    if (off_hour == on_hour) {
+        return false;
+    }
+
+    // Night-time period: [off_hour, on_hour), handling midnight wrap.
+    if (off_hour < on_hour) {
+        return (hour >= off_hour && hour < on_hour);
+    }
+    return (hour >= off_hour || hour < on_hour);
 }
 
 #endif

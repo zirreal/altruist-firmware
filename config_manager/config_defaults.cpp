@@ -71,6 +71,8 @@ namespace cfg {
 
 	unsigned leds_brightness = 100; // Default 100% = 30% actual brightness (scaled down)
 	bool leds_on = true;
+	unsigned leds_off_hour = 0; // Default off at 00:00 (local time)
+	unsigned leds_on_hour = 6;  // Default on at 06:00 (local time)
 
 	// data sharing preferences (all shared by default)
 	bool share_temperature = true;

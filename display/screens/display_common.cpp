@@ -15,14 +15,14 @@ static unsigned long epd_update_count = 0;
 static unsigned int initial_full_refreshes_done = 0; // Track first 3 full refreshes after boot
 static ScreenPage last_screen = ScreenPage::MAIN; // Track last screen to detect screen changes
 // Track period position per screen (indexed by ScreenPage enum value)
-static unsigned int period_position_per_screen[8] = {0}; // Max 8 screens, all initialized to 0
+static unsigned int period_position_per_screen[9] = {0}; // Max 9 screens, all initialized to 0
 // Global counter for non-MAIN screen switches (shared across all non-MAIN screens)
 static unsigned int non_main_screen_switch_counter = 0;
 
 // Helper: Get safe screen index
 static unsigned int getScreenIndex(ScreenPage screen) {
     unsigned int idx = static_cast<unsigned int>(screen);
-    return (idx >= 8) ? 0 : idx;
+    return (idx >= 9) ? 0 : idx;
 }
 
 // Helper: Get refresh period for a screen
@@ -123,7 +123,7 @@ void showImageFast(UBYTE *&BlackImage, ScreenPage currentScreen) {
         epdDisplay(DisplayMode::FULL, BlackImage);
         initial_full_refreshes_done++;
         // Reset all screen counters after initial full refreshes
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 9; i++) {
             period_position_per_screen[i] = 0;
         }
         last_screen = currentScreen;
@@ -181,7 +181,7 @@ void showImageLong(UBYTE *&BlackImage) {
     epd_current_mode = DisplayMode::FULL;  // Update current mode
     epdIncrementUpdateCount();
     // Reset all screen counters after full refresh
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) {
         period_position_per_screen[i] = 0;
     }
 #endif
@@ -217,7 +217,7 @@ bool epdDisplay(DisplayMode mode, UBYTE *Image) {
         epdInit(DisplayMode::FULL);
         EPD_4IN2_V2_Display_Fast(Image);
         epdIncrementUpdateCount();
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 9; i++) {
             period_position_per_screen[i] = 0;
         }
         non_main_screen_switch_counter = 0;
@@ -254,7 +254,7 @@ void epdRecoverFromStuck() {
     epd_initialized = false;
     epd_current_mode = DisplayMode::FULL;
     
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) {
         period_position_per_screen[i] = 0;
     }
     
@@ -270,7 +270,7 @@ void epdResetState() {
     epd_initialized = false;
     epd_current_mode = DisplayMode::FULL;
     // Reset all screen counters on wake/reset
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) {
         period_position_per_screen[i] = 0;
     }
     last_screen = ScreenPage::MAIN; // Reset screen tracking
@@ -281,7 +281,7 @@ void epdResetState() {
 void epdResetPeriodPosition() {
 #ifdef DISPLAY_4IN2
     // Reset all screen counters
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) {
         period_position_per_screen[i] = 0;
     }
 #endif
@@ -453,6 +453,7 @@ static void Paint_DrawRoundedRectangle(UWORD xStart, UWORD yStart, UWORD xEnd, U
 // Draw screen indicator icons as a vertical stack on the right side
 void drawScreenIndicator(ScreenPage currentScreen) {
     bool isNavigable = (currentScreen == ScreenPage::MAIN || 
+                       currentScreen == ScreenPage::ANALYTICS ||
                        currentScreen == ScreenPage::GRAPHS || 
                        currentScreen == ScreenPage::SETTINGS || 
                        currentScreen == ScreenPage::SENSOR_MAP);
@@ -468,8 +469,9 @@ void drawScreenIndicator(ScreenPage currentScreen) {
 
 
     // Navigation items
-    NavIcon navItems[5] = {
+    NavIcon navItems[6] = {
         {home_nav_15x15,    true,  ScreenPage::MAIN},
+        {chart_pie_15x15,   true,  ScreenPage::ANALYTICS},
         {chart_15x15,       true,  ScreenPage::GRAPHS},      // chart icon for graphs
         {map_nav_15x15,     true,  ScreenPage::SENSOR_MAP},
         {settings_15x15,    true,  ScreenPage::SETTINGS},    // settings icon for settings page
@@ -479,7 +481,7 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     const int icon_size = 10; // small icon size
     const int large_icon_size = 15; // large icon size for page icons
     const int icon_spacing = 4; // vertical spacing between icons
-    const int nav_item_count = 5;
+    const int nav_item_count = 6;
     const int sidebar_width = 26; // width of the navigation sidebar 
     const int button_height = large_icon_size + 8; // icon + vertical padding
     const int border_radius = 0; 
@@ -511,13 +513,13 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     // Calculate icon positions
     int small_icon_x = sidebar_x + (sidebar_width - icon_size) / 2;
     int large_icon_x = sidebar_x + (sidebar_width - large_icon_size) / 2;
-    const int page_icon_gap = 20; // gap between page icons
+    const int page_icon_gap = 20; // equal gap between all page icons
     
 
     // Extra top padding so the first icon sits a bit lower
     int current_y = sidebar_y + 10; 
     
-    for (int i = 0; i <= 3; i++) {
+    for (int i = 0; i <= 4; i++) {
         bool is_active = (navItems[i].screen == currentScreen);
         
         // Page icons are all 15x15
@@ -562,7 +564,7 @@ void drawScreenIndicator(ScreenPage currentScreen) {
             Paint_DrawImage(navItems[i].icon, current_icon_x, current_y, current_icon_size, current_icon_size);
         }
         
-        // Move to next icon position
+        // Move to next icon position using equal spacing for all page icons.
         current_y += button_height + page_icon_gap;
     }
     
@@ -595,7 +597,7 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     Paint_DrawLine(sidebar_x + 1, down_button_bottom, sidebar_x + sidebar_width - 2, down_button_bottom,
                    BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
-    Paint_DrawImage(navItems[4].icon,  large_icon_x, switch_y, large_icon_size, large_icon_size); 
+    Paint_DrawImage(navItems[5].icon,  large_icon_x, switch_y, large_icon_size, large_icon_size); 
 }
 
 #endif

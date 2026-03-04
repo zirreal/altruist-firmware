@@ -400,7 +400,9 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // Show device info on displays
 #define DISPLAY_DEVICE_INFO 1
 
-// Set debug level for serial output?
+// Set debug level for serial output
+#ifndef DEBUG
 #define DEBUG 3
+#endif
 
 #endif // __DEFINES_H__

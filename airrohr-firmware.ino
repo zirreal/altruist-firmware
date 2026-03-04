@@ -337,7 +337,9 @@ static void exceptionsLogWorker(void *pvParameters) {
 // - keep only a bounded number of boot diagnostics in /exceptions
 static void sdRetentionWorker(void *pvParameters) {
 	(void)pvParameters;
-	const uint16_t SENSOR_RETENTION_DAYS = 14;
+	const uint16_t RAW_RETENTION_DAYS = 30;
+	const uint16_t DAILY_ROLLUP_RETENTION_DAYS = 180;
+	const uint16_t MONTHLY_ROLLUP_RETENTION_MONTHS = 24;
 	const uint16_t MAX_BOOT_FILES = 100;
 	const unsigned long CLEANUP_INTERVAL_MS = 6UL * 60UL * 60UL * 1000UL; // 6 hours
 	unsigned long last_cleanup_ms = 0;
@@ -352,7 +354,14 @@ static void sdRetentionWorker(void *pvParameters) {
 		if (last_cleanup_ms == 0 || msSince(last_cleanup_ms) > CLEANUP_INTERVAL_MS) {
 			last_cleanup_ms = millis();
 			debug_outln_info(F("[SDCardLogger] Running retention cleanup..."));
-			sdCardLogger.applyRetentionPolicy(SENSOR_RETENTION_DAYS, MAX_BOOT_FILES);
+			sdCardLogger.buildDailyRollupsIfNeeded();
+			sdCardLogger.buildMonthlyRollupsIfNeeded();
+			sdCardLogger.applyRetentionPolicy(
+				RAW_RETENTION_DAYS,
+				DAILY_ROLLUP_RETENTION_DAYS,
+				MONTHLY_ROLLUP_RETENTION_MONTHS,
+				MAX_BOOT_FILES
+			);
 		}
 	}
 }

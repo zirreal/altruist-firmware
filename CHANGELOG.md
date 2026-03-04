@@ -4,11 +4,30 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ---
 
+## [R_2026-02.4](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.4) — 2026-03-04
+
+### New Features
+
+- **New Analytics screen (Insight/e-ink)** — added a full analytics flow with a 4-circle 24h overview plus detailed pages for Climate, CO2, Air, and Noise with 7-day/30-day summaries.
+
+### Improvements
+
+- **Analytics stability path** — analytics rendering now uses in-memory rolling daily aggregates instead of blocking SD scans in the UI path.
+- **Analytics persistence (NVS)** — added lightweight persistence of 30-day aggregate history (`temp`, `hum`, `dew`, `pm10`, `pm25`, `co2`, `noise`) with throttled saves (hourly + day change when data changed).
+- **Coverage behavior** — switched coverage/day bucketing to local calendar days (local midnight), and compacted UI labels to `Coverage: X/7` and `Coverage: X/30`.
+- **Analytics DEV observability** — added DEV logs for persistence state, category/metric coverage, and save telemetry (first/last save time, save count, last reason, save policy).
+- **Graphs transition UX** — reduced transient "collecting data" flicker when switching to graph screens by debouncing one-shot empty reads.
+
+### Bug Fixes
+
+- **SD rollup path handling** — fixed CSV open paths in rollup builders to always use absolute paths (`/...`) and avoid VFS `does not start with /` errors.
+
 ## [R_2026-02.3](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.3) — 2026-03-02
 
 ### Improvements
 
 - **LED resilience under mutex contention (Insight)** — added LED mutex diagnostics and a guarded daytime fallback that forces a neutral LED ON state when normal LED updates are blocked for too long, preventing random "stuck OFF after night" behavior.
+- **Configurable LED night schedule (Insight)** — added web-configurable `LED off hour` / `LED on hour` (defaults `00` and `06`) and switched LED day/night logic to use these settings instead of hardcoded quiet hours.
 - **Main screen lock-time reduction (Insight)** — removed serialize/deserialize JSON path from display refresh; main screen now uses a typed cached snapshot extracted under a short mutex hold, reducing contention and stale-display risk.
 
 ### Notes

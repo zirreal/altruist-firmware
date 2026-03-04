@@ -31,11 +31,14 @@ bool display_sleeping = false;
 // This keeps the clock in the header changing exactly when the minute
 // changes, instead of "late" in the middle of a minute.
 static unsigned long next_main_refresh_ms = 0;
+// Analytics-only cadence for normal refreshes: 4 partial, then 1 full.
+static uint8_t analytics_refresh_cycle_pos = 0;
 
 // Cycle order for screens when navigating with UP/SET
-// Order: MAIN -> GRAPHS -> SENSOR_MAP -> SETTINGS -> MAIN
+// Order: MAIN -> ANALYTICS -> GRAPHS -> SENSOR_MAP -> SETTINGS -> MAIN
 ScreenPage DisplayManager::getNextScreen(ScreenPage current) {
-    if (current == ScreenPage::MAIN) return ScreenPage::GRAPHS;
+    if (current == ScreenPage::MAIN) return ScreenPage::ANALYTICS;
+    if (current == ScreenPage::ANALYTICS) return ScreenPage::GRAPHS;
     if (current == ScreenPage::GRAPHS) return ScreenPage::SENSOR_MAP;
     if (current == ScreenPage::SENSOR_MAP) return ScreenPage::SETTINGS;
     if (current == ScreenPage::SETTINGS) return ScreenPage::MAIN;
@@ -47,7 +50,8 @@ ScreenPage DisplayManager::getPrevScreen(ScreenPage current) {
     if (current == ScreenPage::MAIN) return ScreenPage::SETTINGS;
     if (current == ScreenPage::SETTINGS) return ScreenPage::SENSOR_MAP;
     if (current == ScreenPage::SENSOR_MAP) return ScreenPage::GRAPHS;
-    if (current == ScreenPage::GRAPHS) return ScreenPage::MAIN;
+    if (current == ScreenPage::GRAPHS) return ScreenPage::ANALYTICS;
+    if (current == ScreenPage::ANALYTICS) return ScreenPage::MAIN;
     // Default: go to MAIN from other screens
     return ScreenPage::MAIN;
 }
@@ -77,6 +81,29 @@ void DisplayManager::setup() {
 }
 
 void DisplayManager::setScreen(ScreenPage pageID) {
+    if (pageID == ScreenPage::ANALYTICS && currentScreenID != ScreenPage::ANALYTICS) {
+        // Avoid blocking switch from MAIN->ANALYTICS with immediate SD stats scan.
+        unsigned long now = millis();
+        if (ANALYTICS_STATS_REFRESH_INTERVAL_MS > ANALYTICS_STATS_DEFER_ON_ENTER_MS) {
+            last_analytics_stats_refresh_ms = now - (ANALYTICS_STATS_REFRESH_INTERVAL_MS - ANALYTICS_STATS_DEFER_ON_ENTER_MS);
+        } else {
+            last_analytics_stats_refresh_ms = now;
+        }
+        // Stagger 7d/30d loads shortly after 24h load (seconds, not minutes).
+        const unsigned long week_defer_ms = ANALYTICS_STATS_DEFER_ON_ENTER_MS + 1500UL;
+        const unsigned long month_defer_ms = ANALYTICS_STATS_DEFER_ON_ENTER_MS + 3000UL;
+        if (ANALYTICS_STATS_REFRESH_INTERVAL_MS > week_defer_ms) {
+            last_analytics_week_stats_refresh_ms = now - (ANALYTICS_STATS_REFRESH_INTERVAL_MS - week_defer_ms);
+        } else {
+            last_analytics_week_stats_refresh_ms = now;
+        }
+        if (ANALYTICS_STATS_REFRESH_INTERVAL_MS > month_defer_ms) {
+            last_analytics_month_stats_refresh_ms = now - (ANALYTICS_STATS_REFRESH_INTERVAL_MS - month_defer_ms);
+        } else {
+            last_analytics_month_stats_refresh_ms = now;
+        }
+        analytics_refresh_cycle_pos = 0;
+    }
     currentScreenID = pageID;
     refresh_now = true;
 }
@@ -152,6 +179,47 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                     }
                 }
             } 
+            else if (currentScreenID == ScreenPage::ANALYTICS) {
+                if (btn_press.press_type == PressType::LONG) {
+                    if (btn_press.button_num == ButtonNum::UP) {
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
+                        return;
+                    } else if (btn_press.button_num == ButtonNum::SET) {
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
+                        return;
+                    }
+                } else if (btn_press.press_type == PressType::SHORT) {
+                    if (btn_press.button_num == ButtonNum::UP) {
+                        // Same behavior as graph page: at first item, switch screen instead of looping.
+                        if (analyticsPrevViewAtEdge()) {
+                            ScreenPage target = getPrevScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
+                            return;
+                        }
+                        // Internal analytics view switch: count it for partial/full cadence.
+                        epdIncrementScreenCounter(currentScreenID);
+                        refresh_now = true;
+                        return;
+                    } else if (btn_press.button_num == ButtonNum::SET) {
+                        // Same behavior as graph page: at last item, switch screen instead of looping.
+                        if (analyticsNextViewAtEdge()) {
+                            ScreenPage target = getNextScreen(currentScreenID);
+                            epdIncrementScreenCounter(target);
+                            setScreen(target);
+                            return;
+                        }
+                        // Internal analytics view switch: count it for partial/full cadence.
+                        epdIncrementScreenCounter(currentScreenID);
+                        refresh_now = true;
+                        return;
+                    }
+                }
+            }
             else if (currentScreenID == ScreenPage::GRAPHS) {
                 // On graphs page:
                 // - If graphs are not available: always navigate to next/prev screen
@@ -385,6 +453,23 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             // If mutex failed, cached_main_values still has previous data - display stays consistent.
             debug_outln_verbose(F("[Display] Refresh MAIN screen"));
             drawMainScreen(BlackImage, cached_main_values, deviceStatus.ip_address, robonomics_address, cached_urban_address);
+        } else if (currentScreenID == ScreenPage::ANALYTICS) {
+            // Snapshot live values with a short mutex hold; keep previous values if busy.
+            if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
+                extractAnalyticsScreenValues(sensors_data, cached_analytics_values);
+                xSemaphoreGive(mutex);
+            }
+            // Build period stats from in-memory rolling cache (no SD I/O in render path).
+            cached_analytics_week_values = cached_analytics_values;
+            cached_analytics_month_values = cached_analytics_values;
+            populateAnalyticsPeriodStats(cached_analytics_values, analytics_period_t::P24H);
+            populateAnalyticsPeriodStats(cached_analytics_week_values, analytics_period_t::P7D);
+            populateAnalyticsPeriodStats(cached_analytics_month_values, analytics_period_t::P30D);
+
+            analytics_period_t period = analyticsGetViewPeriod();
+            showAnalyticsPage(BlackImage, cached_analytics_values,
+                              cached_analytics_week_values, cached_analytics_month_values,
+                              period, analyticsGetView());
         } else if (currentScreenID == ScreenPage::GRAPHS) {
             // Always draw graph screen - it will show appropriate message if no data/card
             drawGraphScreen();
@@ -514,6 +599,19 @@ draw_complete:
             epdResetPeriodPosition(); // Reset period counter after full refresh
             debug_outln_verbose(F("[EPD] FULL refresh (watchdog/wake/main) pushed to panel"));
             epdDisplay(DisplayMode::FULL, BlackImage);
+        } else if (currentScreenID == ScreenPage::ANALYTICS &&
+                   !deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
+            // Analytics-only cadence: 4 partial updates, then 1 full refresh.
+            analytics_refresh_cycle_pos++;
+            if (analytics_refresh_cycle_pos >= 5) {
+                debug_outln_verbose(F("[EPD] Analytics cadence: FULL (after 4 partials)"));
+                epdResetPeriodPosition();
+                epdDisplay(DisplayMode::FULL, BlackImage);
+                analytics_refresh_cycle_pos = 0;
+            } else {
+                debug_outln_verbose(F("[EPD] Analytics cadence: PARTIAL"));
+                epdDisplay(DisplayMode::PARTIAL, BlackImage);
+            }
         } else if (!deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
             // Pass current screen to showImageFast for adaptive update logic:
             // MAIN screen: 10 partial + 1 full

@@ -49,6 +49,8 @@ String      chosen_altruist_urban
 String      timezone
 UInt		leds_brightness
 Bool        leds_on
+UInt        leds_off_hour
+UInt        leds_on_hour
 String      custom_altruist_urban
 Bool		use_custom_urban
 Bool		share_temperature
