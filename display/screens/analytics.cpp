@@ -731,11 +731,11 @@ static void formatMetricOrDash(char *out, size_t out_sz, const analytics_metric_
     stringFromFloat(out, metric.current, precision);
 }
 
-// #if defined(USE_SD_CARD)
-// // Individual detail pages intentionally avoid direct SD scans in render path
-// // to keep page switching stable on device.
-// #endif
-// } // namespace
+#if defined(USE_SD_CARD)
+// Individual detail pages intentionally avoid direct SD scans in render path
+// to keep page switching stable on device.
+#endif
+} // namespace
 
 analytics_period_t analyticsGetPeriod() {
     return g_analytics_period;
