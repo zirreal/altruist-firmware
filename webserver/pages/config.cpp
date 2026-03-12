@@ -42,6 +42,8 @@ void webserver_config_send_body_post(WebServer &server) {
 	// Keep LED schedule values in a safe 0..23 range even for crafted requests.
 	if (cfg::leds_off_hour > 23) cfg::leds_off_hour = 0;
 	if (cfg::leds_on_hour > 23) cfg::leds_on_hour = 6;
+	if (cfg::analytics_night_start_hour > 23) cfg::analytics_night_start_hour = 22;
+	if (cfg::analytics_night_end_hour > 23) cfg::analytics_night_end_hour = 10;
 #endif
 }
 
@@ -167,12 +169,18 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		add_form_input(page_content, Config_leds_brightness, FPSTR(INTL_LEDS_BRIGHTNESS), 5);
 		add_form_input(page_content, Config_leds_off_hour, FPSTR(INTL_LEDS_OFF_HOUR), 2);
 		add_form_input(page_content, Config_leds_on_hour, FPSTR(INTL_LEDS_ON_HOUR), 2);
+		add_form_input(page_content, Config_analytics_night_start_hour, F("Analytics night start hour"), 2);
+		add_form_input(page_content, Config_analytics_night_end_hour, F("Analytics night end hour"), 2);
 		page_content += F("<script>"
 			"(function(){"
 				"var off=document.getElementById('leds_off_hour');"
 				"var on=document.getElementById('leds_on_hour');"
+				"var nightStart=document.getElementById('analytics_night_start_hour');"
+				"var nightEnd=document.getElementById('analytics_night_end_hour');"
 				"if(off){off.min='0';off.max='23';off.step='1';}"
 				"if(on){on.min='0';on.max='23';on.step='1';}"
+				"if(nightStart){nightStart.min='0';nightStart.max='23';nightStart.step='1';}"
+				"if(nightEnd){nightEnd.min='0';nightEnd.max='23';nightEnd.step='1';}"
 			"})();"
 		"</script>");
 	}

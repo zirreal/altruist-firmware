@@ -266,3 +266,5 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_NO_DATA_AVAILABLE "No data available"
 #define INTL_DISP_NOT_ENOUGH_DATA_YET "Not enough data yet"
 #define INTL_DISP_COLLECTING_DATA "Collecting data..."
+#define INTL_DISP_ANALYTICS_C_LEGEND "C=Conservative"
+#define INTL_DISP_ANALYTICS_B_LEGEND "B=Biohacking"

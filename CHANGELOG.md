@@ -4,85 +4,37 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ---
 
-## [R_2026-02.4](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.4) — 2026-03-04
+## [R_2026-03](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.4) — 2026-03-12
 
 ### New Features
 
-- **New Analytics screen (Insight/e-ink)** — added a full analytics flow with a 4-circle 24h overview plus detailed pages for Climate, CO2, Air, and Noise with 7-day/30-day summaries.
+- **Night-only Analytics screen (Insight/e-ink)** — redesigned Analytics into a single smartwatch-style nightly recovery page with a large central score ring and compact metrics table.
 
 ### Improvements
 
-- **Analytics stability path** — analytics rendering now uses in-memory rolling daily aggregates instead of blocking SD scans in the UI path.
-- **Analytics persistence (NVS)** — added lightweight persistence of 30-day aggregate history (`temp`, `hum`, `dew`, `pm10`, `pm25`, `co2`, `noise`) with throttled saves (hourly + day change when data changed).
-- **Coverage behavior** — switched coverage/day bucketing to local calendar days (local midnight), and compacted UI labels to `Coverage: X/7` and `Coverage: X/30`.
+- **Night score methodology table** — added side-by-side methodology scores with on-screen legend (`C = Conservative`, `B = Biohacking`) to make score interpretation explicit.
+- **Analytics storage and rendering path** — analytics now uses night-focused 24h/hourly data flow only.
+- **Analytics NVS-first mode** — analytics persistence moved to a compact 48-hour hourly NVS ring, and night rendering now reads NVS/RAM history directly.
+- **Storage simplification for Analytics** — removed analytics SD cache/migration dependencies from runtime; SD is no longer required to open Analytics screen.
 - **Analytics DEV observability** — added DEV logs for persistence state, category/metric coverage, and save telemetry (first/last save time, save count, last reason, save policy).
-- **Graphs transition UX** — reduced transient "collecting data" flicker when switching to graph screens by debouncing one-shot empty reads.
+- **Night scoring methodology update** — switched Conservative/Biohacking scoring to sleep-impact formulas per metric (CO2, PM2.5, noise, temperature, humidity) with score mapping `100 + impact*2`.
+- **Night score aggregation update** — final Conservative/Biohacking scores now use summed model impact (`100 + total_impact*2`) to match the strict methodology examples.
+- **Night analytics table readability** — Max/Min hour labels were reformatted from `@HH` to explicit hourly-bucket notation, and Conservative/Biohacking columns now show impact percentages.
+- **Night summary line refresh** — replaced generic footer with a single-line human-readable summary for both models (`score + grade + sleep impact`).
+- **Night data readiness state** — when not enough night hours are collected, Analytics shows explicit "collecting data" status (no table box) instead of a misleading score.
+- **Background analytics ingest** — hourly analytics ingestion was decoupled from Analytics screen rendering and now runs in the sensor worker, so night history keeps updating even when Analytics screen is not opened.
+- **Hourly persistence policy** — persistence now targets hourly boundaries with catch-up behavior after reboot/missed windows, improving next-morning report reliability.
+- **LED resilience under mutex contention (Insight)** — added LED mutex diagnostics and a guarded daytime fallback that forces neutral LED ON state when updates are blocked too long.
+- **Configurable LED night schedule (Insight)** — added web-configurable `LED off hour` / `LED on hour` (defaults `00` and `06`) and switched logic from hardcoded quiet hours.
+- **Main screen lock-time reduction (Insight)** — removed serialize/deserialize JSON path from display refresh; main screen now uses typed cached snapshot extracted under a short mutex hold.
+- **Network/API hardening on unstable WiFi** — guarded API send paths and skip send cycle when WiFi remains disconnected after reconnect attempt.
+- **Crash diagnostics in status page** — added reset reason code, last crash section, previous uptime, and previous free heap.
 
 ### Bug Fixes
 
 - **SD rollup path handling** — fixed CSV open paths in rollup builders to always use absolute paths (`/...`) and avoid VFS `does not start with /` errors.
-
-## [R_2026-02.3](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.3) — 2026-03-02
-
-### Improvements
-
-- **LED resilience under mutex contention (Insight)** — added LED mutex diagnostics and a guarded daytime fallback that forces a neutral LED ON state when normal LED updates are blocked for too long, preventing random "stuck OFF after night" behavior.
-- **Configurable LED night schedule (Insight)** — added web-configurable `LED off hour` / `LED on hour` (defaults `00` and `06`) and switched LED day/night logic to use these settings instead of hardcoded quiet hours.
-- **Main screen lock-time reduction (Insight)** — removed serialize/deserialize JSON path from display refresh; main screen now uses a typed cached snapshot extracted under a short mutex hold, reducing contention and stale-display risk.
-
-### Notes
-
-- The LED fallback is safety-guarded and does not activate during sleep mode, night-time window, or when LEDs are disabled in config.
-
-## [R_2026-02.2](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.2) — 2026-02-24
-
-## Summary
-
-- Reduce panic risk during unstable WiFi by guarding HTTP/API sends.
-- Add SD-card retention cleanup and synchronize SD access with a global mutex.
-- Improve crash diagnostics in web status by showing reset code + last crash section.
-
-## What Changed
-
-### 1) API/WiFi panic hardening
-
-- In `sensorAndAPIWorker`, if WiFi remains disconnected after reconnect attempt, skip API send for that cycle.
-- Added WiFi-connected guards in:
-  - `RobonomicsHTTPAPI`
-  - `CustomHTTPAPI`
-- Avoided risky transport-error body reads on failed connections by using safer error reporting.
-
-### 2) SD-card robustness and retention
-
-- Added SD retention policy:
-  - keep sensor CSV history for `14 days`
-  - keep only latest `100` boot diagnostic files
-- Added `sdRetentionWorker` periodic cleanup task (every 6h check window).
-- Added global recursive SD mutex (`sdCardLock`/`sdCardUnlock`) and applied locking across SD logging/cleanup/read paths.
-- Added SD locking around graph file discovery and runtime log rotation paths to reduce concurrent SD access issues.
-
-### 3) Better crash visibility in Web UI
-
-- Status page now includes:
-  - reset reason code
-  - last crash section (if saved)
-  - previous uptime before reset
-  - previous free heap before reset
-
-## Why
-
-Field logs showed:
-
-- Intermittent panic resets around network/API activity.
-- Growing SD diagnostic/data files over time.
-- Status page was too generic for fast root-cause triage.
-
-These changes target reliability and observability without changing core feature behavior.
-
-## Notes
-
-- This PR is stability-focused and safe for hotfix release.
-- Retention values are currently hardcoded (`14d` sensor CSV, `100` boot logs) and can be made configurable later.
+- **SD-card robustness and retention** — extended retention worker and SD mutex usage for logging/cleanup/read paths; retention now covers raw graph files, analytics daily rollups for dev, and boot diagnostics.
+- **CSV logging regression after analytics refactor** — fixed one-shot `jsonUpdated()` flag consumption so SD CSV writes and analytics ingest can run together without dropping graph data.
 
 ## [R_2026-02.1](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.1) — 2026-02-20
 

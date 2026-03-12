@@ -8,6 +8,9 @@
 #include "utils.h"
 #include "../intl.h"
 #include "paint_driver/fonts/fonts.h"
+#if defined(USE_SD_CARD)
+#include "../sd_card/sd_card.h"
+#endif
 #include <SPIFFS.h>
 #include <WiFi.h>
 #include "../leds/leds_controller_insight.h"
@@ -17,6 +20,9 @@
 #endif
 
 extern LedControllerInsight leds_controller_insight;
+#if defined(USE_SD_CARD)
+extern SDCard sdCardLogger;
+#endif
 
 // Sensor map Urban ID waiting policy:
 // If Urban ID is not yet known, we will perform up to 3 checks,
@@ -81,27 +87,16 @@ void DisplayManager::setup() {
 }
 
 void DisplayManager::setScreen(ScreenPage pageID) {
+    // If we are leaving analytics 4-circle overview, force a full refresh on the next screen
+    // to clean residual ghosting from dense black arc rendering.
+    if (currentScreenID == ScreenPage::ANALYTICS && pageID != ScreenPage::ANALYTICS) {
+        if (analyticsGetView() == analytics_view_t::OVERVIEW_24H) {
+            force_full_refresh = true;
+            analytics_refresh_cycle_pos = 0;
+        }
+    }
+
     if (pageID == ScreenPage::ANALYTICS && currentScreenID != ScreenPage::ANALYTICS) {
-        // Avoid blocking switch from MAIN->ANALYTICS with immediate SD stats scan.
-        unsigned long now = millis();
-        if (ANALYTICS_STATS_REFRESH_INTERVAL_MS > ANALYTICS_STATS_DEFER_ON_ENTER_MS) {
-            last_analytics_stats_refresh_ms = now - (ANALYTICS_STATS_REFRESH_INTERVAL_MS - ANALYTICS_STATS_DEFER_ON_ENTER_MS);
-        } else {
-            last_analytics_stats_refresh_ms = now;
-        }
-        // Stagger 7d/30d loads shortly after 24h load (seconds, not minutes).
-        const unsigned long week_defer_ms = ANALYTICS_STATS_DEFER_ON_ENTER_MS + 1500UL;
-        const unsigned long month_defer_ms = ANALYTICS_STATS_DEFER_ON_ENTER_MS + 3000UL;
-        if (ANALYTICS_STATS_REFRESH_INTERVAL_MS > week_defer_ms) {
-            last_analytics_week_stats_refresh_ms = now - (ANALYTICS_STATS_REFRESH_INTERVAL_MS - week_defer_ms);
-        } else {
-            last_analytics_week_stats_refresh_ms = now;
-        }
-        if (ANALYTICS_STATS_REFRESH_INTERVAL_MS > month_defer_ms) {
-            last_analytics_month_stats_refresh_ms = now - (ANALYTICS_STATS_REFRESH_INTERVAL_MS - month_defer_ms);
-        } else {
-            last_analytics_month_stats_refresh_ms = now;
-        }
         analytics_refresh_cycle_pos = 0;
     }
     currentScreenID = pageID;
@@ -180,6 +175,25 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 }
             } 
             else if (currentScreenID == ScreenPage::ANALYTICS) {
+                bool analytics_has_sd = false;
+#if defined(USE_SD_CARD)
+                analytics_has_sd = deviceStatus.sd_card_connected && sdCardLogger.checkInserted();
+#endif
+                // If analytics storage is unavailable, behave like Graphs:
+                // skip internal pages and navigate screens directly on short presses.
+                if (!analytics_has_sd && btn_press.press_type == PressType::SHORT) {
+                    if (btn_press.button_num == ButtonNum::UP) {
+                        ScreenPage target = getPrevScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
+                        return;
+                    } else if (btn_press.button_num == ButtonNum::SET) {
+                        ScreenPage target = getNextScreen(currentScreenID);
+                        epdIncrementScreenCounter(target);
+                        setScreen(target);
+                        return;
+                    }
+                }
                 if (btn_press.press_type == PressType::LONG) {
                     if (btn_press.button_num == ButtonNum::UP) {
                         ScreenPage target = getPrevScreen(currentScreenID);
@@ -194,6 +208,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                     }
                 } else if (btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
+                        analytics_view_t prev_view = analyticsGetView();
                         // Same behavior as graph page: at first item, switch screen instead of looping.
                         if (analyticsPrevViewAtEdge()) {
                             ScreenPage target = getPrevScreen(currentScreenID);
@@ -201,17 +216,30 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                             setScreen(target);
                             return;
                         }
+                        analytics_view_t new_view = analyticsGetView();
+                        // Leaving 4-circle page to detail page: use full refresh once to clear arc ghosting.
+                        if (prev_view == analytics_view_t::OVERVIEW_24H && new_view != prev_view) {
+                            force_full_refresh = true;
+                            analytics_refresh_cycle_pos = 0;
+                        }
                         // Internal analytics view switch: count it for partial/full cadence.
                         epdIncrementScreenCounter(currentScreenID);
                         refresh_now = true;
                         return;
                     } else if (btn_press.button_num == ButtonNum::SET) {
+                        analytics_view_t prev_view = analyticsGetView();
                         // Same behavior as graph page: at last item, switch screen instead of looping.
                         if (analyticsNextViewAtEdge()) {
                             ScreenPage target = getNextScreen(currentScreenID);
                             epdIncrementScreenCounter(target);
                             setScreen(target);
                             return;
+                        }
+                        analytics_view_t new_view = analyticsGetView();
+                        // Leaving 4-circle page to detail page: use full refresh once to clear arc ghosting.
+                        if (prev_view == analytics_view_t::OVERVIEW_24H && new_view != prev_view) {
+                            force_full_refresh = true;
+                            analytics_refresh_cycle_pos = 0;
                         }
                         // Internal analytics view switch: count it for partial/full cadence.
                         epdIncrementScreenCounter(currentScreenID);
@@ -459,17 +487,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 extractAnalyticsScreenValues(sensors_data, cached_analytics_values);
                 xSemaphoreGive(mutex);
             }
-            // Build period stats from in-memory rolling cache (no SD I/O in render path).
-            cached_analytics_week_values = cached_analytics_values;
-            cached_analytics_month_values = cached_analytics_values;
-            populateAnalyticsPeriodStats(cached_analytics_values, analytics_period_t::P24H);
-            populateAnalyticsPeriodStats(cached_analytics_week_values, analytics_period_t::P7D);
-            populateAnalyticsPeriodStats(cached_analytics_month_values, analytics_period_t::P30D);
-
-            analytics_period_t period = analyticsGetViewPeriod();
-            showAnalyticsPage(BlackImage, cached_analytics_values,
-                              cached_analytics_week_values, cached_analytics_month_values,
-                              period, analyticsGetView());
+            populateAnalyticsPeriodStats(cached_analytics_values);
+            showAnalyticsPage(BlackImage, cached_analytics_values);
         } else if (currentScreenID == ScreenPage::GRAPHS) {
             // Always draw graph screen - it will show appropriate message if no data/card
             drawGraphScreen();
@@ -601,10 +620,10 @@ draw_complete:
             epdDisplay(DisplayMode::FULL, BlackImage);
         } else if (currentScreenID == ScreenPage::ANALYTICS &&
                    !deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
-            // Analytics-only cadence: 4 partial updates, then 1 full refresh.
+            // Analytics-only cadence: 10 partial updates, then 1 full refresh.
             analytics_refresh_cycle_pos++;
-            if (analytics_refresh_cycle_pos >= 5) {
-                debug_outln_verbose(F("[EPD] Analytics cadence: FULL (after 4 partials)"));
+            if (analytics_refresh_cycle_pos >= 11) {
+                debug_outln_verbose(F("[EPD] Analytics cadence: FULL (after 10 partials)"));
                 epdResetPeriodPosition();
                 epdDisplay(DisplayMode::FULL, BlackImage);
                 analytics_refresh_cycle_pos = 0;

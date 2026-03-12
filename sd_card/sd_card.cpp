@@ -882,7 +882,11 @@ bool SDCard::readPeriodStats(const char* sensor_name, const char* field_name, ui
     return finalize(min_v, max_v, sum_v, cnt);
 }
 
-bool SDCard::applyRetentionPolicy(uint16_t rawSensorRetentionDays, uint16_t dailyRollupRetentionDays, uint16_t monthlyRollupRetentionMonths, uint16_t maxBootFiles) {
+bool SDCard::applyRetentionPolicy(uint16_t rawSensorRetentionDays,
+                                  uint16_t dailyRollupRetentionDays,
+                                  uint16_t hourlyRollupRetentionDays,
+                                  uint16_t monthlyRollupRetentionMonths,
+                                  uint16_t maxBootFiles) {
     SDLockGuard lock;
     if (!lock.ok()) {
         debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in applyRetentionPolicy()"));
@@ -1004,7 +1008,52 @@ bool SDCard::applyRetentionPolicy(uint16_t rawSensorRetentionDays, uint16_t dail
         }
     }
 
-    // 3) monthly rollup retention by month (YYYY-MM.csv).
+    // 3) hourly rollup retention by day.
+    if (hourlyRollupRetentionDays > 0 && SD.exists(ROLLUP_HOURLY_FOLDER)) {
+        time_t now = time(nullptr);
+        if (now > 0) {
+            time_t cutoff = now - (time_t)hourlyRollupRetentionDays * 24 * 60 * 60;
+            struct tm cutoff_tm;
+            localtime_r(&cutoff, &cutoff_tm);
+            char cutoff_name[16];
+            strftime(cutoff_name, sizeof(cutoff_name), "%Y-%m-%d", &cutoff_tm);
+            String cutoff_date(cutoff_name);
+
+            File root = SD.open(ROLLUP_HOURLY_FOLDER);
+            if (root && root.isDirectory()) {
+                File sensorDir = root.openNextFile();
+                while (sensorDir) {
+                    if (sensorDir.isDirectory()) {
+                        String sensorDirPath = sensorDir.name();
+                        if (!sensorDirPath.startsWith("/")) {
+                            sensorDirPath = String(ROLLUP_HOURLY_FOLDER) + "/" + sensorDirPath;
+                        }
+                        File dayFile = sensorDir.openNextFile();
+                        while (dayFile) {
+                            if (!dayFile.isDirectory()) {
+                                String filePath = toAbsolutePath(sensorDirPath, dayFile.name());
+                                int slash = filePath.lastIndexOf('/');
+                                String name = (slash >= 0) ? filePath.substring(slash + 1) : filePath;
+                                if (name.length() == 14 && name.endsWith(".csv")) {
+                                    String datePart = name.substring(0, 10);
+                                    if (datePart < cutoff_date && filePath.startsWith("/") && filePath.length() > 1) {
+                                        if (SD.remove(filePath)) changed = true;
+                                    }
+                                }
+                            }
+                            dayFile.close();
+                            dayFile = sensorDir.openNextFile();
+                        }
+                    }
+                    sensorDir.close();
+                    sensorDir = root.openNextFile();
+                }
+                root.close();
+            }
+        }
+    }
+
+    // 4) monthly rollup retention by month (YYYY-MM.csv).
     if (monthlyRollupRetentionMonths > 0 && SD.exists(ROLLUP_MONTHLY_FOLDER)) {
         time_t now = time(nullptr);
         if (now > 0) {
@@ -1050,7 +1099,7 @@ bool SDCard::applyRetentionPolicy(uint16_t rawSensorRetentionDays, uint16_t dail
         }
     }
 
-    // 4) exceptions retention: keep only the newest N boot_*.txt files.
+    // 5) exceptions retention: keep only the newest N boot_*.txt files.
     if (maxBootFiles > 0 && SD.exists(EXCEPTIONS_FOLDER)) {
         std::vector<std::pair<uint32_t, String>> boots;
         File ex = SD.open(EXCEPTIONS_FOLDER);

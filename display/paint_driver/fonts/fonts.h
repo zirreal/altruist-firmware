@@ -96,12 +96,14 @@ extern const Font font_16_cyrillic;
 extern const Font font_20_cyrillic;
 extern const Font font_24_cyrillic;
 extern const Font font_32_cyrillic;
+extern const Font font_36_cyrillic;
 extern const Font font_8_ascii;
 extern const Font font_12_ascii;
 extern const Font font_16_ascii;
 extern const Font font_20_ascii;
 extern const Font font_24_ascii;
 extern const Font font_32_ascii;
+extern const Font font_36_ascii;
 
 extern cFONT Font12CN;
 extern cFONT Font24CN;

@@ -16,6 +16,7 @@
 #define EXCEPTIONS_FOLDER "/exceptions"
 #define ROLLUP_ROOT_FOLDER "/sensors_rollup"
 #define ROLLUP_DAILY_FOLDER "/sensors_rollup/daily"
+#define ROLLUP_HOURLY_FOLDER "/sensors_rollup/hourly"
 #define ROLLUP_MONTHLY_FOLDER "/sensors_rollup/monthly"
 
 struct LineData {
@@ -92,9 +93,14 @@ public:
     // Retention cleanup:
     // - raw sensor CSV retention (days)
     // - daily rollup retention (days)
+    // - hourly rollup retention (days)
     // - monthly rollup retention (months)
     // - keep only the newest N boot diagnostic files in /exceptions
-    bool applyRetentionPolicy(uint16_t rawSensorRetentionDays, uint16_t dailyRollupRetentionDays, uint16_t monthlyRollupRetentionMonths, uint16_t maxBootFiles);
+    bool applyRetentionPolicy(uint16_t rawSensorRetentionDays,
+                              uint16_t dailyRollupRetentionDays,
+                              uint16_t hourlyRollupRetentionDays,
+                              uint16_t monthlyRollupRetentionMonths,
+                              uint16_t maxBootFiles);
 
     // Generic text file helpers used by exception/runtime logging.
     // These make sure parent folders exist and then write/append content.

@@ -79,6 +79,8 @@ enum ConfigShapeId {
 	Config_leds_on,
 	Config_leds_off_hour,
 	Config_leds_on_hour,
+	Config_analytics_night_start_hour,
+	Config_analytics_night_end_hour,
 	Config_custom_altruist_urban,
 	Config_use_custom_urban,
 	Config_share_temperature,
@@ -138,6 +140,8 @@ static constexpr char CFG_KEY_LEDS_BRIGHTNESS[] PROGMEM = "leds_brightness";
 static constexpr char CFG_KEY_LEDS_ON[] PROGMEM = "leds_on";
 static constexpr char CFG_KEY_LEDS_OFF_HOUR[] PROGMEM = "leds_off_hour";
 static constexpr char CFG_KEY_LEDS_ON_HOUR[] PROGMEM = "leds_on_hour";
+static constexpr char CFG_KEY_ANALYTICS_NIGHT_START_HOUR[] PROGMEM = "analytics_night_start_hour";
+static constexpr char CFG_KEY_ANALYTICS_NIGHT_END_HOUR[] PROGMEM = "analytics_night_end_hour";
 static constexpr char CFG_KEY_CUSTOM_ALTRUIST_URBAN[] PROGMEM = "custom_altruist_urban";
 static constexpr char CFG_KEY_USE_CUSTOM_URBAN[] PROGMEM = "use_custom_urban";
 static constexpr char CFG_KEY_SHARE_TEMPERATURE[] PROGMEM = "share_temperature";
@@ -197,6 +201,8 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_LEDS_ON, &cfg::leds_on },
 	{ Config_Type_UInt, 0, CFG_KEY_LEDS_OFF_HOUR, &cfg::leds_off_hour },
 	{ Config_Type_UInt, 0, CFG_KEY_LEDS_ON_HOUR, &cfg::leds_on_hour },
+	{ Config_Type_UInt, 0, CFG_KEY_ANALYTICS_NIGHT_START_HOUR, &cfg::analytics_night_start_hour },
+	{ Config_Type_UInt, 0, CFG_KEY_ANALYTICS_NIGHT_END_HOUR, &cfg::analytics_night_end_hour },
 	{ Config_Type_String, sizeof(cfg::custom_altruist_urban)-1, CFG_KEY_CUSTOM_ALTRUIST_URBAN, cfg::custom_altruist_urban },
 	{ Config_Type_Bool, 0, CFG_KEY_USE_CUSTOM_URBAN, &cfg::use_custom_urban },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_TEMPERATURE, &cfg::share_temperature },

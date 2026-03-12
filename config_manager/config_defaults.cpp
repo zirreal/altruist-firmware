@@ -73,6 +73,8 @@ namespace cfg {
 	bool leds_on = true;
 	unsigned leds_off_hour = 0; // Default off at 00:00 (local time)
 	unsigned leds_on_hour = 6;  // Default on at 06:00 (local time)
+	unsigned analytics_night_start_hour = 22; // Default night starts at 22:00
+	unsigned analytics_night_end_hour = 10;   // Default night ends at 10:00
 
 	// data sharing preferences (all shared by default)
 	bool share_temperature = true;

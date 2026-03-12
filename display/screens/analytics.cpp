@@ -10,6 +10,10 @@
 #include "../../defines.h"
 #include "../../intl.h"
 #include "../../config_manager/config_helpers.h"
+#if defined(USE_SD_CARD) && defined(DEV)
+#include "../../sd_card/sd_card.h"
+extern SDCard sdCardLogger;
+#endif
 #include <Preferences.h>
 #include <math.h>
 #include <stdlib.h>
@@ -21,7 +25,6 @@ constexpr float kNoTempData = -1000.0f;
 constexpr float kNoData = -1.0f;
 constexpr float kEpsilon = 0.1f;
 constexpr float kPi = 3.14159265f;
-analytics_period_t g_analytics_period = analytics_period_t::P24H;
 analytics_view_t g_analytics_view = analytics_view_t::OVERVIEW_24H;
 
 #if defined(INTL_RU)
@@ -30,33 +33,25 @@ analytics_view_t g_analytics_view = analytics_view_t::OVERVIEW_24H;
 #define A_TXT(en, ru) en
 #endif
 
-struct CategorySummary {
-    const char *label;
-    int score;  // 0..100, higher is better
-    bool has_data;
-};
-
-struct RollingDayBucket {
-    uint32_t day_key = 0; // local calendar day key (days-from-civil)
-    float min_v = 0.0f;
-    float max_v = 0.0f;
+struct RollingHourBucket {
+    uint32_t hour_key = 0; // local hour key (day_key*24 + hour)
     float sum_v = 0.0f;
     uint16_t count = 0;
 };
 
-struct RollingMetricHistory {
-    RollingDayBucket buckets[30];
+struct RollingHourHistory {
+    RollingHourBucket buckets[48]; // keep ~2 days of hourly bins
 };
 
-RollingMetricHistory g_temp_hist;
-RollingMetricHistory g_hum_hist;
-RollingMetricHistory g_dew_hist;
-RollingMetricHistory g_pm10_hist;
-RollingMetricHistory g_pm25_hist;
-RollingMetricHistory g_co2_hist;
-RollingMetricHistory g_noise_hist;
+RollingHourHistory g_temp_hour_hist;
+RollingHourHistory g_hum_hour_hist;
+RollingHourHistory g_dew_hour_hist;
+RollingHourHistory g_pm10_hour_hist;
+RollingHourHistory g_pm25_hour_hist;
+RollingHourHistory g_co2_hour_hist;
+RollingHourHistory g_noise_hour_hist;
 
-constexpr uint8_t kAnalyticsHistVersion = 1;
+constexpr uint8_t kAnalyticsHistVersion = 4;
 constexpr uint32_t kAnalyticsPersistIntervalMs = 60UL * 60UL * 1000UL; // 1 hour
 bool g_hist_loaded = false;
 bool g_hist_dirty = false;
@@ -66,32 +61,16 @@ uint32_t g_hist_first_save_ts = 0;
 uint32_t g_hist_last_save_ts = 0;
 uint32_t g_hist_save_count = 0;
 bool g_hist_last_save_forced = false;
-
-static void sanitizeRollingHistory(RollingMetricHistory &hist) {
-    for (int i = 0; i < 30; i++) {
-        RollingDayBucket &b = hist.buckets[i];
-        if (b.count == 0) {
-            b.day_key = 0;
-            b.min_v = 0.0f;
-            b.max_v = 0.0f;
-            b.sum_v = 0.0f;
-            continue;
-        }
-        if (!isfinite(b.min_v) || !isfinite(b.max_v) || !isfinite(b.sum_v)) {
-            b.day_key = 0;
-            b.min_v = 0.0f;
-            b.max_v = 0.0f;
-            b.sum_v = 0.0f;
-            b.count = 0;
-            continue;
-        }
-        if (b.max_v < b.min_v) {
-            float t = b.max_v;
-            b.max_v = b.min_v;
-            b.min_v = t;
-        }
-    }
-}
+#if defined(USE_SD_CARD) && defined(DEV)
+uint32_t g_dev_sd_last_dump_hour_key = 0;
+uint32_t g_dev_last_ingest_hour_key = 0;
+static void dumpAnalyticsToSdDev(uint32_t now_ts, bool forced_save);
+#endif
+#if defined(DEV)
+uint32_t g_dev_last_status_log_ms = 0;
+#endif
+static uint32_t currentLocalHourKey(time_t now);
+static void formatHourKey(char *out, size_t out_sz, uint32_t hour_key);
 
 static void loadRollingHistoryIfNeeded() {
     if (g_hist_loaded) return;
@@ -111,67 +90,99 @@ static void loadRollingHistoryIfNeeded() {
     g_hist_first_save_ts = prefs.getULong("fst_ts", 0);
     g_hist_last_save_ts = prefs.getULong("lst_ts", 0);
 
-    if (prefs.getBytesLength("temp") == sizeof(g_temp_hist)) prefs.getBytes("temp", &g_temp_hist, sizeof(g_temp_hist));
-    if (prefs.getBytesLength("hum") == sizeof(g_hum_hist)) prefs.getBytes("hum", &g_hum_hist, sizeof(g_hum_hist));
-    if (prefs.getBytesLength("dew") == sizeof(g_dew_hist)) prefs.getBytes("dew", &g_dew_hist, sizeof(g_dew_hist));
-    if (prefs.getBytesLength("pm10") == sizeof(g_pm10_hist)) prefs.getBytes("pm10", &g_pm10_hist, sizeof(g_pm10_hist));
-    if (prefs.getBytesLength("pm25") == sizeof(g_pm25_hist)) prefs.getBytes("pm25", &g_pm25_hist, sizeof(g_pm25_hist));
-    if (prefs.getBytesLength("co2") == sizeof(g_co2_hist)) prefs.getBytes("co2", &g_co2_hist, sizeof(g_co2_hist));
-    if (prefs.getBytesLength("noise") == sizeof(g_noise_hist)) prefs.getBytes("noise", &g_noise_hist, sizeof(g_noise_hist));
+    if (prefs.getBytesLength("h_temp") == sizeof(g_temp_hour_hist)) prefs.getBytes("h_temp", &g_temp_hour_hist, sizeof(g_temp_hour_hist));
+    if (prefs.getBytesLength("h_hum") == sizeof(g_hum_hour_hist)) prefs.getBytes("h_hum", &g_hum_hour_hist, sizeof(g_hum_hour_hist));
+    if (prefs.getBytesLength("h_dew") == sizeof(g_dew_hour_hist)) prefs.getBytes("h_dew", &g_dew_hour_hist, sizeof(g_dew_hour_hist));
+    if (prefs.getBytesLength("h_pm10") == sizeof(g_pm10_hour_hist)) prefs.getBytes("h_pm10", &g_pm10_hour_hist, sizeof(g_pm10_hour_hist));
+    if (prefs.getBytesLength("h_pm25") == sizeof(g_pm25_hour_hist)) prefs.getBytes("h_pm25", &g_pm25_hour_hist, sizeof(g_pm25_hour_hist));
+    if (prefs.getBytesLength("h_co2") == sizeof(g_co2_hour_hist)) prefs.getBytes("h_co2", &g_co2_hour_hist, sizeof(g_co2_hour_hist));
+    if (prefs.getBytesLength("h_noise") == sizeof(g_noise_hour_hist)) prefs.getBytes("h_noise", &g_noise_hour_hist, sizeof(g_noise_hour_hist));
     prefs.end();
 
-    sanitizeRollingHistory(g_temp_hist);
-    sanitizeRollingHistory(g_hum_hist);
-    sanitizeRollingHistory(g_dew_hist);
-    sanitizeRollingHistory(g_pm10_hist);
-    sanitizeRollingHistory(g_pm25_hist);
-    sanitizeRollingHistory(g_co2_hist);
-    sanitizeRollingHistory(g_noise_hist);
 }
 
 static void saveRollingHistoryIfNeeded(bool force) {
     if (!g_hist_loaded || !g_hist_dirty) return;
 
     const uint32_t now_ms = millis();
-    if (!force && (now_ms - g_hist_last_save_ms) < kAnalyticsPersistIntervalMs) {
+    // After reboot, g_hist_last_save_ms is 0. Do not throttle the first save in this boot.
+    if (!force && g_hist_last_save_ms != 0U &&
+        (now_ms - g_hist_last_save_ms) < kAnalyticsPersistIntervalMs) {
         return;
     }
 
-    Preferences prefs;
-    if (!prefs.begin("analytics", false)) {
-        return;
-    }
-
-    prefs.putUChar("ver", kAnalyticsHistVersion);
+    bool persisted = false;
     const uint32_t now_ts = (uint32_t)time(nullptr);
-    if (now_ts > 0 && g_hist_first_save_ts == 0) {
-        g_hist_first_save_ts = now_ts;
+    Preferences prefs;
+    if (prefs.begin("analytics", false)) {
+        prefs.putUChar("ver", kAnalyticsHistVersion);
+        if (now_ts > 0 && g_hist_first_save_ts == 0) {
+            g_hist_first_save_ts = now_ts;
+        }
+        if (now_ts > 0) {
+            g_hist_last_save_ts = now_ts;
+        }
+        prefs.putULong("fst_ts", g_hist_first_save_ts);
+        prefs.putULong("lst_ts", g_hist_last_save_ts);
+        prefs.putBytes("h_temp", &g_temp_hour_hist, sizeof(g_temp_hour_hist));
+        prefs.putBytes("h_hum", &g_hum_hour_hist, sizeof(g_hum_hour_hist));
+        prefs.putBytes("h_dew", &g_dew_hour_hist, sizeof(g_dew_hour_hist));
+        prefs.putBytes("h_pm10", &g_pm10_hour_hist, sizeof(g_pm10_hour_hist));
+        prefs.putBytes("h_pm25", &g_pm25_hour_hist, sizeof(g_pm25_hour_hist));
+        prefs.putBytes("h_co2", &g_co2_hour_hist, sizeof(g_co2_hour_hist));
+        prefs.putBytes("h_noise", &g_noise_hour_hist, sizeof(g_noise_hour_hist));
+        prefs.end();
+        persisted = true;
     }
-    if (now_ts > 0) {
-        g_hist_last_save_ts = now_ts;
-    }
-    prefs.putULong("fst_ts", g_hist_first_save_ts);
-    prefs.putULong("lst_ts", g_hist_last_save_ts);
-    prefs.putBytes("temp", &g_temp_hist, sizeof(g_temp_hist));
-    prefs.putBytes("hum", &g_hum_hist, sizeof(g_hum_hist));
-    prefs.putBytes("dew", &g_dew_hist, sizeof(g_dew_hist));
-    prefs.putBytes("pm10", &g_pm10_hist, sizeof(g_pm10_hist));
-    prefs.putBytes("pm25", &g_pm25_hist, sizeof(g_pm25_hist));
-    prefs.putBytes("co2", &g_co2_hist, sizeof(g_co2_hist));
-    prefs.putBytes("noise", &g_noise_hist, sizeof(g_noise_hist));
-    prefs.end();
 
+    if (!persisted) return;
+#if defined(USE_SD_CARD) && defined(DEV)
+    dumpAnalyticsToSdDev(now_ts, force);
+#endif
     g_hist_dirty = false;
     g_hist_last_save_ms = now_ms;
     g_hist_save_count++;
     g_hist_last_save_forced = force;
+#if defined(DEV)
+    const uint32_t saved_hour_key = currentLocalHourKey((time_t)now_ts);
+    char saved_hour_buf[24];
+    formatHourKey(saved_hour_buf, sizeof(saved_hour_buf), saved_hour_key);
+    debug_outln_info(F("[ANALYTICS][DEV] persisted NVS hour_key"), String(saved_hour_key));
+    debug_outln_info(F("[ANALYTICS][DEV] persisted NVS local hour"), String(saved_hour_buf));
+    debug_outln_info(F("[ANALYTICS][DEV] persisted reason"), String(force ? "day-change" : "interval"));
+#endif
 }
 
-static bool rollingHistoryHasAnyData(const RollingMetricHistory &hist) {
-    for (int i = 0; i < 30; i++) {
+static bool rollingHistoryHasAnyData(const RollingHourHistory &hist) {
+    for (int i = 0; i < 48; i++) {
         if (hist.buckets[i].count > 0) return true;
     }
     return false;
+}
+
+static uint8_t rollingHistoryEntryCount(const RollingHourHistory &hist) {
+    uint8_t n = 0;
+    for (int i = 0; i < 48; i++) {
+        if (hist.buckets[i].count > 0) n++;
+    }
+    return n;
+}
+
+static bool rollingHistoryLastEntry(const RollingHourHistory &hist, uint32_t &hour_key, float &avg_v, uint16_t &count) {
+    bool found = false;
+    uint32_t best = 0;
+    for (int i = 0; i < 48; i++) {
+        const RollingHourBucket &b = hist.buckets[i];
+        if (b.count == 0) continue;
+        if (!found || b.hour_key > best) {
+            found = true;
+            best = b.hour_key;
+            avg_v = b.sum_v / (float)b.count;
+            count = b.count;
+        }
+    }
+    hour_key = best;
+    return found;
 }
 
 static void formatLogTs(char *out, size_t out_sz, uint32_t ts) {
@@ -231,70 +242,185 @@ static uint32_t currentLocalDayKey(time_t now) {
     return key < 0 ? 0U : (uint32_t)key;
 }
 
-static void updateRollingMetric(RollingMetricHistory &hist, float value, uint32_t day_key) {
-    const uint32_t idx = day_key % 30U;
-    RollingDayBucket &b = hist.buckets[idx];
-    if (b.count == 0 || b.day_key != day_key) {
-        b.day_key = day_key;
-        b.min_v = value;
-        b.max_v = value;
+static uint32_t currentLocalHourKey(time_t now) {
+    struct tm local_tm;
+    localtime_r(&now, &local_tm);
+    const uint32_t day_key = currentLocalDayKey(now);
+    return day_key * 24U + (uint32_t)local_tm.tm_hour;
+}
+
+static bool shouldPersistForCurrentHour(time_t now, uint32_t current_hour_key) {
+    if (now <= 0) return false;
+    if (g_hist_last_save_ts == 0U) return true; // first save after boot / empty history
+
+    const uint32_t last_saved_hour_key = currentLocalHourKey((time_t)g_hist_last_save_ts);
+    if (last_saved_hour_key == current_hour_key) return false; // already persisted this hour
+
+    struct tm local_tm;
+    localtime_r(&now, &local_tm);
+    const bool near_hour_start = (local_tm.tm_min <= 10);
+    const bool overdue = ((uint32_t)now > g_hist_last_save_ts) &&
+                         (((uint32_t)now - g_hist_last_save_ts) >= 60U * 60U);
+
+    // Prefer saves near the top of the hour, but if we missed the window/rebooted,
+    // persist as soon as we are overdue.
+    return near_hour_start || overdue;
+}
+
+// Inverse of daysFromCivil (Howard Hinnant's civil_from_days).
+static void civilFromDays(int32_t z, int &y, unsigned &m, unsigned &d) {
+    z += 719468;
+    const int era = (z >= 0 ? z : z - 146096) / 146097;
+    const unsigned doe = (unsigned)(z - era * 146097);                    // [0, 146096]
+    const unsigned yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // [0, 399]
+    y = (int)yoe + era * 400;
+    const unsigned doy = doe - (365 * yoe + yoe / 4 - yoe / 100);         // [0, 365]
+    const unsigned mp = (5 * doy + 2) / 153;                              // [0, 11]
+    d = doy - (153 * mp + 2) / 5 + 1;                                     // [1, 31]
+    m = mp + (mp < 10 ? 3 : -9);                                          // [1, 12]
+    y += (m <= 2);
+}
+
+static void formatHourKey(char *out, size_t out_sz, uint32_t hour_key) {
+    if (!out || out_sz == 0) return;
+    const int32_t day_key = (int32_t)(hour_key / 24U);
+    const unsigned hour = (unsigned)(hour_key % 24U);
+    int y = 0;
+    unsigned m = 1, d = 1;
+    civilFromDays(day_key, y, m, d);
+    snprintf(out, out_sz, "%04d-%02u-%02u %02u:00", y, m, d, hour);
+}
+
+#if defined(USE_SD_CARD) && defined(DEV)
+static bool ensureAnalyticsDevSdDir() {
+    if (!sdCardLock(1500)) return false;
+    bool ok = true;
+    if (!SD.exists(ROLLUP_ROOT_FOLDER)) ok = SD.mkdir(ROLLUP_ROOT_FOLDER);
+    if (ok && !SD.exists("/sensors_rollup/dev")) ok = SD.mkdir("/sensors_rollup/dev");
+    if (ok && !SD.exists("/sensors_rollup/dev/analytics")) ok = SD.mkdir("/sensors_rollup/dev/analytics");
+    sdCardUnlock();
+    return ok;
+}
+
+static void appendHourlyDump(String &out, const char *name, const RollingHourHistory &hist) {
+    out += "\n[hourly:";
+    out += name;
+    out += "]\n";
+    out += "hour_key,day_key,hour,avg,count\n";
+    for (int i = 0; i < 48; i++) {
+        const RollingHourBucket &b = hist.buckets[i];
+        if (b.count == 0) continue;
+        const uint32_t day_key = b.hour_key / 24U;
+        const uint8_t hour = (uint8_t)(b.hour_key % 24U);
+        out += String((uint32_t)b.hour_key);
+        out += ",";
+        out += String(day_key);
+        out += ",";
+        out += String((uint32_t)hour);
+        out += ",";
+        out += String((b.count > 0) ? (b.sum_v / (float)b.count) : 0.0f, 3);
+        out += ",";
+        out += String((uint32_t)b.count);
+        out += "\n";
+    }
+}
+
+static void dumpAnalyticsToSdDev(uint32_t now_ts, bool forced_save) {
+    if (!sdCardLogger.checkInserted()) return;
+    if (!ensureAnalyticsDevSdDir()) return;
+
+    const uint32_t hour_key = (now_ts > 0)
+        ? currentLocalHourKey((time_t)now_ts)
+        : currentLocalHourKey(time(nullptr));
+    if (!forced_save && g_dev_sd_last_dump_hour_key == hour_key) return;
+
+    String content;
+    content.reserve(8192);
+    content += "ts=";
+    content += String((uint32_t)now_ts);
+    content += "\n";
+    content += "hour_key=";
+    content += String((uint32_t)hour_key);
+    content += "\n";
+    content += "reason=";
+    content += forced_save ? "day-change" : "interval";
+    content += "\n";
+
+    appendHourlyDump(content, "temp", g_temp_hour_hist);
+    appendHourlyDump(content, "hum", g_hum_hour_hist);
+    appendHourlyDump(content, "dew", g_dew_hour_hist);
+    appendHourlyDump(content, "pm10", g_pm10_hour_hist);
+    appendHourlyDump(content, "pm25", g_pm25_hour_hist);
+    appendHourlyDump(content, "co2", g_co2_hour_hist);
+    appendHourlyDump(content, "noise", g_noise_hour_hist);
+
+    const String path = String("/sensors_rollup/dev/analytics/analytics_") + String((uint32_t)hour_key) + ".txt";
+    if (sdCardLogger.writeTextFile(path, content)) {
+        g_dev_sd_last_dump_hour_key = hour_key;
+    }
+}
+#endif
+
+static void updateRollingHourMetric(RollingHourHistory &hist, float value, uint32_t hour_key) {
+    const uint32_t idx = hour_key % 48U;
+    RollingHourBucket &b = hist.buckets[idx];
+    if (b.count == 0 || b.hour_key != hour_key) {
+        b.hour_key = hour_key;
         b.sum_v = value;
         b.count = 1;
         return;
     }
-    if (value < b.min_v) b.min_v = value;
-    if (value > b.max_v) b.max_v = value;
     b.sum_v += value;
     b.count++;
 }
 
-static void fillMetricFromRolling(analytics_metric_t &metric, const RollingMetricHistory &hist, uint16_t days) {
-    metric.has_24h = false;
-    if (days == 0) return;
-    time_t now = time(nullptr);
-    if (now <= 0) return;
-    uint32_t today = currentLocalDayKey(now);
-    uint32_t start_day = (days > 0 && today >= (uint32_t)(days - 1)) ? (today - (uint32_t)(days - 1)) : 0;
-
-    float min_v = 0.0f;
-    float max_v = 0.0f;
-    float sum_w = 0.0f;
-    uint32_t total_count = 0;
-    bool any = false;
-    for (int i = 0; i < 30; i++) {
-        const RollingDayBucket &b = hist.buckets[i];
+static bool applyHourlyMedianForDay(analytics_metric_t &metric, const RollingHourHistory &hist, uint32_t day_key) {
+    float vals[24];
+    int n = 0;
+    for (int i = 0; i < 48; i++) {
+        const RollingHourBucket &b = hist.buckets[i];
         if (b.count == 0) continue;
-        if (b.day_key < start_day || b.day_key > today) continue;
-        if (!any) {
-            min_v = b.min_v;
-            max_v = b.max_v;
-            any = true;
-        } else {
-            if (b.min_v < min_v) min_v = b.min_v;
-            if (b.max_v > max_v) max_v = b.max_v;
-        }
-        sum_w += b.sum_v;
-        total_count += b.count;
+        if ((b.hour_key / 24U) != day_key) continue;
+        vals[n++] = b.sum_v / (float)b.count;
+        if (n >= 24) break;
     }
-    if (!any || total_count == 0) return;
-    metric.min24h = min_v;
-    metric.max24h = max_v;
-    metric.avg24h = sum_w / (float)total_count;
-    metric.has_24h = true;
+    if (n == 0) return false;
+
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = i + 1; j < n; j++) {
+            if (vals[j] < vals[i]) {
+                float t = vals[i];
+                vals[i] = vals[j];
+                vals[j] = t;
+            }
+        }
+    }
+    float med = (n & 1) ? vals[n / 2] : (vals[n / 2 - 1] + vals[n / 2]) * 0.5f;
+    if (!metric.has_24h) {
+        metric.min24h = med;
+        metric.max24h = med;
+        metric.has_24h = true;
+    }
+    metric.avg24h = med; // robust "typical day" value
+    return true;
 }
 
-static uint16_t countCoverageDays(const RollingMetricHistory &hist, uint16_t days) {
-    if (days == 0) return 0;
-    time_t now = time(nullptr);
-    if (now <= 0) return 0;
-    uint32_t today = currentLocalDayKey(now);
-    uint32_t start_day = (today >= (uint32_t)(days - 1)) ? (today - (uint32_t)(days - 1)) : 0;
-    uint16_t covered = 0;
-    for (uint32_t d = start_day; d <= today; d++) {
-        const RollingDayBucket &b = hist.buckets[d % 30U];
-        if (b.count > 0 && b.day_key == d) covered++;
+static bool readHourlyDayValuesFromHistory(const RollingHourHistory &hist, uint32_t day_key, float vals[24], bool has[24]) {
+    for (int i = 0; i < 24; i++) {
+        vals[i] = 0.0f;
+        has[i] = false;
     }
-    return covered;
+    bool any = false;
+    for (int i = 0; i < 48; i++) {
+        const RollingHourBucket &b = hist.buckets[i];
+        if (b.count == 0) continue;
+        if ((b.hour_key / 24U) != day_key) continue;
+        const uint8_t h = (uint8_t)(b.hour_key % 24U);
+        vals[h] = b.sum_v / (float)b.count;
+        has[h] = true;
+        any = true;
+    }
+    return any;
 }
 
 static float computeDewPoint(float temp_c, float humidity_pct) {
@@ -326,40 +452,24 @@ static void drawArcBand(int cx, int cy, int outer_r, int inner_r,
     const float end_deg = start_deg + sweep_deg * fill;
     if (fill <= 0.0f || fabsf(end_deg - start_deg) < 0.01f) return;
 
-    // Draw radial lines instead of per-pixel rings to avoid tiny white gaps.
-    float step_deg = 0.28f;
-    if (outer_r >= 70) step_deg = 0.20f;
-    if (outer_r <= 38) step_deg = 0.35f;
-
+    // Faster and smoother arc: stamp small filled circles along the band centerline.
+    const int band_thickness = outer_r - inner_r + 1;
+    const int stamp_r = (band_thickness >= 4) ? (band_thickness / 2) : 1;
+    const float mid_r = (float)(inner_r + outer_r) * 0.5f;
+    float step_deg = 0.65f; // denser sampling for smoother e-ink curves
+    if (outer_r <= 42) step_deg = 0.55f;
+    if (outer_r >= 70) step_deg = 0.45f;
     const float span = fabsf(end_deg - start_deg);
-    const int samples = (int)(span / step_deg) + 1;
-    // Three staggered passes + edge stitching make the arc look more solid on e-ink.
-    for (int pass = 0; pass < 3; ++pass) {
-        const float pass_offset = step_deg * ((float)pass / 3.0f);
-        bool have_prev = false;
-        int prev_ix = 0, prev_iy = 0, prev_ox = 0, prev_oy = 0;
-        for (int i = 0; i <= samples; ++i) {
-            float t = (samples > 0) ? ((float)i / (float)samples) : 0.0f;
-            float a = start_deg + (end_deg - start_deg) * t + pass_offset;
-            if ((end_deg >= start_deg && a > end_deg) || (end_deg < start_deg && a < end_deg)) {
-                a = end_deg;
-            }
-            float rad = a * kPi / 180.0f;
-            float c = cosf(rad);
-            float s = sinf(rad);
-
-            int ix = cx + (int)roundf(c * (float)inner_r);
-            int iy = cy + (int)roundf(s * (float)inner_r);
-            int ox = cx + (int)roundf(c * (float)outer_r);
-            int oy = cy + (int)roundf(s * (float)outer_r);
-            Paint_DrawLine(ix, iy, ox, oy, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-
-            if (have_prev) {
-                Paint_DrawLine(prev_ix, prev_iy, ix, iy, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-                Paint_DrawLine(prev_ox, prev_oy, ox, oy, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-            }
-            have_prev = true;
-            prev_ix = ix; prev_iy = iy; prev_ox = ox; prev_oy = oy;
+    const int samples = (int)(span / step_deg) + 2;
+    for (int i = 0; i <= samples; ++i) {
+        float t = (samples > 0) ? ((float)i / (float)samples) : 0.0f;
+        float a = start_deg + (end_deg - start_deg) * t;
+        float rad = a * kPi / 180.0f;
+        int mx = cx + (int)roundf(cosf(rad) * mid_r);
+        int my = cy + (int)roundf(sinf(rad) * mid_r);
+        Paint_DrawCircle(mx, my, stamp_r, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+        if (stamp_r > 1 && (i & 1) == 0) {
+            Paint_DrawCircle(mx, my, stamp_r - 1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
         }
     }
 
@@ -373,6 +483,15 @@ static void drawArcBand(int cx, int cy, int outer_r, int inner_r,
         Paint_DrawCircle(cx + (int)roundf(cosf(re) * mid), cy + (int)roundf(sinf(re) * mid),
                          1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
     }
+}
+
+static void drawRingBorders(int cx, int cy, int outer_r, int inner_r) {
+    Paint_DrawCircle(cx, cy, outer_r, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    if (outer_r > 2) {
+        Paint_DrawCircle(cx, cy, outer_r - 1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    }
+    Paint_DrawCircle(cx, cy, inner_r, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    Paint_DrawCircle(cx, cy, inner_r + 1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
 }
 
 static int metricScoreLinearHighWorse(float value, float good_limit, float bad_limit) {
@@ -393,390 +512,7 @@ static int metricScoreRangeBest(float value, float best_low, float best_high, fl
     return (int)(100.0f * t);
 }
 
-static bool periodValue(const analytics_metric_t &metric, float &out) {
-    if (metric.has_24h) {
-        out = metric.avg24h;
-        return true;
-    }
-    return false;
-}
-
-static const char* qualityByScore(int score, const char *good, const char *mid, const char *bad) {
-    if (score >= 75) return good;
-    if (score >= 45) return mid;
-    return bad;
-}
-
-static void drawPrimaryValueMixedCompact(int cx, int y, const char *primary);
-
-static void drawPanelCircle(int cx, int cy, int radius,
-                            const char *title,
-                            const char *primary,
-                            const char *secondary,
-                            const char *status,
-                            float arc_fill) {
-    Paint_DrawCircle(cx, cy, radius, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-    Paint_DrawCircle(cx, cy, radius - 6, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-
-    // Use the same denser/thicker arc geometry as detail circles to reduce white spots.
-    drawArcBand(cx, cy, radius + 2, radius - 8, 158.0f, 206.0f, arc_fill);
-    // Re-draw borders for crisp alignment after arc fill.
-    Paint_DrawCircle(cx, cy, radius, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-    Paint_DrawCircle(cx, cy, radius - 6, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-
-    const int title_y = cy - radius + 20;
-    const int top_line_y = cy - radius + 34;
-    uint16_t title_w = Paint_GetStringWidth_Display(title, &Font12, &font_12_cyrillic, &font_12_ascii);
-    Paint_DrawString_Display(cx - (int)title_w / 2, title_y, title,
-                             &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    Paint_DrawLine(cx - radius + 28, top_line_y, cx + radius - 28, top_line_y,
-                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-
-    bool drew_climate_primary = false;
-    if (primary) {
-        char t_num[16] = {0};
-        char h_num[16] = {0};
-        if (sscanf(primary, "%15[^C]C/%15[^%%]%%", t_num, h_num) == 2) {
-            uint16_t t_num_w = Paint_GetStringWidth_Display(t_num, &Font20, &font_20_cyrillic, &font_20_ascii);
-            uint16_t t_unit_w = Paint_GetStringWidth_Display("C", &Font12, &font_12_cyrillic, &font_12_ascii);
-            uint16_t slash_w = Paint_GetStringWidth_Display("/", &Font12, &font_12_cyrillic, &font_12_ascii);
-            uint16_t h_num_w = Paint_GetStringWidth_Display(h_num, &Font20, &font_20_cyrillic, &font_20_ascii);
-            uint16_t h_unit_w = Paint_GetStringWidth_Display("%", &Font12, &font_12_cyrillic, &font_12_ascii);
-            int total_w = (int)t_num_w + (int)t_unit_w + 3 + (int)slash_w + 3 + (int)h_num_w + (int)h_unit_w;
-            int x = cx - total_w / 2;
-            int y = cy - 18;
-            Paint_DrawString_Display(x, y, t_num, &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
-            x += (int)t_num_w;
-            Paint_DrawString_Display(x + 1, y + 6, "C", &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-            x += (int)t_unit_w + 3;
-            Paint_DrawString_Display(x, y + 6, "/", &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-            x += (int)slash_w + 3;
-            Paint_DrawString_Display(x, y, h_num, &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
-            x += (int)h_num_w;
-            Paint_DrawString_Display(x + 1, y + 6, "%", &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-            drew_climate_primary = true;
-        }
-    }
-    if (!drew_climate_primary) {
-        drawPrimaryValueMixedCompact(cx, cy - 18, primary);
-    }
-
-    uint16_t secondary_w = Paint_GetStringWidth_Display(secondary, &Font12, &font_12_cyrillic, &font_12_ascii);
-    Paint_DrawString_Display(cx - (int)secondary_w / 2, cy + 10, secondary,
-                             &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-
-    const int bottom_line_y = cy + 24;
-    // Fit divider to inner circle geometry to avoid any border overflow.
-    const int inner_r = radius - 6;
-    const int dy = abs(bottom_line_y - cy);
-    int half_w = inner_r - 2;
-    if (dy < inner_r) {
-        half_w = (int)floorf(sqrtf((float)(inner_r * inner_r - dy * dy))) - 1;
-    }
-    if (half_w < 8) half_w = 8;
-    Paint_DrawLine(cx - half_w, bottom_line_y, cx + half_w, bottom_line_y,
-                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    uint16_t status_w = Paint_GetStringWidth_Display(status, &Font12, &font_12_cyrillic, &font_12_ascii);
-    Paint_DrawString_Display(cx - (int)status_w / 2, cy + 30, status,
-                             &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-}
-
-static void drawTextBold(int x, int y, const char *text, sFONT *font) {
-    Paint_DrawString_Display(x, y, text, font, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    Paint_DrawString_Display(x + 1, y, text, font, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-}
-
-static void drawTextWrapped(int x, int y, int max_w, const char *text, sFONT *font, int max_lines) {
-    if (!text || !font || max_lines <= 0) return;
-    char src[220];
-    snprintf(src, sizeof(src), "%s", text);
-
-    int line = 0;
-    int cursor = 0;
-    const int src_len = (int)strlen(src);
-    while (cursor < src_len && line < max_lines) {
-        while (cursor < src_len && src[cursor] == ' ') cursor++;
-        if (cursor >= src_len) break;
-
-        char out[110] = {0};
-        int out_len = 0;
-        int probe = cursor;
-        int last_good = cursor;
-        while (probe < src_len) {
-            int word_end = probe;
-            while (word_end < src_len && src[word_end] != ' ') word_end++;
-
-            char candidate[110];
-            if (out_len > 0) snprintf(candidate, sizeof(candidate), "%s %.*s", out, word_end - probe, src + probe);
-            else snprintf(candidate, sizeof(candidate), "%.*s", word_end - probe, src + probe);
-
-            if (Paint_GetStringWidth_Display(candidate, font, &font_12_cyrillic, &font_12_ascii) > (uint16_t)max_w) {
-                break;
-            }
-            snprintf(out, sizeof(out), "%s", candidate);
-            out_len = (int)strlen(out);
-            last_good = word_end;
-            probe = word_end;
-            while (probe < src_len && src[probe] == ' ') probe++;
-        }
-
-        if (out_len == 0) {
-            // Single long token fallback.
-            int cut = cursor + 1;
-            while (cut <= src_len) {
-                char candidate[110];
-                snprintf(candidate, sizeof(candidate), "%.*s", cut - cursor, src + cursor);
-                if (Paint_GetStringWidth_Display(candidate, font, &font_12_cyrillic, &font_12_ascii) > (uint16_t)max_w) {
-                    cut--;
-                    break;
-                }
-                cut++;
-            }
-            if (cut <= cursor) cut = cursor + 1;
-            snprintf(out, sizeof(out), "%.*s", cut - cursor, src + cursor);
-            last_good = cut;
-        }
-
-        Paint_DrawString_Display(x, y + line * 13, out, font, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        cursor = last_good;
-        line++;
-    }
-}
-
-static void drawPrimaryValueMixedCompact(int cx, int y, const char *primary) {
-    if (!primary || primary[0] == '\0') return;
-    int split = 0;
-    while (primary[split] != '\0') {
-        char ch = primary[split];
-        bool numeric = ((ch >= '0' && ch <= '9') || ch == '.' || ch == '-' || ch == ',');
-        if (!numeric) break;
-        split++;
-    }
-    if (split <= 0 || primary[split] == '\0') {
-        uint16_t w = Paint_GetStringWidth_Display(primary, &Font20, &font_20_cyrillic, &font_20_ascii);
-        Paint_DrawString_Display(cx - (int)w / 2, y, primary,
-                                 &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
-        return;
-    }
-    char number_part[20];
-    char unit_part[24];
-    snprintf(number_part, sizeof(number_part), "%.*s", split, primary);
-    snprintf(unit_part, sizeof(unit_part), "%s", primary + split);
-    uint16_t num_w = Paint_GetStringWidth_Display(number_part, &Font20, &font_20_cyrillic, &font_20_ascii);
-    uint16_t unit_w = Paint_GetStringWidth_Display(unit_part, &Font12, &font_12_cyrillic, &font_12_ascii);
-    int start_x = cx - (int)(num_w + unit_w + 2) / 2;
-    Paint_DrawString_Display(start_x, y, number_part,
-                             &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
-    Paint_DrawString_Display(start_x + (int)num_w + 2, y + 6, unit_part,
-                             &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-}
-
-static void drawPrimaryValueMixed(int cx, int y, const char *primary) {
-    if (!primary || primary[0] == '\0') return;
-    int split = 0;
-    while (primary[split] != '\0') {
-        char ch = primary[split];
-        bool numeric = ((ch >= '0' && ch <= '9') || ch == '.' || ch == '-' || ch == ',');
-        if (!numeric) break;
-        split++;
-    }
-
-    if (split <= 0 || primary[split] == '\0') {
-        uint16_t w = Paint_GetStringWidth_Display(primary, &Font24, &font_32_cyrillic, &font_32_ascii);
-        Paint_DrawString_Display(cx - (int)w / 2, y, primary,
-                                 &Font24, &font_32_cyrillic, &font_32_ascii, WHITE, BLACK);
-        return;
-    }
-
-    char number_part[20];
-    char unit_part[20];
-    snprintf(number_part, sizeof(number_part), "%.*s", split, primary);
-    snprintf(unit_part, sizeof(unit_part), "%s", primary + split);
-
-    const bool is_air_unit = (strstr(unit_part, "ug/m3") != nullptr || strstr(unit_part, "µg/m3") != nullptr);
-    sFONT *unit_font = is_air_unit ? &Font12 : &Font16;
-    const Font *unit_font_cyr = is_air_unit ? &font_12_cyrillic : &font_16_cyrillic;
-    const Font *unit_font_ascii = is_air_unit ? &font_12_ascii : &font_16_ascii;
-    const int unit_y_offset = is_air_unit ? 16 : 12;
-
-    uint16_t num_w = Paint_GetStringWidth_Display(number_part, &Font24, &font_32_cyrillic, &font_32_ascii);
-    uint16_t unit_w = Paint_GetStringWidth_Display(unit_part, unit_font, unit_font_cyr, unit_font_ascii);
-    const int gap = is_air_unit ? 1 : 0;
-    int start_x = cx - (int)(num_w + unit_w + gap) / 2;
-
-    Paint_DrawString_Display(start_x, y, number_part,
-                             &Font24, &font_32_cyrillic, &font_32_ascii, WHITE, BLACK);
-    // Keep the unit aligned near the bottom of the large number.
-    Paint_DrawString_Display(start_x + (int)num_w + gap, y + unit_y_offset, unit_part,
-                             unit_font, unit_font_cyr, unit_font_ascii, WHITE, BLACK);
-}
-
-static void drawDetailCircle(int cx, int cy, int radius,
-                             const char *title,
-                             const char *primary,
-                             const char *secondary,
-                             const char *extra,
-                             const char *status,
-                             const float *trend, int trend_count) {
-    (void)trend;
-    (void)trend_count;
-    Paint_DrawCircle(cx, cy, radius, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-    Paint_DrawCircle(cx, cy, radius - 6, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-    // Arc is extended slightly to the outside to reduce visible white gaps.
-    drawArcBand(cx, cy, radius + 2, radius - 8, 150.0f, 220.0f, 1.0f);
-    // Re-draw borders for crisp ring alignment after arc fill.
-    Paint_DrawCircle(cx, cy, radius, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-    Paint_DrawCircle(cx, cy, radius - 6, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-
-    const int title_y = cy - radius + 26;
-    const int top_line_y = title_y + 14;
-    uint16_t title_w = Paint_GetStringWidth_Display(title, &Font12, &font_12_cyrillic, &font_12_ascii);
-    Paint_DrawString_Display(cx - (int)title_w / 2, title_y, title,
-                             &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    Paint_DrawLine(cx - radius + 16, top_line_y, cx + radius - 16, top_line_y,
-                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-
-    int primary_y = cy - 28;
-    // Noise circles have no secondary label line, so place value a bit lower.
-    if (!secondary || secondary[0] == '\0') {
-        primary_y = cy - 22;
-    }
-    drawPrimaryValueMixed(cx, primary_y, primary);
-    uint16_t secondary_w = Paint_GetStringWidth_Display(secondary, &Font12, &font_12_cyrillic, &font_12_ascii);
-    Paint_DrawString_Display(cx - (int)secondary_w / 2, cy + 14, secondary,
-                             &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    if (extra && extra[0] != '\0') {
-        uint16_t extra_w = Paint_GetStringWidth_Display(extra, &Font12, &font_12_cyrillic, &font_12_ascii);
-        Paint_DrawString_Display(cx - (int)extra_w / 2, cy + 26, extra,
-                                 &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-    Paint_DrawLine(cx - radius + 22, cy + 40, cx + radius - 22, cy + 40,
-                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    uint16_t status_w = Paint_GetStringWidth_Display(status, &Font12, &font_12_cyrillic, &font_12_ascii);
-    Paint_DrawString_Display(cx - (int)status_w / 2, cy + 46, status,
-                             &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-}
-
-static CategorySummary summarizeClimate(const analytics_screen_values_t &values) {
-    int score_sum = 0;
-    int count = 0;
-    float v = 0.0f;
-    if (periodValue(values.temp_indoor, v)) {
-        score_sum += metricScoreRangeBest(v, 20.0f, 25.0f, 10.0f, 32.0f);
-        count++;
-    }
-    if (periodValue(values.hum_indoor, v)) {
-        score_sum += metricScoreRangeBest(v, 40.0f, 60.0f, 20.0f, 80.0f);
-        count++;
-    }
-    if (periodValue(values.dew_indoor, v)) {
-        score_sum += metricScoreLinearHighWorse(v, 12.0f, 22.0f);
-        count++;
-    }
-    CategorySummary out = {"Climate", 0, count > 0};
-    out.score = (count > 0) ? (score_sum / count) : 0;
-    return out;
-}
-
-static CategorySummary summarizeAir(const analytics_screen_values_t &values) {
-    int score_sum = 0;
-    int count = 0;
-    float v = 0.0f;
-    if (periodValue(values.pm10, v)) {
-        score_sum += metricScoreLinearHighWorse(v, 45.0f, 180.0f);
-        count++;
-    }
-    if (periodValue(values.pm25, v)) {
-        score_sum += metricScoreLinearHighWorse(v, 15.0f, 80.0f);
-        count++;
-    }
-    CategorySummary out = {"Air", 0, count > 0};
-    out.score = (count > 0) ? (score_sum / count) : 0;
-    return out;
-}
-
-static CategorySummary summarizeCO2(const analytics_screen_values_t &values) {
-    float v = 0.0f;
-    if (!periodValue(values.co2, v)) {
-        return {"CO2", 0, false};
-    }
-    return {"CO2", metricScoreLinearHighWorse(v, 900.0f, 1800.0f), true};
-}
-
-static CategorySummary summarizeNoise(const analytics_screen_values_t &values) {
-    float v = 0.0f;
-    if (!periodValue(values.noise_avg, v)) {
-        return {"Noise", 0, false};
-    }
-    return {"Noise", metricScoreLinearHighWorse(v, 50.0f, 85.0f), true};
-}
-
-static uint16_t periodToDays(analytics_period_t period) {
-    if (period == analytics_period_t::P7D) return 7;
-    if (period == analytics_period_t::P30D) return 30;
-    return 1;
-}
-
-static const char* periodLabel(analytics_period_t period) {
-    if (period == analytics_period_t::P7D) return "7D";
-    if (period == analytics_period_t::P30D) return "30D";
-    return "24H";
-}
-
-static void formatMetricOrDash(char *out, size_t out_sz, const analytics_metric_t &metric, uint8_t precision) {
-    if (!metric.has_current) {
-        snprintf(out, out_sz, "--");
-        return;
-    }
-    stringFromFloat(out, metric.current, precision);
-}
-
-#if defined(USE_SD_CARD)
-// Individual detail pages intentionally avoid direct SD scans in render path
-// to keep page switching stable on device.
-#endif
 } // namespace
-
-analytics_period_t analyticsGetPeriod() {
-    return g_analytics_period;
-}
-
-void analyticsSetPeriod(analytics_period_t period) {
-    g_analytics_period = period;
-    g_analytics_view = analytics_view_t::OVERVIEW_24H;
-}
-
-void analyticsNextPeriod() {
-    if (g_analytics_period == analytics_period_t::P24H) g_analytics_period = analytics_period_t::P7D;
-    else if (g_analytics_period == analytics_period_t::P7D) g_analytics_period = analytics_period_t::P30D;
-    else g_analytics_period = analytics_period_t::P24H;
-}
-
-void analyticsPrevPeriod() {
-    if (g_analytics_period == analytics_period_t::P24H) g_analytics_period = analytics_period_t::P30D;
-    else if (g_analytics_period == analytics_period_t::P30D) g_analytics_period = analytics_period_t::P7D;
-    else g_analytics_period = analytics_period_t::P24H;
-}
-
-bool analyticsNextPeriodAtEdge() {
-    if (g_analytics_period == analytics_period_t::P30D) {
-        return true;
-    }
-    analyticsNextPeriod();
-    return false;
-}
-
-bool analyticsPrevPeriodAtEdge() {
-    if (g_analytics_period == analytics_period_t::P24H) {
-        return true;
-    }
-    analyticsPrevPeriod();
-    return false;
-}
-
-const char* analyticsPeriodLabel() {
-    return periodLabel(g_analytics_period);
-}
 
 bool analyticsHistoryPersistenceEnabled() {
     return true;
@@ -789,90 +525,38 @@ bool analyticsHistoryIsLoaded() {
 
 bool analyticsHistoryHasData() {
     loadRollingHistoryIfNeeded();
-    return rollingHistoryHasAnyData(g_temp_hist) ||
-           rollingHistoryHasAnyData(g_hum_hist) ||
-           rollingHistoryHasAnyData(g_dew_hist) ||
-           rollingHistoryHasAnyData(g_pm10_hist) ||
-           rollingHistoryHasAnyData(g_pm25_hist) ||
-           rollingHistoryHasAnyData(g_co2_hist) ||
-           rollingHistoryHasAnyData(g_noise_hist);
+    return rollingHistoryHasAnyData(g_temp_hour_hist) ||
+           rollingHistoryHasAnyData(g_hum_hour_hist) ||
+           rollingHistoryHasAnyData(g_dew_hour_hist) ||
+           rollingHistoryHasAnyData(g_pm10_hour_hist) ||
+           rollingHistoryHasAnyData(g_pm25_hour_hist) ||
+           rollingHistoryHasAnyData(g_co2_hour_hist) ||
+           rollingHistoryHasAnyData(g_noise_hour_hist);
 }
 
 analytics_view_t analyticsGetView() {
     return g_analytics_view;
 }
 
-analytics_period_t analyticsGetViewPeriod() {
-    return analytics_period_t::P24H;
-}
-
 bool analyticsNextViewAtEdge() {
-    if (g_analytics_view == analytics_view_t::OVERVIEW_24H) {
-        g_analytics_view = analytics_view_t::CLIMATE_24H;
-        return false;
-    }
-    if (g_analytics_view == analytics_view_t::CLIMATE_24H) {
-        g_analytics_view = analytics_view_t::CO2_24H;
-        return false;
-    }
-    if (g_analytics_view == analytics_view_t::CO2_24H) {
-        g_analytics_view = analytics_view_t::AIR_24H;
-        return false;
-    }
-    if (g_analytics_view == analytics_view_t::AIR_24H) {
-        g_analytics_view = analytics_view_t::NOISE_24H;
-        return false;
-    }
+    g_analytics_view = analytics_view_t::OVERVIEW_24H;
     return true;
 }
 
 bool analyticsPrevViewAtEdge() {
-    if (g_analytics_view == analytics_view_t::NOISE_24H) {
-        g_analytics_view = analytics_view_t::AIR_24H;
-        return false;
-    }
-    if (g_analytics_view == analytics_view_t::AIR_24H) {
-        g_analytics_view = analytics_view_t::CO2_24H;
-        return false;
-    }
-    if (g_analytics_view == analytics_view_t::CO2_24H) {
-        g_analytics_view = analytics_view_t::CLIMATE_24H;
-        return false;
-    }
-    if (g_analytics_view == analytics_view_t::CLIMATE_24H) {
-        g_analytics_view = analytics_view_t::OVERVIEW_24H;
-        return false;
-    }
+    g_analytics_view = analytics_view_t::OVERVIEW_24H;
     return true;
 }
 
 const char* analyticsViewLabel() {
-    switch (g_analytics_view) {
-        case analytics_view_t::CLIMATE_24H: return A_TXT("Climate", "Климат");
-        case analytics_view_t::CO2_24H: return "CO2";
-        case analytics_view_t::AIR_24H: return A_TXT("Air", "Воздух");
-        case analytics_view_t::NOISE_24H: return A_TXT("Noise", "Шум");
-        case analytics_view_t::OVERVIEW_24H:
-        default: return A_TXT("24H", "24ч");
-    }
+    return A_TXT("Night", "Ночь");
 }
 
 static const char* analyticsViewLabelTitle() {
-#if defined(INTL_RU)
-    switch (g_analytics_view) {
-        case analytics_view_t::CLIMATE_24H: return "климата";
-        case analytics_view_t::CO2_24H: return "CO2";
-        case analytics_view_t::AIR_24H: return "воздуха";
-        case analytics_view_t::NOISE_24H: return "шума";
-        case analytics_view_t::OVERVIEW_24H:
-        default: return "24ч";
-    }
-#else
-    return analyticsViewLabel();
-#endif
+    return A_TXT("Night score", "Ночной индекс");
 }
 
-void extractAnalyticsScreenValues(const JsonDocument &doc, analytics_screen_values_t &values) {
+void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_screen_values_t &values) {
     loadRollingHistoryIfNeeded();
 
     values = analytics_screen_values_t{};
@@ -995,68 +679,626 @@ void extractAnalyticsScreenValues(const JsonDocument &doc, analytics_screen_valu
         }
     }
 
-    // Update low-memory rolling aggregates (30 day buckets).
+}
+
+void analyticsIngestHourSample(const analytics_screen_values_t &values) {
+    loadRollingHistoryIfNeeded();
+
+    // Update low-memory rolling aggregates (48 hour buckets).
     time_t now = time(nullptr);
     bool updated = false;
     if (now > 0) {
         uint32_t day_key = currentLocalDayKey(now);
+        uint32_t hour_key = currentLocalHourKey(now);
+        uint8_t updated_metrics = 0;
         if (values.temp_indoor.has_current) {
-            updateRollingMetric(g_temp_hist, values.temp_indoor.current, day_key);
+            updateRollingHourMetric(g_temp_hour_hist, values.temp_indoor.current, hour_key);
             updated = true;
+            updated_metrics++;
         }
         if (values.hum_indoor.has_current) {
-            updateRollingMetric(g_hum_hist, values.hum_indoor.current, day_key);
+            updateRollingHourMetric(g_hum_hour_hist, values.hum_indoor.current, hour_key);
             updated = true;
+            updated_metrics++;
         }
         if (values.dew_indoor.has_current) {
-            updateRollingMetric(g_dew_hist, values.dew_indoor.current, day_key);
+            updateRollingHourMetric(g_dew_hour_hist, values.dew_indoor.current, hour_key);
             updated = true;
+            updated_metrics++;
         }
         if (values.pm10.has_current) {
-            updateRollingMetric(g_pm10_hist, values.pm10.current, day_key);
+            updateRollingHourMetric(g_pm10_hour_hist, values.pm10.current, hour_key);
             updated = true;
+            updated_metrics++;
         }
         if (values.pm25.has_current) {
-            updateRollingMetric(g_pm25_hist, values.pm25.current, day_key);
+            updateRollingHourMetric(g_pm25_hour_hist, values.pm25.current, hour_key);
             updated = true;
+            updated_metrics++;
         }
         if (values.co2.has_current) {
-            updateRollingMetric(g_co2_hist, values.co2.current, day_key);
+            updateRollingHourMetric(g_co2_hour_hist, values.co2.current, hour_key);
             updated = true;
+            updated_metrics++;
         }
         if (values.noise_avg.has_current) {
-            updateRollingMetric(g_noise_hist, values.noise_avg.current, day_key);
+            updateRollingHourMetric(g_noise_hour_hist, values.noise_avg.current, hour_key);
             updated = true;
+            updated_metrics++;
         }
 
         if (updated) {
             g_hist_dirty = true;
             const bool day_changed = (g_hist_last_day_key != 0U && g_hist_last_day_key != day_key);
             g_hist_last_day_key = day_key;
-            saveRollingHistoryIfNeeded(day_changed);
+            const bool hour_persist_due = shouldPersistForCurrentHour(now, hour_key);
+            saveRollingHistoryIfNeeded(day_changed || hour_persist_due);
+#if defined(DEV)
+            if (g_dev_last_ingest_hour_key != hour_key) {
+                char ingest_hour_buf[24];
+                formatHourKey(ingest_hour_buf, sizeof(ingest_hour_buf), hour_key);
+                g_dev_last_ingest_hour_key = hour_key;
+                debug_outln_info(F("[ANALYTICS][DEV] hourly ingest hour_key"), String(hour_key));
+                debug_outln_info(F("[ANALYTICS][DEV] hourly ingest local hour"), String(ingest_hour_buf));
+                debug_outln_info(F("[ANALYTICS][DEV] hourly ingest metrics count"), String((int)updated_metrics));
+                debug_outln_info(F("[ANALYTICS][DEV] save count"), String((unsigned)g_hist_save_count));
+                debug_outln_info(F("[ANALYTICS][DEV] save forced"), String(g_hist_last_save_forced ? "yes" : "no"));
+                debug_outln_info(F("[ANALYTICS][DEV] save due hour"), String(hour_persist_due ? "yes" : "no"));
+            }
+#endif
         }
     }
 }
 
-void populateAnalyticsPeriodStats(analytics_screen_values_t &values, analytics_period_t period) {
+void analyticsDevLogStatus15m() {
+#if defined(DEV)
+    const uint32_t now_ms = millis();
+    if ((now_ms - g_dev_last_status_log_ms) < (15UL * 60UL * 1000UL)) return;
+    g_dev_last_status_log_ms = now_ms;
+
     loadRollingHistoryIfNeeded();
 
-    const uint16_t days = periodToDays(period);
-    fillMetricFromRolling(values.temp_indoor, g_temp_hist, days);
-    fillMetricFromRolling(values.hum_indoor, g_hum_hist, days);
-    fillMetricFromRolling(values.dew_indoor, g_dew_hist, days);
-    fillMetricFromRolling(values.pm10, g_pm10_hist, days);
-    fillMetricFromRolling(values.pm25, g_pm25_hist, days);
-    fillMetricFromRolling(values.co2, g_co2_hist, days);
-    fillMetricFromRolling(values.noise_avg, g_noise_hist, days);
+    char last_save_buf[24];
+    formatLogTs(last_save_buf, sizeof(last_save_buf), g_hist_last_save_ts);
+    debug_outln_info(F("[ANALYTICS][DEV][15m] NVS last save"), String(last_save_buf));
+
+    auto log_metric = [&](const char *name, const RollingHourHistory &hist) {
+        const uint8_t entries = rollingHistoryEntryCount(hist);
+        uint32_t hk = 0;
+        float avg = 0.0f;
+        uint16_t cnt = 0;
+        if (rollingHistoryLastEntry(hist, hk, avg, cnt)) {
+            String line = String(name) + " entries=" + String((unsigned)entries) +
+                          " last_hour_key=" + String((unsigned long)hk) +
+                          " avg=" + String(avg, 2) +
+                          " cnt=" + String((unsigned)cnt);
+            debug_outln_info(F("[ANALYTICS][DEV][15m]"), line);
+        } else {
+            String line = String(name) + " entries=0 last=none";
+            debug_outln_info(F("[ANALYTICS][DEV][15m]"), line);
+        }
+    };
+
+    log_metric("co2", g_co2_hour_hist);
+    log_metric("pm25", g_pm25_hour_hist);
+    log_metric("noise", g_noise_hour_hist);
+    log_metric("temp", g_temp_hour_hist);
+    log_metric("hum", g_hum_hour_hist);
+#endif
 }
 
-void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values,
-                       const analytics_screen_values_t &values_7d,
-                       const analytics_screen_values_t &values_30d,
-                       analytics_period_t period, analytics_view_t view) {
+void populateAnalyticsPeriodStats(analytics_screen_values_t &values) {
+    loadRollingHistoryIfNeeded();
+
+    // "24H" is derived from hourly history: prefer completed local day, fallback to current day.
+    time_t now = time(nullptr);
+    if (now > 0) {
+        uint32_t today = currentLocalDayKey(now);
+        uint32_t completed_day = (today > 0U) ? (today - 1U) : 0U;
+        bool ok = false;
+        if (!values.temp_indoor.has_24h) {
+            ok = applyHourlyMedianForDay(values.temp_indoor, g_temp_hour_hist, completed_day);
+            if (!ok) applyHourlyMedianForDay(values.temp_indoor, g_temp_hour_hist, today);
+        }
+        if (!values.hum_indoor.has_24h) {
+            ok = applyHourlyMedianForDay(values.hum_indoor, g_hum_hour_hist, completed_day);
+            if (!ok) applyHourlyMedianForDay(values.hum_indoor, g_hum_hour_hist, today);
+        }
+        if (!values.dew_indoor.has_24h) {
+            ok = applyHourlyMedianForDay(values.dew_indoor, g_dew_hour_hist, completed_day);
+            if (!ok) applyHourlyMedianForDay(values.dew_indoor, g_dew_hour_hist, today);
+        }
+        if (!values.pm10.has_24h) {
+            ok = applyHourlyMedianForDay(values.pm10, g_pm10_hour_hist, completed_day);
+            if (!ok) applyHourlyMedianForDay(values.pm10, g_pm10_hour_hist, today);
+        }
+        if (!values.pm25.has_24h) {
+            ok = applyHourlyMedianForDay(values.pm25, g_pm25_hour_hist, completed_day);
+            if (!ok) applyHourlyMedianForDay(values.pm25, g_pm25_hour_hist, today);
+        }
+        if (!values.co2.has_24h) {
+            ok = applyHourlyMedianForDay(values.co2, g_co2_hour_hist, completed_day);
+            if (!ok) applyHourlyMedianForDay(values.co2, g_co2_hour_hist, today);
+        }
+        if (!values.noise_avg.has_24h) {
+            ok = applyHourlyMedianForDay(values.noise_avg, g_noise_hour_hist, completed_day);
+            if (!ok) applyHourlyMedianForDay(values.noise_avg, g_noise_hour_hist, today);
+        }
+    }
+}
+
+static int clampScore(int v) {
+    if (v < 0) return 0;
+    if (v > 100) return 100;
+    return v;
+}
+
+static float impactAbove(float value, float threshold, float step, float pct_per_step) {
+    if (value <= threshold || step <= 0.0f) return 0.0f;
+    return -pct_per_step * ((value - threshold) / step);
+}
+
+static float nightImpactCO2(float co2, bool bio) {
+    return bio
+        ? impactAbove(co2, 600.0f, 100.0f, 0.8f)
+        : impactAbove(co2, 750.0f, 100.0f, 0.52f);
+}
+
+static float nightImpactPM25(float pm25, bool bio) {
+    return bio
+        ? impactAbove(pm25, 3.0f, 10.0f, 0.5f)
+        : impactAbove(pm25, 5.0f, 10.0f, 0.3f);
+}
+
+static float nightImpactNoise(float noise, bool bio) {
+    return bio
+        ? impactAbove(noise, 30.0f, 10.0f, 3.5f)
+        : impactAbove(noise, 35.0f, 10.0f, 2.5f);
+}
+
+static float nightImpactTemp(float temp, bool bio) {
+    return bio
+        ? impactAbove(temp, 20.0f, 1.0f, 1.5f)
+        : impactAbove(temp, 25.0f, 1.0f, 1.5f);
+}
+
+static float nightImpactHum(float hum, bool bio) {
+    float outside = 0.0f;
+    if (!bio) {
+        // Conservative: penalize humidity outside 40..60 with softer slope.
+        if (hum < 40.0f) outside = 40.0f - hum;
+        else if (hum > 60.0f) outside = hum - 60.0f;
+        return -0.2f * (outside / 10.0f);
+    }
+    // Biohacking: narrower comfort band 40..50 with stronger slope.
+    if (hum < 40.0f) outside = 40.0f - hum;
+    else if (hum > 50.0f) outside = hum - 50.0f;
+    return -0.4f * (outside / 10.0f);
+}
+
+static int nightScoreCO2(float co2, bool bio) {
+    // Methodology: sleep impact decreases above threshold, then score = 100 + impact*2.
+    const float impact = nightImpactCO2(co2, bio);
+    return clampScore((int)lroundf(100.0f + impact * 2.0f));
+}
+
+static int nightScorePM25(float pm25, bool bio) {
+    const float impact = nightImpactPM25(pm25, bio);
+    return clampScore((int)lroundf(100.0f + impact * 2.0f));
+}
+
+static int nightScoreNoise(float noise, bool bio) {
+    const float impact = nightImpactNoise(noise, bio);
+    return clampScore((int)lroundf(100.0f + impact * 2.0f));
+}
+
+static int nightScoreTemp(float temp, bool bio) {
+    const float impact = nightImpactTemp(temp, bio);
+    return clampScore((int)lroundf(100.0f + impact * 2.0f));
+}
+
+static int nightScoreHum(float hum, bool bio) {
+    const float impact = nightImpactHum(hum, bio);
+    return clampScore((int)lroundf(100.0f + impact * 2.0f));
+}
+
+static char gradeLetter(int score) {
+    if (score >= 90) return 'A';
+    if (score >= 80) return 'B';
+    if (score >= 70) return 'C';
+    if (score >= 60) return 'D';
+    if (score >= 50) return 'E';
+    return 'F';
+}
+
+static uint8_t safeHourCfg(unsigned v, uint8_t fallback) {
+    return (v <= 23U) ? (uint8_t)v : fallback;
+}
+
+static uint16_t buildNightHourList(uint8_t start_h, uint8_t end_h, uint8_t out_hours[24]) {
+    uint16_t n = 0;
+    if (start_h == end_h) {
+        for (uint8_t h = 0; h < 24; h++) out_hours[n++] = h;
+        return n;
+    }
+    if (start_h < end_h) {
+        for (uint8_t h = start_h; h < end_h; h++) out_hours[n++] = h;
+        return n;
+    }
+    for (uint8_t h = start_h; h < 24; h++) out_hours[n++] = h;
+    for (uint8_t h = 0; h < end_h; h++) out_hours[n++] = h;
+    return n;
+}
+
+static uint32_t resolveLastCompletedNightEndDay(uint8_t /*start_h*/, uint8_t end_h) {
+    time_t now = time(nullptr);
+    if (now <= 0) return 0U;
+    struct tm lt;
+    localtime_r(&now, &lt);
+    const uint8_t now_h = (uint8_t)lt.tm_hour;
+    uint32_t today = currentLocalDayKey(now);
+    if (now_h >= end_h) return today;
+    return (today > 0U) ? (today - 1U) : 0U;
+}
+
+static void drawTrackArc(int cx, int cy, int outer_r, int inner_r, float start_deg, float sweep_deg, float fill_norm) {
+    if (outer_r <= inner_r) return;
+    if (fill_norm < 0.0f) fill_norm = 0.0f;
+    if (fill_norm > 1.0f) fill_norm = 1.0f;
+    // Avoid ultra-tiny residual gaps/stubs on e-ink, but keep normal
+    // high/low values (e.g. 95%) visually distinct from full/empty.
+    if (fill_norm > 0.995f) fill_norm = 1.0f;
+    if (fill_norm < 0.005f) fill_norm = 0.0f;
+
+    const float span = fabsf(sweep_deg);
+    int steps = (int)(span * 3.2f);
+    if (steps < 160) steps = 160;
+    for (int i = 0; i <= steps; i++) {
+        const float t = (float)i / (float)steps;
+        const float a = (start_deg + sweep_deg * t) * (kPi / 180.0f);
+        const int xo = cx + (int)roundf(cosf(a) * (float)outer_r);
+        const int yo = cy + (int)roundf(sinf(a) * (float)outer_r);
+        const int xi = cx + (int)roundf(cosf(a) * (float)inner_r);
+        const int yi = cy + (int)roundf(sinf(a) * (float)inner_r);
+        if (i == 0) {
+            Paint_DrawPoint(xo, yo, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+            Paint_DrawPoint(xi, yi, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+        } else {
+            const float tp = (float)(i - 1) / (float)steps;
+            const float ap = (start_deg + sweep_deg * tp) * (kPi / 180.0f);
+            const int pxo = cx + (int)roundf(cosf(ap) * (float)outer_r);
+            const int pyo = cy + (int)roundf(sinf(ap) * (float)outer_r);
+            const int pxi = cx + (int)roundf(cosf(ap) * (float)inner_r);
+            const int pyi = cy + (int)roundf(sinf(ap) * (float)inner_r);
+            Paint_DrawLine(pxo, pyo, xo, yo, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            Paint_DrawLine(pxi, pyi, xi, yi, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+            // Midpoint touch-up reduces staircase gaps without increasing thickness.
+            Paint_DrawPoint((pxo + xo) / 2, (pyo + yo) / 2, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+            Paint_DrawPoint((pxi + xi) / 2, (pyi + yi) / 2, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+        }
+    }
+
+    const float a0 = start_deg * (kPi / 180.0f);
+    const float a1 = (start_deg + sweep_deg) * (kPi / 180.0f);
+    Paint_DrawLine(cx + (int)roundf(cosf(a0) * (float)inner_r), cy + (int)roundf(sinf(a0) * (float)inner_r),
+                   cx + (int)roundf(cosf(a0) * (float)outer_r), cy + (int)roundf(sinf(a0) * (float)outer_r),
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(cx + (int)roundf(cosf(a1) * (float)inner_r), cy + (int)roundf(sinf(a1) * (float)inner_r),
+                   cx + (int)roundf(cosf(a1) * (float)outer_r), cy + (int)roundf(sinf(a1) * (float)outer_r),
+                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
+    drawArcBand(cx, cy, outer_r - 1, inner_r + 1, start_deg, sweep_deg, fill_norm);
+}
+
+static void drawNightSinglePage(int content_left, int content_top, int content_width,
+                                const analytics_screen_values_t &values) {
+    (void)values;
+    float co2 = 0.0f, pm25 = 0.0f, noise = 0.0f, temp = 0.0f, hum = 0.0f;
+    bool has_co2 = false, has_pm25 = false, has_noise = false, has_temp = false, has_hum = false;
+
+    const int cx = content_left + content_width / 2;
+    const int cy = content_top + 76;
+    const int r = 59;
+
+    const uint8_t night_start = safeHourCfg(cfg::analytics_night_start_hour, 22);
+    const uint8_t night_end = safeHourCfg(cfg::analytics_night_end_hour, 10);
+    uint8_t night_hours[24];
+    const uint16_t n_hours = buildNightHourList(night_start, night_end, night_hours);
+    const uint32_t end_day = resolveLastCompletedNightEndDay(night_start, night_end);
+    const bool cross_midnight = (night_start >= night_end);
+
+    float co2_day[24] = {0}, pm25_day[24] = {0}, noise_day[24] = {0}, temp_day[24] = {0}, hum_day[24] = {0};
+    bool co2_has_day[24] = {false}, pm25_has_day[24] = {false}, noise_has_day[24] = {false}, temp_has_day[24] = {false}, hum_has_day[24] = {false};
+    float co2_prev[24] = {0}, pm25_prev[24] = {0}, noise_prev[24] = {0}, temp_prev[24] = {0}, hum_prev[24] = {0};
+    bool co2_has_prev[24] = {false}, pm25_has_prev[24] = {false}, noise_has_prev[24] = {false}, temp_has_prev[24] = {false}, hum_has_prev[24] = {false};
+    readHourlyDayValuesFromHistory(g_co2_hour_hist, end_day, co2_day, co2_has_day);
+    readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day, pm25_day, pm25_has_day);
+    readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day, noise_day, noise_has_day);
+    readHourlyDayValuesFromHistory(g_temp_hour_hist, end_day, temp_day, temp_has_day);
+    readHourlyDayValuesFromHistory(g_hum_hour_hist, end_day, hum_day, hum_has_day);
+    if (cross_midnight && end_day > 0U) {
+        readHourlyDayValuesFromHistory(g_co2_hour_hist, end_day - 1U, co2_prev, co2_has_prev);
+        readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day - 1U, pm25_prev, pm25_has_prev);
+        readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day - 1U, noise_prev, noise_has_prev);
+        readHourlyDayValuesFromHistory(g_temp_hour_hist, end_day - 1U, temp_prev, temp_has_prev);
+        readHourlyDayValuesFromHistory(g_hum_hour_hist, end_day - 1U, hum_prev, hum_has_prev);
+    }
+
+    uint16_t hours_with_any_data = 0;
+    float co2_sum = 0.0f, pm25_sum = 0.0f, noise_sum = 0.0f, temp_sum = 0.0f, hum_sum = 0.0f;
+    uint16_t co2_count = 0, pm25_count = 0, noise_count = 0, temp_count = 0, hum_count = 0;
+    for (uint16_t i = 0; i < n_hours; i++) {
+        const uint8_t h = night_hours[i];
+        const bool use_prev = cross_midnight && (h >= night_start);
+        const bool c_has = use_prev ? co2_has_prev[h] : co2_has_day[h];
+        const bool p_has = use_prev ? pm25_has_prev[h] : pm25_has_day[h];
+        const bool n_has = use_prev ? noise_has_prev[h] : noise_has_day[h];
+        const bool t_has = use_prev ? temp_has_prev[h] : temp_has_day[h];
+        const bool hum_has = use_prev ? hum_has_prev[h] : hum_has_day[h];
+        if (c_has || p_has || n_has || t_has || hum_has) hours_with_any_data++;
+
+        if (c_has) { co2_sum += use_prev ? co2_prev[h] : co2_day[h]; co2_count++; }
+        if (p_has) { pm25_sum += use_prev ? pm25_prev[h] : pm25_day[h]; pm25_count++; }
+        if (n_has) { noise_sum += use_prev ? noise_prev[h] : noise_day[h]; noise_count++; }
+        if (t_has) { temp_sum += use_prev ? temp_prev[h] : temp_day[h]; temp_count++; }
+        if (hum_has) { hum_sum += use_prev ? hum_prev[h] : hum_day[h]; hum_count++; }
+    }
+    has_co2 = (co2_count > 0U);
+    has_pm25 = (pm25_count > 0U);
+    has_noise = (noise_count > 0U);
+    has_temp = (temp_count > 0U);
+    has_hum = (hum_count > 0U);
+    if (has_co2) co2 = co2_sum / (float)co2_count;
+    if (has_pm25) pm25 = pm25_sum / (float)pm25_count;
+    if (has_noise) noise = noise_sum / (float)noise_count;
+    if (has_temp) temp = temp_sum / (float)temp_count;
+    if (has_hum) hum = hum_sum / (float)hum_count;
+    const uint16_t min_hours_for_score = (n_hours >= 3) ? (uint16_t)((n_hours * 2U + 2U) / 3U) : n_hours;
+    const bool enough_night_data = (hours_with_any_data >= min_hours_for_score);
+    if (!enough_night_data) {
+        char collect1[80], collect2[80];
+        snprintf(collect1, sizeof(collect1), A_TXT("Night data is collecting", "Ночные данные собираются"));
+        snprintf(collect2, sizeof(collect2), A_TXT("Hours: %u/%u", "Часов: %u/%u"),
+                 (unsigned)hours_with_any_data, (unsigned)min_hours_for_score);
+        uint16_t w1 = Paint_GetStringWidth_Display(collect1, &Font16, &font_16_cyrillic, &font_16_ascii);
+        uint16_t w2 = Paint_GetStringWidth_Display(collect2, &Font16, &font_16_cyrillic, &font_16_ascii);
+        const int block_h = Font16.Height * 2 + 6;
+        const int msg_y = content_top + (DISPLAY_HEIGHT - content_top - block_h) / 2 - 18;
+        Paint_DrawString_Display(content_left + (content_width - (int)w1) / 2, msg_y, collect1,
+                                 &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(content_left + (content_width - (int)w2) / 2, msg_y + Font16.Height + 6, collect2,
+                                 &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+        return;
+    }
+
+    int s_cons_co2 = 0, s_cons_pm25 = 0, s_cons_noise = 0, s_cons_temp = 0, s_cons_hum = 0;
+    int s_bio_co2 = 0, s_bio_pm25 = 0, s_bio_noise = 0, s_bio_temp = 0, s_bio_hum = 0;
+    float i_cons_co2 = 0.0f, i_cons_pm25 = 0.0f, i_cons_noise = 0.0f, i_cons_temp = 0.0f, i_cons_hum = 0.0f;
+    float i_bio_co2 = 0.0f, i_bio_pm25 = 0.0f, i_bio_noise = 0.0f, i_bio_temp = 0.0f, i_bio_hum = 0.0f;
+    if (has_co2) {
+        i_cons_co2 = nightImpactCO2(co2, false); i_bio_co2 = nightImpactCO2(co2, true);
+        s_cons_co2 = nightScoreCO2(co2, false); s_bio_co2 = nightScoreCO2(co2, true);
+    }
+    if (has_pm25) {
+        i_cons_pm25 = nightImpactPM25(pm25, false); i_bio_pm25 = nightImpactPM25(pm25, true);
+        s_cons_pm25 = nightScorePM25(pm25, false); s_bio_pm25 = nightScorePM25(pm25, true);
+    }
+    if (has_noise) {
+        i_cons_noise = nightImpactNoise(noise, false); i_bio_noise = nightImpactNoise(noise, true);
+        s_cons_noise = nightScoreNoise(noise, false); s_bio_noise = nightScoreNoise(noise, true);
+    }
+    if (has_temp) {
+        i_cons_temp = nightImpactTemp(temp, false); i_bio_temp = nightImpactTemp(temp, true);
+        s_cons_temp = nightScoreTemp(temp, false); s_bio_temp = nightScoreTemp(temp, true);
+    }
+    if (has_hum) {
+        i_cons_hum = nightImpactHum(hum, false); i_bio_hum = nightImpactHum(hum, true);
+        s_cons_hum = nightScoreHum(hum, false); s_bio_hum = nightScoreHum(hum, true);
+    }
+
+    const float total_cons_impact =
+        (has_co2 ? i_cons_co2 : 0.0f) +
+        (has_pm25 ? i_cons_pm25 : 0.0f) +
+        (has_noise ? i_cons_noise : 0.0f) +
+        (has_temp ? i_cons_temp : 0.0f) +
+        (has_hum ? i_cons_hum : 0.0f);
+    const float total_bio_impact =
+        (has_co2 ? i_bio_co2 : 0.0f) +
+        (has_pm25 ? i_bio_pm25 : 0.0f) +
+        (has_noise ? i_bio_noise : 0.0f) +
+        (has_temp ? i_bio_temp : 0.0f) +
+        (has_hum ? i_bio_hum : 0.0f);
+    const int cons_score = clampScore((int)lroundf(100.0f + total_cons_impact * 2.0f));
+    const int bio_score = clampScore((int)lroundf(100.0f + total_bio_impact * 2.0f));
+    const int circle_score = cons_score;
+    const char grade = gradeLetter(circle_score);
+
+    drawTrackArc(cx, cy, r + 1, r - 10, -90.0f, 359.0f, (float)circle_score / 100.0f);
+
+    auto metricFill = [&](float c_impact, float b_impact, bool has_data) -> float {
+        if (!has_data || !enough_night_data) return 0.0f;
+        // Strict visual mode: arcs represent sleep impact directly.
+        // 0% impact -> full arc, -10% impact (or worse) -> empty arc.
+        const float impact_avg = 0.5f * (c_impact + b_impact);
+        float fill = 1.0f + (impact_avg / 10.0f);
+        if (fill < 0.0f) fill = 0.0f;
+        if (fill > 1.0f) fill = 1.0f;
+        return fill;
+    };
+    const float f_co2 = metricFill(i_cons_co2, i_bio_co2, has_co2);
+    const float f_pm25 = metricFill(i_cons_pm25, i_bio_pm25, has_pm25);
+    const float f_noise = metricFill(i_cons_noise, i_bio_noise, has_noise);
+    const float f_temp = metricFill(i_cons_temp, i_bio_temp, has_temp);
+    const float f_hum = metricFill(i_cons_hum, i_bio_hum, has_hum);
+
+    const int out_outer = 78;
+    const int out_inner = 72;
+    drawTrackArc(cx, cy, out_outer, out_inner, 210.0f, 40.0f, f_co2);
+    drawTrackArc(cx, cy, out_outer, out_inner, 290.0f, 38.0f, f_pm25);
+    drawTrackArc(cx, cy, out_outer, out_inner, 342.0f, 32.0f, f_noise);
+    drawTrackArc(cx, cy, out_outer, out_inner, 24.0f, 38.0f, f_temp);
+    drawTrackArc(cx, cy, out_outer, out_inner, 130.0f, 40.0f, f_hum);
+
+    char score_txt[8];
+    snprintf(score_txt, sizeof(score_txt), "%d", circle_score);
+    uint16_t sw = Paint_GetStringWidth_Display(score_txt, &Font24, &font_36_cyrillic, &font_36_ascii);
+    const int score_x = cx - (int)sw / 2;
+    const int score_y = cy - 31;
+    Paint_DrawString_Display(score_x, score_y, score_txt, &Font24, &font_36_cyrillic, &font_36_ascii, WHITE, BLACK);
+    char grade_txt[24];
+    snprintf(grade_txt, sizeof(grade_txt), "GRADE %c", grade);
+    uint16_t gw = Paint_GetStringWidth_Display(grade_txt, &Font12, &font_12_cyrillic, &font_12_ascii);
+    Paint_DrawString_Display(cx - (int)gw / 2, cy + 14, grade_txt, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+
+    auto drawMetricLabel = [&](int x, int y, const char *name, const char *val) {
+        Paint_DrawString_Display(x, y, name, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(x, y + 13, val, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    };
+    char co2v[16] = "--", pmv[16] = "--", nv[16] = "--", tv[16] = "--", hv[16] = "--";
+    if (has_co2) snprintf(co2v, sizeof(co2v), "%.0f", co2);
+    if (has_pm25) snprintf(pmv, sizeof(pmv), "%.0f", pm25);
+    if (has_noise) snprintf(nv, sizeof(nv), "%.0f", noise);
+    if (has_temp) snprintf(tv, sizeof(tv), "%.0f", temp);
+    if (has_hum) snprintf(hv, sizeof(hv), "%.0f%%", hum);
+    drawMetricLabel(cx - 84, cy - 82, "CO2", co2v);
+    drawMetricLabel(cx + 58, cy - 82, "PM2.5", pmv);
+    drawMetricLabel(cx + 84, cy - 20, "dB", nv);
+    drawMetricLabel(cx + 78, cy + 26, "C", tv);
+    drawMetricLabel(cx - 92, cy + 28, "RH", hv);
+
+    float max_co2 = -1.0f, max_pm25 = -1.0f, max_noise = -1.0f, max_temp = -1.0f, max_hum = -1.0f;
+    float min_co2 = 1000000.0f, min_pm25 = 1000000.0f, min_noise = 1000000.0f, min_temp = 1000000.0f, min_hum = 1000000.0f;
+    int max_co2_h = -1, max_pm25_h = -1, max_noise_h = -1, max_temp_h = -1, max_hum_h = -1;
+    int min_co2_h = -1, min_pm25_h = -1, min_noise_h = -1, min_temp_h = -1, min_hum_h = -1;
+    auto upd = [](float v, bool has, float &mx, int &mxh, float &mn, int &mnh, int h) {
+        if (!has) return;
+        if (v > mx) { mx = v; mxh = h; }
+        if (v < mn) { mn = v; mnh = h; }
+    };
+    for (uint16_t i = 0; i < n_hours; i++) {
+        const uint8_t h = night_hours[i];
+        const bool use_prev = cross_midnight && (h >= night_start);
+        const float c_val = use_prev ? co2_prev[h] : co2_day[h];
+        const float p_val = use_prev ? pm25_prev[h] : pm25_day[h];
+        const float n_val = use_prev ? noise_prev[h] : noise_day[h];
+        const float t_val = use_prev ? temp_prev[h] : temp_day[h];
+        const float h_val = use_prev ? hum_prev[h] : hum_day[h];
+        const bool c_has = use_prev ? co2_has_prev[h] : co2_has_day[h];
+        const bool p_has = use_prev ? pm25_has_prev[h] : pm25_has_day[h];
+        const bool n_has = use_prev ? noise_has_prev[h] : noise_has_day[h];
+        const bool t_has = use_prev ? temp_has_prev[h] : temp_has_day[h];
+        const bool h_has = use_prev ? hum_has_prev[h] : hum_has_day[h];
+        upd(c_val, c_has, max_co2, max_co2_h, min_co2, min_co2_h, h);
+        upd(p_val, p_has, max_pm25, max_pm25_h, min_pm25, min_pm25_h, h);
+        upd(n_val, n_has, max_noise, max_noise_h, min_noise, min_noise_h, h);
+        upd(t_val, t_has, max_temp, max_temp_h, min_temp, min_temp_h, h);
+        upd(h_val, h_has, max_hum, max_hum_h, min_hum, min_hum_h, h);
+    }
+
+    const int table_x = content_left + 4;
+    const int table_y = content_top + 150;
+    const int table_w = content_width - 8;
+    const int header_h = 16;
+    const int row_h = 15;
+    const int table_h = header_h + row_h * 5;
+    Paint_DrawRectangle(table_x, table_y, table_x + table_w, table_y + table_h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+
+    const int c1 = table_x + 74;  // Max
+    const int c2 = table_x + 170; // Min
+    const int c3 = table_x + 258; // Conserv
+    const int c4 = table_x + 302; // Biohack
+    Paint_DrawLine(c1, table_y, c1, table_y + table_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(c2, table_y, c2, table_y + table_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(c3, table_y, c3, table_y + table_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(c4, table_y, c4, table_y + table_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(table_x, table_y + header_h, table_x + table_w, table_y + header_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    for (int rline = 1; rline <= 5; rline++) {
+        Paint_DrawLine(table_x, table_y + header_h + rline * row_h, table_x + table_w, table_y + header_h + rline * row_h,
+                       BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    }
+
+    auto drawCentered = [&](int x0, int x1, int y, const char *txt) {
+        uint16_t w = Paint_GetStringWidth_Display(txt, &Font12, &font_12_cyrillic, &font_12_ascii);
+        int x = x0 + ((x1 - x0) - (int)w) / 2;
+        if (x < x0 + 1) x = x0 + 1;
+        Paint_DrawString_Display(x, y, txt, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    };
+    Paint_DrawString_Display(table_x + 8, table_y + 2, A_TXT("Metric", "Метрика"),
+                             &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    drawCentered(c1, c2, table_y + 2, "Max");
+    drawCentered(c2, c3, table_y + 2, "Min");
+    drawCentered(c3, c4, table_y + 2, "Conserv");
+    drawCentered(c4, table_x + table_w, table_y + 2, "Biohack");
+
+    const char *hour_suffix = A_TXT("h", "ч");
+    auto extremaCell = [&](char *out, size_t sz, float v, int h, bool has, uint8_t prec) {
+        if (!has || h < 0) {
+            snprintf(out, sz, "--");
+            return;
+        }
+        snprintf(out, sz, "%.*f (%02d%s)", (int)prec, v, h, hour_suffix);
+    };
+    auto formatImpact = [](char *out, size_t sz, float impact, bool has_data) {
+        if (!has_data) {
+            snprintf(out, sz, "--");
+            return;
+        }
+        if (fabsf(impact) < 0.05f) {
+            snprintf(out, sz, "0%%");
+            return;
+        }
+        snprintf(out, sz, "%.1f%%", impact);
+    };
+    auto drawRow = [&](int idx, const char *name, float mx, int mxh, bool has_mx, float mn, int mnh, bool has_mn,
+                       float impact_c, float impact_b, bool has_imp_c, bool has_imp_b, uint8_t prec) {
+        const int y = table_y + header_h + 2 + idx * row_h;
+        char maxb[20], minb[20], cs[12], bs[12];
+        extremaCell(maxb, sizeof(maxb), mx, mxh, has_mx, prec);
+        extremaCell(minb, sizeof(minb), mn, mnh, has_mn, prec);
+        formatImpact(cs, sizeof(cs), impact_c, has_imp_c);
+        formatImpact(bs, sizeof(bs), impact_b, has_imp_b);
+        Paint_DrawString_Display(table_x + 8, y, name,
+                                 &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        drawCentered(c1, c2, y, maxb);
+        drawCentered(c2, c3, y, minb);
+        drawCentered(c3, c4, y, cs);
+        drawCentered(c4, table_x + table_w, y, bs);
+    };
+    drawRow(0, "CO2 ppm", max_co2, max_co2_h, max_co2_h >= 0, min_co2, min_co2_h, min_co2_h >= 0, i_cons_co2, i_bio_co2, has_co2, has_co2, 0);
+    drawRow(1, "Temp C", max_temp, max_temp_h, max_temp_h >= 0, min_temp, min_temp_h, min_temp_h >= 0, i_cons_temp, i_bio_temp, has_temp, has_temp, 0);
+    drawRow(2, "RH %", max_hum, max_hum_h, max_hum_h >= 0, min_hum, min_hum_h, min_hum_h >= 0, i_cons_hum, i_bio_hum, has_hum, has_hum, 0);
+    drawRow(3, "PM2.5 ug", max_pm25, max_pm25_h, max_pm25_h >= 0, min_pm25, min_pm25_h, min_pm25_h >= 0, i_cons_pm25, i_bio_pm25, has_pm25, has_pm25, 0);
+    drawRow(4, "Noise dB", max_noise, max_noise_h, max_noise_h >= 0, min_noise, min_noise_h, min_noise_h >= 0, i_cons_noise, i_bio_noise, has_noise, has_noise, 0);
+
+    char cons_impact_txt[12], bio_impact_txt[12];
+    formatImpact(cons_impact_txt, sizeof(cons_impact_txt), total_cons_impact, true);
+    formatImpact(bio_impact_txt, sizeof(bio_impact_txt), total_bio_impact, true);
+    const int sum_y = table_y + table_h + 2;
+    char summary_line[160];
+    snprintf(summary_line, sizeof(summary_line),
+             A_TXT("Conservative: %d%c, impact %s / Biohacking: %d%c, impact %s",
+                   "Консервативная: %d%c, влияние %s / Биохакинг: %d%c, влияние %s"),
+             cons_score, gradeLetter(cons_score), cons_impact_txt,
+             bio_score, gradeLetter(bio_score), bio_impact_txt);
+    uint16_t sum_w = Paint_GetStringWidth_Display(summary_line, &Font12, &font_12_cyrillic, &font_12_ascii);
+    if (sum_w > (uint16_t)(table_w - 8)) {
+        snprintf(summary_line, sizeof(summary_line),
+                 A_TXT("Conservative %d%c (%s) / Biohacking %d%c (%s)",
+                       "Консервативная %d%c (%s) / Биохакинг %d%c (%s)"),
+                 cons_score, gradeLetter(cons_score), cons_impact_txt,
+                 bio_score, gradeLetter(bio_score), bio_impact_txt);
+        sum_w = Paint_GetStringWidth_Display(summary_line, &Font12, &font_12_cyrillic, &font_12_ascii);
+    }
+    if (sum_w > (uint16_t)(table_w - 8)) {
+        snprintf(summary_line, sizeof(summary_line), "C %d%c (%s) / B %d%c (%s)",
+                 cons_score, gradeLetter(cons_score), cons_impact_txt,
+                 bio_score, gradeLetter(bio_score), bio_impact_txt);
+    }
+    drawCentered(table_x, table_x + table_w, sum_y + 2, summary_line);
+}
+
+void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values) {
     (void)BlackImage;
-    (void)period;
     Paint_Clear(WHITE);
 
     struct tm timeinfo;
@@ -1098,408 +1340,9 @@ void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &value
     const int content_width = content_right - content_left;
     const int content_top = header_bottom_border_y + 12;
 
-    CategorySummary climate = summarizeClimate(values);
-    CategorySummary co2 = summarizeCO2(values);
-    CategorySummary air = summarizeAir(values);
-    CategorySummary noise = summarizeNoise(values);
+    drawNightSinglePage(content_left, content_top, content_width, values);
+    return;
 
-    auto drawOverview24hStyled = [&]() {
-        const int radius = 63;
-        const int x1 = content_left + content_width / 4;
-        const int x2 = content_left + (content_width * 3) / 4;
-        const int y1 = content_top + 63;
-        const int y2 = content_top + 193;
-
-        char t_buf[12], h_buf[12], dew_buf[12], t_u_buf[12], h_u_buf[12], co2_buf[12], pm_buf[12], pm10_buf[12], noise_buf[12];
-        char pm10_i_buf[12], pm25_i_buf[12];
-        formatMetricOrDash(t_buf, sizeof(t_buf), values.temp_indoor, 1);
-        formatMetricOrDash(h_buf, sizeof(h_buf), values.hum_indoor, 0);
-        formatMetricOrDash(dew_buf, sizeof(dew_buf), values.dew_indoor, 1);
-        formatMetricOrDash(t_u_buf, sizeof(t_u_buf), values.temp_urban, 1);
-        formatMetricOrDash(h_u_buf, sizeof(h_u_buf), values.hum_urban, 0);
-        formatMetricOrDash(co2_buf, sizeof(co2_buf), values.co2, 0);
-        formatMetricOrDash(pm_buf, sizeof(pm_buf), values.pm25, 1);
-        formatMetricOrDash(pm10_buf, sizeof(pm10_buf), values.pm10, 1);
-        formatMetricOrDash(pm10_i_buf, sizeof(pm10_i_buf), values.pm10_insight, 1);
-        formatMetricOrDash(pm25_i_buf, sizeof(pm25_i_buf), values.pm25_insight, 1);
-        formatMetricOrDash(noise_buf, sizeof(noise_buf), values.noise_avg, 0);
-
-        char climate_primary[24], climate_secondary[32];
-        char air_primary[32], air_secondary[40];
-        char co2_primary[24], co2_secondary[24];
-        char noise_primary[24], noise_secondary[24];
-        // Common 4-circle screen: Insight climate only.
-        snprintf(climate_primary, sizeof(climate_primary), "%sC/%s%%", t_buf, h_buf);
-        snprintf(climate_secondary, sizeof(climate_secondary), A_TXT("Dew point - %sC", "Точка росы - %sC"), dew_buf);
-        snprintf(air_primary, sizeof(air_primary), "%sug/m3", pm10_buf);
-        snprintf(air_secondary, sizeof(air_secondary), "PM2.5 - %sug/m3", pm_buf);
-        snprintf(co2_primary, sizeof(co2_primary), "%sppm", co2_buf);
-        snprintf(co2_secondary, sizeof(co2_secondary), A_TXT("Carbon dioxide", "Углекислый газ"));
-        snprintf(noise_primary, sizeof(noise_primary), "%sdB", noise_buf);
-        snprintf(noise_secondary, sizeof(noise_secondary), A_TXT("Max noise - %sdB", "Макс шум - %sdB"), noise_buf);
-
-        auto scoreFill = [](const CategorySummary &s) -> float {
-            if (!s.has_data) return 0.0f;
-            const int score = s.score;
-            // Visual mapping by quality bands so "Good/Comfortable" looks clearly fuller.
-            if (score >= 75) {
-                // 75..100 -> 0.82..1.00
-                float t = (float)(score - 75) / 25.0f;
-                float f = 0.82f + t * 0.18f;
-                if (f > 1.0f) f = 1.0f;
-                return f;
-            }
-            if (score >= 45) {
-                // 45..74 -> 0.52..0.81
-                float t = (float)(score - 45) / 30.0f;
-                return 0.52f + t * 0.29f;
-            }
-            // 0..44 -> 0.12..0.51
-            float t = (float)score / 45.0f;
-            return 0.12f + t * 0.39f;
-        };
-        drawPanelCircle(x1, y1, radius,
-                        A_TXT("CLIMATE", "КЛИМАТ"),
-                        climate_primary,
-                        climate_secondary,
-                        qualityByScore(climate.score, A_TXT("Good", "Хорошо"), A_TXT("Moderate", "Средне"), A_TXT("Unstable", "Нестаб.")),
-                        scoreFill(climate));
-
-        drawPanelCircle(x2, y1, radius,
-                        A_TXT("AIR QUALITY", "ВОЗДУХ"),
-                        air_primary,
-                        air_secondary,
-                        qualityByScore(air.score, A_TXT("Good Air", "Хорошо"), A_TXT("Moderate Air", "Средне"), A_TXT("Poor Air", "Плохо")),
-                        scoreFill(air));
-
-        drawPanelCircle(x1, y2, radius,
-                        A_TXT("CO2 LEVEL", "CO2"),
-                        co2_primary,
-                        co2_secondary,
-                        qualityByScore(co2.score, A_TXT("Normal", "Норма"), A_TXT("Elevated", "Выше"), A_TXT("High CO2", "Высоко")),
-                        scoreFill(co2));
-
-        drawPanelCircle(x2, y2, radius,
-                        A_TXT("NOISE LEVEL", "ШУМ"),
-                        noise_primary,
-                        noise_secondary,
-                        qualityByScore(noise.score, A_TXT("Low Noise", "Тихо"), A_TXT("Moderate", "Средне"), A_TXT("Noisy", "Шумно")),
-                        scoreFill(noise));
-    };
-
-    auto drawDetailDual = [&](const char *page_title,
-                              const char *left_primary, const char *left_secondary, const char *left_extra, const char *left_status,
-                              const char *right_primary, const char *right_secondary, const char *right_extra, const char *right_status,
-                              const char *left_rec_title, const char *left_rec_line1, const char *left_rec_line2,
-                              const char *right_rec_title, const char *right_rec_line1, const char *right_rec_line2,
-                              const char *tip_line) {
-        (void)page_title;
-        const int radius = 77;
-        const int x1 = content_left + content_width / 4;
-        const int x2 = content_left + (content_width * 3) / 4;
-        const int y = content_top + 74;
-
-        drawDetailCircle(x1, y, radius, A_TXT("LAST 7 DAYS", "7 ДНЕЙ"), left_primary, left_secondary, left_extra, left_status, nullptr, 0);
-        drawDetailCircle(x2, y, radius, A_TXT("LAST 30 DAYS", "30 ДНЕЙ"), right_primary, right_secondary, right_extra, right_status, nullptr, 0);
-
-        const int box_top = content_top + 158;
-        const int box_h = 68;
-        const int gap = 8;
-        const int box_w = (content_width - gap) / 2;
-        const int left_box_x = content_left;
-        const int right_box_x = content_left + box_w + gap;
-        Paint_DrawRectangle(left_box_x, box_top, left_box_x + box_w, box_top + box_h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-        Paint_DrawRectangle(right_box_x, box_top, right_box_x + box_w, box_top + box_h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-
-        const int text_max_w = box_w - 12;
-        drawTextBold(left_box_x + 6, box_top + 4, left_rec_title, &Font12);
-        drawTextBold(right_box_x + 6, box_top + 4, right_rec_title, &Font12);
-        char left_text[180];
-        char right_text[180];
-        snprintf(left_text, sizeof(left_text), "%s %s", left_rec_line1, left_rec_line2);
-        snprintf(right_text, sizeof(right_text), "%s %s", right_rec_line1, right_rec_line2);
-        drawTextWrapped(left_box_x + 6, box_top + 20, text_max_w, left_text, &Font12, 4);
-        drawTextWrapped(right_box_x + 6, box_top + 20, text_max_w, right_text, &Font12, 4);
-
-        Paint_DrawLine(content_left, content_top + 232, content_right, content_top + 232,
-                       BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        uint16_t tip_w = Paint_GetStringWidth_Display(tip_line, &Font12, &font_12_cyrillic, &font_12_ascii);
-        int tip_x = content_left + (content_width - (int)tip_w) / 2;
-        if (tip_x < content_left + 2) tip_x = content_left + 2;
-        Paint_DrawString_Display(tip_x, content_top + 238, tip_line,
-                                 &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    };
-
-    if (view == analytics_view_t::OVERVIEW_24H) {
-#ifdef DEV
-        {
-            char line1[180];
-            snprintf(line1, sizeof(line1),
-                     "hist: persist=%s loaded=%s has_data=%s",
-                     analyticsHistoryPersistenceEnabled() ? "yes" : "no",
-                     analyticsHistoryIsLoaded() ? "yes" : "no",
-                     analyticsHistoryHasData() ? "yes" : "no");
-            debug_outln_info(F("[Analytics] "), String(line1));
-            char first_save[24];
-            char last_save[24];
-            formatLogTs(first_save, sizeof(first_save), g_hist_first_save_ts);
-            formatLogTs(last_save, sizeof(last_save), g_hist_last_save_ts);
-            char line1b[220];
-            snprintf(line1b, sizeof(line1b),
-                     "save: first=%s last=%s count=%lu last_reason=%s policy=%lus|day-change",
-                     first_save, last_save, (unsigned long)g_hist_save_count,
-                     g_hist_last_save_forced ? "day-change" : "interval",
-                     (unsigned long)(kAnalyticsPersistIntervalMs / 1000UL));
-            debug_outln_info(F("[Analytics] "), String(line1b));
-
-            const uint16_t climate7 = countCoverageDays(g_temp_hist, 7);
-            const uint16_t climate30 = countCoverageDays(g_temp_hist, 30);
-            const uint16_t co27 = countCoverageDays(g_co2_hist, 7);
-            const uint16_t co230 = countCoverageDays(g_co2_hist, 30);
-            const uint16_t air7 = countCoverageDays(g_pm25_hist, 7);
-            const uint16_t air30 = countCoverageDays(g_pm25_hist, 30);
-            const uint16_t noise7 = countCoverageDays(g_noise_hist, 7);
-            const uint16_t noise30 = countCoverageDays(g_noise_hist, 30);
-            const uint16_t temp7 = countCoverageDays(g_temp_hist, 7);
-            const uint16_t temp30 = countCoverageDays(g_temp_hist, 30);
-            const uint16_t hum7 = countCoverageDays(g_hum_hist, 7);
-            const uint16_t hum30 = countCoverageDays(g_hum_hist, 30);
-            const uint16_t dew7 = countCoverageDays(g_dew_hist, 7);
-            const uint16_t dew30 = countCoverageDays(g_dew_hist, 30);
-            const uint16_t pm10_7 = countCoverageDays(g_pm10_hist, 7);
-            const uint16_t pm10_30 = countCoverageDays(g_pm10_hist, 30);
-            const uint16_t pm25_7 = countCoverageDays(g_pm25_hist, 7);
-            const uint16_t pm25_30 = countCoverageDays(g_pm25_hist, 30);
-
-            auto pct = [](uint16_t v, uint16_t total) -> uint16_t {
-                if (total == 0) return 0;
-                return (uint16_t)((100U * (uint32_t)v) / (uint32_t)total);
-            };
-
-            char line2[220];
-            snprintf(line2, sizeof(line2),
-                     "coverage(cat): climate=%u/7(%u%%),%u/30(%u%%) co2=%u/7(%u%%),%u/30(%u%%) air=%u/7(%u%%),%u/30(%u%%) noise=%u/7(%u%%),%u/30(%u%%)",
-                     climate7, pct(climate7, 7), climate30, pct(climate30, 30),
-                     co27, pct(co27, 7), co230, pct(co230, 30),
-                     air7, pct(air7, 7), air30, pct(air30, 30),
-                     noise7, pct(noise7, 7), noise30, pct(noise30, 30));
-            debug_outln_info(F("[Analytics] "), String(line2));
-
-            char line3[220];
-            snprintf(line3, sizeof(line3),
-                     "coverage(metric): temp=%u/7,%u/30 hum=%u/7,%u/30 dew=%u/7,%u/30 pm10=%u/7,%u/30 pm25=%u/7,%u/30 co2=%u/7,%u/30 noise=%u/7,%u/30",
-                     temp7, temp30, hum7, hum30, dew7, dew30,
-                     pm10_7, pm10_30, pm25_7, pm25_30,
-                     co27, co230, noise7, noise30);
-            debug_outln_info(F("[Analytics] "), String(line3));
-        }
-#endif
-        drawOverview24hStyled();
-    } else if (view == analytics_view_t::CLIMATE_24H) {
-        char t7[12] = "--", h7[12] = "--", d7[12] = "--";
-        char t30[12] = "--", h30[12] = "--", d30[12] = "--";
-        uint16_t cov7 = countCoverageDays(g_temp_hist, 7), cov30 = countCoverageDays(g_temp_hist, 30);
-        if (values_7d.temp_indoor.has_24h) {
-            stringFromFloat(t7, values_7d.temp_indoor.avg24h, 1);
-        }
-        if (values_7d.hum_indoor.has_24h) {
-            stringFromFloat(h7, values_7d.hum_indoor.avg24h, 0);
-        }
-        if (values_7d.dew_indoor.has_24h) {
-            stringFromFloat(d7, values_7d.dew_indoor.avg24h, 1);
-        }
-        if (values_30d.temp_indoor.has_24h) {
-            stringFromFloat(t30, values_30d.temp_indoor.avg24h, 1);
-        }
-        if (values_30d.hum_indoor.has_24h) {
-            stringFromFloat(h30, values_30d.hum_indoor.avg24h, 0);
-        }
-        if (values_30d.dew_indoor.has_24h) {
-            stringFromFloat(d30, values_30d.dew_indoor.avg24h, 1);
-        }
-        char p7[32], s7[48], st7[40], p30[24], s30[28], st30[40], r1[112], r2[112], r3[112], r4[112], wk_title[32], mo_title[32];
-        snprintf(p7, sizeof(p7), "%sC", t7);
-        {
-            char tu[12] = "--", hu[12] = "--";
-            formatMetricOrDash(tu, sizeof(tu), values.temp_urban, 1);
-            formatMetricOrDash(hu, sizeof(hu), values.hum_urban, 0);
-            snprintf(s7, sizeof(s7), A_TXT("RH %s%% / Dew: %sC", "RH %s%% / Т.росы: %sC"), h7, d7);
-            snprintf(st7, sizeof(st7), A_TXT("Urban: %sC %s%%", "Улица: %sC %s%%"), tu, hu);
-        }
-        snprintf(p30, sizeof(p30), "%sC", t30);
-        snprintf(s30, sizeof(s30), A_TXT("RH %s%% / Dew: %sC", "RH %s%% / Т.росы: %sC"), h30, d30);
-        {
-            char tu[12] = "--", hu[12] = "--";
-            formatMetricOrDash(tu, sizeof(tu), values.temp_urban, 1);
-            formatMetricOrDash(hu, sizeof(hu), values.hum_urban, 0);
-            snprintf(st30, sizeof(st30), A_TXT("Urban: %sC %s%%", "Улица: %sC %s%%"), tu, hu);
-        }
-        snprintf(r1, sizeof(r1), A_TXT("Average temperature was %sC with %s%% humidity.", "Средняя температура была %sC при влажности %s%%."), t7, h7);
-        snprintf(r2, sizeof(r2), A_TXT("Average dew point was %sC.", "Средняя точка росы была %sC."), d7);
-        snprintf(r3, sizeof(r3), A_TXT("Average temperature was %sC with %s%% humidity.", "Средняя температура была %sC при влажности %s%%."), t30, h30);
-        snprintf(r4, sizeof(r4), A_TXT("Average dew point was %sC.", "Средняя точка росы была %sC."), d30);
-        snprintf(wk_title, sizeof(wk_title), A_TXT("Weekly overview", "Обзор недели"));
-        snprintf(mo_title, sizeof(mo_title), A_TXT("Monthly trends", "Обзор месяца"));
-        if (cov7 == 0) snprintf(r2, sizeof(r2), A_TXT("Coverage: no data yet.", "Покрытие: нет данных."));
-        else snprintf(r2, sizeof(r2), A_TXT("Coverage: %u/7.", "Покрытие: %u/7."), cov7);
-        if (cov30 == 0) snprintf(r4, sizeof(r4), A_TXT("Coverage: no data yet.", "Покрытие: нет данных."));
-        else snprintf(r4, sizeof(r4), A_TXT("Coverage: %u/30.", "Покрытие: %u/30."), cov30);
-        if (cov30 == 0) {
-            snprintf(p30, sizeof(p30), "No data");
-            snprintf(s30, sizeof(s30), "--");
-        }
-        const char *tip_line = nullptr;
-        if (cov7 == 0 && cov30 == 0) {
-            tip_line = A_TXT("Tip: collect data for trend insights.", "Совет: накопите данные для трендов.");
-        } else if (climate.score < 45) {
-            tip_line = A_TXT("Tip: ventilate and keep RH near 40-60%.", "Совет: проветривайте, RH держите 40-60%.");
-        } else if (climate.score < 75) {
-            tip_line = A_TXT("Tip: check temp and humidity daily.", "Совет: проверяйте температуру и RH ежедневно.");
-        } else {
-            tip_line = A_TXT("Tip: climate is stable, keep current routine.", "Совет: климат стабилен, сохраняйте режим.");
-        }
-        drawDetailDual("CLIMATE ANALYSIS",
-                       p7, s7, st7, qualityByScore(climate.score, A_TXT("Comfortable", "Комфорт"), A_TXT("Moderate", "Средне"), A_TXT("Unstable", "Нестаб.")),
-                       p30, s30, st30, qualityByScore(climate.score, A_TXT("Comfortable", "Комфорт"), A_TXT("Moderate", "Средне"), A_TXT("Unstable", "Нестаб.")),
-                       wk_title, r1, r2,
-                       mo_title, r3, r4,
-                       tip_line);
-    } else if (view == analytics_view_t::CO2_24H) {
-        char c7[12] = "--", c30[12] = "--";
-        uint16_t cov7 = countCoverageDays(g_co2_hist, 7), cov30 = countCoverageDays(g_co2_hist, 30);
-        if (values_7d.co2.has_24h) {
-            stringFromFloat(c7, values_7d.co2.avg24h, 0);
-        }
-        if (values_30d.co2.has_24h) {
-            stringFromFloat(c30, values_30d.co2.avg24h, 0);
-        }
-        char p7[24], p30[24], r1[112], r2[112], r3[112], r4[112], wk_title[32], mo_title[32];
-        snprintf(p7, sizeof(p7), "%sppm", c7);
-        snprintf(p30, sizeof(p30), "%sppm", c30);
-        snprintf(r1, sizeof(r1), A_TXT("Average carbon dioxide was %s ppm this week.", "Средний уровень углекислого газа за неделю составил %s ppm."), c7);
-        snprintf(r2, sizeof(r2), A_TXT("Higher values may indicate weaker ventilation.", "Более высокие значения могут указывать на слабую вентиляцию."));
-        snprintf(r3, sizeof(r3), A_TXT("Average carbon dioxide was %s ppm this month.", "Средний уровень углекислого газа за месяц составил %s ppm."), c30);
-        snprintf(r4, sizeof(r4), A_TXT("Use this value as your indoor baseline.", "Используйте это значение как базовый ориентир для помещения."));
-        snprintf(wk_title, sizeof(wk_title), A_TXT("Weekly overview", "Обзор недели"));
-        snprintf(mo_title, sizeof(mo_title), A_TXT("Monthly trends", "Обзор месяца"));
-        if (cov7 == 0) snprintf(r2, sizeof(r2), A_TXT("Coverage: no data yet.", "Покрытие: нет данных."));
-        else snprintf(r2, sizeof(r2), A_TXT("Coverage: %u/7.", "Покрытие: %u/7."), cov7);
-        if (cov30 == 0) snprintf(r4, sizeof(r4), A_TXT("Coverage: no data yet.", "Покрытие: нет данных."));
-        else snprintf(r4, sizeof(r4), A_TXT("Coverage: %u/30.", "Покрытие: %u/30."), cov30);
-        if (cov30 == 0) {
-            snprintf(p30, sizeof(p30), "No data");
-        }
-        const char *tip_line = nullptr;
-        if (cov7 == 0 && cov30 == 0) {
-            tip_line = A_TXT("Tip: collect data to estimate CO2 baseline.", "Совет: накопите данные для базового CO2.");
-        } else if (co2.score < 45) {
-            tip_line = A_TXT("Tip: open windows when CO2 remains elevated.", "Совет: проветривайте при повышенном CO2.");
-        } else {
-            tip_line = A_TXT("Tip: maintain regular airflow in the room.", "Совет: поддерживайте регулярное проветривание.");
-        }
-        drawDetailDual("CO2 ANALYSIS",
-                       p7, A_TXT("Carbon dioxide", "Углекислый газ"), nullptr, qualityByScore(co2.score, A_TXT("Normal", "Норма"), A_TXT("Elevated", "Выше"), A_TXT("High CO2", "Высоко")),
-                       p30, A_TXT("Carbon dioxide", "Углекислый газ"), nullptr, qualityByScore(co2.score, A_TXT("Normal", "Норма"), A_TXT("Elevated", "Выше"), A_TXT("High CO2", "Высоко")),
-                       wk_title, r1, r2,
-                       mo_title, r3, r4,
-                       tip_line);
-    } else if (view == analytics_view_t::AIR_24H) {
-        char pm10_7[12] = "--", pm10_30[12] = "--";
-        char pm25_7[12] = "--", pm25_30[12] = "--";
-        uint16_t cov7 = countCoverageDays(g_pm25_hist, 7), cov30 = countCoverageDays(g_pm25_hist, 30);
-        if (values_7d.pm10.has_24h) {
-            stringFromFloat(pm10_7, values_7d.pm10.avg24h, 1);
-        }
-        if (values_30d.pm10.has_24h) {
-            stringFromFloat(pm10_30, values_30d.pm10.avg24h, 1);
-        }
-        if (values_7d.pm25.has_24h) {
-            stringFromFloat(pm25_7, values_7d.pm25.avg24h, 1);
-        }
-        if (values_30d.pm25.has_24h) {
-            stringFromFloat(pm25_30, values_30d.pm25.avg24h, 1);
-        }
-        char p7[24], s7[28], p30[24], s30[28], r1[112], r2[112], r3[112], r4[112], wk_title[32], mo_title[32];
-        snprintf(p7, sizeof(p7), "%sug/m3", pm10_7);
-        snprintf(s7, sizeof(s7), "PM2.5 - %s", pm25_7);
-        snprintf(p30, sizeof(p30), "%sug/m3", pm10_30);
-        snprintf(s30, sizeof(s30), "PM2.5 - %s", pm25_30);
-        snprintf(r1, sizeof(r1), A_TXT("Average PM10 and PM2.5 were %s and %s ug/m3 this week.", "Средние PM10 и PM2.5 за неделю: %s и %s ug/m3."), pm10_7, pm25_7);
-        snprintf(r2, sizeof(r2), A_TXT("Short pollution spikes are often easier to see weekly.", "Короткие всплески загрязнения обычно заметнее на недельном окне."));
-        snprintf(r3, sizeof(r3), A_TXT("Average PM10 and PM2.5 were %s and %s ug/m3 this month.", "Средние PM10 и PM2.5 за месяц: %s и %s ug/m3."), pm10_30, pm25_30);
-        snprintf(r4, sizeof(r4), A_TXT("Monthly values help track your long-term air baseline.", "Месячные значения помогают отслеживать долгосрочный базовый уровень качества воздуха."));
-        snprintf(wk_title, sizeof(wk_title), A_TXT("Weekly overview", "Обзор недели"));
-        snprintf(mo_title, sizeof(mo_title), A_TXT("Monthly trends", "Обзор месяца"));
-        if (cov7 == 0) snprintf(r2, sizeof(r2), A_TXT("Coverage: no data yet.", "Покрытие: нет данных."));
-        else snprintf(r2, sizeof(r2), A_TXT("Coverage: %u/7.", "Покрытие: %u/7."), cov7);
-        if (cov30 == 0) snprintf(r4, sizeof(r4), A_TXT("Coverage: no data yet.", "Покрытие: нет данных."));
-        else snprintf(r4, sizeof(r4), A_TXT("Coverage: %u/30.", "Покрытие: %u/30."), cov30);
-        if (cov30 == 0) {
-            snprintf(p30, sizeof(p30), "No data");
-        }
-        const char *tip_line = nullptr;
-        if (cov7 == 0 && cov30 == 0) {
-            tip_line = A_TXT("Tip: collect PM data to see pollution trends.", "Совет: накопите PM-данные для трендов.");
-        } else if (air.score < 45) {
-            tip_line = A_TXT("Tip: reduce indoor dust and ventilate more often.", "Совет: уменьшайте пыль и чаще проветривайте.");
-        } else {
-            tip_line = A_TXT("Tip: compare peaks with outdoor conditions.", "Совет: сравнивайте пики с условиями снаружи.");
-        }
-        drawDetailDual("AIR ANALYSIS",
-                       p7, s7, nullptr, qualityByScore(air.score, A_TXT("Good Air", "Хорошо"), A_TXT("Moderate Air", "Средне"), A_TXT("Poor Air", "Плохо")),
-                       p30, s30, nullptr, qualityByScore(air.score, A_TXT("Good Air", "Хорошо"), A_TXT("Moderate Air", "Средне"), A_TXT("Poor Air", "Плохо")),
-                       wk_title, r1, r2,
-                       mo_title, r3, r4,
-                       tip_line);
-    } else {
-        char n7[12] = "--", n30[12] = "--";
-        uint16_t cov7 = countCoverageDays(g_noise_hist, 7), cov30 = countCoverageDays(g_noise_hist, 30);
-        if (values_7d.noise_avg.has_24h) {
-            stringFromFloat(n7, values_7d.noise_avg.avg24h, 0);
-        }
-        if (values_30d.noise_avg.has_24h) {
-            stringFromFloat(n30, values_30d.noise_avg.avg24h, 0);
-        }
-        char n7max[12] = "--", n30max[12] = "--";
-        if (values_7d.noise_avg.has_24h) {
-            stringFromFloat(n7max, values_7d.noise_avg.max24h, 0);
-        }
-        if (values_30d.noise_avg.has_24h) {
-            stringFromFloat(n30max, values_30d.noise_avg.max24h, 0);
-        }
-        char s7[24], s30[24], p7[24], p30[24], r1[112], r2[112], r3[112], r4[112], wk_title[32], mo_title[32];
-        snprintf(p7, sizeof(p7), "%sdB", n7);
-        snprintf(p30, sizeof(p30), "%sdB", n30);
-        snprintf(s7, sizeof(s7), "Max - %sdB", n7max);
-        snprintf(s30, sizeof(s30), "Max - %sdB", n30max);
-        snprintf(r1, sizeof(r1), A_TXT("Average noise was %s dB, maximum was %s dB.", "Средний шум был %s dB, максимум был %s dB."), n7, n7max);
-        snprintf(r2, sizeof(r2), "Helps detect noisy days.");
-        snprintf(r3, sizeof(r3), A_TXT("Average noise was %s dB, maximum was %s dB.", "Средний шум был %s dB, максимум был %s dB."), n30, n30max);
-        snprintf(r4, sizeof(r4), "Good for longer quiet/noisy baseline.");
-        snprintf(wk_title, sizeof(wk_title), A_TXT("Weekly overview", "Обзор недели"));
-        snprintf(mo_title, sizeof(mo_title), A_TXT("Monthly trends", "Обзор месяца"));
-        if (cov7 == 0) snprintf(r2, sizeof(r2), A_TXT("Coverage: no data yet.", "Покрытие: нет данных."));
-        else snprintf(r2, sizeof(r2), A_TXT("Coverage: %u/7.", "Покрытие: %u/7."), cov7);
-        if (cov30 == 0) snprintf(r4, sizeof(r4), A_TXT("Coverage: no data yet.", "Покрытие: нет данных."));
-        else snprintf(r4, sizeof(r4), A_TXT("Coverage: %u/30.", "Покрытие: %u/30."), cov30);
-        if (cov30 == 0) {
-            snprintf(p30, sizeof(p30), "No data");
-        }
-        const char *tip_line = nullptr;
-        if (cov7 == 0 && cov30 == 0) {
-            tip_line = A_TXT("Tip: collect data to identify noisy periods.", "Совет: накопите данные по шумным периодам.");
-        } else if (noise.score < 45) {
-            tip_line = A_TXT("Tip: check recurring high-noise hours.", "Совет: отслеживайте повторяющиеся шумные часы.");
-        } else {
-            tip_line = A_TXT("Tip: monitor max noise spikes over time.", "Совет: следите за пиками максимального шума.");
-        }
-        drawDetailDual("NOISE ANALYSIS",
-                       p7, s7, nullptr, qualityByScore(noise.score, A_TXT("Low Noise", "Тихо"), A_TXT("Moderate", "Средне"), A_TXT("Noisy", "Шумно")),
-                       p30, s30, nullptr, qualityByScore(noise.score, A_TXT("Low Noise", "Тихо"), A_TXT("Moderate", "Средне"), A_TXT("Noisy", "Шумно")),
-                       wk_title, r1, r2,
-                       mo_title, r3, r4,
-                       tip_line);
-    }
 }
 
 #endif

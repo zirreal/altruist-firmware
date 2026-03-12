@@ -120,4 +120,6 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "";
 #define INTL_SENSOR ""
 #define INTL_PARAMETER ""
 #define INTL_VALUE ""
+#define INTL_DISP_ANALYTICS_C_LEGEND ""
+#define INTL_DISP_ANALYTICS_B_LEGEND ""
 

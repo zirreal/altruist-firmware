@@ -339,8 +339,9 @@ static void sdRetentionWorker(void *pvParameters) {
 	(void)pvParameters;
 	const uint16_t RAW_RETENTION_DAYS = 30;
 	const uint16_t DAILY_ROLLUP_RETENTION_DAYS = 180;
+	const uint16_t HOURLY_ROLLUP_RETENTION_DAYS = 30;
 	const uint16_t MONTHLY_ROLLUP_RETENTION_MONTHS = 24;
-	const uint16_t MAX_BOOT_FILES = 100;
+	const uint16_t MAX_BOOT_FILES = 30;
 	const unsigned long CLEANUP_INTERVAL_MS = 6UL * 60UL * 60UL * 1000UL; // 6 hours
 	unsigned long last_cleanup_ms = 0;
 
@@ -359,6 +360,7 @@ static void sdRetentionWorker(void *pvParameters) {
 			sdCardLogger.applyRetentionPolicy(
 				RAW_RETENTION_DAYS,
 				DAILY_ROLLUP_RETENTION_DAYS,
+				HOURLY_ROLLUP_RETENTION_DAYS,
 				MONTHLY_ROLLUP_RETENTION_MONTHS,
 				MAX_BOOT_FILES
 			);
@@ -436,7 +438,86 @@ static void setupNetworkTime() {
 	configTzTime(cfg::timezone, ntpServer1, ntpServer2);
 }
 
-void fetchSensors() {
+static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &doc, analytics_screen_values_t &values) {
+#if defined(ALTRUIST_INSIDE)
+	values = analytics_screen_values_t{};
+	JsonObjectConst data = doc.as<JsonObjectConst>();
+	const String urban_key = ATRUIST_URBAN_SENSOR;
+
+	auto validTemp = [](float v) { return v > -40.0f && v < 80.0f; };
+	auto validHumidity = [](float v) { return v >= 0.0f && v <= 100.0f; };
+	auto validCO2 = [](float v) { return v >= 300.0f && v <= 5000.0f; };
+	auto validPM = [](float v) { return v >= 0.0f && v <= 1500.0f; };
+	auto validNoise = [](float v) { return v >= 0.0f && v <= 120.0f; };
+
+	const bool use_bme680_for_temp_hum = (system_metrics.uptime_sec < 360);
+
+	if (data.containsKey("SCD4x")) {
+		JsonObjectConst scd = data["SCD4x"].as<JsonObjectConst>();
+		if (scd.containsKey("co2")) {
+			const float v = scd["co2"]["value"].as<float>();
+			if (validCO2(v)) { values.co2.current = v; values.co2.has_current = true; }
+		}
+		if (!use_bme680_for_temp_hum) {
+			if (scd.containsKey("temperature")) {
+				const float v = scd["temperature"]["value"].as<float>();
+				if (validTemp(v)) { values.temp_indoor.current = v; values.temp_indoor.has_current = true; }
+			}
+			if (scd.containsKey("humidity")) {
+				const float v = scd["humidity"]["value"].as<float>();
+				if (validHumidity(v)) { values.hum_indoor.current = v; values.hum_indoor.has_current = true; }
+			}
+		}
+	}
+
+	if (data.containsKey("BME680") && use_bme680_for_temp_hum) {
+		JsonObjectConst bme = data["BME680"].as<JsonObjectConst>();
+		if (bme.containsKey("temperature")) {
+			const float v = bme["temperature"]["value"].as<float>();
+			if (validTemp(v)) { values.temp_indoor.current = v; values.temp_indoor.has_current = true; }
+		}
+		if (bme.containsKey("humidity")) {
+			const float v = bme["humidity"]["value"].as<float>();
+			if (validHumidity(v)) { values.hum_indoor.current = v; values.hum_indoor.has_current = true; }
+		}
+	}
+
+	if (data.containsKey(urban_key)) {
+		JsonObjectConst urban = data[urban_key].as<JsonObjectConst>();
+		if (urban.containsKey("SDS_P1")) {
+			const float v = urban["SDS_P1"]["value"].as<float>();
+			if (validPM(v)) { values.pm10.current = v; values.pm10.has_current = true; }
+		}
+		if (urban.containsKey("SDS_P2")) {
+			const float v = urban["SDS_P2"]["value"].as<float>();
+			if (validPM(v)) { values.pm25.current = v; values.pm25.has_current = true; }
+		}
+		if (urban.containsKey("PCBA_noiseAvg")) {
+			const float v = urban["PCBA_noiseAvg"]["value"].as<float>();
+			if (validNoise(v)) { values.noise_avg.current = v; values.noise_avg.has_current = true; }
+		}
+	}
+
+	if (values.temp_indoor.has_current && values.hum_indoor.has_current && values.hum_indoor.current > 0.0f) {
+		const float t = values.temp_indoor.current;
+		const float h = values.hum_indoor.current;
+		const float a = 17.62f;
+		const float b = 243.12f;
+		const float gamma = logf(h / 100.0f) + (a * t) / (b + t);
+		const float dew = (b * gamma) / (a - gamma);
+		if (validTemp(dew)) {
+			values.dew_indoor.current = dew;
+			values.dew_indoor.has_current = true;
+		}
+	}
+#else
+	(void)doc;
+	(void)values;
+#endif
+}
+
+bool fetchSensors() {
+	bool any_sensor_json_updated = false;
 	bool isSDSRunning = false;
 		for (int i = 0; i < activeSensorsCount; i++) {
 			if (activeSensors[i]->sensor_name == SDS_SENSOR_NAME) {
@@ -446,27 +527,45 @@ void fetchSensors() {
 				static_cast<I2SNoiseSensor*>(activeSensors[i])->setSDSRunning(isSDSRunning);
 			}
 			if (activeSensors[i]->isTimeToFetch()) {
+				bool sensor_json_updated = false;
 				if (xSemaphoreTake(mutex, portMAX_DELAY)) {
 					activeSensors[i]->fetch(sensors_data);
+					sensor_json_updated = activeSensors[i]->jsonUpdated();
+					if (sensor_json_updated) {
+						any_sensor_json_updated = true;
+					}
 					xSemaphoreGive(mutex);
 				}
 #if defined(USE_SD_CARD)
 				// SD logging outside mutex - SD writes are slow and would block display
 				deviceStatus.sd_card_connected = sdCardLogger.checkInserted();
-				if (deviceStatus.sd_card_connected && activeSensors[i]->jsonUpdated()) {
+				if (deviceStatus.sd_card_connected && sensor_json_updated) {
 					sdCardLogger.logData(activeSensors[i]->sensor_name, sensors_data);
 				}
 #endif
 			}
 		}
+	return any_sensor_json_updated;
 }
 
 void sensorAndAPIWorker(void *pvParameters) {
 	int reconnected = 0;
+#if defined(ALTRUIST_INSIDE)
+	analytics_screen_values_t analytics_rollup_values;
+#endif
 	for (;;) {  // infinite loop
 		// Mark that we're about to fetch sensor data
 		markCrashSection(CRASH_SECTION_FETCH_SENSORS);
-		fetchSensors();
+		const bool sensors_updated = fetchSensors();
+#if defined(ALTRUIST_INSIDE)
+		// Keep analytics history collection independent from Analytics screen rendering.
+		if (sensors_updated && xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
+			extractAnalyticsRollupValuesFromSensors(sensors_data, analytics_rollup_values);
+			analyticsIngestHourSample(analytics_rollup_values);
+			xSemaphoreGive(mutex);
+		}
+		analyticsDevLogStatus15m();
+#endif
 		markCrashSection(CRASH_SECTION_IDLE);
 
 		for (int i = 0; i < ActiveAPIsCount; i++) {
