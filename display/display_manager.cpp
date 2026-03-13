@@ -488,7 +488,8 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 xSemaphoreGive(mutex);
             }
             populateAnalyticsPeriodStats(cached_analytics_values);
-            showAnalyticsPage(BlackImage, cached_analytics_values);
+            String analytics_map_addr = cached_urban_address.length() > 0 ? cached_urban_address : robonomics_address;
+            showAnalyticsPage(BlackImage, cached_analytics_values, analytics_map_addr);
         } else if (currentScreenID == ScreenPage::GRAPHS) {
             // Always draw graph screen - it will show appropriate message if no data/card
             drawGraphScreen();

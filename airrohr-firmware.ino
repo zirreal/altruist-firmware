@@ -98,6 +98,9 @@
 
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
+// Needed for Arduino .ino auto-generated prototypes in non-INSIDE builds.
+struct analytics_screen_values_t;
+
 SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
 DynamicJsonDocument sensors_data(2048);
 device_status_t deviceStatus;

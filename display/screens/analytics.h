@@ -4,6 +4,7 @@
 #define _ANALYTICS_SCREEN_H
 
 #include <ArduinoJson.h>
+#include <WString.h>
 #include "../driver/EPD.h"
 
 enum class analytics_view_t : uint8_t {
@@ -48,7 +49,7 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
 void analyticsIngestHourSample(const analytics_screen_values_t &values);
 void analyticsDevLogStatus15m();
 void populateAnalyticsPeriodStats(analytics_screen_values_t &values);
-void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values);
+void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values, const String &sensor_map_address);
 
 #endif // _ANALYTICS_SCREEN_H
 

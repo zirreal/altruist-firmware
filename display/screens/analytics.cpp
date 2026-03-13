@@ -10,6 +10,7 @@
 #include "../../defines.h"
 #include "../../intl.h"
 #include "../../config_manager/config_helpers.h"
+#include <qrcode.h>
 #if defined(USE_SD_CARD) && defined(DEV)
 #include "../../sd_card/sd_card.h"
 extern SDCard sdCardLogger;
@@ -439,50 +440,96 @@ static float clamp01(float v) {
     return v;
 }
 
-static void drawArcBand(int cx, int cy, int outer_r, int inner_r,
-                        float start_deg, float sweep_deg, float normalized) {
+static float normalizeDeg(float deg) {
+    while (deg < 0.0f) deg += 360.0f;
+    while (deg >= 360.0f) deg -= 360.0f;
+    return deg;
+}
+
+static bool angleInSweep(float angle_deg, float start_deg, float sweep_deg) {
+    const float sweep = fabsf(sweep_deg);
+    if (sweep >= 359.9f) return true;
+    const float a = normalizeDeg(angle_deg);
+    const float s = normalizeDeg(start_deg);
+    if (sweep_deg >= 0.0f) {
+        const float d = normalizeDeg(a - s);
+        return d <= sweep;
+    }
+    const float d = normalizeDeg(s - a);
+    return d <= sweep;
+}
+
+static void drawArcBandColor(int cx, int cy, int outer_r, int inner_r,
+                             float start_deg, float sweep_deg, uint16_t color) {
     if (outer_r < inner_r) {
         int t = outer_r;
         outer_r = inner_r;
         inner_r = t;
     }
     if (outer_r <= 0) return;
+    if (fabsf(sweep_deg) < 0.01f) return;
 
-    const float fill = clamp01(normalized);
-    const float end_deg = start_deg + sweep_deg * fill;
-    if (fill <= 0.0f || fabsf(end_deg - start_deg) < 0.01f) return;
+    const int o2 = outer_r * outer_r;
+    const int i2 = inner_r * inner_r;
+    const int x0 = cx - outer_r;
+    const int x1 = cx + outer_r;
+    const int y0 = cy - outer_r;
+    const int y1 = cy + outer_r;
 
-    // Faster and smoother arc: stamp small filled circles along the band centerline.
-    const int band_thickness = outer_r - inner_r + 1;
-    const int stamp_r = (band_thickness >= 4) ? (band_thickness / 2) : 1;
-    const float mid_r = (float)(inner_r + outer_r) * 0.5f;
-    float step_deg = 0.65f; // denser sampling for smoother e-ink curves
-    if (outer_r <= 42) step_deg = 0.55f;
-    if (outer_r >= 70) step_deg = 0.45f;
-    const float span = fabsf(end_deg - start_deg);
-    const int samples = (int)(span / step_deg) + 2;
-    for (int i = 0; i <= samples; ++i) {
-        float t = (samples > 0) ? ((float)i / (float)samples) : 0.0f;
-        float a = start_deg + (end_deg - start_deg) * t;
-        float rad = a * kPi / 180.0f;
-        int mx = cx + (int)roundf(cosf(rad) * mid_r);
-        int my = cy + (int)roundf(sinf(rad) * mid_r);
-        Paint_DrawCircle(mx, my, stamp_r, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-        if (stamp_r > 1 && (i & 1) == 0) {
-            Paint_DrawCircle(mx, my, stamp_r - 1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    // Pixel-accurate mask fill: no overdraw patterns, cleaner on e-ink.
+    for (int y = y0; y <= y1; ++y) {
+        const int dy = y - cy;
+        for (int x = x0; x <= x1; ++x) {
+            const int dx = x - cx;
+            const int r2 = dx * dx + dy * dy;
+            if (r2 > o2 || r2 < i2) continue;
+            const float a = atan2f((float)dy, (float)dx) * (180.0f / kPi);
+            if (!angleInSweep(a, start_deg, sweep_deg)) continue;
+            Paint_DrawPoint(x, y, color, DOT_PIXEL_1X1, DOT_STYLE_DFT);
         }
     }
+}
 
-    // Fill tiny cap holes at arc ends caused by integer rounding.
-    {
-        float rs = start_deg * kPi / 180.0f;
-        float re = end_deg * kPi / 180.0f;
-        float mid = (float)(inner_r + outer_r) * 0.5f;
-        Paint_DrawCircle(cx + (int)roundf(cosf(rs) * mid), cy + (int)roundf(sinf(rs) * mid),
-                         1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-        Paint_DrawCircle(cx + (int)roundf(cosf(re) * mid), cy + (int)roundf(sinf(re) * mid),
-                         1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+static void drawDashedRingBorder(int cx, int cy, int outer_r, int inner_r,
+                                 float start_deg, float sweep_deg,
+                                 float dash_deg, float gap_deg) {
+    if (outer_r < inner_r) {
+        const int t = outer_r;
+        outer_r = inner_r;
+        inner_r = t;
     }
+    if (dash_deg <= 0.0f) return;
+    if (gap_deg < 0.0f) gap_deg = 0.0f;
+    const float total = fabsf(sweep_deg);
+    if (total < 0.01f) return;
+    const float cycle = dash_deg + gap_deg;
+    if (cycle <= 0.0f) return;
+    const float dir = (sweep_deg >= 0.0f) ? 1.0f : -1.0f;
+    const int n = (int)ceilf(total / cycle);
+    for (int i = 0; i < n; ++i) {
+        const float prog = (float)i * cycle;
+        const float rem = total - prog;
+        if (rem <= 0.0f) break;
+        const float seg = (rem < dash_deg) ? rem : dash_deg;
+        const float a0 = start_deg + dir * prog;
+        drawArcBandColor(cx, cy, outer_r, inner_r, a0, dir * seg, BLACK);
+    }
+}
+
+static void fillRingSolidFast(int cx, int cy, int outer_r, int inner_r, uint16_t color) {
+    if (outer_r < inner_r) {
+        const int t = outer_r;
+        outer_r = inner_r;
+        inner_r = t;
+    }
+    drawArcBandColor(cx, cy, outer_r, inner_r, -90.0f, 360.0f, color);
+}
+
+static void drawArcBand(int cx, int cy, int outer_r, int inner_r,
+                        float start_deg, float sweep_deg, float normalized) {
+    const float fill = clamp01(normalized);
+    if (fill <= 0.0f) return;
+    drawArcBandColor(cx, cy, outer_r, inner_r, start_deg, sweep_deg * fill, BLACK);
 }
 
 static void drawRingBorders(int cx, int cy, int outer_r, int inner_r) {
@@ -553,7 +600,7 @@ const char* analyticsViewLabel() {
 }
 
 static const char* analyticsViewLabelTitle() {
-    return A_TXT("Night score", "Ночной индекс");
+    return A_TXT("Sleep analytics", "Аналитика сна");
 }
 
 void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_screen_values_t &values) {
@@ -951,54 +998,224 @@ static void drawTrackArc(int cx, int cy, int outer_r, int inner_r, float start_d
     if (fill_norm < 0.005f) fill_norm = 0.0f;
 
     const float span = fabsf(sweep_deg);
-    int steps = (int)(span * 3.2f);
-    if (steps < 160) steps = 160;
-    for (int i = 0; i <= steps; i++) {
-        const float t = (float)i / (float)steps;
-        const float a = (start_deg + sweep_deg * t) * (kPi / 180.0f);
-        const int xo = cx + (int)roundf(cosf(a) * (float)outer_r);
-        const int yo = cy + (int)roundf(sinf(a) * (float)outer_r);
-        const int xi = cx + (int)roundf(cosf(a) * (float)inner_r);
-        const int yi = cy + (int)roundf(sinf(a) * (float)inner_r);
-        if (i == 0) {
-            Paint_DrawPoint(xo, yo, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
-            Paint_DrawPoint(xi, yi, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+    const bool main_ring = span > 300.0f;
+    int segments = main_ring ? 42 : (int)(span / 4.8f);
+    if (segments < 7) segments = 7;
+    const float seg_span = span / (float)segments;
+    // Keep a visible gap so the shape reads as rotated rectangles/ticks.
+    const float gap_deg = main_ring ? 1.1f : 1.4f;
+
+    int filled_segments = (int)lroundf(fill_norm * (float)segments);
+    if (filled_segments < 0) filled_segments = 0;
+    if (filled_segments > segments) filled_segments = segments;
+
+    auto drawTick = [&](float a0_deg, float a1_deg, bool filled) {
+        if (a1_deg <= a0_deg) return;
+
+        const float a0 = a0_deg * (kPi / 180.0f);
+        const float a1 = a1_deg * (kPi / 180.0f);
+        const int x0i = cx + (int)roundf(cosf(a0) * (float)inner_r);
+        const int y0i = cy + (int)roundf(sinf(a0) * (float)inner_r);
+        const int x0o = cx + (int)roundf(cosf(a0) * (float)outer_r);
+        const int y0o = cy + (int)roundf(sinf(a0) * (float)outer_r);
+        const int x1i = cx + (int)roundf(cosf(a1) * (float)inner_r);
+        const int y1i = cy + (int)roundf(sinf(a1) * (float)inner_r);
+        const int x1o = cx + (int)roundf(cosf(a1) * (float)outer_r);
+        const int y1o = cy + (int)roundf(sinf(a1) * (float)outer_r);
+
+        // Rectangle outline (always visible, including unfilled ticks).
+        Paint_DrawLine(x0i, y0i, x0o, y0o, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(x1i, y1i, x1o, y1o, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(x0i, y0i, x1i, y1i, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(x0o, y0o, x1o, y1o, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
+        if (!filled) return;
+
+        // Fill tick body by sweeping thin radial lines between its side borders.
+        int fill_steps = (int)(fabsf(a1_deg - a0_deg) * 1.8f);
+        if (fill_steps < 3) fill_steps = 3;
+        for (int s = 0; s <= fill_steps; ++s) {
+            const float t = (float)s / (float)fill_steps;
+            const float ad = a0_deg + (a1_deg - a0_deg) * t;
+            const float ar = ad * (kPi / 180.0f);
+            const int xi = cx + (int)roundf(cosf(ar) * (float)inner_r);
+            const int yi = cy + (int)roundf(sinf(ar) * (float)inner_r);
+            const int xo = cx + (int)roundf(cosf(ar) * (float)outer_r);
+            const int yo = cy + (int)roundf(sinf(ar) * (float)outer_r);
+            Paint_DrawLine(xi, yi, xo, yo, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        }
+    };
+
+    for (int i = 0; i < segments; ++i) {
+        const float t0 = (float)i / (float)segments;
+        const float t1 = (float)(i + 1) / (float)segments;
+        float a0 = start_deg + sweep_deg * t0;
+        float a1 = start_deg + sweep_deg * t1;
+        if (sweep_deg >= 0.0f) {
+            a0 += gap_deg * 0.5f;
+            a1 -= gap_deg * 0.5f;
         } else {
-            const float tp = (float)(i - 1) / (float)steps;
-            const float ap = (start_deg + sweep_deg * tp) * (kPi / 180.0f);
-            const int pxo = cx + (int)roundf(cosf(ap) * (float)outer_r);
-            const int pyo = cy + (int)roundf(sinf(ap) * (float)outer_r);
-            const int pxi = cx + (int)roundf(cosf(ap) * (float)inner_r);
-            const int pyi = cy + (int)roundf(sinf(ap) * (float)inner_r);
-            Paint_DrawLine(pxo, pyo, xo, yo, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-            Paint_DrawLine(pxi, pyi, xi, yi, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-            // Midpoint touch-up reduces staircase gaps without increasing thickness.
-            Paint_DrawPoint((pxo + xo) / 2, (pyo + yo) / 2, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
-            Paint_DrawPoint((pxi + xi) / 2, (pyi + yi) / 2, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+            a0 -= gap_deg * 0.5f;
+            a1 += gap_deg * 0.5f;
+        }
+        drawTick(a0, a1, i < filled_segments);
+    }
+}
+
+static void drawTiltedBarTrack(int cx, int cy,
+                               float anchor_deg,
+                               int anchor_radius,
+                               float tangent_deg,
+                               int bar_len,
+                               int bar_thickness,
+                               float fill_norm) {
+    fill_norm = clamp01(fill_norm);
+    const float ar = anchor_deg * (kPi / 180.0f);
+    const float tr = tangent_deg * (kPi / 180.0f);
+    const float ux = cosf(tr);
+    const float uy = sinf(tr);
+    const float vx = -sinf(tr);
+    const float vy = cosf(tr);
+
+    const float ax = (float)cx + cosf(ar) * (float)anchor_radius;
+    const float ay = (float)cy + sinf(ar) * (float)anchor_radius;
+    const float half_len = (float)bar_len * 0.5f;
+    const float half_th = (float)bar_thickness * 0.5f;
+
+    struct Pt { float x; float y; };
+
+    auto fillQuad = [&](const Pt &p0, const Pt &p1, const Pt &p2, const Pt &p3, uint16_t color) {
+        float min_xf = p0.x, max_xf = p0.x, min_yf = p0.y, max_yf = p0.y;
+        const Pt pts[4] = {p0, p1, p2, p3};
+        for (int i = 1; i < 4; ++i) {
+            if (pts[i].x < min_xf) min_xf = pts[i].x;
+            if (pts[i].x > max_xf) max_xf = pts[i].x;
+            if (pts[i].y < min_yf) min_yf = pts[i].y;
+            if (pts[i].y > max_yf) max_yf = pts[i].y;
+        }
+
+        const int min_x = (int)floorf(min_xf) - 1;
+        const int max_x = (int)ceilf(max_xf) + 1;
+        const int min_y = (int)floorf(min_yf) - 1;
+        const int max_y = (int)ceilf(max_yf) + 1;
+
+        auto edge = [](const Pt &a, const Pt &b, float px, float py) -> float {
+            return (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
+        };
+
+        for (int y = min_y; y <= max_y; ++y) {
+            for (int x = min_x; x <= max_x; ++x) {
+                const float px = (float)x + 0.5f;
+                const float py = (float)y + 0.5f;
+                const float e0 = edge(p0, p1, px, py);
+                const float e1 = edge(p1, p2, px, py);
+                const float e2 = edge(p2, p3, px, py);
+                const float e3 = edge(p3, p0, px, py);
+                const bool all_pos = (e0 >= -0.01f && e1 >= -0.01f && e2 >= -0.01f && e3 >= -0.01f);
+                const bool all_neg = (e0 <= 0.01f && e1 <= 0.01f && e2 <= 0.01f && e3 <= 0.01f);
+                if (all_pos || all_neg) {
+                    Paint_DrawPoint(x, y, color, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+                }
+            }
+        }
+    };
+
+    auto drawQuadBorder = [&](const Pt &p0, const Pt &p1, const Pt &p2, const Pt &p3) {
+        Paint_DrawLine((int)roundf(p0.x), (int)roundf(p0.y), (int)roundf(p1.x), (int)roundf(p1.y), BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine((int)roundf(p1.x), (int)roundf(p1.y), (int)roundf(p2.x), (int)roundf(p2.y), BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine((int)roundf(p2.x), (int)roundf(p2.y), (int)roundf(p3.x), (int)roundf(p3.y), BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine((int)roundf(p3.x), (int)roundf(p3.y), (int)roundf(p0.x), (int)roundf(p0.y), BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    };
+
+    auto makeQuad = [&](float t0, float t1, Pt &q0, Pt &q1, Pt &q2, Pt &q3) {
+        const float c0x = ax + ux * t0;
+        const float c0y = ay + uy * t0;
+        const float c1x = ax + ux * t1;
+        const float c1y = ay + uy * t1;
+        q0 = {c0x - vx * half_th, c0y - vy * half_th};
+        q1 = {c0x + vx * half_th, c0y + vy * half_th};
+        q2 = {c1x + vx * half_th, c1y + vy * half_th};
+        q3 = {c1x - vx * half_th, c1y - vy * half_th};
+    };
+
+    // Draw a clean bar: one outer border + one filled part.
+    Pt b0, b1, b2, b3;
+    makeQuad(-half_len, half_len, b0, b1, b2, b3);
+    fillQuad(b0, b1, b2, b3, WHITE);      // clear interior first
+    drawQuadBorder(b0, b1, b2, b3);       // stable black outline
+
+    const float filled_len = (float)bar_len * fill_norm;
+    if (filled_len > 0.5f) {
+        Pt f0, f1, f2, f3;
+        const float ft0 = -half_len;
+        const float ft1 = -half_len + filled_len;
+        makeQuad(ft0, ft1, f0, f1, f2, f3);
+        fillQuad(f0, f1, f2, f3, BLACK);
+
+        // Separator between filled and unfilled area.
+        if (fill_norm < 0.999f) {
+            const float sx = ax + ux * ft1;
+            const float sy = ay + uy * ft1;
+            const int x0 = (int)roundf(sx - vx * half_th);
+            const int y0 = (int)roundf(sy - vy * half_th);
+            const int x1 = (int)roundf(sx + vx * half_th);
+            const int y1 = (int)roundf(sy + vy * half_th);
+            Paint_DrawLine(x0, y0, x1, y1, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
         }
     }
+}
 
-    const float a0 = start_deg * (kPi / 180.0f);
-    const float a1 = (start_deg + sweep_deg) * (kPi / 180.0f);
-    Paint_DrawLine(cx + (int)roundf(cosf(a0) * (float)inner_r), cy + (int)roundf(sinf(a0) * (float)inner_r),
-                   cx + (int)roundf(cosf(a0) * (float)outer_r), cy + (int)roundf(sinf(a0) * (float)outer_r),
-                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    Paint_DrawLine(cx + (int)roundf(cosf(a1) * (float)inner_r), cy + (int)roundf(sinf(a1) * (float)inner_r),
-                   cx + (int)roundf(cosf(a1) * (float)outer_r), cy + (int)roundf(sinf(a1) * (float)outer_r),
-                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+static void drawSensorMapQrSmall(int x, int y, const String &sensor_addr) {
+    QRCode qr;
+    char qr_data[128];
+    if (sensor_addr.length() > 0) {
+        snprintf(qr_data, sizeof(qr_data), "sensors.social/?sensor=%s", sensor_addr.c_str());
+    } else {
+        snprintf(qr_data, sizeof(qr_data), "https://sensors.social/");
+    }
+    const uint8_t qr_version = 8;
+    uint8_t qrcodeData[qrcode_getBufferSize(qr_version)];
+    qrcode_initText(&qr, qrcodeData, qr_version, ECC_LOW, qr_data);
 
-    drawArcBand(cx, cy, outer_r - 1, inner_r + 1, start_deg, sweep_deg, fill_norm);
+    const int scale = 1;
+    const int quiet = 2;
+    const int total_w = qr.size * scale + quiet * 2;
+    const int total_h = qr.size * scale + quiet * 2;
+    const int row_bytes = (total_w + 7) / 8;
+    const int buf_sz = total_h * row_bytes;
+    unsigned char *bmp = (unsigned char *)malloc(buf_sz);
+    if (!bmp) return;
+    memset(bmp, 0x00, buf_sz);
+
+    for (uint8_t qy = 0; qy < qr.size; qy++) {
+        for (uint8_t qx = 0; qx < qr.size; qx++) {
+            if (!qrcode_getModule(&qr, qx, qy)) continue;
+            for (int sy = 0; sy < scale; sy++) {
+                for (int sx = 0; sx < scale; sx++) {
+                    int px = quiet + qx * scale + sx;
+                    int py = quiet + qy * scale + sy;
+                    if (px >= 0 && px < total_w && py >= 0 && py < total_h) {
+                        const int bi = py * row_bytes + (px / 8);
+                        bmp[bi] |= (0x80 >> (px % 8));
+                    }
+                }
+            }
+        }
+    }
+    Paint_DrawImage(bmp, x, y, total_w, total_h);
+    free(bmp);
 }
 
 static void drawNightSinglePage(int content_left, int content_top, int content_width,
-                                const analytics_screen_values_t &values) {
+                                const analytics_screen_values_t &values, const String &sensor_map_address) {
     (void)values;
     float co2 = 0.0f, pm25 = 0.0f, noise = 0.0f, temp = 0.0f, hum = 0.0f;
     bool has_co2 = false, has_pm25 = false, has_noise = false, has_temp = false, has_hum = false;
 
     const int cx = content_left + content_width / 2;
-    const int cy = content_top + 76;
-    const int r = 59;
+    const int content_bottom = DISPLAY_HEIGHT - 6;
+    const int cy = content_top + (content_bottom - content_top) / 2;
+    const int r = 86;
 
     const uint8_t night_start = safeHourCfg(cfg::analytics_night_start_hour, 22);
     const uint8_t night_end = safeHourCfg(cfg::analytics_night_end_hour, 10);
@@ -1111,60 +1328,244 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     const int cons_score = clampScore((int)lroundf(100.0f + total_cons_impact * 2.0f));
     const int bio_score = clampScore((int)lroundf(100.0f + total_bio_impact * 2.0f));
     const int circle_score = cons_score;
-    const char grade = gradeLetter(circle_score);
 
-    drawTrackArc(cx, cy, r + 1, r - 10, -90.0f, 359.0f, (float)circle_score / 100.0f);
+    // QR shortcut to sensor map (small but readable).
+    drawSensorMapQrSmall(content_left + 2, content_top + 2, sensor_map_address);
+
+    // Draw main score ring with solid black fill (faster redraw).
+    // ================= MAIN SCORE RING =================
+
+    const int main_outer = r + 4;
+    const int main_inner = r - 12;
+    const float main_fill = clamp01((float)circle_score / 100.0f);
+    fillRingSolidFast(cx, cy, main_outer, main_inner, BLACK);
+    // Keep visible score gap (e.g. 94% must not look like 100%).
+    if (main_fill < 0.999f) {
+        const float tail_start = -90.0f + 360.0f * main_fill;
+        const float tail_sweep = 360.0f * (1.0f - main_fill);
+        drawArcBandColor(cx, cy, main_outer, main_inner, tail_start, tail_sweep, WHITE);
+    }
+
+    // ================= METRIC FILL FUNCTION =================
 
     auto metricFill = [&](float c_impact, float b_impact, bool has_data) -> float {
+
         if (!has_data || !enough_night_data) return 0.0f;
-        // Strict visual mode: arcs represent sleep impact directly.
-        // 0% impact -> full arc, -10% impact (or worse) -> empty arc.
+
         const float impact_avg = 0.5f * (c_impact + b_impact);
+
         float fill = 1.0f + (impact_avg / 10.0f);
+
         if (fill < 0.0f) fill = 0.0f;
         if (fill > 1.0f) fill = 1.0f;
+
         return fill;
     };
-    const float f_co2 = metricFill(i_cons_co2, i_bio_co2, has_co2);
-    const float f_pm25 = metricFill(i_cons_pm25, i_bio_pm25, has_pm25);
-    const float f_noise = metricFill(i_cons_noise, i_bio_noise, has_noise);
-    const float f_temp = metricFill(i_cons_temp, i_bio_temp, has_temp);
-    const float f_hum = metricFill(i_cons_hum, i_bio_hum, has_hum);
 
-    const int out_outer = 78;
-    const int out_inner = 72;
-    drawTrackArc(cx, cy, out_outer, out_inner, 210.0f, 40.0f, f_co2);
-    drawTrackArc(cx, cy, out_outer, out_inner, 290.0f, 38.0f, f_pm25);
-    drawTrackArc(cx, cy, out_outer, out_inner, 342.0f, 32.0f, f_noise);
-    drawTrackArc(cx, cy, out_outer, out_inner, 24.0f, 38.0f, f_temp);
-    drawTrackArc(cx, cy, out_outer, out_inner, 130.0f, 40.0f, f_hum);
+    const float f_co2   = metricFill(i_cons_co2,   i_bio_co2,   has_co2);
+    const float f_pm25  = metricFill(i_cons_pm25,  i_bio_pm25,  has_pm25);
+    const float f_noise = metricFill(i_cons_noise, i_bio_noise, has_noise);
+    const float f_temp  = metricFill(i_cons_temp,  i_bio_temp,  has_temp);
+    const float f_hum   = metricFill(i_cons_hum,   i_bio_hum,   has_hum);
+
+    // ================= OUTER METRIC CARDS =================
+    // Card style close to reference: title, value, and bottom fill bar.
+    auto drawMetricCard = [&](int x, int y, int w, int h, const char *title, const char *value, const char *unit, float fill, int value_y_shift) {
+        if (w < 40 || h < 28) return;
+        fill = clamp01(fill);
+
+        // Outer card.
+        Paint_DrawRectangle(x, y, x + w, y + h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+
+        // Title.
+        uint16_t tw = Paint_GetStringWidth_Display(title, &Font16, &font_16_cyrillic, &font_16_ascii);
+        Paint_DrawString_Display(x + (w - (int)tw) / 2, y + 3, title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+
+        // Divider line.
+        const int sep_y = y + 21;
+        Paint_DrawLine(x + 12, sep_y, x + w - 12, sep_y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
+        // Value + unit.
+        uint16_t vw = Paint_GetStringWidth_Display(value, &Font20, &font_20_cyrillic, &font_20_ascii);
+        uint16_t uw = 0;
+        if (unit && unit[0] != '\0') {
+            uw = Paint_GetStringWidth_Display(unit, &Font12, &font_12_cyrillic, &font_12_ascii);
+        }
+        const int gap = (uw > 0) ? 3 : 0;
+        const int total_w = (int)vw + (int)uw + gap;
+        const int vx = x + (w - total_w) / 2;
+        const int vy = y + 21 + value_y_shift;
+        Paint_DrawString_Display(vx, vy, value, &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
+        if (uw > 0) {
+            Paint_DrawString_Display(vx + (int)vw + gap, vy + 4, unit, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        }
+
+        // Bottom progress bar glued to container bottom/left/right.
+        const int bar_x = x + 1;
+        const int bar_y = y + h - 7;
+        const int bar_w = w - 2;
+        const int bar_h = 7;
+        Paint_DrawRectangle(bar_x, bar_y, bar_x + bar_w, bar_y + bar_h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+        Paint_DrawRectangle(bar_x + 1, bar_y + 1, bar_x + bar_w - 1, bar_y + bar_h, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+        const int fill_w = (int)lroundf((float)(bar_w - 2) * fill);
+        if (fill_w > 0) {
+            Paint_DrawRectangle(bar_x + 1, bar_y + 1, bar_x + 1 + fill_w, bar_y + bar_h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+        }
+    };
+
+    // ================= SCORE TEXT =================
 
     char score_txt[8];
     snprintf(score_txt, sizeof(score_txt), "%d", circle_score);
-    uint16_t sw = Paint_GetStringWidth_Display(score_txt, &Font24, &font_36_cyrillic, &font_36_ascii);
-    const int score_x = cx - (int)sw / 2;
-    const int score_y = cy - 31;
-    Paint_DrawString_Display(score_x, score_y, score_txt, &Font24, &font_36_cyrillic, &font_36_ascii, WHITE, BLACK);
-    char grade_txt[24];
-    snprintf(grade_txt, sizeof(grade_txt), "GRADE %c", grade);
-    uint16_t gw = Paint_GetStringWidth_Display(grade_txt, &Font12, &font_12_cyrillic, &font_12_ascii);
-    Paint_DrawString_Display(cx - (int)gw / 2, cy + 14, grade_txt, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
 
-    auto drawMetricLabel = [&](int x, int y, const char *name, const char *val) {
-        Paint_DrawString_Display(x, y, name, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(x, y + 13, val, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    };
-    char co2v[16] = "--", pmv[16] = "--", nv[16] = "--", tv[16] = "--", hv[16] = "--";
-    if (has_co2) snprintf(co2v, sizeof(co2v), "%.0f", co2);
-    if (has_pm25) snprintf(pmv, sizeof(pmv), "%.0f", pm25);
-    if (has_noise) snprintf(nv, sizeof(nv), "%.0f", noise);
-    if (has_temp) snprintf(tv, sizeof(tv), "%.0f", temp);
-    if (has_hum) snprintf(hv, sizeof(hv), "%.0f%%", hum);
-    drawMetricLabel(cx - 84, cy - 82, "CO2", co2v);
-    drawMetricLabel(cx + 58, cy - 82, "PM2.5", pmv);
-    drawMetricLabel(cx + 84, cy - 20, "dB", nv);
-    drawMetricLabel(cx + 78, cy + 26, "C", tv);
-    drawMetricLabel(cx - 92, cy + 28, "RH", hv);
+    uint16_t sw = Paint_GetStringWidth_Display(
+        score_txt,
+        &Font24,
+        &font_48_cyrillic,
+        &font_48_ascii
+    );
+
+    const int score_x = cx - (int)sw / 2;
+    const int score_y = cy - 35;
+
+    Paint_DrawString_Display(
+        score_x,
+        score_y,
+        score_txt,
+        &Font24,
+        &font_48_cyrillic,
+        &font_48_ascii,
+        WHITE,
+        BLACK
+    );
+
+    // ================= TOP TEXT =================
+
+    char top_txt[48];
+
+    snprintf(
+        top_txt,
+        sizeof(top_txt),
+        "%s",
+        A_TXT("Conservative score", "Консервативная оценка")
+    );
+
+    uint16_t tw = Paint_GetStringWidth_Display(
+        top_txt,
+        &Font12,
+        &font_12_cyrillic,
+        &font_12_ascii
+    );
+
+    Paint_DrawString_Display(
+        cx - (int)tw / 2,
+        cy - 50,
+        top_txt,
+        &Font12,
+        &font_12_cyrillic,
+        &font_12_ascii,
+        WHITE,
+        BLACK
+    );
+
+    // ================= BOTTOM TEXT =================
+    // Keep number visually dominant and place label below it.
+    char bio_score_txt[8];
+    snprintf(bio_score_txt, sizeof(bio_score_txt), "%d", bio_score);
+    const char *bio_label = A_TXT("Biohacking score", "Биохакинг");
+    uint16_t nsw = Paint_GetStringWidth_Display(
+        bio_score_txt,
+        &Font20,
+        &font_20_cyrillic,
+        &font_20_ascii
+    );
+    uint16_t blw = Paint_GetStringWidth_Display(
+        bio_label,
+        &Font12,
+        &font_12_cyrillic,
+        &font_12_ascii
+    );
+    if (blw > (uint16_t)(r * 2 - 12)) {
+        bio_label = A_TXT("Biohacking", "Биохакинг");
+        blw = Paint_GetStringWidth_Display(
+            bio_label,
+            &Font12,
+            &font_12_cyrillic,
+            &font_12_ascii
+        );
+    }
+
+    const int bio_num_y = cy + 18;
+    const int sep_w = (int)((nsw > blw) ? nsw : blw) + 8;
+    const int sep_y = bio_num_y + Font20.Height + 2;
+    const int bio_label_y = sep_y + 3;
+
+    Paint_DrawString_Display(
+        cx - (int)nsw / 2,
+        bio_num_y,
+        bio_score_txt,
+        &Font20,
+        &font_20_cyrillic,
+        &font_20_ascii,
+        WHITE,
+        BLACK
+    );
+    Paint_DrawLine(
+        cx - sep_w / 2,
+        sep_y,
+        cx + sep_w / 2,
+        sep_y,
+        BLACK,
+        DOT_PIXEL_1X1,
+        LINE_STYLE_SOLID
+    );
+    Paint_DrawString_Display(
+        cx - (int)blw / 2,
+        bio_label_y,
+        bio_label,
+        &Font12,
+        &font_12_cyrillic,
+        &font_12_ascii,
+        WHITE,
+        BLACK
+    );
+
+    // ================= METRIC TEXTS =================
+    char co2v[16] = "--";
+    char pmv[16]  = "--";
+    char nv[16]   = "--";
+    char tv[16]   = "--";
+    char hv[16]   = "--";
+
+    if (has_co2)   snprintf(co2v, sizeof(co2v), "%.0f", co2);
+    if (has_pm25)  snprintf(pmv,  sizeof(pmv),  "%.0f", pm25);
+    if (has_noise) snprintf(nv,   sizeof(nv),   "%.0f", noise);
+    if (has_temp)  snprintf(tv,   sizeof(tv),   "%.0f", temp);
+    if (has_hum)   snprintf(hv,   sizeof(hv),   "%.0f%%", hum);
+
+    // Two card columns around the circle.
+    const int left_col_x = cx - 184;
+    const int right_col_x = cx + 102;
+    // Per-card sizing: CO2 + dB larger, RH smallest.
+    const int card_w_big = 92;
+    const int card_h_big = 54;
+    const int card_w_mid = 76;
+    const int card_h_mid = 48;
+    const int card_w_small = 64;
+    const int card_h_small = 48;
+
+    // Requested moves:
+    // - dB left, CO2 up+right, RH down+right
+    // Swap left column: RH on top, CO2 on bottom.
+    drawMetricCard(left_col_x + 18, cy - 34,  card_w_small, card_h_small, "RH",    hv,   "",      f_hum,  -2);
+    drawMetricCard(left_col_x + 16, cy + 60,  card_w_big,   card_h_big,   "CO2",   co2v, "ppm",   f_co2,   0);
+    // Swap right column: Noise on top, PM2.5 below.
+    drawMetricCard(right_col_x - 26,cy - 130, card_w_big,   card_h_big,   "Noise", nv,   "dB",    f_noise,  0);
+    drawMetricCard(right_col_x,     cy - 34,  card_w_mid,   card_h_mid,   "PM2.5", pmv,  "ug/m3", f_pm25,  -2);
+    drawMetricCard(right_col_x - 7, cy + 58,  card_w_mid,   card_h_mid,   "Temp",  tv,   "C",     f_temp,  -2);
+
+    // circle-only screen
+    return;
 
     float max_co2 = -1.0f, max_pm25 = -1.0f, max_noise = -1.0f, max_temp = -1.0f, max_hum = -1.0f;
     float min_co2 = 1000000.0f, min_pm25 = 1000000.0f, min_noise = 1000000.0f, min_temp = 1000000.0f, min_hum = 1000000.0f;
@@ -1203,9 +1604,9 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     const int table_h = header_h + row_h * 5;
     Paint_DrawRectangle(table_x, table_y, table_x + table_w, table_y + table_h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
 
-    const int c1 = table_x + 74;  // Max
-    const int c2 = table_x + 170; // Min
-    const int c3 = table_x + 258; // Conserv
+    const int c1 = table_x + 98;  // Max narrower, Metric wider
+    const int c2 = table_x + 182; // Min wider, Max narrower
+    const int c3 = table_x + 254; // Conserv
     const int c4 = table_x + 302; // Biohack
     Paint_DrawLine(c1, table_y, c1, table_y + table_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     Paint_DrawLine(c2, table_y, c2, table_y + table_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
@@ -1223,20 +1624,21 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         if (x < x0 + 1) x = x0 + 1;
         Paint_DrawString_Display(x, y, txt, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     };
-    Paint_DrawString_Display(table_x + 8, table_y + 2, A_TXT("Metric", "Метрика"),
+    Paint_DrawString_Display(table_x + 8, table_y + 2, INTL_DISP_ANALYTICS_COL_METRIC,
                              &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    drawCentered(c1, c2, table_y + 2, "Max");
-    drawCentered(c2, c3, table_y + 2, "Min");
-    drawCentered(c3, c4, table_y + 2, "Conserv");
-    drawCentered(c4, table_x + table_w, table_y + 2, "Biohack");
+    drawCentered(c1, c2, table_y + 2, INTL_DISP_ANALYTICS_COL_MAX);
+    drawCentered(c2, c3, table_y + 2, INTL_DISP_ANALYTICS_COL_MIN);
+    drawCentered(c3, c4, table_y + 2, INTL_DISP_ANALYTICS_COL_CONSERV);
+    drawCentered(c4, table_x + table_w, table_y + 2, INTL_DISP_ANALYTICS_COL_BIOHACK);
 
-    const char *hour_suffix = A_TXT("h", "ч");
+    const char *hour_suffix = INTL_DISP_ANALYTICS_HOUR_SUFFIX;
+    const char *at_word = INTL_DISP_ANALYTICS_AT;
     auto extremaCell = [&](char *out, size_t sz, float v, int h, bool has, uint8_t prec) {
         if (!has || h < 0) {
             snprintf(out, sz, "--");
             return;
         }
-        snprintf(out, sz, "%.*f (%02d%s)", (int)prec, v, h, hour_suffix);
+        snprintf(out, sz, "%.*f %s %d%s", (int)prec, v, at_word, h, hour_suffix);
     };
     auto formatImpact = [](char *out, size_t sz, float impact, bool has_data) {
         if (!has_data) {
@@ -1264,11 +1666,11 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         drawCentered(c3, c4, y, cs);
         drawCentered(c4, table_x + table_w, y, bs);
     };
-    drawRow(0, "CO2 ppm", max_co2, max_co2_h, max_co2_h >= 0, min_co2, min_co2_h, min_co2_h >= 0, i_cons_co2, i_bio_co2, has_co2, has_co2, 0);
-    drawRow(1, "Temp C", max_temp, max_temp_h, max_temp_h >= 0, min_temp, min_temp_h, min_temp_h >= 0, i_cons_temp, i_bio_temp, has_temp, has_temp, 0);
-    drawRow(2, "RH %", max_hum, max_hum_h, max_hum_h >= 0, min_hum, min_hum_h, min_hum_h >= 0, i_cons_hum, i_bio_hum, has_hum, has_hum, 0);
-    drawRow(3, "PM2.5 ug", max_pm25, max_pm25_h, max_pm25_h >= 0, min_pm25, min_pm25_h, min_pm25_h >= 0, i_cons_pm25, i_bio_pm25, has_pm25, has_pm25, 0);
-    drawRow(4, "Noise dB", max_noise, max_noise_h, max_noise_h >= 0, min_noise, min_noise_h, min_noise_h >= 0, i_cons_noise, i_bio_noise, has_noise, has_noise, 0);
+    drawRow(0, INTL_DISP_ANALYTICS_ROW_CO2, max_co2, max_co2_h, max_co2_h >= 0, min_co2, min_co2_h, min_co2_h >= 0, i_cons_co2, i_bio_co2, has_co2, has_co2, 0);
+    drawRow(1, INTL_DISP_ANALYTICS_ROW_TEMP, max_temp, max_temp_h, max_temp_h >= 0, min_temp, min_temp_h, min_temp_h >= 0, i_cons_temp, i_bio_temp, has_temp, has_temp, 0);
+    drawRow(2, INTL_DISP_ANALYTICS_ROW_HUM, max_hum, max_hum_h, max_hum_h >= 0, min_hum, min_hum_h, min_hum_h >= 0, i_cons_hum, i_bio_hum, has_hum, has_hum, 0);
+    drawRow(3, INTL_DISP_ANALYTICS_ROW_PM25, max_pm25, max_pm25_h, max_pm25_h >= 0, min_pm25, min_pm25_h, min_pm25_h >= 0, i_cons_pm25, i_bio_pm25, has_pm25, has_pm25, 0);
+    drawRow(4, INTL_DISP_ANALYTICS_ROW_NOISE, max_noise, max_noise_h, max_noise_h >= 0, min_noise, min_noise_h, min_noise_h >= 0, i_cons_noise, i_bio_noise, has_noise, has_noise, 0);
 
     char cons_impact_txt[12], bio_impact_txt[12];
     formatImpact(cons_impact_txt, sizeof(cons_impact_txt), total_cons_impact, true);
@@ -1295,9 +1697,10 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
                  bio_score, gradeLetter(bio_score), bio_impact_txt);
     }
     drawCentered(table_x, table_x + table_w, sum_y + 2, summary_line);
+
 }
 
-void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values) {
+void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &values, const String &sensor_map_address) {
     (void)BlackImage;
     Paint_Clear(WHITE);
 
@@ -1329,7 +1732,7 @@ void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &value
     }
 
     char period_text[96];
-    snprintf(period_text, sizeof(period_text), A_TXT("Analytics %s", "Аналитика %s"), analyticsViewLabelTitle());
+    snprintf(period_text, sizeof(period_text), "%s", analyticsViewLabelTitle());
     Paint_DrawString_Display(26, header_top_y + 2, period_text, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
 
     Paint_DrawLine(0, header_bottom_border_y, DISPLAY_WIDTH, header_bottom_border_y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
@@ -1340,7 +1743,7 @@ void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &value
     const int content_width = content_right - content_left;
     const int content_top = header_bottom_border_y + 12;
 
-    drawNightSinglePage(content_left, content_top, content_width, values);
+    drawNightSinglePage(content_left, content_top, content_width, values, sensor_map_address);
     return;
 
 }
