@@ -829,6 +829,53 @@ static const uint8_t bmp_12_cyrillic_0451[] = {
 0x78, 
 };
 
+// U+00B0 '°'
+static const uint8_t bmp_12_cyrillic_00B0[] = {
+0xE0, 
+0xA0, 
+0xE0, 
+};
+
+// U+00B5 'µ'
+static const uint8_t bmp_12_cyrillic_00B5[] = {
+0x88, 
+0x88, 
+0x88, 
+0x88, 
+0x88, 
+0x88, 
+0xF8, 
+0x80, 
+0x80, 
+0x80, 
+};
+
+// U+00B2 '²'
+static const uint8_t bmp_12_cyrillic_00B2[] = {
+0xE0, 
+0xB0, 
+0x20, 
+0x40, 
+0xF0, 
+};
+
+// U+00B3 '³'
+static const uint8_t bmp_12_cyrillic_00B3[] = {
+0x70, 
+0x10, 
+0x30, 
+0x10, 
+0x70, 
+};
+
+// U+2082 '₂'
+static const uint8_t bmp_12_cyrillic_2082[] = {
+0xE0, 
+0x20, 
+0x40, 
+0xF0, 
+};
+
 static const Glyph glyphs_12_cyrillic[] = {
   { 0x0401, 6, 11, 0, bmp_12_cyrillic_0401 }, // 'Ё'
   { 0x0410, 8, 9, 2, bmp_12_cyrillic_0410 }, // 'А'
@@ -896,8 +943,13 @@ static const Glyph glyphs_12_cyrillic[] = {
   { 0x044E, 8, 7, 4, bmp_12_cyrillic_044E }, // 'ю'
   { 0x044F, 5, 7, 4, bmp_12_cyrillic_044F }, // 'я'
   { 0x0451, 6, 9, 2, bmp_12_cyrillic_0451 }, // 'ё'
+  { 0x00B0, 3, 3, 2, bmp_12_cyrillic_00B0 }, // '°'
+  { 0x00B5, 5, 10, 4, bmp_12_cyrillic_00B5 }, // 'µ'
+  { 0x00B2, 4, 5, 2, bmp_12_cyrillic_00B2 }, // '²'
+  { 0x00B3, 4, 5, 2, bmp_12_cyrillic_00B3 }, // '³'
+  { 0x2082, 4, 4, 9, bmp_12_cyrillic_2082 }, // '₂'
 };
 
 const Font font_12_cyrillic = {
-  66, 12, glyphs_12_cyrillic
+  71, 12, glyphs_12_cyrillic
 };

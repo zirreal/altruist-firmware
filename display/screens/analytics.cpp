@@ -984,7 +984,15 @@ static uint32_t resolveLastCompletedNightEndDay(uint8_t /*start_h*/, uint8_t end
     localtime_r(&now, &lt);
     const uint8_t now_h = (uint8_t)lt.tm_hour;
     uint32_t today = currentLocalDayKey(now);
+
+    // Night analytics progressive recompute window:
+    // from 06:00 until configured end hour (default 10:00), use today's end-day
+    // so the report is updated hourly as new night hours appear.
+    // Outside this window before 06:00, keep showing the previously completed night.
+    const uint8_t progressive_recalc_start_h = 6;
     if (now_h >= end_h) return today;
+    if (end_h > progressive_recalc_start_h && now_h >= progressive_recalc_start_h) return today;
+
     return (today > 0U) ? (today - 1U) : 0U;
 }
 
@@ -1212,10 +1220,20 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     float co2 = 0.0f, pm25 = 0.0f, noise = 0.0f, temp = 0.0f, hum = 0.0f;
     bool has_co2 = false, has_pm25 = false, has_noise = false, has_temp = false, has_hum = false;
 
-    const int cx = content_left + content_width / 2;
     const int content_bottom = DISPLAY_HEIGHT - 6;
-    const int cy = content_top + (content_bottom - content_top) / 2;
-    const int r = 86;
+    const int content_height = content_bottom - content_top;
+    const int col_gap = 10;
+    int left_col_w = (content_width * 60) / 100;
+    if (left_col_w < 198) left_col_w = 198;
+    if (left_col_w > 232) left_col_w = 232;
+    const int right_col_w = content_width - left_col_w - col_gap;
+    const int left_panel_x = content_left;
+    const int right_panel_x = content_left + left_col_w + col_gap;
+
+    // Two-column layout: left = score circle + QR, right = metric cards.
+    const int cx = left_panel_x + left_col_w / 2 + 6;
+    const int cy = content_top + content_height / 2 + 19;
+    const int r = 92;
 
     const uint8_t night_start = safeHourCfg(cfg::analytics_night_start_hour, 22);
     const uint8_t night_end = safeHourCfg(cfg::analytics_night_end_hour, 10);
@@ -1329,8 +1347,8 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     const int bio_score = clampScore((int)lroundf(100.0f + total_bio_impact * 2.0f));
     const int circle_score = cons_score;
 
-    // QR shortcut to sensor map (small but readable).
-    drawSensorMapQrSmall(content_left + 2, content_top + 2, sensor_map_address);
+    // QR shortcut in the left column.
+    drawSensorMapQrSmall(left_panel_x + 4, content_top + 4, sensor_map_address);
 
     // Draw main score ring with solid black fill (faster redraw).
     // ================= MAIN SCORE RING =================
@@ -1370,20 +1388,29 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
     // ================= OUTER METRIC CARDS =================
     // Card style close to reference: title, value, and bottom fill bar.
-    auto drawMetricCard = [&](int x, int y, int w, int h, const char *title, const char *value, const char *unit, float fill, int value_y_shift) {
+    auto drawMetricCard = [&](int x, int y, int w, int h, const char *title, const char *value, const char *unit, float fill, int value_y_shift, bool small_title, int sep_shift, bool draw_border, bool draw_bar_border) {
         if (w < 40 || h < 28) return;
         fill = clamp01(fill);
 
         // Outer card.
-        Paint_DrawRectangle(x, y, x + w, y + h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+        if (draw_border) {
+            Paint_DrawRectangle(x, y, x + w, y + h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+        }
 
         // Title.
-        uint16_t tw = Paint_GetStringWidth_Display(title, &Font16, &font_16_cyrillic, &font_16_ascii);
-        Paint_DrawString_Display(x + (w - (int)tw) / 2, y + 3, title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+        sFONT *title_font = small_title ? &Font12 : &Font16;
+        const Font *title_cyr = small_title ? &font_12_cyrillic : &font_16_cyrillic;
+        const Font *title_ascii = small_title ? &font_12_ascii : &font_16_ascii;
+        uint16_t tw = Paint_GetStringWidth_Display(title, title_font, title_cyr, title_ascii);
+        int title_y = y + 3;
+        if (strcmp(title, "T°") == 0) {
+            title_y -= 5;
+        }
+        Paint_DrawString_Display(x + (w - (int)tw) / 2, title_y, title, title_font, title_cyr, title_ascii, WHITE, BLACK);
 
         // Divider line.
-        const int sep_y = y + 21;
-        Paint_DrawLine(x + 12, sep_y, x + w - 12, sep_y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        const int sep_y = y + 17 + sep_shift;
+        Paint_DrawLine(x + 16, sep_y, x + w - 16, sep_y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
         // Value + unit.
         uint16_t vw = Paint_GetStringWidth_Display(value, &Font20, &font_20_cyrillic, &font_20_ascii);
@@ -1394,10 +1421,10 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         const int gap = (uw > 0) ? 3 : 0;
         const int total_w = (int)vw + (int)uw + gap;
         const int vx = x + (w - total_w) / 2;
-        const int vy = y + 21 + value_y_shift;
+        const int vy = y + 24 + value_y_shift;
         Paint_DrawString_Display(vx, vy, value, &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
         if (uw > 0) {
-            Paint_DrawString_Display(vx + (int)vw + gap, vy + 4, unit, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+            Paint_DrawString_Display(vx + (int)vw + gap, vy + 5, unit, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         }
 
         // Bottom progress bar glued to container bottom/left/right.
@@ -1405,7 +1432,9 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         const int bar_y = y + h - 7;
         const int bar_w = w - 2;
         const int bar_h = 7;
-        Paint_DrawRectangle(bar_x, bar_y, bar_x + bar_w, bar_y + bar_h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+        if (draw_bar_border) {
+            Paint_DrawRectangle(bar_x, bar_y, bar_x + bar_w, bar_y + bar_h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+        }
         Paint_DrawRectangle(bar_x + 1, bar_y + 1, bar_x + bar_w - 1, bar_y + bar_h, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
         const int fill_w = (int)lroundf((float)(bar_w - 2) * fill);
         if (fill_w > 0) {
@@ -1426,7 +1455,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     );
 
     const int score_x = cx - (int)sw / 2;
-    const int score_y = cy - 35;
+    const int score_y = cy - 38;
 
     Paint_DrawString_Display(
         score_x,
@@ -1441,32 +1470,45 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
     // ================= TOP TEXT =================
 
-    char top_txt[48];
+    const char *top_txt_line1 = A_TXT("Conservative score", "Консервативная");
+    const char *top_txt_line2 = A_TXT("", "оценка");
 
-    snprintf(
-        top_txt,
-        sizeof(top_txt),
-        "%s",
-        A_TXT("Conservative score", "Консервативная оценка")
-    );
-
-    uint16_t tw = Paint_GetStringWidth_Display(
-        top_txt,
+    uint16_t tw1 = Paint_GetStringWidth_Display(
+        top_txt_line1,
         &Font12,
         &font_12_cyrillic,
         &font_12_ascii
     );
 
     Paint_DrawString_Display(
-        cx - (int)tw / 2,
-        cy - 50,
-        top_txt,
+        cx - (int)tw1 / 2,
+        cy - 58,
+        top_txt_line1,
         &Font12,
         &font_12_cyrillic,
         &font_12_ascii,
         WHITE,
         BLACK
     );
+
+    if (top_txt_line2[0] != '\0') {
+        uint16_t tw2 = Paint_GetStringWidth_Display(
+            top_txt_line2,
+            &Font12,
+            &font_12_cyrillic,
+            &font_12_ascii
+        );
+        Paint_DrawString_Display(
+            cx - (int)tw2 / 2,
+            cy - 46,
+            top_txt_line2,
+            &Font12,
+            &font_12_cyrillic,
+            &font_12_ascii,
+            WHITE,
+            BLACK
+        );
+    }
 
     // ================= BOTTOM TEXT =================
     // Keep number visually dominant and place label below it.
@@ -1543,160 +1585,28 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     if (has_temp)  snprintf(tv,   sizeof(tv),   "%.0f", temp);
     if (has_hum)   snprintf(hv,   sizeof(hv),   "%.0f%%", hum);
 
-    // Two card columns around the circle.
-    const int left_col_x = cx - 184;
-    const int right_col_x = cx + 102;
-    // Per-card sizing: CO2 + dB larger, RH smallest.
-    const int card_w_big = 92;
-    const int card_h_big = 54;
-    const int card_w_mid = 76;
-    const int card_h_mid = 48;
-    const int card_w_small = 64;
-    const int card_h_small = 48;
+    // Top row: two cards (RH near QR + CO2 on right).
+    const int top_row_y = content_top + 2;
+    const int top_rh_w = 64;
+    const int top_rh_h = 52;
 
-    // Requested moves:
-    // - dB left, CO2 up+right, RH down+right
-    // Swap left column: RH on top, CO2 on bottom.
-    drawMetricCard(left_col_x + 18, cy - 34,  card_w_small, card_h_small, "RH",    hv,   "",      f_hum,  -2);
-    drawMetricCard(left_col_x + 16, cy + 60,  card_w_big,   card_h_big,   "CO2",   co2v, "ppm",   f_co2,   0);
-    // Swap right column: Noise on top, PM2.5 below.
-    drawMetricCard(right_col_x - 26,cy - 130, card_w_big,   card_h_big,   "Noise", nv,   "dB",    f_noise,  0);
-    drawMetricCard(right_col_x,     cy - 34,  card_w_mid,   card_h_mid,   "PM2.5", pmv,  "ug/m3", f_pm25,  -2);
-    drawMetricCard(right_col_x - 7, cy + 58,  card_w_mid,   card_h_mid,   "Temp",  tv,   "C",     f_temp,  -2);
+    // Right-column metric stack (compact cards, unequal columns).
+    const int card_x = right_panel_x + 9;
+    const int card_w = right_col_w - 22;
+    const int card_h = 54;
+    const int card_gap = 7;
+    const int cards_top = top_row_y + 8;
+    const int top_rh_x = card_x - top_rh_w - 10;
 
-    // circle-only screen
+    // Try layout variant: Temp small top block (near QR), RH in right metric stack.
+    drawMetricCard(top_rh_x, top_row_y, top_rh_w, top_rh_h, "T°", tv, "°C", f_temp, -4, false, 0, false, true);
+    drawMetricCard(card_x, cards_top + 0 * (card_h + card_gap), card_w, card_h, "CO2",   co2v, "ppm",   f_co2,   -1, false, 4, true, true);
+    drawMetricCard(card_x, cards_top + 1 * (card_h + card_gap), card_w, card_h, "PM2.5", pmv,  "µg/m³", f_pm25,  -1, false, 4, true, true);
+    drawMetricCard(card_x, cards_top + 2 * (card_h + card_gap), card_w, card_h, A_TXT("Noise", "Шум"), nv, "dB", f_noise, -1, false, 4, true, true);
+    drawMetricCard(card_x, cards_top + 3 * (card_h + card_gap), card_w, card_h, "RH", hv, "", f_hum, -1, false, 4, true, true);
+
+    // circle/cards-only screen
     return;
-
-    float max_co2 = -1.0f, max_pm25 = -1.0f, max_noise = -1.0f, max_temp = -1.0f, max_hum = -1.0f;
-    float min_co2 = 1000000.0f, min_pm25 = 1000000.0f, min_noise = 1000000.0f, min_temp = 1000000.0f, min_hum = 1000000.0f;
-    int max_co2_h = -1, max_pm25_h = -1, max_noise_h = -1, max_temp_h = -1, max_hum_h = -1;
-    int min_co2_h = -1, min_pm25_h = -1, min_noise_h = -1, min_temp_h = -1, min_hum_h = -1;
-    auto upd = [](float v, bool has, float &mx, int &mxh, float &mn, int &mnh, int h) {
-        if (!has) return;
-        if (v > mx) { mx = v; mxh = h; }
-        if (v < mn) { mn = v; mnh = h; }
-    };
-    for (uint16_t i = 0; i < n_hours; i++) {
-        const uint8_t h = night_hours[i];
-        const bool use_prev = cross_midnight && (h >= night_start);
-        const float c_val = use_prev ? co2_prev[h] : co2_day[h];
-        const float p_val = use_prev ? pm25_prev[h] : pm25_day[h];
-        const float n_val = use_prev ? noise_prev[h] : noise_day[h];
-        const float t_val = use_prev ? temp_prev[h] : temp_day[h];
-        const float h_val = use_prev ? hum_prev[h] : hum_day[h];
-        const bool c_has = use_prev ? co2_has_prev[h] : co2_has_day[h];
-        const bool p_has = use_prev ? pm25_has_prev[h] : pm25_has_day[h];
-        const bool n_has = use_prev ? noise_has_prev[h] : noise_has_day[h];
-        const bool t_has = use_prev ? temp_has_prev[h] : temp_has_day[h];
-        const bool h_has = use_prev ? hum_has_prev[h] : hum_has_day[h];
-        upd(c_val, c_has, max_co2, max_co2_h, min_co2, min_co2_h, h);
-        upd(p_val, p_has, max_pm25, max_pm25_h, min_pm25, min_pm25_h, h);
-        upd(n_val, n_has, max_noise, max_noise_h, min_noise, min_noise_h, h);
-        upd(t_val, t_has, max_temp, max_temp_h, min_temp, min_temp_h, h);
-        upd(h_val, h_has, max_hum, max_hum_h, min_hum, min_hum_h, h);
-    }
-
-    const int table_x = content_left + 4;
-    const int table_y = content_top + 150;
-    const int table_w = content_width - 8;
-    const int header_h = 16;
-    const int row_h = 15;
-    const int table_h = header_h + row_h * 5;
-    Paint_DrawRectangle(table_x, table_y, table_x + table_w, table_y + table_h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-
-    const int c1 = table_x + 98;  // Max narrower, Metric wider
-    const int c2 = table_x + 182; // Min wider, Max narrower
-    const int c3 = table_x + 254; // Conserv
-    const int c4 = table_x + 302; // Biohack
-    Paint_DrawLine(c1, table_y, c1, table_y + table_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    Paint_DrawLine(c2, table_y, c2, table_y + table_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    Paint_DrawLine(c3, table_y, c3, table_y + table_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    Paint_DrawLine(c4, table_y, c4, table_y + table_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    Paint_DrawLine(table_x, table_y + header_h, table_x + table_w, table_y + header_h, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    for (int rline = 1; rline <= 5; rline++) {
-        Paint_DrawLine(table_x, table_y + header_h + rline * row_h, table_x + table_w, table_y + header_h + rline * row_h,
-                       BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    }
-
-    auto drawCentered = [&](int x0, int x1, int y, const char *txt) {
-        uint16_t w = Paint_GetStringWidth_Display(txt, &Font12, &font_12_cyrillic, &font_12_ascii);
-        int x = x0 + ((x1 - x0) - (int)w) / 2;
-        if (x < x0 + 1) x = x0 + 1;
-        Paint_DrawString_Display(x, y, txt, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    };
-    Paint_DrawString_Display(table_x + 8, table_y + 2, INTL_DISP_ANALYTICS_COL_METRIC,
-                             &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    drawCentered(c1, c2, table_y + 2, INTL_DISP_ANALYTICS_COL_MAX);
-    drawCentered(c2, c3, table_y + 2, INTL_DISP_ANALYTICS_COL_MIN);
-    drawCentered(c3, c4, table_y + 2, INTL_DISP_ANALYTICS_COL_CONSERV);
-    drawCentered(c4, table_x + table_w, table_y + 2, INTL_DISP_ANALYTICS_COL_BIOHACK);
-
-    const char *hour_suffix = INTL_DISP_ANALYTICS_HOUR_SUFFIX;
-    const char *at_word = INTL_DISP_ANALYTICS_AT;
-    auto extremaCell = [&](char *out, size_t sz, float v, int h, bool has, uint8_t prec) {
-        if (!has || h < 0) {
-            snprintf(out, sz, "--");
-            return;
-        }
-        snprintf(out, sz, "%.*f %s %d%s", (int)prec, v, at_word, h, hour_suffix);
-    };
-    auto formatImpact = [](char *out, size_t sz, float impact, bool has_data) {
-        if (!has_data) {
-            snprintf(out, sz, "--");
-            return;
-        }
-        if (fabsf(impact) < 0.05f) {
-            snprintf(out, sz, "0%%");
-            return;
-        }
-        snprintf(out, sz, "%.1f%%", impact);
-    };
-    auto drawRow = [&](int idx, const char *name, float mx, int mxh, bool has_mx, float mn, int mnh, bool has_mn,
-                       float impact_c, float impact_b, bool has_imp_c, bool has_imp_b, uint8_t prec) {
-        const int y = table_y + header_h + 2 + idx * row_h;
-        char maxb[20], minb[20], cs[12], bs[12];
-        extremaCell(maxb, sizeof(maxb), mx, mxh, has_mx, prec);
-        extremaCell(minb, sizeof(minb), mn, mnh, has_mn, prec);
-        formatImpact(cs, sizeof(cs), impact_c, has_imp_c);
-        formatImpact(bs, sizeof(bs), impact_b, has_imp_b);
-        Paint_DrawString_Display(table_x + 8, y, name,
-                                 &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        drawCentered(c1, c2, y, maxb);
-        drawCentered(c2, c3, y, minb);
-        drawCentered(c3, c4, y, cs);
-        drawCentered(c4, table_x + table_w, y, bs);
-    };
-    drawRow(0, INTL_DISP_ANALYTICS_ROW_CO2, max_co2, max_co2_h, max_co2_h >= 0, min_co2, min_co2_h, min_co2_h >= 0, i_cons_co2, i_bio_co2, has_co2, has_co2, 0);
-    drawRow(1, INTL_DISP_ANALYTICS_ROW_TEMP, max_temp, max_temp_h, max_temp_h >= 0, min_temp, min_temp_h, min_temp_h >= 0, i_cons_temp, i_bio_temp, has_temp, has_temp, 0);
-    drawRow(2, INTL_DISP_ANALYTICS_ROW_HUM, max_hum, max_hum_h, max_hum_h >= 0, min_hum, min_hum_h, min_hum_h >= 0, i_cons_hum, i_bio_hum, has_hum, has_hum, 0);
-    drawRow(3, INTL_DISP_ANALYTICS_ROW_PM25, max_pm25, max_pm25_h, max_pm25_h >= 0, min_pm25, min_pm25_h, min_pm25_h >= 0, i_cons_pm25, i_bio_pm25, has_pm25, has_pm25, 0);
-    drawRow(4, INTL_DISP_ANALYTICS_ROW_NOISE, max_noise, max_noise_h, max_noise_h >= 0, min_noise, min_noise_h, min_noise_h >= 0, i_cons_noise, i_bio_noise, has_noise, has_noise, 0);
-
-    char cons_impact_txt[12], bio_impact_txt[12];
-    formatImpact(cons_impact_txt, sizeof(cons_impact_txt), total_cons_impact, true);
-    formatImpact(bio_impact_txt, sizeof(bio_impact_txt), total_bio_impact, true);
-    const int sum_y = table_y + table_h + 2;
-    char summary_line[160];
-    snprintf(summary_line, sizeof(summary_line),
-             A_TXT("Conservative: %d%c, impact %s / Biohacking: %d%c, impact %s",
-                   "Консервативная: %d%c, влияние %s / Биохакинг: %d%c, влияние %s"),
-             cons_score, gradeLetter(cons_score), cons_impact_txt,
-             bio_score, gradeLetter(bio_score), bio_impact_txt);
-    uint16_t sum_w = Paint_GetStringWidth_Display(summary_line, &Font12, &font_12_cyrillic, &font_12_ascii);
-    if (sum_w > (uint16_t)(table_w - 8)) {
-        snprintf(summary_line, sizeof(summary_line),
-                 A_TXT("Conservative %d%c (%s) / Biohacking %d%c (%s)",
-                       "Консервативная %d%c (%s) / Биохакинг %d%c (%s)"),
-                 cons_score, gradeLetter(cons_score), cons_impact_txt,
-                 bio_score, gradeLetter(bio_score), bio_impact_txt);
-        sum_w = Paint_GetStringWidth_Display(summary_line, &Font12, &font_12_cyrillic, &font_12_ascii);
-    }
-    if (sum_w > (uint16_t)(table_w - 8)) {
-        snprintf(summary_line, sizeof(summary_line), "C %d%c (%s) / B %d%c (%s)",
-                 cons_score, gradeLetter(cons_score), cons_impact_txt,
-                 bio_score, gradeLetter(bio_score), bio_impact_txt);
-    }
-    drawCentered(table_x, table_x + table_w, sum_y + 2, summary_line);
 
 }
 

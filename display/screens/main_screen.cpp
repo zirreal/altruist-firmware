@@ -556,7 +556,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
 
     uint16_t urban_x_start   = 8;
     uint16_t urban_col_right = urban_width - column_right_margin; 
-    drawValue(INTL_DISP_TEMPERATURE, values.temp_outdoor, 1, wi_thermometer_cropped_20x20, "C",
+    drawValue(INTL_DISP_TEMPERATURE, values.temp_outdoor, 1, wi_thermometer_cropped_20x20, "°C",
               20, urban_x_start, urban_y,                 urban_col_right, 5, false, SOURCE_URBAN, (temp_out_dir != 0),  temp_out_dir);
     drawValue(INTL_DISP_HUMIDITY,    values.hum_outdoor,  0, wi_humidity_cropped_20x20,     "%",
               20, urban_x_start, urban_y + value_spacing, urban_col_right, 5, false, SOURCE_URBAN, (hum_out_dir != 0),   hum_out_dir);
@@ -703,7 +703,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
 
     uint16_t insight_x_start  = insight_column_start_x + 8;
     uint16_t insight_col_right = usable_width - column_right_margin;
-    drawValue(INTL_DISP_TEMPERATURE, values.temp_indoor, 1, house_thermometer_20x20, "C",
+    drawValue(INTL_DISP_TEMPERATURE, values.temp_indoor, 1, house_thermometer_20x20, "°C",
               20, insight_x_start, insight_y,                 insight_col_right, 2, false, SOURCE_INSIGHT, (temp_in_dir != 0),  temp_in_dir);
     drawValue(INTL_DISP_HUMIDITY,    values.hum_indoor,  0, wi_humidity_cropped_20x20,     "%",
               20, insight_x_start, insight_y + value_spacing, insight_col_right, 2, false, SOURCE_INSIGHT, (hum_in_dir != 0),   hum_in_dir);

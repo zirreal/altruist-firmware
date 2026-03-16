@@ -1325,6 +1325,77 @@ static const uint8_t bmp_24_cyrillic_0451[] = {
 0x1F, 0x80, 
 };
 
+// U+00B0 '°'
+static const uint8_t bmp_24_cyrillic_00B0[] = {
+0x78, 
+0xFC, 
+0xCC, 
+0xCC, 
+0xFC, 
+0x78, 
+};
+
+// U+00B5 'µ'
+static const uint8_t bmp_24_cyrillic_00B5[] = {
+0xE0, 0xE0, 
+0xE0, 0xE0, 
+0xE0, 0xE0, 
+0xE0, 0xE0, 
+0xE0, 0xE0, 
+0xE0, 0xE0, 
+0xE0, 0xE0, 
+0xE0, 0xE0, 
+0xE0, 0xE0, 
+0xE0, 0xE0, 
+0xF1, 0xE0, 
+0xFF, 0xE0, 
+0xFE, 0xE0, 
+0xE0, 0x00, 
+0xE0, 0x00, 
+0xE0, 0x00, 
+0xE0, 0x00, 
+0xE0, 0x00, 
+};
+
+// U+00B2 '²'
+static const uint8_t bmp_24_cyrillic_00B2[] = {
+0x7C, 
+0xC6, 
+0xC6, 
+0x06, 
+0x0E, 
+0x1C, 
+0x38, 
+0x60, 
+0xFE, 
+};
+
+// U+00B3 '³'
+static const uint8_t bmp_24_cyrillic_00B3[] = {
+0x7C, 
+0xC6, 
+0x06, 
+0x3E, 
+0x3C, 
+0x3E, 
+0x06, 
+0xC6, 
+0x7C, 
+};
+
+// U+2082 '₂'
+static const uint8_t bmp_24_cyrillic_2082[] = {
+0x7C, 
+0xC6, 
+0xC6, 
+0x06, 
+0x0E, 
+0x1C, 
+0x38, 
+0x70, 
+0xFE, 
+};
+
 static const Glyph glyphs_24_cyrillic[] = {
   { 0x0401, 11, 21, 2, bmp_24_cyrillic_0401 }, // 'Ё'
   { 0x0410, 15, 17, 6, bmp_24_cyrillic_0410 }, // 'А'
@@ -1392,8 +1463,13 @@ static const Glyph glyphs_24_cyrillic[] = {
   { 0x044E, 17, 13, 10, bmp_24_cyrillic_044E }, // 'ю'
   { 0x044F, 12, 13, 10, bmp_24_cyrillic_044F }, // 'я'
   { 0x0451, 11, 17, 6, bmp_24_cyrillic_0451 }, // 'ё'
+  { 0x00B0, 6, 6, 6, bmp_24_cyrillic_00B0 }, // '°'
+  { 0x00B5, 11, 18, 10, bmp_24_cyrillic_00B5 }, // 'µ'
+  { 0x00B2, 7, 9, 6, bmp_24_cyrillic_00B2 }, // '²'
+  { 0x00B3, 7, 9, 6, bmp_24_cyrillic_00B3 }, // '³'
+  { 0x2082, 7, 9, 18, bmp_24_cyrillic_2082 }, // '₂'
 };
 
 const Font font_24_cyrillic = {
-  66, 24, glyphs_24_cyrillic
+  71, 24, glyphs_24_cyrillic
 };

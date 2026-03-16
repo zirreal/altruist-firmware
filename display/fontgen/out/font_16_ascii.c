@@ -1406,6 +1406,60 @@ static const uint8_t bmp_16_ascii_007E[] = {
 0xC7, 0x00, 
 };
 
+// U+00B0 '°'
+static const uint8_t bmp_16_ascii_00B0[] = {
+0x60, 
+0x90, 
+0x90, 
+0x60, 
+};
+
+// U+00B5 'µ'
+static const uint8_t bmp_16_ascii_00B5[] = {
+0xC6, 
+0xC6, 
+0xC6, 
+0xC6, 
+0xC6, 
+0xC6, 
+0xC6, 
+0xC6, 
+0xFE, 
+0xC0, 
+0xC0, 
+0xC0, 
+};
+
+// U+00B2 '²'
+static const uint8_t bmp_16_ascii_00B2[] = {
+0x70, 
+0xD8, 
+0x18, 
+0x30, 
+0x60, 
+0xF8, 
+};
+
+// U+00B3 '³'
+static const uint8_t bmp_16_ascii_00B3[] = {
+0x70, 
+0x08, 
+0x38, 
+0x08, 
+0x48, 
+0x70, 
+};
+
+// U+2082 '₂'
+static const uint8_t bmp_16_ascii_2082[] = {
+0x70, 
+0xD8, 
+0x18, 
+0x30, 
+0x60, 
+0xF8, 
+};
+
 static const Glyph glyphs_16_ascii[] = {
   { 0x0020, 1, 1, 14, bmp_16_ascii_0020 }, // ' '
   { 0x0021, 2, 12, 3, bmp_16_ascii_0021 }, // '!'
@@ -1502,8 +1556,13 @@ static const Glyph glyphs_16_ascii[] = {
   { 0x007C, 1, 14, 3, bmp_16_ascii_007C }, // '|'
   { 0x007D, 5, 17, 1, bmp_16_ascii_007D }, // '}'
   { 0x007E, 9, 3, 9, bmp_16_ascii_007E }, // '~'
+  { 0x00B0, 4, 4, 3, bmp_16_ascii_00B0 }, // '°'
+  { 0x00B5, 7, 12, 6, bmp_16_ascii_00B5 }, // 'µ'
+  { 0x00B2, 5, 6, 4, bmp_16_ascii_00B2 }, // '²'
+  { 0x00B3, 5, 6, 4, bmp_16_ascii_00B3 }, // '³'
+  { 0x2082, 5, 6, 12, bmp_16_ascii_2082 }, // '₂'
 };
 
 const Font font_16_ascii = {
-  95, 16, glyphs_16_ascii
+  100, 16, glyphs_16_ascii
 };

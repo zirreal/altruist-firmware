@@ -39,6 +39,15 @@ bool display_sleeping = false;
 static unsigned long next_main_refresh_ms = 0;
 // Analytics-only cadence for normal refreshes: 4 partial, then 1 full.
 static uint8_t analytics_refresh_cycle_pos = 0;
+static bool analytics_priority_autoswitch_done = false;
+static bool analytics_priority_prev_window_state = false;
+
+static bool isAnalyticsPriorityWindowNow() {
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo)) return false;
+    const int h = timeinfo.tm_hour;
+    return (h >= 6 && h < 12);
+}
 
 // Cycle order for screens when navigating with UP/SET
 // Order: MAIN -> ANALYTICS -> GRAPHS -> SENSOR_MAP -> SETTINGS -> MAIN
@@ -342,6 +351,21 @@ void DisplayManager::process(button_pressed_t &btn_press) {
     if (display_sleeping) {
         return;
     }
+
+    // Between 06:00 and 12:00 analytics is the default screen.
+    // Auto-switch only once per window so user can still navigate back to MAIN.
+    const bool in_analytics_priority_window = isAnalyticsPriorityWindowNow();
+    if (!in_analytics_priority_window) {
+        // Leaving the priority window: if analytics is still open, return to MAIN once.
+        if (analytics_priority_prev_window_state && currentScreenID == ScreenPage::ANALYTICS) {
+            setScreen(ScreenPage::MAIN);
+        }
+        analytics_priority_autoswitch_done = false;
+    } else if (!analytics_priority_autoswitch_done && currentScreenID == ScreenPage::MAIN) {
+        analytics_priority_autoswitch_done = true;
+        setScreen(ScreenPage::ANALYTICS);
+    }
+    analytics_priority_prev_window_state = in_analytics_priority_window;
 
     // Periodic EPD re-initialization watchdog:
     // This helps recover from stuck display states after many partial updates.
