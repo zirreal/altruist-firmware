@@ -3,11 +3,12 @@
 #include "../utils.h"
 #include "helpers/message_formatter.h"
 #include "../config_manager/config_helpers.h"
+#include <WiFi.h>
 
 void RobonomicsHTTPAPI::setup() {
 	api_name = "Robonomics Map";
     _client = new WiFiClient();
-    String esp_chipid = get_chipid();
+    esp_chipid = get_chipid();
     donated_by = cfg::donated_by;
     rws_owner = cfg::rws_owner;
 	current_reg = cfg::current_reg;
@@ -18,6 +19,11 @@ void RobonomicsHTTPAPI::setup() {
 void RobonomicsHTTPAPI::_send(JsonDocument &data) {
     int num_of_host;
 	String data_to_send;
+	if (WiFi.status() != WL_CONNECTED) {
+		debug_outln_error(F("[Map] Skipping send: WiFi is disconnected"));
+		is_ok = false;
+		return;
+	}
 	formatDataToSend(data_to_send, data);
     debug_outln_verbose(F("[Map] Payload: "), data_to_send);
 	is_ok = false;
@@ -75,6 +81,10 @@ void RobonomicsHTTPAPI::POSTRequest(const String& data, const char* host) {
 	HTTPClient _http;
 	String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
     int result = 0;
+	if (WiFi.status() != WL_CONNECTED) {
+		debug_outln_error(F("[Map] POST skipped: WiFi disconnected"));
+		return;
+	}
     String s_Host(FPSTR(host));
 	String s_url(FPSTR(URL_ROBONOMICS));
 	debug_outln_verbose(F("[Map] POST to "), s_Host + ":" + String(PORT_ROBONOMICS) + s_url);
@@ -114,6 +124,10 @@ int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal) {
 	debug_outln_verbose(F("[Map] Selecting server: "), String(numRobonomicsHosts) + " hosts, region=" + current_reg.c_str() + (onlyGlobal ? " (global only)" : ""));
 
 	for (int i = 0; i < numRobonomicsHosts; i++) {
+		if (WiFi.status() != WL_CONNECTED) {
+			debug_outln_error(F("[Map] Stop server selection: WiFi disconnected"));
+			break;
+		}
 		if (onlyGlobal) {
 			if (strcmp(HOST_ROBONOMICS[i][1], INTL_REGION_GLOBAL) != 0) {
 				continue;

@@ -8,6 +8,7 @@
 #include "15x15/button_up_15x15.h"
 #include "15x15/buttons_nav_15x15.h"
 #include "15x15/chart_15x15.h"
+#include "15x15/chart_pie_15x15.h"
 #include "15x15/circuit_15x15.h"
 #include "15x15/co2_svgrepo_com_15x15.h"
 #include "15x15/display_frame_15x15.h"

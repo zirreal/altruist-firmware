@@ -107,6 +107,8 @@ const char INTL_DEBUG_LEVEL[] PROGMEM = "Уровень&nbsp;отладки";
 const char INTL_MEASUREMENT_INTERVAL[] PROGMEM = "Интервал отправки данных (с)";
 const char INTL_LEDS_BRIGHTNESS[] PROGMEM = "Яркость светодиодов (%)";
 const char INTL_LEDS_ON[] PROGMEM = "Включить светодиоды";
+const char INTL_LEDS_OFF_HOUR[] PROGMEM = "Час выключения LED (0-23)";
+const char INTL_LEDS_ON_HOUR[] PROGMEM = "Час включения LED (0-23)";
 const char INTL_SDS_MEAS_INTERVAL[] PROGMEM = "Интервал измерения SDS (с)";
 const char INTL_DATALOG_SENDING_INTERVAL[] PROGMEM = "Интервал отправки даталогов";
 const char INTL_DURATION_ROUTER_MODE[] PROGMEM = "Длительность режима маршрутизатора";
@@ -264,3 +266,18 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_NO_DATA_AVAILABLE "Нет данных"
 #define INTL_DISP_NOT_ENOUGH_DATA_YET "Пока недостаточно данных"
 #define INTL_DISP_COLLECTING_DATA "Сбор данных..."
+#define INTL_DISP_ANALYTICS_C_LEGEND "C=Консервативная"
+#define INTL_DISP_ANALYTICS_B_LEGEND "B=Биохакинг"
+#define INTL_DISP_ANALYTICS_GRADE "Оценка"
+#define INTL_DISP_ANALYTICS_COL_METRIC "Метрика"
+#define INTL_DISP_ANALYTICS_COL_MAX "Макс"
+#define INTL_DISP_ANALYTICS_COL_MIN "Мин"
+#define INTL_DISP_ANALYTICS_COL_CONSERV "Консерв"
+#define INTL_DISP_ANALYTICS_COL_BIOHACK "Биохак"
+#define INTL_DISP_ANALYTICS_ROW_CO2 "CO2 ppm"
+#define INTL_DISP_ANALYTICS_ROW_TEMP "Температура C"
+#define INTL_DISP_ANALYTICS_ROW_HUM "Влажность %"
+#define INTL_DISP_ANALYTICS_ROW_PM25 "PM2.5 мкг/м3"
+#define INTL_DISP_ANALYTICS_ROW_NOISE "Шум дБ"
+#define INTL_DISP_ANALYTICS_AT "в"
+#define INTL_DISP_ANALYTICS_HOUR_SUFFIX "ч"

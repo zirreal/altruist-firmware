@@ -107,6 +107,8 @@ const char INTL_DEBUG_LEVEL[] PROGMEM = "Debug&nbsp;level";
 const char INTL_MEASUREMENT_INTERVAL[] PROGMEM = "Sending data interval (sec)";
 const char INTL_LEDS_BRIGHTNESS[] PROGMEM = "Led brightness (%)";
 const char INTL_LEDS_ON[] PROGMEM = "Turn on led";
+const char INTL_LEDS_OFF_HOUR[] PROGMEM = "LED off hour (0-23)";
+const char INTL_LEDS_ON_HOUR[] PROGMEM = "LED on hour (0-23)";
 const char INTL_SDS_MEAS_INTERVAL[] PROGMEM = "SDS measure interval (sec)";
 const char INTL_DATALOG_SENDING_INTERVAL[] PROGMEM = "Datalog sending interval (sec)";
 const char INTL_DURATION_ROUTER_MODE[] PROGMEM = "Duration router mode";
@@ -264,3 +266,18 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_NO_DATA_AVAILABLE "No data available"
 #define INTL_DISP_NOT_ENOUGH_DATA_YET "Not enough data yet"
 #define INTL_DISP_COLLECTING_DATA "Collecting data..."
+#define INTL_DISP_ANALYTICS_C_LEGEND "C=Conservative"
+#define INTL_DISP_ANALYTICS_B_LEGEND "B=Biohacking"
+#define INTL_DISP_ANALYTICS_GRADE "Grade"
+#define INTL_DISP_ANALYTICS_COL_METRIC "Metric"
+#define INTL_DISP_ANALYTICS_COL_MAX "Max"
+#define INTL_DISP_ANALYTICS_COL_MIN "Min"
+#define INTL_DISP_ANALYTICS_COL_CONSERV "Conserv"
+#define INTL_DISP_ANALYTICS_COL_BIOHACK "Biohack"
+#define INTL_DISP_ANALYTICS_ROW_CO2 "CO2 ppm"
+#define INTL_DISP_ANALYTICS_ROW_TEMP "Temperature C"
+#define INTL_DISP_ANALYTICS_ROW_HUM "Humidity %"
+#define INTL_DISP_ANALYTICS_ROW_PM25 "PM2.5 ug/m3"
+#define INTL_DISP_ANALYTICS_ROW_NOISE "Noise dB"
+#define INTL_DISP_ANALYTICS_AT "at"
+#define INTL_DISP_ANALYTICS_HOUR_SUFFIX "h"

@@ -9,15 +9,28 @@
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
+#include <freertos/semphr.h>
 #include "../utils.h"
 
 #define ROOT_FOLDER "/sensors_data/"
 #define EXCEPTIONS_FOLDER "/exceptions"
+#define ROLLUP_ROOT_FOLDER "/sensors_rollup"
+#define ROLLUP_DAILY_FOLDER "/sensors_rollup/daily"
+#define ROLLUP_HOURLY_FOLDER "/sensors_rollup/hourly"
+#define ROLLUP_MONTHLY_FOLDER "/sensors_rollup/monthly"
 
 struct LineData {
     float* values;
     uint32_t* timestamps;
     int count;
+};
+
+struct PeriodStats {
+    float min_v = 0.0f;
+    float max_v = 0.0f;
+    float avg_v = 0.0f;
+    uint32_t count = 0;
+    bool has_data = false;
 };
 
 class SDCard {
@@ -72,6 +85,22 @@ public:
         }
     }
     bool checkInserted();
+    // Build daily/monthly rollups used by analytics period views.
+    bool buildDailyRollupsIfNeeded();
+    bool buildMonthlyRollupsIfNeeded();
+    bool readPeriodStats(const char* sensor_name, const char* field_name, uint16_t period_days, float scale, PeriodStats &out_stats);
+
+    // Retention cleanup:
+    // - raw sensor CSV retention (days)
+    // - daily rollup retention (days)
+    // - hourly rollup retention (days)
+    // - monthly rollup retention (months)
+    // - keep only the newest N boot diagnostic files in /exceptions
+    bool applyRetentionPolicy(uint16_t rawSensorRetentionDays,
+                              uint16_t dailyRollupRetentionDays,
+                              uint16_t hourlyRollupRetentionDays,
+                              uint16_t monthlyRollupRetentionMonths,
+                              uint16_t maxBootFiles);
 
     // Generic text file helpers used by exception/runtime logging.
     // These make sure parent folders exist and then write/append content.
@@ -92,6 +121,11 @@ private:
 };
 
 void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char* field_name, int hours_back);
+// Global SD lock helpers for modules that still use direct SD.* access.
+bool sdCardLock(uint32_t timeout_ms = 5000);
+void sdCardUnlock();
+// DEV diagnostics counters for SD activity.
+void sdGetDevCounters(uint32_t &csv_ok, uint32_t &csv_fail, uint32_t &lock_busy);
 
 #endif
 #endif // __SD_CARD_H__

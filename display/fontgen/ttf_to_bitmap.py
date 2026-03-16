@@ -30,15 +30,24 @@ if not os.path.isfile(FONT_FILE):
     raise SystemExit("No font found. Put DejaVuSans.ttf or font.ttf in " + SCRIPT_DIR)
 print("Using font:", os.path.basename(FONT_FILE))
 
-SIZES = [8, 12, 16, 20, 24]
+SIZES = [8, 12, 16, 20, 24, 32, 36, 40, 48]
+
+EXTRA_SYMBOLS = [
+    0x00B0,  # degree sign: °
+    0x00B5,  # micro sign: µ
+    0x00B2,  # superscript two: ²
+    0x00B3,  # superscript three: ³
+    0x2082,  # subscript two: ₂
+]
 
 LANGUAGES = {
-    "ascii": list(range(0x20, 0x7F)),
+    "ascii": list(range(0x20, 0x7F)) + EXTRA_SYMBOLS,
     "cyrillic": (
         [0x0401] +                      # Ё
         list(range(0x0410, 0x0430)) +   # А–Я
         list(range(0x0430, 0x0450)) +   # а–я
-        [0x0451]                        # ё
+        [0x0451] +                      # ё
+        EXTRA_SYMBOLS
     )
 }
 

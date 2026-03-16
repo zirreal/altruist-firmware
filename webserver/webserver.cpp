@@ -577,7 +577,7 @@ void SensorWebServer::_webserver_root() {
     RESERVE_STRING(page_content, XLARGE_STR);
     start_html_page(page_content, emptyString);
     debug_outln_info(F("ws: root ..."));
-    webserver_root(page_content);
+    webserver_root(page_content, robonomics_address);
     end_html_page_root(page_content);
 }
 

@@ -6,6 +6,8 @@
 
 void webserver_config_send_body_post(WebServer &server) {
 	String masked_pwd;
+	const char *kRobonomicsNodePolkadot = "polkadot.rpc.robonomics.network";
+	const char *kRobonomicsNodeKusama = "kusama.rpc.robonomics.network";
 
 	for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {
 		ConfigShapeEntry c;
@@ -37,6 +39,32 @@ void webserver_config_send_body_post(WebServer &server) {
 			break;
 		}
 	}
+
+	// Robonomics public node can be selected from presets or entered manually.
+	if (server.hasArg("robonomics_public_node_select")) {
+		const String selected = server.arg("robonomics_public_node_select");
+		if (selected == "custom") {
+			if (server.hasArg("robonomics_public_node_custom")) {
+				String custom = server.arg("robonomics_public_node_custom");
+				custom.trim();
+				if (custom.length() > 0) {
+					strncpy(cfg::robonomics_public_node, custom.c_str(), LEN_ROBONOMICS_PUBLIC_NODE - 1);
+					cfg::robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE - 1] = '\0';
+				}
+			}
+		} else if (selected == kRobonomicsNodePolkadot || selected == kRobonomicsNodeKusama) {
+			strncpy(cfg::robonomics_public_node, selected.c_str(), LEN_ROBONOMICS_PUBLIC_NODE - 1);
+			cfg::robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE - 1] = '\0';
+		}
+	}
+
+#ifdef ALTRUIST_INSIDE
+	// Keep LED schedule values in a safe 0..23 range even for crafted requests.
+	if (cfg::leds_off_hour > 23) cfg::leds_off_hour = 0;
+	if (cfg::leds_on_hour > 23) cfg::leds_on_hour = 6;
+	if (cfg::analytics_night_start_hour > 23) cfg::analytics_night_start_hour = 22;
+	if (cfg::analytics_night_end_hour > 23) cfg::analytics_night_end_hour = 10;
+#endif
 }
 
 /*****************************************************************
@@ -44,6 +72,8 @@ void webserver_config_send_body_post(WebServer &server) {
  *****************************************************************/
 
 void webserver_config_send_body_get(WebServer &server, String& page_content, bool wificonfig_loop, JsonDocument &data) {
+	const char *kRobonomicsNodePolkadot = "polkadot.rpc.robonomics.network";
+	const char *kRobonomicsNodeKusama = "kusama.rpc.robonomics.network";
 	auto add_form_checkbox = [&page_content](const ConfigShapeId cfgid, const String& info, bool enabled) {
 		page_content += form_checkbox(cfgid, info, true, enabled);
 	};
@@ -82,7 +112,55 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	// page_content += form_checkbox(Config_send2robonomics, FPSTR(WEB_ROBONOMICS), false);
 	add_form_input(page_content, Config_rws_owner, FPSTR(INTL_RWS_OWNER), LEN_RWS_OWNER-1);
 	add_form_input(page_content, Config_datalog_sending_intervall_ms, FPSTR(INTL_DATALOG_SENDING_INTERVAL), 5);
-	add_form_input(page_content, Config_robonomics_public_node, FPSTR(INTL_ROBONOMICS_PUBLIC_NODE), LEN_ROBONOMICS_PUBLIC_NODE-1);
+	{
+		String current_node = String(cfg::robonomics_public_node);
+		const bool is_polkadot = current_node == kRobonomicsNodePolkadot;
+		const bool is_kusama = current_node == kRobonomicsNodeKusama;
+		const bool is_custom = !is_polkadot && !is_kusama;
+		String custom_value = is_custom ? current_node : String("");
+		custom_value.replace("'", "&#39;");
+
+		page_content += F("<div class='form-group'>"
+				"<label for='robonomics_public_node_select'>");
+		page_content += FPSTR(INTL_ROBONOMICS_PUBLIC_NODE);
+		page_content += F("</label>"
+				"<select id='robonomics_public_node_select' name='robonomics_public_node_select'>"
+					"<option value='polkadot.rpc.robonomics.network'");
+		if (is_polkadot) page_content += F(" selected='selected'");
+		page_content += F(">polkadot.rpc.robonomics.network</option>"
+					"<option value='kusama.rpc.robonomics.network'");
+		if (is_kusama) page_content += F(" selected='selected'");
+		page_content += F(">kusama.rpc.robonomics.network</option>"
+					"<option value='custom'");
+		if (is_custom) page_content += F(" selected='selected'");
+		page_content += F(">Custom</option>"
+				"</select>"
+				"</div>");
+
+		page_content += F("<div class='form-group' id='robonomics_public_node_custom_wrap'>"
+				"<label for='robonomics_public_node_custom'>Custom Robonomics Public Node</label>"
+				"<input type='text' id='robonomics_public_node_custom' name='robonomics_public_node_custom' "
+				"placeholder='custom.rpc.example' maxlength='");
+		page_content += String(LEN_ROBONOMICS_PUBLIC_NODE - 1);
+		page_content += F("' value='");
+		page_content += custom_value;
+		page_content += F("'/></div>");
+
+		page_content += F("<script>"
+				"(function(){"
+					"var sel=document.getElementById('robonomics_public_node_select');"
+					"var wrap=document.getElementById('robonomics_public_node_custom_wrap');"
+					"var input=document.getElementById('robonomics_public_node_custom');"
+					"function sync(){"
+						"var custom=(sel && sel.value==='custom');"
+						"if(wrap){wrap.style.display=custom?'block':'none';}"
+						"if(input){input.disabled=!custom;}"
+					"}"
+					"sync();"
+					"if(sel){sel.onchange=sync;}"
+				"})();"
+				"</script>");
+	}
 
 	page_content += F("<h3 class='panel-subtitle' style='margin-top:16px;'>" INTL_PANEL_TITLE_DATA_SHARING "</h3>");
 	page_content += F("<p style='font-size:0.9em;color:#555;margin-bottom:12px;'>"
@@ -159,6 +237,22 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	if (LED_PIN != -1) {
 		add_form_checkbox(Config_leds_on, FPSTR(INTL_LEDS_ON), true);
 		add_form_input(page_content, Config_leds_brightness, FPSTR(INTL_LEDS_BRIGHTNESS), 5);
+		add_form_input(page_content, Config_leds_off_hour, FPSTR(INTL_LEDS_OFF_HOUR), 2);
+		add_form_input(page_content, Config_leds_on_hour, FPSTR(INTL_LEDS_ON_HOUR), 2);
+		add_form_input(page_content, Config_analytics_night_start_hour, F("Analytics night start hour"), 2);
+		add_form_input(page_content, Config_analytics_night_end_hour, F("Analytics night end hour"), 2);
+		page_content += F("<script>"
+			"(function(){"
+				"var off=document.getElementById('leds_off_hour');"
+				"var on=document.getElementById('leds_on_hour');"
+				"var nightStart=document.getElementById('analytics_night_start_hour');"
+				"var nightEnd=document.getElementById('analytics_night_end_hour');"
+				"if(off){off.min='0';off.max='23';off.step='1';}"
+				"if(on){on.min='0';on.max='23';on.step='1';}"
+				"if(nightStart){nightStart.min='0';nightStart.max='23';nightStart.step='1';}"
+				"if(nightEnd){nightEnd.min='0';nightEnd.max='23';nightEnd.step='1';}"
+			"})();"
+		"</script>");
 	}
 	page_content += F("</div>");
 

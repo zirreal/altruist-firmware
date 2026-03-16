@@ -97,7 +97,13 @@ const char* get_reset_reason_text() {
         case ESP_RST_POWERON:   cached = "Power-on reset"; break;
         case ESP_RST_EXT:       cached = "External reset"; break;
         case ESP_RST_SW:        cached = "Software reset"; break;
-        case ESP_RST_PANIC:     cached = "Panic (unhandled exception)"; break;
+        case ESP_RST_PANIC:
+#ifdef DEV
+            cached = "Panic (unhandled exception)";
+#else
+            cached = "Unexpected restart (recovered)";
+#endif
+            break;
         case ESP_RST_INT_WDT:   cached = "Interrupt watchdog timeout"; break;
         case ESP_RST_TASK_WDT:  cached = "Task watchdog timeout"; break;
         case ESP_RST_WDT:       cached = "Other watchdog reset"; break;

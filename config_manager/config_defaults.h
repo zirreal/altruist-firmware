@@ -72,6 +72,10 @@ namespace cfg {
 
 	extern unsigned leds_brightness;
 	extern bool leds_on;
+	extern unsigned leds_off_hour;
+	extern unsigned leds_on_hour;
+	extern unsigned analytics_night_start_hour;
+	extern unsigned analytics_night_end_hour;
 
 	// data sharing preferences
 	extern bool share_temperature;

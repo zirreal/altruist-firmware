@@ -4,6 +4,41 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ---
 
+## [R_2026-03](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-03) — 2026-03-16
+
+### New Features
+
+- **Night-only Analytics screen (Insight/e-ink)** — redesigned Analytics into a single smartwatch-style nightly recovery page with a large central score ring and compact metrics table.
+
+### Improvements
+
+- **Night score methodology table** — added side-by-side methodology scores with on-screen legend (`C = Conservative`, `B = Biohacking`) to make score interpretation explicit.
+- **Analytics storage and rendering path** — analytics now uses night-focused 24h/hourly data flow only.
+- **Analytics NVS-first mode** — analytics persistence moved to a compact 48-hour hourly NVS ring, and night rendering now reads NVS/RAM history directly.
+- **Storage simplification for Analytics** — removed analytics SD cache/migration dependencies from runtime; SD is no longer required to open Analytics screen.
+- **Analytics DEV observability** — added DEV logs for persistence state, category/metric coverage, and save telemetry (first/last save time, save count, last reason, save policy).
+- **Night scoring methodology update** — switched Conservative/Biohacking scoring to sleep-impact formulas per metric (CO2, PM2.5, noise, temperature, humidity) with score mapping `100 + impact*2`.
+- **Night score aggregation update** — final Conservative/Biohacking scores now use summed model impact (`100 + total_impact*2`) to match the strict methodology examples.
+- **Night summary line refresh** — replaced generic footer with a single-line human-readable summary for both models (`score + grade + sleep impact`).
+- **Night data readiness state** — when not enough night hours are collected, Analytics shows explicit "collecting data" status (no table box) instead of a misleading score.
+- **Night analytics qr code** - added qr code with sensor map for more thorough and proper analytics.
+- **Background analytics ingest** — hourly analytics ingestion was decoupled from Analytics screen rendering and now runs in the sensor worker, so night history keeps updating even when Analytics screen is not opened.
+- **Hourly persistence policy** — persistence now targets hourly boundaries with catch-up behavior after reboot/missed windows, improving next-morning report reliability.
+- **Morning analytics recompute window** — night report selection now supports progressive hourly refresh between `06:00` and configured night end hour (default `10:00`) instead of waiting for a single daily switch.
+- **Analytics screen priority window (Insight)** — analytics can auto-open as default between `06:00` and `12:00`, and auto-return to `MAIN` after the window ends while preserving manual navigation.
+- **Typography and units upgrade (e-ink analytics/main)** — added glyph support for `°`, `µ`, and superscripts; updated UI units to full forms (`°C`, `µg/m³`).
+- **LED resilience under mutex contention (Insight)** — added LED mutex diagnostics and a guarded daytime fallback that forces neutral LED ON state when updates are blocked too long.
+- **Configurable LED night schedule (Insight)** — added web-configurable `LED off hour` / `LED on hour` (defaults `00` and `06`) and switched logic from hardcoded quiet hours.
+- **Main screen lock-time reduction (Insight)** — removed serialize/deserialize JSON path from display refresh; main screen now uses typed cached snapshot extracted under a short mutex hold.
+- **Network/API hardening on unstable WiFi** — guarded API send paths and skip send cycle when WiFi remains disconnected after reconnect attempt.
+- **Crash diagnostics in status page** — added reset reason code, last crash section, previous uptime, and previous free heap.
+
+### Bug Fixes
+
+- **SD rollup path handling** — fixed CSV open paths in rollup builders to always use absolute paths (`/...`) and avoid VFS `does not start with /` errors.
+- **SD-card robustness and retention** — extended retention worker and SD mutex usage for logging/cleanup/read paths; retention now covers raw graph files, analytics daily rollups for dev, and boot diagnostics.
+- **CSV logging regression after analytics refactor** — fixed one-shot `jsonUpdated()` flag consumption so SD CSV writes and analytics ingest can run together without dropping graph data.
+
 ## [R_2026-02.1](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-02.1) — 2026-02-20
 
 ### Bug Fixes

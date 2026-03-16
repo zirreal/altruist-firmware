@@ -98,6 +98,9 @@
 
 String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
+// Needed for Arduino .ino auto-generated prototypes in non-INSIDE builds.
+struct analytics_screen_values_t;
+
 SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
 DynamicJsonDocument sensors_data(2048);
 device_status_t deviceStatus;
@@ -203,11 +206,6 @@ CrashContextData loadCrashContext() {
 void writeBootFile() {
 	if (!deviceStatus.sd_card_connected) return;
 	
-	// Make sure exceptions folder exists
-	if (!SD.exists(EXCEPTIONS_FOLDER)) {
-		SD.mkdir(EXCEPTIONS_FOLDER);
-	}
-	
 	// Build boot file path
 	String bootPath = String(EXCEPTIONS_FOLDER) + "/boot_" + String(system_metrics.boot_counter) + ".txt";
 	
@@ -307,16 +305,20 @@ static void exceptionsLogWorker(void *pvParameters) {
 		if (buffer.length() > 0) {
 			// Rotate if the file would exceed the cap
 			size_t currentSize = 0;
-			if (SD.exists(logPath)) {
-				File f = SD.open(logPath, FILE_READ);
-				if (f) { currentSize = f.size(); f.close(); }
+			if (sdCardLock(2000)) {
+				if (SD.exists(logPath)) {
+					File f = SD.open(logPath, FILE_READ);
+					if (f) { currentSize = f.size(); f.close(); }
+				}
+				if (currentSize + buffer.length() > MAX_LOG_BYTES) {
+					// Keep up to 2 backups: runtime.log -> runtime.log.1 -> runtime.log.2
+					if (SD.exists(logPath2)) SD.remove(logPath2);
+					if (SD.exists(logPath1)) SD.rename(logPath1, logPath2);
+					if (SD.exists(logPath))  SD.rename(logPath,  logPath1);
+				}
+				sdCardUnlock();
 			}
 			if (currentSize + buffer.length() > MAX_LOG_BYTES) {
-				// Keep up to 2 backups: runtime.log -> runtime.log.1 -> runtime.log.2
-				if (SD.exists(logPath2)) SD.remove(logPath2);
-				if (SD.exists(logPath1)) SD.rename(logPath1, logPath2);
-				if (SD.exists(logPath))  SD.rename(logPath,  logPath1);
-
 				// Start a new file with a simple header
 				String header;
 				header.reserve(128);
@@ -332,6 +334,42 @@ static void exceptionsLogWorker(void *pvParameters) {
 	}
 }
 #endif // DEV
+
+// Periodic retention worker:
+// - keep recent sensor CSV files for graph pages
+// - keep only a bounded number of boot diagnostics in /exceptions
+static void sdRetentionWorker(void *pvParameters) {
+	(void)pvParameters;
+	const uint16_t RAW_RETENTION_DAYS = 30;
+	const uint16_t DAILY_ROLLUP_RETENTION_DAYS = 180;
+	const uint16_t HOURLY_ROLLUP_RETENTION_DAYS = 30;
+	const uint16_t MONTHLY_ROLLUP_RETENTION_MONTHS = 24;
+	const uint16_t MAX_BOOT_FILES = 30;
+	const unsigned long CLEANUP_INTERVAL_MS = 6UL * 60UL * 60UL * 1000UL; // 6 hours
+	unsigned long last_cleanup_ms = 0;
+
+	for (;;) {
+		vTaskDelay(60000 / portTICK_PERIOD_MS); // check once per minute
+
+		if (!deviceStatus.sd_card_connected || !sdCardLogger.checkInserted()) {
+			continue;
+		}
+
+		if (last_cleanup_ms == 0 || msSince(last_cleanup_ms) > CLEANUP_INTERVAL_MS) {
+			last_cleanup_ms = millis();
+			debug_outln_info(F("[SDCardLogger] Running retention cleanup..."));
+			sdCardLogger.buildDailyRollupsIfNeeded();
+			sdCardLogger.buildMonthlyRollupsIfNeeded();
+			sdCardLogger.applyRetentionPolicy(
+				RAW_RETENTION_DAYS,
+				DAILY_ROLLUP_RETENTION_DAYS,
+				HOURLY_ROLLUP_RETENTION_DAYS,
+				MONTHLY_ROLLUP_RETENTION_MONTHS,
+				MAX_BOOT_FILES
+			);
+		}
+	}
+}
 #endif // USE_SD_CARD && ALTRUIST_INSIDE
 
 /*****************************************************************
@@ -403,7 +441,86 @@ static void setupNetworkTime() {
 	configTzTime(cfg::timezone, ntpServer1, ntpServer2);
 }
 
-void fetchSensors() {
+static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &doc, analytics_screen_values_t &values) {
+#if defined(ALTRUIST_INSIDE)
+	values = analytics_screen_values_t{};
+	JsonObjectConst data = doc.as<JsonObjectConst>();
+	const String urban_key = ATRUIST_URBAN_SENSOR;
+
+	auto validTemp = [](float v) { return v > -40.0f && v < 80.0f; };
+	auto validHumidity = [](float v) { return v >= 0.0f && v <= 100.0f; };
+	auto validCO2 = [](float v) { return v >= 300.0f && v <= 5000.0f; };
+	auto validPM = [](float v) { return v >= 0.0f && v <= 1500.0f; };
+	auto validNoise = [](float v) { return v >= 0.0f && v <= 120.0f; };
+
+	const bool use_bme680_for_temp_hum = (system_metrics.uptime_sec < 360);
+
+	if (data.containsKey("SCD4x")) {
+		JsonObjectConst scd = data["SCD4x"].as<JsonObjectConst>();
+		if (scd.containsKey("co2")) {
+			const float v = scd["co2"]["value"].as<float>();
+			if (validCO2(v)) { values.co2.current = v; values.co2.has_current = true; }
+		}
+		if (!use_bme680_for_temp_hum) {
+			if (scd.containsKey("temperature")) {
+				const float v = scd["temperature"]["value"].as<float>();
+				if (validTemp(v)) { values.temp_indoor.current = v; values.temp_indoor.has_current = true; }
+			}
+			if (scd.containsKey("humidity")) {
+				const float v = scd["humidity"]["value"].as<float>();
+				if (validHumidity(v)) { values.hum_indoor.current = v; values.hum_indoor.has_current = true; }
+			}
+		}
+	}
+
+	if (data.containsKey("BME680") && use_bme680_for_temp_hum) {
+		JsonObjectConst bme = data["BME680"].as<JsonObjectConst>();
+		if (bme.containsKey("temperature")) {
+			const float v = bme["temperature"]["value"].as<float>();
+			if (validTemp(v)) { values.temp_indoor.current = v; values.temp_indoor.has_current = true; }
+		}
+		if (bme.containsKey("humidity")) {
+			const float v = bme["humidity"]["value"].as<float>();
+			if (validHumidity(v)) { values.hum_indoor.current = v; values.hum_indoor.has_current = true; }
+		}
+	}
+
+	if (data.containsKey(urban_key)) {
+		JsonObjectConst urban = data[urban_key].as<JsonObjectConst>();
+		if (urban.containsKey("SDS_P1")) {
+			const float v = urban["SDS_P1"]["value"].as<float>();
+			if (validPM(v)) { values.pm10.current = v; values.pm10.has_current = true; }
+		}
+		if (urban.containsKey("SDS_P2")) {
+			const float v = urban["SDS_P2"]["value"].as<float>();
+			if (validPM(v)) { values.pm25.current = v; values.pm25.has_current = true; }
+		}
+		if (urban.containsKey("PCBA_noiseAvg")) {
+			const float v = urban["PCBA_noiseAvg"]["value"].as<float>();
+			if (validNoise(v)) { values.noise_avg.current = v; values.noise_avg.has_current = true; }
+		}
+	}
+
+	if (values.temp_indoor.has_current && values.hum_indoor.has_current && values.hum_indoor.current > 0.0f) {
+		const float t = values.temp_indoor.current;
+		const float h = values.hum_indoor.current;
+		const float a = 17.62f;
+		const float b = 243.12f;
+		const float gamma = logf(h / 100.0f) + (a * t) / (b + t);
+		const float dew = (b * gamma) / (a - gamma);
+		if (validTemp(dew)) {
+			values.dew_indoor.current = dew;
+			values.dew_indoor.has_current = true;
+		}
+	}
+#else
+	(void)doc;
+	(void)values;
+#endif
+}
+
+bool fetchSensors() {
+	bool any_sensor_json_updated = false;
 	bool isSDSRunning = false;
 		for (int i = 0; i < activeSensorsCount; i++) {
 			if (activeSensors[i]->sensor_name == SDS_SENSOR_NAME) {
@@ -413,27 +530,45 @@ void fetchSensors() {
 				static_cast<I2SNoiseSensor*>(activeSensors[i])->setSDSRunning(isSDSRunning);
 			}
 			if (activeSensors[i]->isTimeToFetch()) {
+				bool sensor_json_updated = false;
 				if (xSemaphoreTake(mutex, portMAX_DELAY)) {
 					activeSensors[i]->fetch(sensors_data);
+					sensor_json_updated = activeSensors[i]->jsonUpdated();
+					if (sensor_json_updated) {
+						any_sensor_json_updated = true;
+					}
 					xSemaphoreGive(mutex);
 				}
 #if defined(USE_SD_CARD)
 				// SD logging outside mutex - SD writes are slow and would block display
 				deviceStatus.sd_card_connected = sdCardLogger.checkInserted();
-				if (deviceStatus.sd_card_connected && activeSensors[i]->jsonUpdated()) {
+				if (deviceStatus.sd_card_connected && sensor_json_updated) {
 					sdCardLogger.logData(activeSensors[i]->sensor_name, sensors_data);
 				}
 #endif
 			}
 		}
+	return any_sensor_json_updated;
 }
 
 void sensorAndAPIWorker(void *pvParameters) {
 	int reconnected = 0;
+#if defined(ALTRUIST_INSIDE)
+	analytics_screen_values_t analytics_rollup_values;
+#endif
 	for (;;) {  // infinite loop
 		// Mark that we're about to fetch sensor data
 		markCrashSection(CRASH_SECTION_FETCH_SENSORS);
-		fetchSensors();
+		const bool sensors_updated = fetchSensors();
+#if defined(ALTRUIST_INSIDE)
+		// Keep analytics history collection independent from Analytics screen rendering.
+		if (sensors_updated && xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
+			extractAnalyticsRollupValuesFromSensors(sensors_data, analytics_rollup_values);
+			analyticsIngestHourSample(analytics_rollup_values);
+			xSemaphoreGive(mutex);
+		}
+		analyticsDevLogStatus15m();
+#endif
 		markCrashSection(CRASH_SECTION_IDLE);
 
 		for (int i = 0; i < ActiveAPIsCount; i++) {
@@ -451,6 +586,16 @@ void sensorAndAPIWorker(void *pvParameters) {
 				reconnected++;
 				incrementWiFiReconnectError();
 				markCrashSection(CRASH_SECTION_IDLE);
+				if (WiFi.status() != WL_CONNECTED) {
+#ifdef DEV
+#if defined(ALTRUIST_INSIDE)
+					Serial.println(F("[INSIGHT] Skip API send: WiFi still disconnected after reconnect attempt"));
+#elif defined(ALTRUIST_URBAN)
+					Serial.println(F("[URBAN] Skip API send: WiFi still disconnected after reconnect attempt"));
+#endif
+#endif
+					continue;
+				}
 			}
 
 			// Mark based on which API we're sending to
@@ -607,6 +752,17 @@ void metricsWorker(void *pvParameters) {
 			if (free_heap < 50000) {
 				debug_outln_info(F("[MEM][WARN] Low free heap bytes"), String(free_heap));
 			}
+#if defined(USE_SD_CARD)
+			uint32_t sd_ok = 0, sd_fail = 0, sd_busy = 0;
+			static uint32_t prev_sd_ok = 0, prev_sd_fail = 0, prev_sd_busy = 0;
+			sdGetDevCounters(sd_ok, sd_fail, sd_busy);
+			debug_outln_info(F("[SD][DEV] csv writes (+)"), String(sd_ok - prev_sd_ok));
+			debug_outln_info(F("[SD][DEV] csv write fails (+)"), String(sd_fail - prev_sd_fail));
+			debug_outln_info(F("[SD][DEV] sd lock busy (+)"), String(sd_busy - prev_sd_busy));
+			prev_sd_ok = sd_ok;
+			prev_sd_fail = sd_fail;
+			prev_sd_busy = sd_busy;
+#endif
 		}
 #endif
 
@@ -799,11 +955,28 @@ void setup(void) {
 	deviceStatus.last_update_attempt = deviceStatus.time_point_device_start_ms = millis();
 #if defined(USE_SD_CARD)
 	deviceStatus.sd_card_connected = sdCardLogger.begin();
+	if (deviceStatus.sd_card_connected) {
+		debug_outln_info(F("[SDCardLogger] SD card connected"));
+	} else {
+		debug_outln_error(F("[SDCardLogger] SD card NOT connected"));
+	}
 #endif
 
 #if defined(USE_SD_CARD) && defined(ALTRUIST_INSIDE)
 	// Write boot diagnostic file immediately after SD init - captures RTC crash context
 	writeBootFile();
+
+	// SD retention cleanup worker (production + dev):
+	// keeps exceptions and sensor CSV history bounded.
+	xTaskCreatePinnedToCore(
+		sdRetentionWorker,
+		"SDRetentionWorker",
+		4096,
+		NULL,
+		1,
+		NULL,
+		0
+	);
 	
 #if defined(DEV)
 	// Background logger: keep a rolling runtime log on SD so we have context

@@ -5,7 +5,62 @@
 #include "../utils.h"
 #include <algorithm>
 
+namespace {
+SemaphoreHandle_t g_sd_mutex = nullptr;
+volatile uint32_t g_sd_csv_write_ok = 0;
+volatile uint32_t g_sd_csv_write_fail = 0;
+volatile uint32_t g_sd_lock_busy = 0;
+
+static void ensureSDMutex() {
+    if (g_sd_mutex == nullptr) {
+        g_sd_mutex = xSemaphoreCreateRecursiveMutex();
+    }
+}
+
+class SDLockGuard {
+public:
+    explicit SDLockGuard(uint32_t timeout_ms = 5000) : locked(false) {
+        ensureSDMutex();
+        if (g_sd_mutex) {
+            locked = (xSemaphoreTakeRecursive(g_sd_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE);
+        }
+    }
+    ~SDLockGuard() {
+        if (locked && g_sd_mutex) {
+            xSemaphoreGiveRecursive(g_sd_mutex);
+        }
+    }
+    bool ok() const { return locked; }
+private:
+    bool locked;
+};
+} // namespace
+
+bool sdCardLock(uint32_t timeout_ms) {
+    ensureSDMutex();
+    if (!g_sd_mutex) return false;
+    return xSemaphoreTakeRecursive(g_sd_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
+}
+
+void sdCardUnlock() {
+    if (g_sd_mutex) {
+        xSemaphoreGiveRecursive(g_sd_mutex);
+    }
+}
+
+void sdGetDevCounters(uint32_t &csv_ok, uint32_t &csv_fail, uint32_t &lock_busy) {
+    csv_ok = g_sd_csv_write_ok;
+    csv_fail = g_sd_csv_write_fail;
+    lock_busy = g_sd_lock_busy;
+}
+
 bool SDCard::begin() {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in begin()"));
+        g_sd_lock_busy++;
+        return false;
+    }
     SPI.begin(SPI_SCK_PIN, SPI_MISO_PIN, SPI_MOSI_PIN, SPI_CS_PIN);
     if (_beginSD(SPI)) {
         refreshCache();
@@ -35,6 +90,12 @@ bool SDCard::_beginSD(SPIClass &spi) {
 }
 
 bool SDCard::writeTextFile(const String& fullPath, const String& content) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in writeTextFile()"));
+        g_sd_lock_busy++;
+        return false;
+    }
     int slash = fullPath.lastIndexOf('/');
     if (slash > 0) {
         String folder = fullPath.substring(0, slash);
@@ -61,6 +122,12 @@ bool SDCard::writeTextFile(const String& fullPath, const String& content) {
 }
 
 bool SDCard::appendTextFile(const String& fullPath, const String& content) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in appendTextFile()"));
+        g_sd_lock_busy++;
+        return false;
+    }
     int slash = fullPath.lastIndexOf('/');
     if (slash > 0) {
         String folder = fullPath.substring(0, slash);
@@ -87,6 +154,12 @@ bool SDCard::appendTextFile(const String& fullPath, const String& content) {
 }
 
 void SDCard::refreshCache() {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in refreshCache()"));
+        g_sd_lock_busy++;
+        return;
+    }
     _sensorList.clear();
     _sensorLastFiles.clear();
 
@@ -145,6 +218,12 @@ String SDCard::_getCurrentDateFileName() {
 }
 
 String SDCard::_findLastFileInFolder(const String& path) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in _findLastFileInFolder()"));
+        g_sd_lock_busy++;
+        return "";
+    }
     File dir = SD.open(path);
     if (!dir || !dir.isDirectory()) return "";
 
@@ -169,6 +248,13 @@ String SDCard::_findLastFileInFolder(const String& path) {
 
 
 void SDCard::_logCSVRow(const String& sensorName, const String& header, const String& values) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in _logCSVRow()"));
+        g_sd_lock_busy++;
+        g_sd_csv_write_fail++;
+        return;
+    }
     String folder = ROOT_FOLDER + sensorName;
     if (!SD.exists(folder)) {
         if (SD.mkdir(folder)) {
@@ -187,6 +273,7 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
     File file = SD.open(fullPath, FILE_APPEND);
     if (!file) {
         debug_outln_info(F("[SDCardLogger] Failed to open file: "), fullPath);
+        g_sd_csv_write_fail++;
         return;
     }
 
@@ -206,15 +293,25 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
     if (file.println(values)) {
         debug_outln_verbose(F("[SDCardLogger] Logged to: "), fullPath);
         debug_outln_verbose(F("[SDCardLogger] Data: "), values);
+        g_sd_csv_write_ok++;
     } else {
         debug_outln_info(F("[SDCardLogger] Can't write data: "));
         incrementSDWriteError();
+        g_sd_csv_write_fail++;
     }
     file.close();
 }
 
 
 void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char* field_name, int hours_back) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        g_sd_lock_busy++;
+        result.count = 0;
+        result.values = nullptr;
+        result.timestamps = nullptr;
+        return;
+    }
 
     time_t now = time(nullptr);
     struct tm* timeinfo = localtime(&now);
@@ -303,30 +400,14 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
         return true;
     };
     
-    // First, try today's file
-    bool today_read = readFromDateFile(timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday);
-    
-    // Calculate yesterday's date
-    struct tm yesterday_tm = *timeinfo;
-    yesterday_tm.tm_mday--;
-    mktime(&yesterday_tm); // Normalize the date
-    
-    // Try yesterday's file if:
-    // 1. Today's file wasn't found, OR
-    // 2. We have data but it's less than 1 hour span, OR
-    // 3. We need more than 24 hours of data
-    bool need_yesterday = !today_read;
-    if (!need_yesterday && !timestamps_vec.empty()) {
-        uint32_t data_span = timestamps_vec.back() - timestamps_vec.front();
-        need_yesterday = (data_span < 3600); // Less than 1 hour of data
-    }
-    if (hours_back > 24) {
-        need_yesterday = true; // Always read yesterday if we need more than 24 hours
-    }
-    
-    if (need_yesterday) {
-        debug_outln_verbose(F("[SDCard] Reading from yesterday's file to get more data"));
-        readFromDateFile(yesterday_tm.tm_year + 1900, yesterday_tm.tm_mon + 1, yesterday_tm.tm_mday);
+
+    int days_to_scan = (hours_back / 24) + 2; // +2 for boundary overlap across midnight
+    if (days_to_scan < 2) days_to_scan = 2;
+    for (int day_shift = 0; day_shift < days_to_scan; day_shift++) {
+        struct tm day_tm = *timeinfo;
+        day_tm.tm_mday -= day_shift;
+        mktime(&day_tm); // normalize date
+        readFromDateFile(day_tm.tm_year + 1900, day_tm.tm_mon + 1, day_tm.tm_mday);
     }
 
     // If still no data, return early
@@ -358,6 +439,18 @@ void readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
 }
 
 bool SDCard::checkInserted() {
+    SDLockGuard lock(250);
+    if (!lock.ok()) {
+        g_sd_lock_busy++;
+        // SD can be busy in another task (graph read/log rotation/retention).
+        // Don't treat temporary lock contention as card removal.
+        static unsigned long last_busy_log_ms = 0;
+        if (msSince(last_busy_log_ms) > 30000UL) {
+            last_busy_log_ms = millis();
+            debug_outln_verbose(F("[SDCardLogger] SD mutex busy in checkInserted(); will retry later"));
+        }
+        return true;
+    }
     static sdcard_type_t last_type = CARD_NONE;
 
     sdcard_type_t card_type = SD.cardType();
@@ -392,6 +485,668 @@ bool SDCard::checkInserted() {
     }
     root.close();
     
+    return true;
+}
+
+bool SDCard::buildDailyRollupsIfNeeded() {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in buildDailyRollupsIfNeeded()"));
+        g_sd_lock_busy++;
+        return false;
+    }
+    if (!checkInserted()) {
+        return false;
+    }
+
+    if (!SD.exists(ROLLUP_ROOT_FOLDER)) SD.mkdir(ROLLUP_ROOT_FOLDER);
+    if (!SD.exists(ROLLUP_DAILY_FOLDER)) SD.mkdir(ROLLUP_DAILY_FOLDER);
+
+    File root = SD.open(ROOT_FOLDER);
+    if (!root || !root.isDirectory()) {
+        return false;
+    }
+
+    bool changed = false;
+    File sensorDir = root.openNextFile();
+    while (sensorDir) {
+        if (sensorDir.isDirectory()) {
+            String sensorName = sensorDir.name();
+            int slash = sensorName.lastIndexOf('/');
+            if (slash >= 0) sensorName = sensorName.substring(slash + 1);
+            String sensorDirPath = sensorDir.name();
+            if (!sensorDirPath.startsWith("/")) {
+                sensorDirPath = String(ROOT_FOLDER) + sensorDirPath;
+            }
+
+            String sensorDailyDir = String(ROLLUP_DAILY_FOLDER) + "/" + sensorName;
+            if (!SD.exists(sensorDailyDir)) {
+                SD.mkdir(sensorDailyDir);
+            }
+
+            File rawFile = sensorDir.openNextFile();
+            while (rawFile) {
+                if (!rawFile.isDirectory()) {
+                    String rawPath = rawFile.name();
+                    if (!rawPath.startsWith("/")) {
+                        if (!sensorDirPath.endsWith("/")) sensorDirPath += "/";
+                        rawPath = sensorDirPath + rawPath;
+                    }
+                    int fslash = rawPath.lastIndexOf('/');
+                    String fileName = (fslash >= 0) ? rawPath.substring(fslash + 1) : rawPath;
+                    if (fileName.length() == 14 && fileName.endsWith(".csv")) {
+                        String outPath = sensorDailyDir + "/" + fileName;
+                        if (!SD.exists(outPath)) {
+                            File in = SD.open(rawPath, FILE_READ);
+                            if (in) {
+                                String header = in.readStringUntil('\n');
+                                std::vector<String> cols;
+                                int start = 0;
+                                while (start < header.length()) {
+                                    int comma = header.indexOf(',', start);
+                                    if (comma == -1) comma = header.length();
+                                    String h = header.substring(start, comma);
+                                    h.trim();
+                                    cols.push_back(h);
+                                    start = comma + 1;
+                                }
+
+                                struct MetricAcc {
+                                    float min_v = 0.0f;
+                                    float max_v = 0.0f;
+                                    float sum_v = 0.0f;
+                                    uint32_t count = 0;
+                                };
+                                std::map<String, MetricAcc> acc;
+                                uint32_t ts_min = 0;
+                                uint32_t ts_max = 0;
+
+                                while (in.available()) {
+                                    String line = in.readStringUntil('\n');
+                                    if (line.length() == 0) continue;
+                                    std::vector<String> parts;
+                                    int p = 0;
+                                    while (p < line.length()) {
+                                        int comma = line.indexOf(',', p);
+                                        if (comma == -1) comma = line.length();
+                                        parts.push_back(line.substring(p, comma));
+                                        p = comma + 1;
+                                    }
+                                    if (parts.size() < 2) continue;
+                                    uint32_t ts = (uint32_t)parts[0].toInt();
+                                    if (ts == 0) continue;
+                                    if (ts_min == 0 || ts < ts_min) ts_min = ts;
+                                    if (ts > ts_max) ts_max = ts;
+
+                                    size_t limit = (parts.size() < cols.size()) ? parts.size() : cols.size();
+                                    for (size_t i = 1; i < limit; i++) {
+                                        String metric = cols[i];
+                                        if (metric.length() == 0) continue;
+                                        float value = parts[i].toFloat();
+                                        if (metric.indexOf("pressure") >= 0) {
+                                            value *= 0.0075f;
+                                        }
+                                        auto &m = acc[metric];
+                                        if (m.count == 0) {
+                                            m.min_v = value;
+                                            m.max_v = value;
+                                        } else {
+                                            if (value < m.min_v) m.min_v = value;
+                                            if (value > m.max_v) m.max_v = value;
+                                        }
+                                        m.sum_v += value;
+                                        m.count++;
+                                    }
+                                }
+                                in.close();
+
+                                if (!acc.empty() && ts_min > 0 && ts_max >= ts_min) {
+                                    File out = SD.open(outPath, FILE_WRITE);
+                                    if (out) {
+                                        out.println("period_start_ts,period_end_ts,metric,min,max,avg,count");
+                                        for (const auto &kv : acc) {
+                                            const String &metric = kv.first;
+                                            const MetricAcc &m = kv.second;
+                                            if (m.count == 0) continue;
+                                            String row = String(ts_min) + "," + String(ts_max) + "," + metric + "," +
+                                                         String(m.min_v, 3) + "," + String(m.max_v, 3) + "," +
+                                                         String(m.sum_v / (float)m.count, 3) + "," + String(m.count);
+                                            out.println(row);
+                                        }
+                                        out.close();
+                                        changed = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                rawFile.close();
+                rawFile = sensorDir.openNextFile();
+            }
+        }
+        sensorDir.close();
+        sensorDir = root.openNextFile();
+    }
+    root.close();
+    return true;
+}
+
+bool SDCard::buildMonthlyRollupsIfNeeded() {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in buildMonthlyRollupsIfNeeded()"));
+        g_sd_lock_busy++;
+        return false;
+    }
+    if (!checkInserted()) {
+        return false;
+    }
+    if (!SD.exists(ROLLUP_ROOT_FOLDER)) SD.mkdir(ROLLUP_ROOT_FOLDER);
+    if (!SD.exists(ROLLUP_MONTHLY_FOLDER)) SD.mkdir(ROLLUP_MONTHLY_FOLDER);
+    if (!SD.exists(ROLLUP_DAILY_FOLDER)) return true;
+
+    File dailyRoot = SD.open(ROLLUP_DAILY_FOLDER);
+    if (!dailyRoot || !dailyRoot.isDirectory()) {
+        return false;
+    }
+
+    File sensorDir = dailyRoot.openNextFile();
+    while (sensorDir) {
+        if (sensorDir.isDirectory()) {
+            String sensorName = sensorDir.name();
+            int slash = sensorName.lastIndexOf('/');
+            if (slash >= 0) sensorName = sensorName.substring(slash + 1);
+            String sensorDirPath = sensorDir.name();
+            if (!sensorDirPath.startsWith("/")) {
+                sensorDirPath = String(ROLLUP_DAILY_FOLDER) + "/" + sensorName;
+            }
+            String sensorMonthlyDir = String(ROLLUP_MONTHLY_FOLDER) + "/" + sensorName;
+            if (!SD.exists(sensorMonthlyDir)) SD.mkdir(sensorMonthlyDir);
+
+            struct MetricAcc {
+                float min_v = 0.0f;
+                float max_v = 0.0f;
+                float sum_weighted = 0.0f;
+                uint32_t count = 0;
+                uint32_t ts_start = 0;
+                uint32_t ts_end = 0;
+            };
+            std::map<String, std::map<String, MetricAcc>> monthMetric; // month -> metric -> acc
+
+            File dayFile = sensorDir.openNextFile();
+            while (dayFile) {
+                if (!dayFile.isDirectory()) {
+                    String dayPath = dayFile.name();
+                    if (!dayPath.startsWith("/")) {
+                        if (!sensorDirPath.endsWith("/")) sensorDirPath += "/";
+                        dayPath = sensorDirPath + dayPath;
+                    }
+                    int dslash = dayPath.lastIndexOf('/');
+                    String dayName = (dslash >= 0) ? dayPath.substring(dslash + 1) : dayPath;
+                    if (dayName.length() == 14 && dayName.endsWith(".csv")) {
+                        String monthKey = dayName.substring(0, 7); // YYYY-MM
+                        File in = SD.open(dayPath, FILE_READ);
+                        if (in) {
+                            in.readStringUntil('\n'); // header
+                            while (in.available()) {
+                                String line = in.readStringUntil('\n');
+                                if (line.length() == 0) continue;
+                                std::vector<String> parts;
+                                int p = 0;
+                                while (p < line.length()) {
+                                    int comma = line.indexOf(',', p);
+                                    if (comma == -1) comma = line.length();
+                                    parts.push_back(line.substring(p, comma));
+                                    p = comma + 1;
+                                }
+                                if (parts.size() < 7) continue;
+                                uint32_t ts_start = (uint32_t)parts[0].toInt();
+                                uint32_t ts_end = (uint32_t)parts[1].toInt();
+                                String metric = parts[2];
+                                float min_v = parts[3].toFloat();
+                                float max_v = parts[4].toFloat();
+                                float avg_v = parts[5].toFloat();
+                                uint32_t count = (uint32_t)parts[6].toInt();
+                                if (count == 0 || metric.length() == 0) continue;
+
+                                MetricAcc &m = monthMetric[monthKey][metric];
+                                if (m.count == 0) {
+                                    m.min_v = min_v;
+                                    m.max_v = max_v;
+                                    m.ts_start = ts_start;
+                                    m.ts_end = ts_end;
+                                } else {
+                                    if (min_v < m.min_v) m.min_v = min_v;
+                                    if (max_v > m.max_v) m.max_v = max_v;
+                                    if (ts_start < m.ts_start) m.ts_start = ts_start;
+                                    if (ts_end > m.ts_end) m.ts_end = ts_end;
+                                }
+                                m.sum_weighted += avg_v * (float)count;
+                                m.count += count;
+                            }
+                            in.close();
+                        }
+                    }
+                }
+                dayFile.close();
+                dayFile = sensorDir.openNextFile();
+            }
+
+            for (const auto &mkv : monthMetric) {
+                const String &monthKey = mkv.first;
+                String outPath = sensorMonthlyDir + "/" + monthKey + ".csv";
+                File out = SD.open(outPath, FILE_WRITE);
+                if (!out) continue;
+                out.println("period_start_ts,period_end_ts,metric,min,max,avg,count");
+                for (const auto &kv : mkv.second) {
+                    const String &metric = kv.first;
+                    const MetricAcc &m = kv.second;
+                    if (m.count == 0) continue;
+                    String row = String(m.ts_start) + "," + String(m.ts_end) + "," + metric + "," +
+                                 String(m.min_v, 3) + "," + String(m.max_v, 3) + "," +
+                                 String(m.sum_weighted / (float)m.count, 3) + "," + String(m.count);
+                    out.println(row);
+                }
+                out.close();
+            }
+        }
+        sensorDir.close();
+        sensorDir = dailyRoot.openNextFile();
+    }
+    dailyRoot.close();
+    return true;
+}
+
+bool SDCard::readPeriodStats(const char* sensor_name, const char* field_name, uint16_t period_days, float scale, PeriodStats &out_stats) {
+    out_stats = PeriodStats{};
+    // Keep analytics reads responsive; fail fast if SD is busy.
+    SDLockGuard lock(300);
+    if (!lock.ok()) {
+        g_sd_lock_busy++;
+        return false;
+    }
+    if (!checkInserted()) return false;
+
+    auto finalize = [&](float min_v, float max_v, float sum_weighted, uint32_t count) -> bool {
+        if (count == 0) return false;
+        out_stats.min_v = min_v;
+        out_stats.max_v = max_v;
+        out_stats.avg_v = sum_weighted / (float)count;
+        out_stats.count = count;
+        out_stats.has_data = true;
+        return true;
+    };
+
+    // 24h path: prefer raw data for highest fidelity.
+    if (period_days <= 1) {
+        LineData data{nullptr, nullptr, 0};
+        readSensorDataFromCSV(data, sensor_name, field_name, 24);
+        if (data.count > 0 && data.values) {
+            float min_v = data.values[0] * scale;
+            float max_v = min_v;
+            float sum_v = 0.0f;
+            for (int i = 0; i < data.count; i++) {
+                float v = data.values[i] * scale;
+                if (v < min_v) min_v = v;
+                if (v > max_v) max_v = v;
+                sum_v += v;
+            }
+            if (data.values) delete[] data.values;
+            if (data.timestamps) delete[] data.timestamps;
+            return finalize(min_v, max_v, sum_v, (uint32_t)data.count);
+        }
+        if (data.values) delete[] data.values;
+        if (data.timestamps) delete[] data.timestamps;
+        return false;
+    }
+
+    // 7d/30d path: use daily rollups first.
+    time_t now = time(nullptr);
+    if (now <= 0) {
+        return false;
+    }
+    time_t window_start = now - (time_t)period_days * 24 * 60 * 60;
+
+    bool has_any = false;
+    float min_v = 0.0f;
+    float max_v = 0.0f;
+    float sum_weighted = 0.0f;
+    uint32_t total_count = 0;
+
+    for (time_t t = window_start; t <= now; t += 24 * 60 * 60) {
+        struct tm tm_day;
+        localtime_r(&t, &tm_day);
+        char dayName[16];
+        strftime(dayName, sizeof(dayName), "%Y-%m-%d.csv", &tm_day);
+        String rollupPath = String(ROLLUP_DAILY_FOLDER) + "/" + sensor_name + "/" + dayName;
+        File in = SD.open(rollupPath, FILE_READ);
+        if (!in) continue;
+        in.readStringUntil('\n'); // header
+        while (in.available()) {
+            String line = in.readStringUntil('\n');
+            if (line.length() == 0) continue;
+            std::vector<String> parts;
+            int p = 0;
+            while (p < line.length()) {
+                int comma = line.indexOf(',', p);
+                if (comma == -1) comma = line.length();
+                parts.push_back(line.substring(p, comma));
+                p = comma + 1;
+            }
+            if (parts.size() < 7) continue;
+            if (parts[2] != String(field_name)) continue;
+            float lmin = parts[3].toFloat() * scale;
+            float lmax = parts[4].toFloat() * scale;
+            float lavg = parts[5].toFloat() * scale;
+            uint32_t lcount = (uint32_t)parts[6].toInt();
+            if (lcount == 0) continue;
+            if (!has_any) {
+                min_v = lmin;
+                max_v = lmax;
+                has_any = true;
+            } else {
+                if (lmin < min_v) min_v = lmin;
+                if (lmax > max_v) max_v = lmax;
+            }
+            sum_weighted += lavg * (float)lcount;
+            total_count += lcount;
+        }
+        in.close();
+    }
+
+    if (has_any && total_count > 0) {
+        return finalize(min_v, max_v, sum_weighted, total_count);
+    }
+
+    // Fallback to raw data if rollups are missing.
+    LineData data{nullptr, nullptr, 0};
+    readSensorDataFromCSV(data, sensor_name, field_name, (int)period_days * 24);
+    if (data.count <= 0 || !data.values) {
+        if (data.values) delete[] data.values;
+        if (data.timestamps) delete[] data.timestamps;
+        return false;
+    }
+    min_v = data.values[0] * scale;
+    max_v = min_v;
+    float sum_v = 0.0f;
+    for (int i = 0; i < data.count; i++) {
+        float v = data.values[i] * scale;
+        if (v < min_v) min_v = v;
+        if (v > max_v) max_v = v;
+        sum_v += v;
+    }
+    uint32_t cnt = (uint32_t)data.count;
+    if (data.values) delete[] data.values;
+    if (data.timestamps) delete[] data.timestamps;
+    return finalize(min_v, max_v, sum_v, cnt);
+}
+
+bool SDCard::applyRetentionPolicy(uint16_t rawSensorRetentionDays,
+                                  uint16_t dailyRollupRetentionDays,
+                                  uint16_t hourlyRollupRetentionDays,
+                                  uint16_t monthlyRollupRetentionMonths,
+                                  uint16_t maxBootFiles) {
+    SDLockGuard lock;
+    if (!lock.ok()) {
+        debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in applyRetentionPolicy()"));
+        g_sd_lock_busy++;
+        return false;
+    }
+    if (!checkInserted()) {
+        return false;
+    }
+
+    bool changed = false;
+    auto toAbsolutePath = [](const String& parentDir, const String& pathOrName) -> String {
+        String p = pathOrName;
+        p.trim();
+        if (p.length() == 0) return "";
+        if (!p.startsWith("/")) {
+            String base = parentDir;
+            if (!base.endsWith("/")) base += "/";
+            p = base + p;
+        }
+        return p;
+    };
+
+    // 1) sensors_data/raw retention: remove CSV files older than cutoff date.
+    // File names are expected as YYYY-MM-DD.csv so lexicographical comparison works.
+    if (rawSensorRetentionDays > 0) {
+        time_t now = time(nullptr);
+        if (now > 0) {
+            time_t cutoff = now - (time_t)rawSensorRetentionDays * 24 * 60 * 60;
+            struct tm cutoff_tm;
+            localtime_r(&cutoff, &cutoff_tm);
+            char cutoff_name[16];
+            strftime(cutoff_name, sizeof(cutoff_name), "%Y-%m-%d", &cutoff_tm);
+            String cutoff_date(cutoff_name);
+
+            File root = SD.open(ROOT_FOLDER);
+            if (root && root.isDirectory()) {
+                File sensorDir = root.openNextFile();
+                while (sensorDir) {
+                    if (sensorDir.isDirectory()) {
+                        String sensorDirPath = sensorDir.name();
+                        if (!sensorDirPath.startsWith("/")) {
+                            sensorDirPath = String(ROOT_FOLDER) + sensorDirPath;
+                        }
+                        File dayFile = sensorDir.openNextFile();
+                        while (dayFile) {
+                            if (!dayFile.isDirectory()) {
+                                String filePath = toAbsolutePath(sensorDirPath, dayFile.name());
+                                int slash = filePath.lastIndexOf('/');
+                                String name = (slash >= 0) ? filePath.substring(slash + 1) : filePath;
+                                if (name.length() == 14 && name.endsWith(".csv")) {
+                                    String datePart = name.substring(0, 10); // YYYY-MM-DD
+                                    if (datePart < cutoff_date) {
+                                        if (filePath.length() > 1 && filePath.startsWith("/")) {
+                                            if (SD.remove(filePath)) {
+                                                changed = true;
+                                                debug_outln_verbose(F("[SDCardLogger] Retention removed old sensor CSV: "), filePath);
+                                            }
+                                        } else {
+                                            debug_outln_info(F("[SDCardLogger] Retention skip invalid sensor CSV path: "), filePath);
+                                        }
+                                    }
+                                }
+                            }
+                            dayFile.close();
+                            dayFile = sensorDir.openNextFile();
+                        }
+                    }
+                    sensorDir.close();
+                    sensorDir = root.openNextFile();
+                }
+                root.close();
+            }
+        }
+    }
+
+    // 2) daily rollup retention by day.
+    if (dailyRollupRetentionDays > 0 && SD.exists(ROLLUP_DAILY_FOLDER)) {
+        time_t now = time(nullptr);
+        if (now > 0) {
+            time_t cutoff = now - (time_t)dailyRollupRetentionDays * 24 * 60 * 60;
+            struct tm cutoff_tm;
+            localtime_r(&cutoff, &cutoff_tm);
+            char cutoff_name[16];
+            strftime(cutoff_name, sizeof(cutoff_name), "%Y-%m-%d", &cutoff_tm);
+            String cutoff_date(cutoff_name);
+
+            File root = SD.open(ROLLUP_DAILY_FOLDER);
+            if (root && root.isDirectory()) {
+                File sensorDir = root.openNextFile();
+                while (sensorDir) {
+                    if (sensorDir.isDirectory()) {
+                        String sensorDirPath = sensorDir.name();
+                        if (!sensorDirPath.startsWith("/")) {
+                            sensorDirPath = String(ROLLUP_DAILY_FOLDER) + "/" + sensorDirPath;
+                        }
+                        File dayFile = sensorDir.openNextFile();
+                        while (dayFile) {
+                            if (!dayFile.isDirectory()) {
+                                String filePath = toAbsolutePath(sensorDirPath, dayFile.name());
+                                int slash = filePath.lastIndexOf('/');
+                                String name = (slash >= 0) ? filePath.substring(slash + 1) : filePath;
+                                if (name.length() == 14 && name.endsWith(".csv")) {
+                                    String datePart = name.substring(0, 10);
+                                    if (datePart < cutoff_date && filePath.startsWith("/") && filePath.length() > 1) {
+                                        if (SD.remove(filePath)) changed = true;
+                                    }
+                                }
+                            }
+                            dayFile.close();
+                            dayFile = sensorDir.openNextFile();
+                        }
+                    }
+                    sensorDir.close();
+                    sensorDir = root.openNextFile();
+                }
+                root.close();
+            }
+        }
+    }
+
+    // 3) hourly rollup retention by day.
+    if (hourlyRollupRetentionDays > 0 && SD.exists(ROLLUP_HOURLY_FOLDER)) {
+        time_t now = time(nullptr);
+        if (now > 0) {
+            time_t cutoff = now - (time_t)hourlyRollupRetentionDays * 24 * 60 * 60;
+            struct tm cutoff_tm;
+            localtime_r(&cutoff, &cutoff_tm);
+            char cutoff_name[16];
+            strftime(cutoff_name, sizeof(cutoff_name), "%Y-%m-%d", &cutoff_tm);
+            String cutoff_date(cutoff_name);
+
+            File root = SD.open(ROLLUP_HOURLY_FOLDER);
+            if (root && root.isDirectory()) {
+                File sensorDir = root.openNextFile();
+                while (sensorDir) {
+                    if (sensorDir.isDirectory()) {
+                        String sensorDirPath = sensorDir.name();
+                        if (!sensorDirPath.startsWith("/")) {
+                            sensorDirPath = String(ROLLUP_HOURLY_FOLDER) + "/" + sensorDirPath;
+                        }
+                        File dayFile = sensorDir.openNextFile();
+                        while (dayFile) {
+                            if (!dayFile.isDirectory()) {
+                                String filePath = toAbsolutePath(sensorDirPath, dayFile.name());
+                                int slash = filePath.lastIndexOf('/');
+                                String name = (slash >= 0) ? filePath.substring(slash + 1) : filePath;
+                                if (name.length() == 14 && name.endsWith(".csv")) {
+                                    String datePart = name.substring(0, 10);
+                                    if (datePart < cutoff_date && filePath.startsWith("/") && filePath.length() > 1) {
+                                        if (SD.remove(filePath)) changed = true;
+                                    }
+                                }
+                            }
+                            dayFile.close();
+                            dayFile = sensorDir.openNextFile();
+                        }
+                    }
+                    sensorDir.close();
+                    sensorDir = root.openNextFile();
+                }
+                root.close();
+            }
+        }
+    }
+
+    // 4) monthly rollup retention by month (YYYY-MM.csv).
+    if (monthlyRollupRetentionMonths > 0 && SD.exists(ROLLUP_MONTHLY_FOLDER)) {
+        time_t now = time(nullptr);
+        if (now > 0) {
+            struct tm now_tm;
+            localtime_r(&now, &now_tm);
+            now_tm.tm_mon -= (int)monthlyRollupRetentionMonths;
+            mktime(&now_tm);
+            char cutoff_month_name[8];
+            strftime(cutoff_month_name, sizeof(cutoff_month_name), "%Y-%m", &now_tm);
+            String cutoff_month(cutoff_month_name);
+
+            File root = SD.open(ROLLUP_MONTHLY_FOLDER);
+            if (root && root.isDirectory()) {
+                File sensorDir = root.openNextFile();
+                while (sensorDir) {
+                    if (sensorDir.isDirectory()) {
+                        String sensorDirPath = sensorDir.name();
+                        if (!sensorDirPath.startsWith("/")) {
+                            sensorDirPath = String(ROLLUP_MONTHLY_FOLDER) + "/" + sensorDirPath;
+                        }
+                        File monthFile = sensorDir.openNextFile();
+                        while (monthFile) {
+                            if (!monthFile.isDirectory()) {
+                                String filePath = toAbsolutePath(sensorDirPath, monthFile.name());
+                                int slash = filePath.lastIndexOf('/');
+                                String name = (slash >= 0) ? filePath.substring(slash + 1) : filePath;
+                                if (name.length() == 11 && name.endsWith(".csv")) {
+                                    String monthPart = name.substring(0, 7);
+                                    if (monthPart < cutoff_month && filePath.startsWith("/") && filePath.length() > 1) {
+                                        if (SD.remove(filePath)) changed = true;
+                                    }
+                                }
+                            }
+                            monthFile.close();
+                            monthFile = sensorDir.openNextFile();
+                        }
+                    }
+                    sensorDir.close();
+                    sensorDir = root.openNextFile();
+                }
+                root.close();
+            }
+        }
+    }
+
+    // 5) exceptions retention: keep only the newest N boot_*.txt files.
+    if (maxBootFiles > 0 && SD.exists(EXCEPTIONS_FOLDER)) {
+        std::vector<std::pair<uint32_t, String>> boots;
+        File ex = SD.open(EXCEPTIONS_FOLDER);
+        if (ex && ex.isDirectory()) {
+            File f = ex.openNextFile();
+            while (f) {
+                if (!f.isDirectory()) {
+                    String fullPath = toAbsolutePath(String(EXCEPTIONS_FOLDER), f.name());
+                    int slash = fullPath.lastIndexOf('/');
+                    String name = (slash >= 0) ? fullPath.substring(slash + 1) : fullPath;
+                    if (name.startsWith("boot_") && name.endsWith(".txt")) {
+                        int us = name.indexOf('_');
+                        int dot = name.lastIndexOf('.');
+                        String n = name.substring(us + 1, dot);
+                        uint32_t id = (uint32_t)n.toInt();
+                        boots.push_back({id, fullPath});
+                    }
+                }
+                f.close();
+                f = ex.openNextFile();
+            }
+            ex.close();
+        }
+
+        if (boots.size() > maxBootFiles) {
+            std::sort(boots.begin(), boots.end(),
+                      [](const std::pair<uint32_t, String>& a, const std::pair<uint32_t, String>& b) {
+                          return a.first < b.first;
+                      });
+            size_t removeCount = boots.size() - maxBootFiles;
+            for (size_t i = 0; i < removeCount; i++) {
+                const String& path = boots[i].second;
+                if (path.length() > 1 && path.startsWith("/")) {
+                    if (SD.remove(path)) {
+                        changed = true;
+                        debug_outln_verbose(F("[SDCardLogger] Retention removed old boot log: "), path);
+                    }
+                } else {
+                    debug_outln_info(F("[SDCardLogger] Retention skip invalid boot log path: "), path);
+                }
+            }
+        }
+    }
+
+    if (changed) {
+        refreshCache();
+    }
     return true;
 }
 
