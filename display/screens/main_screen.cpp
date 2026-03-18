@@ -10,9 +10,13 @@
 #include "utils.h"
 #include "../icons/icons/icons_20x20.h"
 #include "../icons/icons/icons_15x15.h"
-#include "../icons/icons/icons_10x10.h"
-#include "../icons/icons/icons_30x30.h"
-#include "../icons/icons/icons_35x35.h"
+#include "../icons/icons/16x16/warning_new_16x16.h"
+#include "../icons/icons/34x32/wi_thermometer_cropped_34x32.h"
+#include "../icons/icons/34x34/wi_humidity_cropped_34x34.h"
+#include "../icons/icons/34x34/dust_34x34.h"
+#include "../icons/icons/34x34/ear_hearing_34x34.h"
+#include "../icons/icons/32x32/pressure_32x32.h"
+#include "../icons/icons/32x32/co2_svgrepo_com_32x32.h"
 #include "../../defines.h"
 #include "../utils.h"
 #include "../../utils.h"
@@ -21,6 +25,7 @@
 #include "../../intl.h"
 #include "../paint_driver/fonts/fonts.h"
 #include <qrcode.h>
+#include <math.h>
 
 // Helper function to draw an image flipped vertically (upside down)
 static void Paint_DrawImageFlippedVertical(const unsigned char *image_buffer, UWORD xStart, UWORD yStart, UWORD W_Image, UWORD H_Image) {
@@ -442,7 +447,204 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
     }
 }
 
-// Draw the full main screen with Urban 2-subcolumn layout
+static bool isTempNoData(float value) {
+    const float NO_TEMP_DATA_SENTINEL = -1000.0f;
+    const float EPSILON = 0.1f;
+    return (value < (NO_TEMP_DATA_SENTINEL + EPSILON) && value > (NO_TEMP_DATA_SENTINEL - EPSILON));
+}
+
+static bool isGenericNoData(float value) {
+    const float NO_DATA_SENTINEL = -1.0f;
+    const float EPSILON = 0.1f;
+    return (value < (NO_DATA_SENTINEL + EPSILON) && value > (NO_DATA_SENTINEL - EPSILON));
+}
+
+static void formatMetricValue(char *out, size_t out_size, float value, uint8_t precision, bool is_temperature) {
+    bool no_data = is_temperature ? isTempNoData(value) : isGenericNoData(value);
+    if (no_data) {
+        snprintf(out, out_size, "%s", INTL_DISP_NO_DATA);
+        return;
+    }
+    stringFromFloat(out, value, precision);
+}
+
+static float calculateDewPointC(float temperature_c, float humidity_percent) {
+    if (isTempNoData(temperature_c) || isGenericNoData(humidity_percent) || humidity_percent <= 0.0f) {
+        return -1000.0f;
+    }
+    // Clamp to physical range for stable output if sensor spikes.
+    if (humidity_percent > 100.0f) humidity_percent = 100.0f;
+    const float a = 17.62f;
+    const float b = 243.12f;
+    float gamma = logf(humidity_percent / 100.0f) + (a * temperature_c) / (b + temperature_c);
+    return (b * gamma) / (a - gamma);
+}
+
+static int drawSensorQR(const String &sensor_address, int x, int y) {
+    if (sensor_address.length() == 0) return 0;
+
+    QRCode qr;
+    char qr_data[128];
+    snprintf(qr_data, sizeof(qr_data), "sensors.social/?sensor=%s", sensor_address.c_str());
+
+    const uint8_t qr_version = 5; // reliable density for sensor URLs
+    uint8_t qrcodeData[qrcode_getBufferSize(qr_version)];
+    qrcode_initText(&qr, qrcodeData, qr_version, ECC_LOW, qr_data);
+
+    const int scale_factor = 1;
+    const int quiet_zone = 1;
+    const int total_width = qr.size * scale_factor + 2 * quiet_zone;
+    const int total_height = qr.size * scale_factor + 2 * quiet_zone;
+    const int qr_bitmap_width_bytes = (total_width + 7) / 8;
+    const int qr_bitmap_size = total_height * qr_bitmap_width_bytes;
+
+    unsigned char *qr_bitmap_scaled = (unsigned char*)malloc(qr_bitmap_size);
+    if (!qr_bitmap_scaled) return 0;
+
+    memset(qr_bitmap_scaled, 0x00, qr_bitmap_size);
+
+    for (uint8_t qr_y = 0; qr_y < qr.size; qr_y++) {
+        for (uint8_t qr_x = 0; qr_x < qr.size; qr_x++) {
+            if (!qrcode_getModule(&qr, qr_x, qr_y)) continue;
+            for (int sy = 0; sy < scale_factor; sy++) {
+                for (int sx = 0; sx < scale_factor; sx++) {
+                    int pixel_x = quiet_zone + qr_x * scale_factor + sx;
+                    int pixel_y = quiet_zone + qr_y * scale_factor + sy;
+                    if (pixel_x >= 0 && pixel_x < total_width && pixel_y >= 0 && pixel_y < total_height) {
+                        int byte_index = pixel_y * qr_bitmap_width_bytes + (pixel_x / 8);
+                        qr_bitmap_scaled[byte_index] |= (0x80 >> (pixel_x % 8));
+                    }
+                }
+            }
+        }
+    }
+
+    Paint_DrawImage(qr_bitmap_scaled, x, y, total_width, total_height);
+    free(qr_bitmap_scaled);
+    return total_height;
+}
+
+static void drawWarningGlyph(uint16_t x, uint16_t y, int danger_direction) {
+    // Slightly larger warning marker for readability.
+    const uint16_t tri_w = 18;
+    const uint16_t tri_h = 16;
+    uint16_t mid_x = x + tri_w / 2;
+    for (uint16_t row = 0; row < tri_h; row++) {
+        uint16_t row_w = 1 + (row * tri_w) / tri_h;
+        uint16_t left = mid_x - row_w / 2;
+        uint16_t right = mid_x + (row_w - 1) / 2;
+        Paint_DrawLine(left, y + row, right, y + row, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    }
+    Paint_DrawLine(mid_x, y + 6, mid_x, y + 10, WHITE, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawPoint(mid_x, y + 12, WHITE, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+
+    uint16_t arrow_x = x + tri_w + 2;
+    uint16_t arrow_mid = y + 8;
+    if (danger_direction > 0) {
+        Paint_DrawLine(arrow_x + 2, y + 1, arrow_x + 2, y + 15, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(arrow_x + 1, y + 2, arrow_x + 2, y + 1, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(arrow_x + 3, y + 2, arrow_x + 2, y + 1, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(arrow_x, y + 3, arrow_x + 2, y + 1, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(arrow_x + 4, y + 3, arrow_x + 2, y + 1, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    } else if (danger_direction < 0) {
+        Paint_DrawLine(arrow_x + 2, y + 1, arrow_x + 2, y + 15, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(arrow_x + 1, y + 14, arrow_x + 2, y + 15, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(arrow_x + 3, y + 14, arrow_x + 2, y + 15, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(arrow_x, y + 13, arrow_x + 2, y + 15, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        Paint_DrawLine(arrow_x + 4, y + 13, arrow_x + 2, y + 15, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    } else {
+        Paint_DrawPoint(arrow_x + 2, arrow_mid, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+    }
+}
+
+static void drawMetricCard(const char *title,
+                           const char *value_text,
+                           const char *units,
+                           uint16_t x, uint16_t y, uint16_t w, uint16_t h,
+                           const char *secondary_title = nullptr,
+                           bool bold_value = false,
+                           int danger_direction = 0,
+                           const unsigned char *icon = nullptr,
+                           uint16_t icon_w = 0,
+                           uint16_t icon_h = 0) {
+    if (w < 24 || h < 24) return;
+    Paint_DrawRectangle(x, y, x + w, y + h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+
+    const uint16_t pad_x = 8;
+    const uint16_t title_y = y + 6;
+    uint16_t title_x = x + pad_x;
+    if (icon != nullptr && icon_w > 0 && icon_h > 0) {
+        uint16_t icon_x = x + 5;
+        uint16_t icon_y = y + 4 + ((Font12.Height > icon_h) ? ((Font12.Height - icon_h) / 2) : 0);
+        Paint_DrawImage(icon, icon_x, icon_y, icon_w, icon_h);
+        title_x = icon_x + icon_w + 4;
+    }
+    Paint_DrawString_Display(title_x, title_y, title, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+
+    if (secondary_title != nullptr) {
+        uint16_t sec_width = Paint_GetStringWidth_Display(secondary_title, &Font12, &font_12_cyrillic, &font_12_ascii);
+        uint16_t sec_x = (x + w > sec_width + pad_x) ? (x + w - sec_width - pad_x) : (x + pad_x);
+        Paint_DrawString_Display(sec_x, title_y, secondary_title, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    }
+
+    uint16_t value_width = Paint_GetStringWidth_Display(value_text, &Font20, &font_20_cyrillic, &font_20_ascii);
+    bool has_units = (units != nullptr && units[0] != '\0');
+    uint16_t units_width = has_units ? Paint_GetStringWidth_Display(units, &Font12, &font_12_cyrillic, &font_12_ascii) : 0;
+    const uint16_t units_gap = has_units ? 3 : 0;
+    uint16_t total_width = value_width + units_gap + units_width;
+
+    uint16_t value_x = (x + w > total_width + pad_x) ? (x + w - total_width - pad_x) : (x + pad_x);
+    uint16_t value_y = y + h - Font20.Height - 5;
+    uint16_t units_x = value_x + value_width + units_gap;
+    uint16_t units_y = value_y + (Font20.Height > Font12.Height ? (Font20.Height - Font12.Height) : 0);
+
+    if (bold_value) {
+        Paint_DrawString_Display(value_x, value_y, value_text, &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(value_x + 1, value_y, value_text, &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
+    } else {
+        Paint_DrawString_Display(value_x, value_y, value_text, &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
+    }
+
+    if (has_units) {
+        Paint_DrawString_Display(units_x, units_y, units, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    }
+
+    if (danger_direction != 0) {
+        uint16_t icon_x = (x + w > 30) ? (x + w - 28) : x;
+        drawWarningGlyph(icon_x, y + 8, danger_direction);
+    }
+}
+
+static void drawWarningLevelIcon(uint16_t x, uint16_t y, int danger_direction) {
+    if (danger_direction != 0) {
+        Paint_DrawImage(warning_new_16x16, x, y, 16, 16);
+    }
+}
+
+static uint16_t drawNumberWithUnit(uint16_t x, uint16_t y, const char *value, const char *unit) {
+    uint16_t value_w = Paint_GetStringWidth_Display(value, &Font24, &font_24_cyrillic, &font_24_ascii);
+    Paint_DrawString_Display(x, y, value, &Font24, &font_24_cyrillic, &font_24_ascii, WHITE, BLACK);
+    if (unit != nullptr && unit[0] != '\0') {
+        uint16_t unit_y = y + (Font24.Height - Font12.Height);
+        Paint_DrawString_Display(x + value_w + 2, unit_y, unit, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        return x + value_w + 2 + Paint_GetStringWidth_Display(unit, &Font12, &font_12_cyrillic, &font_12_ascii);
+    }
+    return x + value_w;
+}
+
+static void drawPairNumbersWithUnits(uint16_t x, uint16_t y,
+                                     const char *v1, const char *u1,
+                                     const char *v2, const char *u2) {
+    uint16_t cur_x = x;
+    cur_x = drawNumberWithUnit(cur_x, y, v1, u1);
+    // Lower and embolden slash so it aligns with larger numbers better.
+    Paint_DrawString_Display(cur_x + 2, y + 6, "/", &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    Paint_DrawString_Display(cur_x + 3, y + 6, "/", &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    cur_x += 10;
+    drawNumberWithUnit(cur_x, y, v2, u2);
+}
+
+// Draw the full main screen with card-based main content layout
 void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const String &device_ip, const String &insight_robonomics_address, const String &urban_robonomics_address) {
 
     // Clear screen first to remove any white lines
@@ -484,233 +686,262 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     Paint_DrawLine(0, header_bottom_border_y, DISPLAY_WIDTH, header_bottom_border_y, 
                    BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
-    // Section headers row (below header)
-    uint16_t y_start = header_bottom_border_y + 10;
-
-    // Save right sidebar for vertical navigation icons (approx 26px)
+    // Keep space for right sidebar (navigation icons).
     const uint16_t nav_sidebar_width = 26;
-    uint16_t usable_width = (DISPLAY_WIDTH > nav_sidebar_width) ? (DISPLAY_WIDTH - nav_sidebar_width) : DISPLAY_WIDTH;
+    const uint16_t content_left = 2;
+    const uint16_t content_right = (DISPLAY_WIDTH > nav_sidebar_width + 2) ? (DISPLAY_WIDTH - nav_sidebar_width - 2) : (DISPLAY_WIDTH - 1);
+    const uint16_t content_width = (content_right > content_left) ? (content_right - content_left) : 0;
+    const uint16_t body_top = header_bottom_border_y + 4;
 
-    // Split content into two equal columns: Urban (left) and Insight (right)
-    uint16_t urban_width   = usable_width / 2;
-    uint16_t insight_width = usable_width - urban_width;
-    const uint16_t column_right_margin = 6;  /* same gap from right edge in both columns */
-
-    uint16_t divider_x = urban_width + 3;
-    Paint_DrawLine(divider_x, y_start - 4, divider_x, DISPLAY_HEIGHT - 4,
-                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_DOTTED);
-
-    uint16_t value_spacing = 26; 
-
-    // === URBAN SECTION HEADER (left column) ===
-    const uint16_t header_icon_size        = 30;
-    const uint16_t header_icon_text_offset = 4;
-    const char*    urban_title             = INTL_DISP_MAIN_URBAN;
-
-    uint16_t subheader_top_y     = (y_start > 2) ? (y_start - 2) : y_start;
-    uint16_t urban_header_icon_x = 0;
-    uint16_t urban_header_text_x = urban_header_icon_x + header_icon_size + header_icon_text_offset;
-    uint16_t urban_text_y        = subheader_top_y + (header_icon_size - Font16.Height) / 2;
-
-    Paint_DrawImage(urban_30x30, urban_header_icon_x, subheader_top_y - 2, header_icon_size, header_icon_size);
-    Paint_DrawString_Display(urban_header_text_x, urban_text_y, urban_title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
-
-    // WiFi status icon for Urban
-    bool urban_wifi_ok = (values.ip_address.length() > 0);
-    const uint16_t urban_wifi_icon_size = 20;
-    const uint16_t urban_wifi_margin    = 4;
-    int urban_title_width = (int)Paint_GetStringWidth_Display(urban_title, &Font16, &font_16_cyrillic, &font_16_ascii);
-    uint16_t urban_wifi_x = urban_header_text_x + urban_title_width + urban_wifi_margin;
-    uint16_t urban_wifi_y = subheader_top_y + (header_icon_size - urban_wifi_icon_size) / 2;
-    const unsigned char* urban_wifi_icon = urban_wifi_ok ? wifi_20x20 : wifi_x_20x20;
-    Paint_DrawImage(urban_wifi_icon, urban_wifi_x, urban_wifi_y, urban_wifi_icon_size, urban_wifi_icon_size);
-
-    // Determine Urban status with simple debouncing & caching:
-    // - Consider Urban "online" if we have IP address OR any valid sensor data
-    // - Require several consecutive "offline" reads before showing "Offline" on screen
-    //   to avoid random glitches / missing packets
-    static uint8_t consecutive_urban_offline_reads = 0;
-    static String  last_urban_status = "";
-
-    bool urban_has_data = (values.pm10  >= 0 ||
-                           values.pm25  >= 0 ||
-                           values.temp_outdoor > -40 ||
-                           values.hum_outdoor  >= 0 ||
-                           values.press_outdoor >= 0 ||
-                           values.noise_max   >= 0 ||
-                           values.noise_avg   >= 0);
-
-    bool urban_now_online = (values.ip_address.length() > 0) || urban_has_data;
-    
-    // Make subheaders a bit more narrow vertically
-    uint16_t subheader_border_y = subheader_top_y + header_icon_size + 2;
-
-    uint16_t urban_y = subheader_border_y + 12; // bigger gap from subheader to first measure row
-
-    // Urban single column 
-    int temp_out_dir  = tempDangerDirection(values.temp_outdoor);
-    int hum_out_dir   = humidityDangerDirection(values.hum_outdoor);
-    int press_out_dir = pressureDangerDirection(values.press_outdoor);
-    int pm_dir        = pmDangerDirection(values.pm10, values.pm25);
-    int noise_dir     = noiseDangerDirection(values.noise_max); // use max for direction
-
-    uint16_t urban_x_start   = 8;
-    uint16_t urban_col_right = urban_width - column_right_margin; 
-    drawValue(INTL_DISP_TEMPERATURE, values.temp_outdoor, 1, wi_thermometer_cropped_20x20, "°C",
-              20, urban_x_start, urban_y,                 urban_col_right, 5, false, SOURCE_URBAN, (temp_out_dir != 0),  temp_out_dir);
-    drawValue(INTL_DISP_HUMIDITY,    values.hum_outdoor,  0, wi_humidity_cropped_20x20,     "%",
-              20, urban_x_start, urban_y + value_spacing, urban_col_right, 5, false, SOURCE_URBAN, (hum_out_dir != 0),   hum_out_dir);
-    drawValue(INTL_DISP_PRESSURE,    values.press_outdoor,0, pressure_20x20,               "mmHg",
-              20, urban_x_start, urban_y + 2 * value_spacing, urban_col_right, 2, false, SOURCE_URBAN, (press_out_dir != 0), press_out_dir);
-    drawValue("PM10",        values.pm10,      1, air_filter_20x20,    "ppm",
-              20, urban_x_start, urban_y + 3 * value_spacing, urban_col_right, 5, false, SOURCE_URBAN, (pm_dir != 0),    pm_dir);
-    drawValue("PM2.5",       values.pm25,      1, air_pollution_20x20, "ppm",
-              20, urban_x_start, urban_y + 4 * value_spacing, urban_col_right, 5, false, SOURCE_URBAN, (pm_dir != 0),    pm_dir);
-    drawValue(INTL_DISP_NOISE_MAX,  values.noise_max, 0, ear_hearing_20x20,   "dB",
-              20, urban_x_start, urban_y + 5 * value_spacing, urban_col_right, 5, false, SOURCE_URBAN, (noise_dir != 0), noise_dir);
-    drawValue(INTL_DISP_NOISE_AVG,  values.noise_avg, 0, ear_hearing_20x20,   "dB",
-              20, urban_x_start, urban_y + 6 * value_spacing, urban_col_right, 5, false, SOURCE_URBAN, (noise_dir != 0), noise_dir);
-
-    // === INSIGHT DEVICE SECTION HEADER (right column) ===
-    const char* insight_title = INTL_DISP_MAIN_INSIGHT;
-    uint16_t insight_column_start_x = urban_width;
-    uint16_t insight_header_icon_x  = insight_column_start_x + 8;
-    uint16_t insight_header_text_x  = insight_header_icon_x + header_icon_size + header_icon_text_offset;
-    uint16_t insight_text_y         = subheader_top_y + (header_icon_size - Font16.Height) / 2;
-
-    Paint_DrawImage(insight_30x30, insight_header_icon_x, subheader_top_y - 2, header_icon_size, header_icon_size);
-    Paint_DrawString_Display(insight_header_text_x, insight_text_y, insight_title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
-
-    // WiFi status icon for Insight
+    // Top strip: wifi state + combined title.
+    bool urban_online = (values.ip_address.length() > 0);
     bool insight_online = (device_ip.length() > 0);
-    const uint16_t insight_wifi_icon_size = 20;
-    const uint16_t insight_wifi_margin    = 4;
-    int insight_title_width = (int)Paint_GetStringWidth_Display(insight_title, &Font16, &font_16_cyrillic, &font_16_ascii);
-    uint16_t insight_wifi_x = insight_header_text_x + insight_title_width + insight_wifi_margin;
-    uint16_t insight_wifi_y = subheader_top_y + (header_icon_size - insight_wifi_icon_size) / 2;
-    const unsigned char* insight_wifi_icon = insight_online ? wifi_20x20 : wifi_x_20x20;
-    Paint_DrawImage(insight_wifi_icon, insight_wifi_x, insight_wifi_y, insight_wifi_icon_size, insight_wifi_icon_size);
+    Paint_DrawImage(urban_online ? wifi_20x20 : wifi_x_20x20, content_left + 2, body_top, 20, 20);
+    Paint_DrawImage(insight_online ? wifi_20x20 : wifi_x_20x20, content_right - 22, body_top, 20, 20);
 
-    // QR code with sensors.social map link for Insight (on the far right)
-    if (insight_online && insight_robonomics_address.length() > 0) {
-        QRCode mainScreenQR;
-        // Compact URL with sensor parameter (fits in smaller QR)
-        char qr_data[128];
-        snprintf(qr_data, sizeof(qr_data), "sensors.social/?sensor=%s", insight_robonomics_address.c_str());
+    const char *combined_title = "URBAN & INSIGHT";
+    int title_w = (int)Paint_GetStringWidth_Display(combined_title, &Font16, &font_16_cyrillic, &font_16_ascii);
+    int title_x = content_left + ((int)content_width - title_w) / 2;
+    Paint_DrawString_Display(title_x, body_top + 2, combined_title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-        // Version 5 for ~39px QR
-        uint8_t qr_version = 5;
-        uint8_t qrcodeData[qrcode_getBufferSize(qr_version)];
-        qrcode_initText(&mainScreenQR, qrcodeData, qr_version, ECC_LOW, qr_data);
+    uint16_t top_sep_y = body_top + 24;
+    Paint_DrawLine(content_left, top_sep_y, content_right, top_sep_y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
-        int scale_factor = 1;
-        int quiet_zone   = 1;
-        int total_width  = mainScreenQR.size * scale_factor + 2 * quiet_zone;
-        int total_height = mainScreenQR.size * scale_factor + 2 * quiet_zone;
-        int qr_bitmap_width_bytes = (total_width + 7) / 8;
-        int qr_bitmap_size        = total_height * qr_bitmap_width_bytes;
+    int temp_out_dir  = tempDangerDirection(values.temp_outdoor);
+    int temp_in_dir   = tempDangerDirection(values.temp_indoor);
+    int hum_out_dir   = humidityDangerDirection(values.hum_outdoor);
+    int hum_in_dir    = humidityDangerDirection(values.hum_indoor);
+    int press_out_dir = pressureDangerDirection(values.press_outdoor);
+    int press_in_dir  = pressureDangerDirection(values.press_indoor);
+    int pm_dir        = pmDangerDirection(values.pm10, values.pm25);
+    int noise_dir     = noiseDangerDirection(values.noise_max);
+    int co2_dir       = co2DangerDirection(values.co2);
+    int temp_icon_dir = (temp_out_dir != 0) ? temp_out_dir : temp_in_dir;
+    int hum_icon_dir = (hum_out_dir != 0) ? hum_out_dir : hum_in_dir;
+    int press_icon_dir = (press_out_dir != 0) ? press_out_dir : press_in_dir;
+    int co2_icon_dir = co2_dir;
+    int noise_icon_dir = noise_dir;
+    int pm_icon_dir = pm_dir;
 
-        unsigned char *qr_bitmap_scaled = (unsigned char*)malloc(qr_bitmap_size);
-        if (qr_bitmap_scaled) {
-            memset(qr_bitmap_scaled, 0x00, qr_bitmap_size); // White background
+    char temp_out[16], temp_in[16], hum_out[16], hum_in[16], press_out[16], press_in[16];
+    char pm10_str[16], pm25_str[16], noise_avg[12], noise_max[12], co2_str[16];
+    formatMetricValue(temp_out, sizeof(temp_out), values.temp_outdoor, 1, true);
+    formatMetricValue(temp_in, sizeof(temp_in), values.temp_indoor, 1, true);
+    formatMetricValue(hum_out, sizeof(hum_out), values.hum_outdoor, 0, false);
+    formatMetricValue(hum_in, sizeof(hum_in), values.hum_indoor, 0, false);
+    formatMetricValue(press_out, sizeof(press_out), values.press_outdoor, 0, false);
+    formatMetricValue(press_in, sizeof(press_in), values.press_indoor, 0, false);
+    formatMetricValue(pm10_str, sizeof(pm10_str), values.pm10, 1, false);
+    formatMetricValue(pm25_str, sizeof(pm25_str), values.pm25, 1, false);
+    formatMetricValue(noise_avg, sizeof(noise_avg), values.noise_avg, 0, false);
+    formatMetricValue(noise_max, sizeof(noise_max), values.noise_max, 0, false);
+    formatMetricValue(co2_str, sizeof(co2_str), values.co2, 0, false);
 
-            for (uint8_t qr_y = 0; qr_y < mainScreenQR.size; qr_y++) {
-                for (uint8_t qr_x = 0; qr_x < mainScreenQR.size; qr_x++) {
-                    if (qrcode_getModule(&mainScreenQR, qr_x, qr_y)) {
-                        for (int sy = 0; sy < scale_factor; sy++) {
-                            for (int sx = 0; sx < scale_factor; sx++) {
-                                int pixel_x = quiet_zone + qr_x * scale_factor + sx;
-                                int pixel_y = quiet_zone + qr_y * scale_factor + sy;
-                                if (pixel_x >= 0 && pixel_x < total_width &&
-                                    pixel_y >= 0 && pixel_y < total_height) {
-                                    int byte_index = pixel_y * qr_bitmap_width_bytes + (pixel_x / 8);
-                                    qr_bitmap_scaled[byte_index] |= (0x80 >> (pixel_x % 8));
-                                }
-                            }
-                        }
-                    }
-                }
+
+    const uint16_t row_top = top_sep_y + 6;
+    const uint16_t row_step = 60;
+    const uint16_t left_x = content_left;
+    const uint16_t right_x = content_left + content_width / 2;
+
+    // Left group: shared metrics Urban/Insight.
+
+    Paint_DrawImage(wi_thermometer_cropped_34x32, left_x, row_top + 1, 34, 32);
+    const char *left_temp_label = "Temperature°";
+    uint16_t left_temp_label_x = left_x + 42;
+    Paint_DrawString_Display(left_temp_label_x, row_top, left_temp_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
+    uint16_t left_temp_label_w = Paint_GetStringWidth_Display(left_temp_label, &Font16, &font_14_cyrillic, &font_14_ascii);
+    drawWarningLevelIcon(left_temp_label_x + left_temp_label_w + 4, row_top - 1, temp_icon_dir);
+    drawPairNumbersWithUnits(left_temp_label_x, row_top + 17, temp_out, "°C", temp_in, "°C");
+
+    Paint_DrawImage(wi_humidity_cropped_34x34, left_x, row_top + row_step + 1, 34, 34);
+    const char *left_hum_label = "Humidity";
+    uint16_t left_hum_label_x = left_x + 42;
+    Paint_DrawString_Display(left_hum_label_x, row_top + row_step, left_hum_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
+    uint16_t left_hum_label_w = Paint_GetStringWidth_Display(left_hum_label, &Font16, &font_14_cyrillic, &font_14_ascii);
+    drawWarningLevelIcon(left_hum_label_x + left_hum_label_w + 4, row_top + row_step - 1, hum_icon_dir);
+    drawPairNumbersWithUnits(left_hum_label_x, row_top + row_step + 17, hum_out, "%", hum_in, "%");
+
+    Paint_DrawImage(co2_svgrepo_com_32x32, left_x, row_top + 2 * row_step + 1, 32, 32);
+    const char *left_co2_label = "CO2";
+    uint16_t left_co2_label_x = left_x + 42;
+    Paint_DrawString_Display(left_co2_label_x, row_top + 2 * row_step, left_co2_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
+    uint16_t left_co2_label_w = Paint_GetStringWidth_Display(left_co2_label, &Font16, &font_16_cyrillic, &font_16_ascii);
+    drawWarningLevelIcon(left_co2_label_x + left_co2_label_w + 4, row_top + 2 * row_step - 1, co2_icon_dir);
+    drawNumberWithUnit(left_co2_label_x, row_top + 2 * row_step + 17, co2_str, "ppm");
+
+    // Right group: source-specific metrics.
+
+    Paint_DrawImage(ear_hearing_34x34, right_x, row_top + 1, 34, 34);
+    const char *right_noise_label = "Noise(avg/max)";
+    uint16_t right_noise_label_x = right_x + 42;
+    Paint_DrawString_Display(right_noise_label_x, row_top, right_noise_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
+    uint16_t right_noise_label_w = Paint_GetStringWidth_Display(right_noise_label, &Font16, &font_14_cyrillic, &font_14_ascii);
+    drawWarningLevelIcon(right_noise_label_x + right_noise_label_w + 4, row_top - 1, noise_icon_dir);
+    drawPairNumbersWithUnits(right_noise_label_x, row_top + 17, noise_avg, "db", noise_max, "db");
+
+    Paint_DrawImage(dust_34x34, right_x, row_top + row_step + 1, 34, 34);
+    const char *right_air_label = "PM10/PM2.5";
+    uint16_t right_air_label_x = right_x + 42;
+    Paint_DrawString_Display(right_air_label_x, row_top + row_step, right_air_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
+    uint16_t right_air_label_w = Paint_GetStringWidth_Display(right_air_label, &Font16, &font_14_cyrillic, &font_14_ascii);
+    drawWarningLevelIcon(right_air_label_x + right_air_label_w + 4, row_top + row_step - 1, pm_icon_dir);
+    drawPairNumbersWithUnits(right_air_label_x, row_top + row_step + 17, pm10_str, "ppm", pm25_str, "ppm");
+
+    Paint_DrawImage(pressure_32x32, right_x, row_top + 2 * row_step + 1, 32, 32);
+    const char *right_press_label = "Pressure";
+    uint16_t right_press_label_x = right_x + 42;
+    Paint_DrawString_Display(right_press_label_x, row_top + 2 * row_step, right_press_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
+    uint16_t right_press_label_w = Paint_GetStringWidth_Display(right_press_label, &Font16, &font_14_cyrillic, &font_14_ascii);
+    drawWarningLevelIcon(right_press_label_x + right_press_label_w + 4, row_top + 2 * row_step - 1, press_icon_dir);
+    char press_pair[40];
+    snprintf(press_pair, sizeof(press_pair), "%s/%s", press_out, press_in);
+    drawNumberWithUnit(right_press_label_x, row_top + 2 * row_step + 17, press_pair, "mmHg");
+
+    // Bottom row: QR left/right and a compact tip + warnings summary in the middle.
+    const uint16_t qr_y = DISPLAY_HEIGHT - 44;
+    const uint16_t left_qr_x = content_left + 2;
+    const uint16_t right_qr_x = content_right - 40;
+    int left_qr_size = drawSensorQR(urban_robonomics_address, left_qr_x, qr_y);
+    int right_qr_size = drawSensorQR(insight_robonomics_address, right_qr_x, qr_y);
+    // Footer info: natural-language sentences, adding source only when needed.
+    auto levelWord = [](int dir) -> const char* { return (dir > 0) ? "high" : "low"; };
+    String sentences[12];
+    int sentence_count = 0;
+
+    auto addSentence = [&](const String &s) {
+        if (sentence_count < 12) {
+            sentences[sentence_count++] = s;
+        }
+    };
+
+    auto addPairedMeasureSentences = [&](const char *measure, int urban_dir, int insight_dir, bool looks_same_for_both = false) {
+        if (urban_dir == 0 && insight_dir == 0) return;
+
+        bool urban_bad = (urban_dir != 0);
+        bool insight_bad = (insight_dir != 0);
+
+        // If values look the same on screen, prefer a single generic sentence.
+        if (looks_same_for_both) {
+            int dir = 0;
+            if (urban_bad && insight_bad && ((urban_dir > 0) == (insight_dir > 0))) {
+                dir = urban_dir;
+            } else if (urban_bad && !insight_bad) {
+                dir = urban_dir;
+            } else if (!urban_bad && insight_bad) {
+                dir = insight_dir;
             }
+            if (dir != 0) {
+                addSentence(String(measure) + " is too " + levelWord(dir) + ".");
+                return;
+            }
+        }
 
-            // Place QR on the far right of the Insight header band
-            int qr_x = usable_width - total_width - 4;
-            int qr_y = subheader_top_y + (header_icon_size - total_height) / 2 - 1;
-            if (qr_y < 0) qr_y = 0;
-            Paint_DrawImage(qr_bitmap_scaled, qr_x, qr_y, total_width, total_height);
+        if (urban_bad && insight_bad && ((urban_dir > 0) == (insight_dir > 0))) {
+            addSentence(String(measure) + " is too " + levelWord(urban_dir) + ".");
+            return;
+        }
+        if (urban_bad) {
+            addSentence(String(measure) + " is too " + levelWord(urban_dir) + " (U).");
+        }
+        if (insight_bad) {
+            addSentence(String(measure) + " is too " + levelWord(insight_dir) + " (I).");
+        }
+    };
 
-            free(qr_bitmap_scaled);
+    // Compare formatted values (as shown on screen), not raw floats.
+    bool rh_looks_same = (strcmp(hum_out, hum_in) == 0);
+    bool press_looks_same = (strcmp(press_out, press_in) == 0);
+    bool temp_looks_same = (strcmp(temp_out, temp_in) == 0);
+
+    addPairedMeasureSentences("RH", hum_out_dir, hum_in_dir, rh_looks_same);
+    addPairedMeasureSentences("Press.", press_out_dir, press_in_dir, press_looks_same);
+    addPairedMeasureSentences("Temp", temp_out_dir, temp_in_dir, temp_looks_same);
+
+    if (pm_dir != 0) {
+        addSentence(String("PM is too ") + levelWord(pm_dir) + ".");
+    }
+    if (noise_dir != 0) {
+        addSentence(String("Noise is too ") + levelWord(noise_dir) + ".");
+    }
+    if (co2_dir != 0) {
+        addSentence(String("CO2 is too ") + levelWord(co2_dir) + ".");
+    }
+
+    uint16_t text_x = content_left + 50;
+    uint16_t text_right = content_right;
+    if (left_qr_size > 0) {
+        text_x = left_qr_x + left_qr_size + 8;
+    }
+    if (right_qr_size > 0 && right_qr_x > 8) {
+        text_right = right_qr_x - 8;
+    }
+    if (text_right <= text_x) {
+        text_x = content_left + 50;
+        text_right = content_right - 50;
+    }
+    const uint16_t text_w = (text_right > text_x) ? (text_right - text_x) : 0;
+
+    String footer_text = "Info:";
+
+    // Temporary footer stress test: show all measures with mixed U/I tags.
+    const bool info_test_override = false;
+    const bool force_no_warning_info_test = false;
+    if (info_test_override) {
+        footer_text += " Temp is too high (I). RH is too low (U). Press. is too high (U). PM is too high. Noise is too high. CO2 is too high (I).";
+    } else if (force_no_warning_info_test) {
+        footer_text += " Check out our sensor map for full data and analytics.";
+    } else if (sentence_count == 0) {
+        footer_text += " Check out our sensor map for full data and analytics.";
+    } else {
+        for (int i = 0; i < sentence_count; i++) {
+            footer_text += " " + sentences[i];
         }
     }
 
-    // QR code with sensors.social map link for Urban
-    if (urban_robonomics_address.length() > 0) {
-        QRCode urbanQR;
-        // Compact URL with sensor parameter (fits in smaller QR)
-        char qr_data_urban[128];
-        snprintf(qr_data_urban, sizeof(qr_data_urban), "sensors.social/?sensor=%s", urban_robonomics_address.c_str());
+    // Wrap into center block between QRs (no ellipsis), left-aligned next to left QR.
+    String wrapped[3];
+    int wrapped_count = 0;
+    String current = "";
+    int pos = 0;
+    const int max_lines = 3;
+    while (pos < footer_text.length() && wrapped_count < max_lines) {
+        int next_space = footer_text.indexOf(' ', pos);
+        if (next_space < 0) next_space = footer_text.length();
+        String token = footer_text.substring(pos, next_space);
+        if (token.length() == 0) {
+            pos = next_space + 1;
+            continue;
+        }
 
-        // Version 5 for ~39px QR
-        uint8_t qr_version_u = 5;
-        uint8_t qrcodeData_u[qrcode_getBufferSize(qr_version_u)];
-        qrcode_initText(&urbanQR, qrcodeData_u, qr_version_u, ECC_LOW, qr_data_urban);
+        String candidate = (current.length() == 0) ? token : (current + " " + token);
+        uint16_t candidate_w = Paint_GetStringWidth_Display(candidate.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii);
+        if (candidate_w <= text_w || current.length() == 0) {
+            current = candidate;
+        } else {
+            wrapped[wrapped_count++] = current;
+            current = token;
+        }
+        pos = next_space + 1;
+    }
+    if (wrapped_count < max_lines && current.length() > 0) {
+        wrapped[wrapped_count++] = current;
+    }
 
-        int scale_factor_u = 1;
-        int quiet_zone_u   = 1;
-        int total_width_u  = urbanQR.size * scale_factor_u + 2 * quiet_zone_u;
-        int total_height_u = urbanQR.size * scale_factor_u + 2 * quiet_zone_u;
-        int qr_bitmap_width_bytes_u = (total_width_u + 7) / 8;
-        int qr_bitmap_size_u        = total_height_u * qr_bitmap_width_bytes_u;
-
-        unsigned char *qr_bitmap_scaled_u = (unsigned char*)malloc(qr_bitmap_size_u);
-        if (qr_bitmap_scaled_u) {
-            memset(qr_bitmap_scaled_u, 0x00, qr_bitmap_size_u);
-
-            for (uint8_t qr_y = 0; qr_y < urbanQR.size; qr_y++) {
-                for (uint8_t qr_x = 0; qr_x < urbanQR.size; qr_x++) {
-                    if (qrcode_getModule(&urbanQR, qr_x, qr_y)) {
-                        for (int sy = 0; sy < scale_factor_u; sy++) {
-                            for (int sx = 0; sx < scale_factor_u; sx++) {
-                                int pixel_x = quiet_zone_u + qr_x * scale_factor_u + sx;
-                                int pixel_y = quiet_zone_u + qr_y * scale_factor_u + sy;
-                                if (pixel_x >= 0 && pixel_x < total_width_u &&
-                                    pixel_y >= 0 && pixel_y < total_height_u) {
-                                    int byte_index = pixel_y * qr_bitmap_width_bytes_u + (pixel_x / 8);
-                                    qr_bitmap_scaled_u[byte_index] |= (0x80 >> (pixel_x % 8));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Place Urban QR on the far right of the Urban column
-            int qr_x_u = urban_width - total_width_u - 4;
-            int qr_y_u = subheader_top_y + (header_icon_size - total_height_u) / 2 - 1;
-            if (qr_y_u < 0) qr_y_u = 0;
-            Paint_DrawImage(qr_bitmap_scaled_u, qr_x_u, qr_y_u, total_width_u, total_height_u);
-
-            free(qr_bitmap_scaled_u);
+    // Dynamic extension: dew point always goes on its own line when possible.
+    if (!info_test_override && !force_no_warning_info_test && sentence_count > 0 && wrapped_count > 0) {
+        float dew_point_c = calculateDewPointC(values.temp_outdoor, values.hum_outdoor);
+        char dew_str[16];
+        formatMetricValue(dew_str, sizeof(dew_str), dew_point_c, 0, true);
+        if (wrapped_count < max_lines) {
+            wrapped[wrapped_count++] = String("Dew Point (U): ") + String(dew_str) + String("°C.");
         }
     }
-    
-    uint16_t insight_y = urban_y;
-    
-    // Insight device data 
-    int temp_in_dir  = tempDangerDirection(values.temp_indoor);
-    int hum_in_dir   = humidityDangerDirection(values.hum_indoor);
-    int press_in_dir = pressureDangerDirection(values.press_indoor);
-    int co2_dir      = co2DangerDirection(values.co2);
 
-    uint16_t insight_x_start  = insight_column_start_x + 8;
-    uint16_t insight_col_right = usable_width - column_right_margin;
-    drawValue(INTL_DISP_TEMPERATURE, values.temp_indoor, 1, house_thermometer_20x20, "°C",
-              20, insight_x_start, insight_y,                 insight_col_right, 2, false, SOURCE_INSIGHT, (temp_in_dir != 0),  temp_in_dir);
-    drawValue(INTL_DISP_HUMIDITY,    values.hum_indoor,  0, wi_humidity_cropped_20x20,     "%",
-              20, insight_x_start, insight_y + value_spacing, insight_col_right, 2, false, SOURCE_INSIGHT, (hum_in_dir != 0),   hum_in_dir);
-    drawValue(INTL_DISP_PRESSURE, values.press_indoor,0, pressure_20x20,               "mmHg",
-              20, insight_x_start, insight_y + 2 * value_spacing, insight_col_right, 2, false, SOURCE_INSIGHT, (press_in_dir != 0), press_in_dir);
-    drawValue(INTL_CO2,         values.co2,         0, co2_svgrepo_com_20x20,        "ppm",
-              20, insight_x_start, insight_y + 3 * value_spacing, insight_col_right, 5, false, SOURCE_INSIGHT, (co2_dir != 0),      co2_dir);
+    const uint16_t first_line_y = qr_y - 2;
+    const uint16_t line_step = 13;
+    for (int i = 0; i < wrapped_count; i++) {
+        Paint_DrawString_Display(text_x, first_line_y + i * line_step, wrapped[i].c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    }
 }
 
 #endif

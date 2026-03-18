@@ -1,8 +1,9 @@
 """
 Generate C bitmap fonts for display (ASCII + Cyrillic).
-Run: python display/fontgen/ttf_to_bitmap.py
+Run: python3 display/fontgen/ttf_to_bitmap.py
 Use a different font: put DejaVuSans.ttf (or NotoSans-Regular.ttf) in this dir,
 or set env FONT_FILE=DejaVuSans.ttf. DejaVu / Noto often look cleaner than Roboto at small e-ink sizes.
+Roboto is the default one now.
 """
 import freetype
 import os
@@ -30,7 +31,7 @@ if not os.path.isfile(FONT_FILE):
     raise SystemExit("No font found. Put DejaVuSans.ttf or font.ttf in " + SCRIPT_DIR)
 print("Using font:", os.path.basename(FONT_FILE))
 
-SIZES = [8, 12, 16, 20, 24, 32, 36, 40, 48]
+SIZES = [8, 12, 14, 16, 20, 24, 32, 36, 40, 48]
 
 EXTRA_SYMBOLS = [
     0x00B0,  # degree sign: °

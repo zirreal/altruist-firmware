@@ -4,7 +4,20 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ---
 
-## [R_2026-03](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-03) — 2026-03-16
+## [R_2026-03.1](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-03.1) — 2026-03-17
+
+### Improvements
+
+- **Main screen UX redesign (Insight, WIP)** — continued iterative rework of the main interface to improve usability and readability on e-ink.
+- **Typography tuning for key metrics (Insight main)** — increased key text sizes where layout permits and tightened label/value spacing for faster scanning.
+- **Main metrics layout restructuring** — refined left/right metric grouping and alignment for a cleaner, more consistent visual hierarchy.
+- **Warning indicators refinement (main screen)** — adjusted warning icon positioning and visibility logic to improve legibility near labels.
+- **Footer info readability updates** — improved informational sentence formatting between QR blocks, including compact dew point output with degree notation (`°C`).
+- **Icon asset cleanup** — removed unused generated icon headers (including unused `30x30`, most `35x35`/`40x40`, and stale helper headers) to reduce asset clutter and maintenance overhead.
+
+---
+
+## [R_2026-03](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-03) — 2026-03-16
 
 ### New Features
 
@@ -30,6 +43,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **LED resilience under mutex contention (Insight)** — added LED mutex diagnostics and a guarded daytime fallback that forces neutral LED ON state when updates are blocked too long.
 - **Configurable LED night schedule (Insight)** — added web-configurable `LED off hour` / `LED on hour` (defaults `00` and `06`) and switched logic from hardcoded quiet hours.
 - **Main screen lock-time reduction (Insight)** — removed serialize/deserialize JSON path from display refresh; main screen now uses typed cached snapshot extracted under a short mutex hold.
+- **Main screen UX redesign (Insight, WIP)** — ongoing iterative rework of the main interface to improve clarity and usability: increased key font sizes where layout allows, improved e-ink readability (icons/spacing/alignment), and simplified, more structured metric presentation.
 - **Network/API hardening on unstable WiFi** — guarded API send paths and skip send cycle when WiFi remains disconnected after reconnect attempt.
 - **Crash diagnostics in status page** — added reset reason code, last crash section, previous uptime, and previous free heap.
 
