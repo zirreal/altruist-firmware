@@ -3,7 +3,7 @@ name: Feature Request
 about: Use this template for requesting new features
 title: ''
 labels: enhancement
-assignees: LoSk-p
+assignees:
 
 ---
 
