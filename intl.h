@@ -92,4 +92,35 @@
 #define INTL_DISP_ANALYTICS_HOUR_SUFFIX "h"
 #endif
 
+#ifndef INTL_DISP_INFO_LABEL
+#define INTL_DISP_INFO_LABEL "Info:"
+#endif
+#ifndef INTL_DISP_LEVEL_HIGH
+#define INTL_DISP_LEVEL_HIGH "high"
+#endif
+#ifndef INTL_DISP_LEVEL_LOW
+#define INTL_DISP_LEVEL_LOW "low"
+#endif
+#ifndef INTL_DISP_IS_TOO
+#define INTL_DISP_IS_TOO "is too"
+#endif
+#ifndef INTL_DISP_CHECK_MAP_FULL_DATA
+#define INTL_DISP_CHECK_MAP_FULL_DATA "Check out our sensor map for full data and analytics."
+#endif
+#ifndef INTL_DISP_DEW_POINT_U_PREFIX
+#define INTL_DISP_DEW_POINT_U_PREFIX "Dew Point (U): "
+#endif
+#ifndef INTL_DISP_DEW_POINT_IS
+#define INTL_DISP_DEW_POINT_IS "Dew Point is "
+#endif
+#ifndef INTL_DISP_TEMP_SHORT
+#define INTL_DISP_TEMP_SHORT "Temp"
+#endif
+#ifndef INTL_DISP_PRESS_SHORT
+#define INTL_DISP_PRESS_SHORT "Press."
+#endif
+#ifndef INTL_DISP_NOISE_AVGMAX_SUFFIX
+#define INTL_DISP_NOISE_AVGMAX_SUFFIX "(avg/max)"
+#endif
+
 #endif

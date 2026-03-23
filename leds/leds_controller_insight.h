@@ -62,12 +62,15 @@ class LedControllerInsight {
         void setSleepMode(bool enabled);
 
     private:
+        static const uint8_t SEGMENT_COUNT = 11;
         const JsonDocument &sensors_data;
         SemaphoreHandle_t mutex;
         Adafruit_NeoPixel pixels;
         uint32_t last_refresh_time = 0;
         uint8_t current_time_brightness = 255;
         bool sleep_mode = false;
+        bool segment_initialized[SEGMENT_COUNT] = {false};
+        uint32_t segment_last_color[SEGMENT_COUNT] = {0};
 
         void _setAllPixels(uint32_t color);
         uint32_t getColor(ColorName c) {

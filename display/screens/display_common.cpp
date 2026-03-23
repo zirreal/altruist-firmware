@@ -505,11 +505,6 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     // Left
     Paint_DrawLine(sidebar_x, sidebar_y, sidebar_x, sidebar_y + sidebar_height - 1,
                    BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    // Bottom
-    Paint_DrawLine(sidebar_x, sidebar_y + sidebar_height - 1,
-                   sidebar_x + sidebar_width - 1, sidebar_y + sidebar_height - 1,
-                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-
     // Calculate icon positions
     int small_icon_x = sidebar_x + (sidebar_width - icon_size) / 2;
     int large_icon_x = sidebar_x + (sidebar_width - large_icon_size) / 2;

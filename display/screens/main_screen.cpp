@@ -10,6 +10,11 @@
 #include "utils.h"
 #include "../icons/icons/icons_20x20.h"
 #include "../icons/icons/icons_15x15.h"
+#include "../icons/icons/32x32/info_32x32.h"
+#include "../icons/icons/28x28/wifi_28x28.h"
+#include "../icons/icons/28x28/wifi_x_28x28.h"
+#include "../icons/icons/32x32/urban_32x32.h"
+#include "../icons/icons/32x32/insight_32x32.h"
 #include "../icons/icons/16x16/warning_new_16x16.h"
 #include "../icons/icons/34x32/wi_thermometer_cropped_34x32.h"
 #include "../icons/icons/34x34/wi_humidity_cropped_34x34.h"
@@ -637,10 +642,9 @@ static void drawPairNumbersWithUnits(uint16_t x, uint16_t y,
                                      const char *v2, const char *u2) {
     uint16_t cur_x = x;
     cur_x = drawNumberWithUnit(cur_x, y, v1, u1);
-    // Lower and embolden slash so it aligns with larger numbers better.
-    Paint_DrawString_Display(cur_x + 2, y + 6, "/", &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
-    Paint_DrawString_Display(cur_x + 3, y + 6, "/", &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
-    cur_x += 10;
+    // Use a single, medium slash for all paired values.
+    Paint_DrawString_Display(cur_x + 1, y + 7, "/", &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    cur_x += 6;
     drawNumberWithUnit(cur_x, y, v2, u2);
 }
 
@@ -693,18 +697,34 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     const uint16_t content_width = (content_right > content_left) ? (content_right - content_left) : 0;
     const uint16_t body_top = header_bottom_border_y + 4;
 
-    // Top strip: wifi state + combined title.
+    // Top strip: QR codes left/right + combined title in the middle.
+    const uint16_t left_qr_x = content_left + 2;
+    const uint16_t right_qr_x = (content_right > 41) ? (content_right - 41) : (content_left + 2);
+    const uint16_t top_qr_y = body_top + 1;
+    int left_qr_size = drawSensorQR(urban_robonomics_address, left_qr_x, top_qr_y);
+    int right_qr_size = drawSensorQR(insight_robonomics_address, right_qr_x, top_qr_y);
     bool urban_online = (values.ip_address.length() > 0);
     bool insight_online = (device_ip.length() > 0);
-    Paint_DrawImage(urban_online ? wifi_20x20 : wifi_x_20x20, content_left + 2, body_top, 20, 20);
-    Paint_DrawImage(insight_online ? wifi_20x20 : wifi_x_20x20, content_right - 22, body_top, 20, 20);
+    uint16_t left_wifi_x = left_qr_x + (left_qr_size > 0 ? left_qr_size + 8 : 43);
+    uint16_t right_wifi_x = (right_qr_x > 36) ? (right_qr_x - 36) : content_left;
+    uint16_t wifi_y = top_qr_y + 6;
+    Paint_DrawImage(urban_online ? wifi_28x28 : wifi_x_28x28, left_wifi_x, wifi_y, 28, 28);
+    Paint_DrawImage(insight_online ? wifi_28x28 : wifi_x_28x28, right_wifi_x, wifi_y, 28, 28);
+    const uint16_t source_icon_gap = 4;
+    const uint16_t source_icon_size = 32;
+    uint16_t source_icon_y = (wifi_y >= 2) ? (wifi_y - 2) : 0; // visually center 32px icon with 28px WiFi
+    uint16_t urban_icon_x = left_wifi_x + 28 + source_icon_gap;
+    uint16_t insight_icon_x = (right_wifi_x > (source_icon_size + source_icon_gap)) ? (right_wifi_x - (source_icon_size + source_icon_gap)) : content_left;
+    Paint_DrawImage(urban_32x32, urban_icon_x, source_icon_y, source_icon_size, source_icon_size);
+    Paint_DrawImage(insight_32x32, insight_icon_x, source_icon_y, source_icon_size, source_icon_size);
 
-    const char *combined_title = "URBAN & INSIGHT";
+    const char *combined_title = "URBAN/INSIGHT";
     int title_w = (int)Paint_GetStringWidth_Display(combined_title, &Font16, &font_16_cyrillic, &font_16_ascii);
     int title_x = content_left + ((int)content_width - title_w) / 2;
-    Paint_DrawString_Display(title_x, body_top + 2, combined_title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    Paint_DrawString_Display(title_x, body_top + 13, combined_title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-    uint16_t top_sep_y = body_top + 24;
+    // Taller header strip for better visual separation.
+    uint16_t top_sep_y = body_top + 44;
     Paint_DrawLine(content_left, top_sep_y, content_right, top_sep_y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
     int temp_out_dir  = tempDangerDirection(values.temp_outdoor);
@@ -737,210 +757,186 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     formatMetricValue(noise_max, sizeof(noise_max), values.noise_max, 0, false);
     formatMetricValue(co2_str, sizeof(co2_str), values.co2, 0, false);
 
-
-    const uint16_t row_top = top_sep_y + 6;
-    const uint16_t row_step = 60;
+    // Move measurements lower, closer to QR section.
+    const uint16_t row_top = top_sep_y + 14;
+    const uint16_t row_step = 54;
     const uint16_t left_x = content_left;
-    const uint16_t right_x = content_left + content_width / 2;
+    const uint16_t right_x = content_left + content_width / 2 - 3;
 
     // Left group: shared metrics Urban/Insight.
 
     Paint_DrawImage(wi_thermometer_cropped_34x32, left_x, row_top + 1, 34, 32);
-    const char *left_temp_label = "Temperature°";
+    String left_temp_label_s = String(INTL_DISP_TEMPERATURE) + " °C";
+    const char *left_temp_label = left_temp_label_s.c_str();
     uint16_t left_temp_label_x = left_x + 42;
-    Paint_DrawString_Display(left_temp_label_x, row_top, left_temp_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
-    uint16_t left_temp_label_w = Paint_GetStringWidth_Display(left_temp_label, &Font16, &font_14_cyrillic, &font_14_ascii);
+    Paint_DrawString_Display(left_temp_label_x, row_top, left_temp_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    uint16_t left_temp_label_w = Paint_GetStringWidth_Display(left_temp_label, &Font12, &font_12_cyrillic, &font_12_ascii);
     drawWarningLevelIcon(left_temp_label_x + left_temp_label_w + 4, row_top - 1, temp_icon_dir);
-    drawPairNumbersWithUnits(left_temp_label_x, row_top + 17, temp_out, "°C", temp_in, "°C");
+    drawPairNumbersWithUnits(left_temp_label_x, row_top + 13, temp_out, "", temp_in, "");
 
     Paint_DrawImage(wi_humidity_cropped_34x34, left_x, row_top + row_step + 1, 34, 34);
-    const char *left_hum_label = "Humidity";
+    String left_hum_label_s = String(INTL_DISP_HUMIDITY) + " %";
+    const char *left_hum_label = left_hum_label_s.c_str();
     uint16_t left_hum_label_x = left_x + 42;
-    Paint_DrawString_Display(left_hum_label_x, row_top + row_step, left_hum_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
-    uint16_t left_hum_label_w = Paint_GetStringWidth_Display(left_hum_label, &Font16, &font_14_cyrillic, &font_14_ascii);
+    Paint_DrawString_Display(left_hum_label_x, row_top + row_step, left_hum_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    uint16_t left_hum_label_w = Paint_GetStringWidth_Display(left_hum_label, &Font12, &font_12_cyrillic, &font_12_ascii);
     drawWarningLevelIcon(left_hum_label_x + left_hum_label_w + 4, row_top + row_step - 1, hum_icon_dir);
-    drawPairNumbersWithUnits(left_hum_label_x, row_top + row_step + 17, hum_out, "%", hum_in, "%");
+    drawPairNumbersWithUnits(left_hum_label_x, row_top + row_step + 13, hum_out, "", hum_in, "");
 
     Paint_DrawImage(co2_svgrepo_com_32x32, left_x, row_top + 2 * row_step + 1, 32, 32);
-    const char *left_co2_label = "CO2";
+    const char *left_co2_label = "CO2 ppm";
     uint16_t left_co2_label_x = left_x + 42;
-    Paint_DrawString_Display(left_co2_label_x, row_top + 2 * row_step, left_co2_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
-    uint16_t left_co2_label_w = Paint_GetStringWidth_Display(left_co2_label, &Font16, &font_16_cyrillic, &font_16_ascii);
+    Paint_DrawString_Display(left_co2_label_x, row_top + 2 * row_step, left_co2_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    uint16_t left_co2_label_w = Paint_GetStringWidth_Display(left_co2_label, &Font12, &font_12_cyrillic, &font_12_ascii);
     drawWarningLevelIcon(left_co2_label_x + left_co2_label_w + 4, row_top + 2 * row_step - 1, co2_icon_dir);
-    drawNumberWithUnit(left_co2_label_x, row_top + 2 * row_step + 17, co2_str, "ppm");
+    drawNumberWithUnit(left_co2_label_x, row_top + 2 * row_step + 13, co2_str, "");
 
     // Right group: source-specific metrics.
 
     Paint_DrawImage(ear_hearing_34x34, right_x, row_top + 1, 34, 34);
-    const char *right_noise_label = "Noise(avg/max)";
+    String right_noise_label_s = String(INTL_DISP_NOISE) + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dB";
+    const char *right_noise_label = right_noise_label_s.c_str();
     uint16_t right_noise_label_x = right_x + 42;
-    Paint_DrawString_Display(right_noise_label_x, row_top, right_noise_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
-    uint16_t right_noise_label_w = Paint_GetStringWidth_Display(right_noise_label, &Font16, &font_14_cyrillic, &font_14_ascii);
+    Paint_DrawString_Display(right_noise_label_x, row_top, right_noise_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    uint16_t right_noise_label_w = Paint_GetStringWidth_Display(right_noise_label, &Font12, &font_12_cyrillic, &font_12_ascii);
     drawWarningLevelIcon(right_noise_label_x + right_noise_label_w + 4, row_top - 1, noise_icon_dir);
-    drawPairNumbersWithUnits(right_noise_label_x, row_top + 17, noise_avg, "db", noise_max, "db");
+    drawPairNumbersWithUnits(right_noise_label_x, row_top + 13, noise_avg, "", noise_max, "");
 
     Paint_DrawImage(dust_34x34, right_x, row_top + row_step + 1, 34, 34);
-    const char *right_air_label = "PM10/PM2.5";
+    const char *right_air_label = "PM10/PM2.5 ug/m3";
     uint16_t right_air_label_x = right_x + 42;
-    Paint_DrawString_Display(right_air_label_x, row_top + row_step, right_air_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
-    uint16_t right_air_label_w = Paint_GetStringWidth_Display(right_air_label, &Font16, &font_14_cyrillic, &font_14_ascii);
+    Paint_DrawString_Display(right_air_label_x, row_top + row_step, right_air_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    uint16_t right_air_label_w = Paint_GetStringWidth_Display(right_air_label, &Font12, &font_12_cyrillic, &font_12_ascii);
     drawWarningLevelIcon(right_air_label_x + right_air_label_w + 4, row_top + row_step - 1, pm_icon_dir);
-    drawPairNumbersWithUnits(right_air_label_x, row_top + row_step + 17, pm10_str, "ppm", pm25_str, "ppm");
+    drawPairNumbersWithUnits(right_air_label_x, row_top + row_step + 13, pm10_str, "", pm25_str, "");
 
     Paint_DrawImage(pressure_32x32, right_x, row_top + 2 * row_step + 1, 32, 32);
-    const char *right_press_label = "Pressure";
+    String right_press_label_s = String(INTL_DISP_PRESSURE) + " mmHg";
+    const char *right_press_label = right_press_label_s.c_str();
     uint16_t right_press_label_x = right_x + 42;
-    Paint_DrawString_Display(right_press_label_x, row_top + 2 * row_step, right_press_label, &Font16, &font_14_cyrillic, &font_14_ascii, WHITE, BLACK);
-    uint16_t right_press_label_w = Paint_GetStringWidth_Display(right_press_label, &Font16, &font_14_cyrillic, &font_14_ascii);
+    Paint_DrawString_Display(right_press_label_x, row_top + 2 * row_step, right_press_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    uint16_t right_press_label_w = Paint_GetStringWidth_Display(right_press_label, &Font12, &font_12_cyrillic, &font_12_ascii);
     drawWarningLevelIcon(right_press_label_x + right_press_label_w + 4, row_top + 2 * row_step - 1, press_icon_dir);
-    char press_pair[40];
-    snprintf(press_pair, sizeof(press_pair), "%s/%s", press_out, press_in);
-    drawNumberWithUnit(right_press_label_x, row_top + 2 * row_step + 17, press_pair, "mmHg");
+    drawPairNumbersWithUnits(right_press_label_x, row_top + 2 * row_step + 13, press_out, "", press_in, "");
 
-    // Bottom row: QR left/right and a compact tip + warnings summary in the middle.
-    const uint16_t qr_y = DISPLAY_HEIGHT - 44;
-    const uint16_t left_qr_x = content_left + 2;
-    const uint16_t right_qr_x = content_right - 40;
-    int left_qr_size = drawSensorQR(urban_robonomics_address, left_qr_x, qr_y);
-    int right_qr_size = drawSensorQR(insight_robonomics_address, right_qr_x, qr_y);
-    // Footer info: natural-language sentences, adding source only when needed.
-    auto levelWord = [](int dir) -> const char* { return (dir > 0) ? "high" : "low"; };
-    String sentences[12];
-    int sentence_count = 0;
-
-    auto addSentence = [&](const String &s) {
-        if (sentence_count < 12) {
-            sentences[sentence_count++] = s;
+    // Footer info: grouped by source to improve readability.
+    auto levelWord = [](int dir) -> const char* { return (dir > 0) ? INTL_DISP_LEVEL_HIGH : INTL_DISP_LEVEL_LOW; };
+    auto makeTooPhrase = [&](const char *measure, int dir) -> String {
+        String s = String(measure);
+        if (strlen(INTL_DISP_IS_TOO) > 0) {
+            s += " ";
+            s += INTL_DISP_IS_TOO;
         }
+        s += " ";
+        s += levelWord(dir);
+        return s;
+    };
+    auto appendIssue = [](String &line, const String &issue) {
+        if (issue.length() == 0) return;
+        if (line.length() > 0) line += ", ";
+        line += issue;
     };
 
-    auto addPairedMeasureSentences = [&](const char *measure, int urban_dir, int insight_dir, bool looks_same_for_both = false) {
-        if (urban_dir == 0 && insight_dir == 0) return;
+    String urban_issues = "";
+    String insight_issues = "";
+    const bool footer_test_all_warnings = false; // temporary UI-fit test mode
 
-        bool urban_bad = (urban_dir != 0);
-        bool insight_bad = (insight_dir != 0);
-
-        // If values look the same on screen, prefer a single generic sentence.
-        if (looks_same_for_both) {
-            int dir = 0;
-            if (urban_bad && insight_bad && ((urban_dir > 0) == (insight_dir > 0))) {
-                dir = urban_dir;
-            } else if (urban_bad && !insight_bad) {
-                dir = urban_dir;
-            } else if (!urban_bad && insight_bad) {
-                dir = insight_dir;
-            }
-            if (dir != 0) {
-                addSentence(String(measure) + " is too " + levelWord(dir) + ".");
-                return;
-            }
-        }
-
-        if (urban_bad && insight_bad && ((urban_dir > 0) == (insight_dir > 0))) {
-            addSentence(String(measure) + " is too " + levelWord(urban_dir) + ".");
-            return;
-        }
-        if (urban_bad) {
-            addSentence(String(measure) + " is too " + levelWord(urban_dir) + " (U).");
-        }
-        if (insight_bad) {
-            addSentence(String(measure) + " is too " + levelWord(insight_dir) + " (I).");
-        }
-    };
-
-    // Compare formatted values (as shown on screen), not raw floats.
-    bool rh_looks_same = (strcmp(hum_out, hum_in) == 0);
-    bool press_looks_same = (strcmp(press_out, press_in) == 0);
-    bool temp_looks_same = (strcmp(temp_out, temp_in) == 0);
-
-    addPairedMeasureSentences("RH", hum_out_dir, hum_in_dir, rh_looks_same);
-    addPairedMeasureSentences("Press.", press_out_dir, press_in_dir, press_looks_same);
-    addPairedMeasureSentences("Temp", temp_out_dir, temp_in_dir, temp_looks_same);
-
-    if (pm_dir != 0) {
-        addSentence(String("PM is too ") + levelWord(pm_dir) + ".");
-    }
-    if (noise_dir != 0) {
-        addSentence(String("Noise is too ") + levelWord(noise_dir) + ".");
-    }
-    if (co2_dir != 0) {
-        addSentence(String("CO2 is too ") + levelWord(co2_dir) + ".");
-    }
-
-    uint16_t text_x = content_left + 50;
-    uint16_t text_right = content_right;
-    if (left_qr_size > 0) {
-        text_x = left_qr_x + left_qr_size + 8;
-    }
-    if (right_qr_size > 0 && right_qr_x > 8) {
-        text_right = right_qr_x - 8;
-    }
-    if (text_right <= text_x) {
-        text_x = content_left + 50;
-        text_right = content_right - 50;
-    }
-    const uint16_t text_w = (text_right > text_x) ? (text_right - text_x) : 0;
-
-    String footer_text = "Info:";
-
-    // Temporary footer stress test: show all measures with mixed U/I tags.
-    const bool info_test_override = false;
-    const bool force_no_warning_info_test = false;
-    if (info_test_override) {
-        footer_text += " Temp is too high (I). RH is too low (U). Press. is too high (U). PM is too high. Noise is too high. CO2 is too high (I).";
-    } else if (force_no_warning_info_test) {
-        footer_text += " Check out our sensor map for full data and analytics.";
-    } else if (sentence_count == 0) {
-        footer_text += " Check out our sensor map for full data and analytics.";
+    if (footer_test_all_warnings) {
+        appendIssue(urban_issues, makeTooPhrase("RH", -1));
+        appendIssue(urban_issues, makeTooPhrase(INTL_DISP_TEMP_SHORT, 1));
+        appendIssue(urban_issues, makeTooPhrase(INTL_DISP_PRESS_SHORT, -1));
+        appendIssue(urban_issues, makeTooPhrase("PM", 1));
+        appendIssue(urban_issues, makeTooPhrase(INTL_DISP_NOISE, 1));
+        appendIssue(urban_issues, String(INTL_DISP_DEW_POINT_IS) + String("12°C"));
+        appendIssue(insight_issues, makeTooPhrase("RH", 1));
+        appendIssue(insight_issues, makeTooPhrase(INTL_DISP_TEMP_SHORT, 1));
+        appendIssue(insight_issues, makeTooPhrase(INTL_DISP_PRESS_SHORT, -1));
+        appendIssue(insight_issues, makeTooPhrase("CO2", 1));
     } else {
-        for (int i = 0; i < sentence_count; i++) {
-            footer_text += " " + sentences[i];
-        }
+        if (hum_out_dir != 0) appendIssue(urban_issues, makeTooPhrase("RH", hum_out_dir));
+        if (hum_in_dir != 0) appendIssue(insight_issues, makeTooPhrase("RH", hum_in_dir));
+
+        if (temp_out_dir != 0) appendIssue(urban_issues, makeTooPhrase(INTL_DISP_TEMP_SHORT, temp_out_dir));
+        if (temp_in_dir != 0) appendIssue(insight_issues, makeTooPhrase(INTL_DISP_TEMP_SHORT, temp_in_dir));
+
+        if (press_out_dir != 0) appendIssue(urban_issues, makeTooPhrase(INTL_DISP_PRESS_SHORT, press_out_dir));
+        if (press_in_dir != 0) appendIssue(insight_issues, makeTooPhrase(INTL_DISP_PRESS_SHORT, press_in_dir));
+
+        // Urban-specific sensors on main screen.
+        if (pm_dir != 0) appendIssue(urban_issues, makeTooPhrase("PM", pm_dir));
+        if (noise_dir != 0) appendIssue(urban_issues, makeTooPhrase(INTL_DISP_NOISE, noise_dir));
+        // Insight-specific sensor on main screen.
+        if (co2_dir != 0) appendIssue(insight_issues, makeTooPhrase("CO2", co2_dir));
     }
 
-    // Wrap into center block between QRs (no ellipsis), left-aligned next to left QR.
-    String wrapped[3];
+    // Include dew point in Urban line when available.
+    float dew_point_c = calculateDewPointC(values.temp_outdoor, values.hum_outdoor);
+    char dew_str[16];
+    formatMetricValue(dew_str, sizeof(dew_str), dew_point_c, 0, true);
+    if (!footer_test_all_warnings && !isTempNoData(dew_point_c)) {
+        appendIssue(urban_issues, String(INTL_DISP_DEW_POINT_IS) + String(dew_str) + String("°C"));
+    }
+
+    String source_lines[3];
+    int source_line_count = 0;
+    if (urban_issues.length() > 0) {
+        source_lines[source_line_count++] = String("Urban: ") + urban_issues;
+    }
+    if (insight_issues.length() > 0) {
+        source_lines[source_line_count++] = String("Insight: ") + insight_issues;
+    }
+    if (source_line_count == 0) {
+        source_lines[source_line_count++] = INTL_DISP_CHECK_MAP_FULL_DATA;
+    }
+
+    // Footer text: use full content width.
+    uint16_t text_x = content_left + 3;
+    uint16_t text_right = (content_right > 6) ? (content_right - 6) : content_right;
+
+    // Wrap into center block between QRs, left-aligned next to info icon.
+    const uint16_t info_icon_size = 32;
+    uint16_t info_icon_x = (text_x > 2) ? (text_x - 2) : text_x; // shift icon closer to the left
+    uint16_t body_text_x = info_icon_x + info_icon_size + 4;
+    uint16_t body_text_w = (text_right > body_text_x) ? (text_right - body_text_x) : 0;
+    String wrapped[4];
     int wrapped_count = 0;
-    String current = "";
-    int pos = 0;
-    const int max_lines = 3;
-    while (pos < footer_text.length() && wrapped_count < max_lines) {
-        int next_space = footer_text.indexOf(' ', pos);
-        if (next_space < 0) next_space = footer_text.length();
-        String token = footer_text.substring(pos, next_space);
-        if (token.length() == 0) {
+    const int max_lines = footer_test_all_warnings ? 4 : 3;
+
+    for (int src = 0; src < source_line_count && wrapped_count < max_lines; src++) {
+        String current = "";
+        int pos = 0;
+        const String &line = source_lines[src];
+        while (pos < line.length() && wrapped_count < max_lines) {
+            int next_space = line.indexOf(' ', pos);
+            if (next_space < 0) next_space = line.length();
+            String token = line.substring(pos, next_space);
+            if (token.length() == 0) {
+                pos = next_space + 1;
+                continue;
+            }
+
+            String candidate = (current.length() == 0) ? token : (current + " " + token);
+            uint16_t candidate_w = Paint_GetStringWidth_Display(candidate.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii);
+            if (candidate_w <= body_text_w || current.length() == 0) {
+                current = candidate;
+            } else {
+                wrapped[wrapped_count++] = current;
+                current = token;
+            }
             pos = next_space + 1;
-            continue;
         }
-
-        String candidate = (current.length() == 0) ? token : (current + " " + token);
-        uint16_t candidate_w = Paint_GetStringWidth_Display(candidate.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii);
-        if (candidate_w <= text_w || current.length() == 0) {
-            current = candidate;
-        } else {
+        if (wrapped_count < max_lines && current.length() > 0) {
             wrapped[wrapped_count++] = current;
-            current = token;
-        }
-        pos = next_space + 1;
-    }
-    if (wrapped_count < max_lines && current.length() > 0) {
-        wrapped[wrapped_count++] = current;
-    }
-
-    // Dynamic extension: dew point always goes on its own line when possible.
-    if (!info_test_override && !force_no_warning_info_test && sentence_count > 0 && wrapped_count > 0) {
-        float dew_point_c = calculateDewPointC(values.temp_outdoor, values.hum_outdoor);
-        char dew_str[16];
-        formatMetricValue(dew_str, sizeof(dew_str), dew_point_c, 0, true);
-        if (wrapped_count < max_lines) {
-            wrapped[wrapped_count++] = String("Dew Point (U): ") + String(dew_str) + String("°C.");
         }
     }
 
-    const uint16_t first_line_y = qr_y - 2;
+    // Keep footer text anchored near the lower area even when top QR test mode is active.
+    const uint16_t qr_y = DISPLAY_HEIGHT - 44;
+    const uint16_t first_line_y = (qr_y > 10) ? (qr_y - 10) : qr_y;
+    Paint_DrawImage(info_32x32, info_icon_x, first_line_y - 3, info_icon_size, info_icon_size);
     const uint16_t line_step = 13;
     for (int i = 0; i < wrapped_count; i++) {
-        Paint_DrawString_Display(text_x, first_line_y + i * line_step, wrapped[i].c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(body_text_x, first_line_y + i * line_step, wrapped[i].c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
 }
 

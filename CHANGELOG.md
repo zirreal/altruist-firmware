@@ -14,6 +14,13 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Warning indicators refinement (main screen)** — adjusted warning icon positioning and visibility logic to improve legibility near labels.
 - **Footer info readability updates** — improved informational sentence formatting between QR blocks, including compact dew point output with degree notation (`°C`).
 - **Icon asset cleanup** — removed unused generated icon headers (including unused `30x30`, most `35x35`/`40x40`, and stale helper headers) to reduce asset clutter and maintenance overhead.
+- **Main screen labels and values retuned (Insight)** — labels switched to compact `Font12` with units near titles, paired values moved closer to labels, and slash rendering unified/lighter across all metric pairs.
+- **Main header and top-strip polish** — title updated to `URBAN/INSIGHT`; WiFi and source icons (`urban`/`insight`) were resized/repositioned for cleaner spacing and better visual hierarchy.
+- **Footer redesign with source grouping** — bottom status text now groups warnings by source (`Urban:` / `Insight:`), includes dew point in Urban context, and supports wrapped multi-line layout with icon-led footer entry.
+- **Footer info icon integration** — added `info.svg` conversion pipeline and replaced text label with dedicated monochrome icon on main screen.
+- **Sidebar visual cleanup** — removed the outer bottom sidebar border line while preserving internal navigation separator lines.
+- **Insight LED mapping aligned to main screen order** — LED segments now follow displayed measurement order with pressure at the end; noise and PM remain split (`avg/max`, `PM10/PM2.5`) for clearer diagnostics.
+- **Insight LED transition behavior softened** — replaced abrupt color-change blink with subtle short dim pulse on changed segments only, reducing visual annoyance.
 
 ---
 
