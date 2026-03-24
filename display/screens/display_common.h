@@ -4,6 +4,7 @@
 #define DISPLAY_COMMON_H
 
 #include "../driver/EPD.h"
+#include "../paint_driver/GUI_Paint.h"
 #include "../display_modes.h"
 
 enum class ScreenPage;
@@ -47,6 +48,10 @@ void epdSetInitialized(bool initialized, DisplayMode mode);
 
 // Attempt to recover from a stuck display (hardware reset + reinit)
 void epdRecoverFromStuck();
+
+// Draw rounded rectangle (for sensors map etc.)
+void Paint_DrawRoundedRectangle(UWORD xStart, UWORD yStart, UWORD xEnd, UWORD yEnd,
+                                UWORD color, UWORD radius, DOT_PIXEL line_width, DRAW_FILL draw_fill);
 
 #ifdef DISPLAY_4IN2
 #define EPD_DisplayFull(img)   EPD_4IN2_V2_Display(img)

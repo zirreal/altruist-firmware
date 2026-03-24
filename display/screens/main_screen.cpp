@@ -485,6 +485,14 @@ static float calculateDewPointC(float temperature_c, float humidity_percent) {
     return (b * gamma) / (a - gamma);
 }
 
+// Returns true if GPS coords are set and not (0,0) — used to avoid showing QRs with wrong location
+static bool hasValidGpsCoords() {
+    if (cfg::coords_gps == nullptr || strlen(cfg::coords_gps) == 0) return false;
+    double lat = 0.0, lon = 0.0;
+    if (sscanf(cfg::coords_gps, "%lf,%lf", &lat, &lon) != 2) return false;
+    return (fabs(lat) > 1e-6 || fabs(lon) > 1e-6);
+}
+
 static int drawSensorQR(const String &sensor_address, int x, int y) {
     if (sensor_address.length() == 0) return 0;
 
@@ -677,13 +685,12 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         int time_y = header_top_y;
         Paint_DrawString_Display(time_x, time_y, time_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-        // Right: date, smaller but still bold-ish (same display font as rest of UI)
-        int date_width = (int)Paint_GetStringWidth_Display(date_buf, &Font12, &font_12_cyrillic, &font_12_ascii);
+        // Right: date (same font as time for consistent header look)
+        int date_width = (int)Paint_GetStringWidth_Display(date_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         const int right_margin = 4;
         int date_x = DISPLAY_WIDTH - right_margin - date_width;
-        int date_y = header_top_y + 2;
-        Paint_DrawString_Display(date_x,     date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(date_x + 1, date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        int date_y = header_top_y;
+        Paint_DrawString_Display(date_x, date_y, date_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     }
 
     // Draw bottom border for header 
@@ -698,11 +705,13 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     const uint16_t body_top = header_bottom_border_y + 4;
 
     // Top strip: QR codes left/right + combined title in the middle.
+    // Hide Insight QR when GPS coords are (0,0) — we can't verify Urban's coords (different device)
+    bool show_insight_qr = hasValidGpsCoords();
     const uint16_t left_qr_x = content_left + 2;
     const uint16_t right_qr_x = (content_right > 41) ? (content_right - 41) : (content_left + 2);
     const uint16_t top_qr_y = body_top + 1;
     int left_qr_size = drawSensorQR(urban_robonomics_address, left_qr_x, top_qr_y);
-    int right_qr_size = drawSensorQR(insight_robonomics_address, right_qr_x, top_qr_y);
+    int right_qr_size = show_insight_qr ? drawSensorQR(insight_robonomics_address, right_qr_x, top_qr_y) : 0;
     bool urban_online = (values.ip_address.length() > 0);
     bool insight_online = (device_ip.length() > 0);
     uint16_t left_wifi_x = left_qr_x + (left_qr_size > 0 ? left_qr_size + 8 : 43);

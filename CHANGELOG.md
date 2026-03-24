@@ -21,6 +21,9 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Sidebar visual cleanup** — removed the outer bottom sidebar border line while preserving internal navigation separator lines.
 - **Insight LED mapping aligned to main screen order** — LED segments now follow displayed measurement order with pressure at the end; noise and PM remain split (`avg/max`, `PM10/PM2.5`) for clearer diagnostics.
 - **Insight LED transition behavior softened** — replaced abrupt color-change blink with subtle short dim pulse on changed segments only, reducing visual annoyance.
+- **Sensors Map screen redesign and stabilization (Insight)** — rebuilt layout to promo-style composition (new title/subtitle hierarchy, centered QR, `SENSORS.SOCIAL` footer), tightened header/sidebar alignment with other screens, and fixed out-of-bounds rendering that previously caused repeated boundary warnings and occasional stack overflow resets.
+- **Night Analytics wording and hierarchy update** — renamed `Conservative score` to `Total score`, updated secondary labels (`general` / `biohacking`, with RU variants), and adjusted vertical ordering/spacing for clearer score reading on the circle panel.
+- **Web setup UX clarification (EN/RU)** — replaced misleading “restarting” messaging with explicit next-step guidance (copy/open IP), added localized helper texts, and differentiated Insight flow to keep page open for Urban selection instead of suggesting close.
 
 ---
 

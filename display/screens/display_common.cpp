@@ -339,8 +339,8 @@ static void Paint_DrawImageInverted(const unsigned char *image_buffer, UWORD xSt
     }
 }
 
-// Helper function to draw a rounded rectangle
-static void Paint_DrawRoundedRectangle(UWORD xStart, UWORD yStart, UWORD xEnd, UWORD yEnd, 
+// Draw rounded rectangle (exposed for sensors map etc.)
+void Paint_DrawRoundedRectangle(UWORD xStart, UWORD yStart, UWORD xEnd, UWORD yEnd, 
                                         UWORD color, UWORD radius, DOT_PIXEL line_width, DRAW_FILL draw_fill) {
     if (xStart > Paint.Width || yStart > Paint.Height ||
         xEnd > Paint.Width || yEnd > Paint.Height) {
@@ -508,7 +508,7 @@ void drawScreenIndicator(ScreenPage currentScreen) {
     // Calculate icon positions
     int small_icon_x = sidebar_x + (sidebar_width - icon_size) / 2;
     int large_icon_x = sidebar_x + (sidebar_width - large_icon_size) / 2;
-    const int page_icon_gap = 20; // equal gap between all page icons
+    const int page_icon_gap = 8; 
     
 
     // Extra top padding so the first icon sits a bit lower

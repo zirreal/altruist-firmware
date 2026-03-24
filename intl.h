@@ -122,5 +122,62 @@
 #ifndef INTL_DISP_NOISE_AVGMAX_SUFFIX
 #define INTL_DISP_NOISE_AVGMAX_SUFFIX "(avg/max)"
 #endif
+#ifndef INTL_DISP_EXPLORE_ADVANTAGES
+#define INTL_DISP_EXPLORE_ADVANTAGES "Explore all advantages"
+#endif
+#ifndef INTL_DISP_EXPLORE_ENVIRONMENT
+#define INTL_DISP_EXPLORE_ENVIRONMENT "Explore your environment"
+#endif
+#ifndef INTL_DISP_EXPLORE_YOUR
+#define INTL_DISP_EXPLORE_YOUR "Explore your"
+#endif
+#ifndef INTL_DISP_ENVIRONMENT_CAPS
+#define INTL_DISP_ENVIRONMENT_CAPS "ENVIRONMENT"
+#endif
+#ifndef INTL_DISP_SENSORS_MAP
+#define INTL_DISP_SENSORS_MAP "SENSORS MAP"
+#endif
+#ifndef INTL_DISP_POWERED
+#define INTL_DISP_POWERED "Powered"
+#endif
+#ifndef INTL_DISP_BY_ROBONOMICS
+#define INTL_DISP_BY_ROBONOMICS "by Robonomics"
+#endif
+#ifndef INTL_DISP_MAP_ENV_BETTER
+#define INTL_DISP_MAP_ENV_BETTER "Know your environment better."
+#endif
+#ifndef INTL_DISP_MAP_REVIEW_INSIGHTS
+#define INTL_DISP_MAP_REVIEW_INSIGHTS "Review insights over time."
+#endif
+#ifndef INTL_DISP_MAP_COMPARE_CONDITIONS
+#define INTL_DISP_MAP_COMPARE_CONDITIONS "Compare with others nearby."
+#endif
+#ifndef INTL_GUEST_CONNECTED
+#define INTL_GUEST_CONNECTED "Connected!"
+#endif
+#ifndef INTL_GUEST_IP_ADDRESS
+#define INTL_GUEST_IP_ADDRESS "IP Address:"
+#endif
+#ifndef INTL_GUEST_OPEN_IP_HINT
+#define INTL_GUEST_OPEN_IP_HINT "Copy the IP address and open it in your browser. You can close this page now."
+#endif
+#ifndef INTL_GUEST_KEEP_OPEN_HINT
+#define INTL_GUEST_KEEP_OPEN_HINT "Keep this page open and select your Urban device below."
+#endif
+#ifndef INTL_DISP_MAP_PROMO_TITLE
+#define INTL_DISP_MAP_PROMO_TITLE "Better analytics on your smartphone!"
+#endif
+#ifndef INTL_DISP_MAP_PROMO_LINE1
+#define INTL_DISP_MAP_PROMO_LINE1 "Just go to our web map: AQI, data history,"
+#endif
+#ifndef INTL_DISP_MAP_PROMO_LINE2
+#define INTL_DISP_MAP_PROMO_LINE2 "color-coded charts, easy sharing, and"
+#endif
+#ifndef INTL_DISP_MAP_PROMO_LINE3
+#define INTL_DISP_MAP_PROMO_LINE3 "more features coming soon!"
+#endif
+#ifndef INTL_DISP_MAP_DOMAIN
+#define INTL_DISP_MAP_DOMAIN "SENSORS.SOCIAL"
+#endif
 
 #endif

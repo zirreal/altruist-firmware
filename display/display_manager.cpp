@@ -580,8 +580,13 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 showSensorsMapPage(addr);
             }
         } else if (currentScreenID == ScreenPage::SETTINGS) {
-            // Get urban IP address from config or sensors_data
-            String urban_ip = String(cfg::chosen_altruist_urban);
+            // Get urban IP address from config (chosen or custom) or sensors_data
+            String urban_ip;
+            if (cfg::use_custom_urban && strlen(cfg::custom_altruist_urban) > 0) {
+                urban_ip = String(cfg::custom_altruist_urban);
+            } else {
+                urban_ip = String(cfg::chosen_altruist_urban);
+            }
             // Fallback: try to get from sensors_data if config is empty (with mutex)
             if (urban_ip.length() == 0) {
                 if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100))) {
