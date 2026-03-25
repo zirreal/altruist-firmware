@@ -240,6 +240,14 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 // #define BTN_SET_PIN 7
 #define BTN_SET_PIN -1
 #define BTN_UP_PIN -1
+// Urban reset button pin.
+// Safe for OTA across mixed hardware: if the button is not populated, the pin
+// stays pulled-up and the long-press condition never triggers.
+// Can be overridden via build flags (e.g. disable on rare legacy boards):
+//   -DURBAN_RESET_BTN_PIN=-1
+#ifndef URBAN_RESET_BTN_PIN
+#define URBAN_RESET_BTN_PIN 7
+#endif
 #endif
 
 // Led pin
@@ -249,8 +257,7 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #define LED_PIN 11
 #endif
 #ifdef ALTRUIST_URBAN
-// #define LED_PIN 0
-#define LED_PIN -1
+#define LED_PIN 0
 #endif
 
 #else

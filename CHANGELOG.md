@@ -24,6 +24,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Sensors Map screen redesign and stabilization (Insight)** — rebuilt layout to promo-style composition (new title/subtitle hierarchy, centered QR, `SENSORS.SOCIAL` footer), tightened header/sidebar alignment with other screens, and fixed out-of-bounds rendering that previously caused repeated boundary warnings and occasional stack overflow resets.
 - **Night Analytics wording and hierarchy update** — renamed `Conservative score` to `Total score`, updated secondary labels (`general` / `biohacking`, with RU variants), and adjusted vertical ordering/spacing for clearer score reading on the circle panel.
 - **Web setup UX clarification (EN/RU)** — replaced misleading “restarting” messaging with explicit next-step guidance (copy/open IP), added localized helper texts, and differentiated Insight flow to keep page open for Urban selection instead of suggesting close.
+- **Urban hardware reset + dual-LED indication (ESP32-C6)** — added GPIO7 long-press reset (hold >5s, release to confirm) that clears only Wi-Fi + Web UI credentials while preserving Robonomics identity; enabled 2-pixel addressable LED status (steady state) + activity (error-only, rate-limited pulse) indications for a calmer UX.
 
 ---
 

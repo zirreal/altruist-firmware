@@ -353,9 +353,8 @@ void SensorWebServer::_webserver_guest() {
 				// Return without restarting — wait for /select_urban POST
 				return;
 #else
-				page_content = "<div class='guest__connect-status'><span class='guest__reboot'>" INTL_GUEST_OPEN_IP_HINT "</span></div>\n";
-				server.sendContent(page_content);
-				debug_outln_info(F("After send content"));
+				// Urban flow: we already showed IP + hint above.
+				// Don't send the same instruction twice.
 				delay(5000);
 #endif
 			} else {
