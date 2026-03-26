@@ -172,7 +172,7 @@ void LedControllerInsight::process() {
                     sensors_data[ATRUIST_URBAN_SENSOR]["SDS_P1"]["value"].as<float>(),
                     SensorConfigs::pm10_thresholds,
                     SensorConfigs::pm_colors,
-                    4
+                    5
                 );
             }
             if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P2")) {
@@ -180,7 +180,7 @@ void LedControllerInsight::process() {
                     sensors_data[ATRUIST_URBAN_SENSOR]["SDS_P2"]["value"].as<float>(),
                     SensorConfigs::pm25_thresholds,
                     SensorConfigs::pm_colors,
-                    4
+                    5
                 );
             }
             
@@ -392,24 +392,24 @@ uint32_t LedControllerInsight::_getPMColor(float pm10, float pm25) {
 }
 
 uint32_t LedControllerInsight::_getNoiseColor(float noise) {
-    return _getColorByThresholds(noise, SensorConfigs::noise_thresholds, SensorConfigs::noise_colors, 4);
+    return _getColorByThresholds(noise, SensorConfigs::noise_thresholds, SensorConfigs::noise_colors, 5);
 }
 
 uint32_t LedControllerInsight::_getCO2Color(float co2) {
-    return _getColorByThresholds(co2, SensorConfigs::co2_thresholds, SensorConfigs::co2_colors, 3);
+    return _getColorByThresholds(co2, SensorConfigs::co2_thresholds, SensorConfigs::co2_colors, 4);
 }
 
 uint32_t LedControllerInsight::_getTempColor(float temperature) {
     // Use SensorConfigs thresholds and colors directly
-    return _getColorByThresholds(temperature, SensorConfigs::temp_thresholds, SensorConfigs::temp_colors, 4);
+    return _getColorByThresholds(temperature, SensorConfigs::temp_thresholds, SensorConfigs::temp_colors, 5);
 }
 
 uint32_t LedControllerInsight::_getHumidityColor(float humidity) {
-    return _getColorByThresholds(humidity, SensorConfigs::humidity_thresholds, SensorConfigs::humidity_colors, 4);
+    return _getColorByThresholds(humidity, SensorConfigs::humidity_thresholds, SensorConfigs::humidity_colors, 5);
 }
 
 uint32_t LedControllerInsight::_getPressureColor(float pressure) {
-    return _getColorByThresholds(pressure, SensorConfigs::pressure_thresholds, SensorConfigs::pressure_colors, 3);
+    return _getColorByThresholds(pressure, SensorConfigs::pressure_thresholds, SensorConfigs::pressure_colors, 4);
 }
 
 // Calculate brightness based on time of day

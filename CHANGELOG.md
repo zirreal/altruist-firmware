@@ -2,8 +2,6 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
----
-
 ## [R_2026-03.1](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-03.1) — 2026-03-17
 
 ### Improvements
@@ -24,7 +22,17 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Sensors Map screen redesign and stabilization (Insight)** — rebuilt layout to promo-style composition (new title/subtitle hierarchy, centered QR, `SENSORS.SOCIAL` footer), tightened header/sidebar alignment with other screens, and fixed out-of-bounds rendering that previously caused repeated boundary warnings and occasional stack overflow resets.
 - **Night Analytics wording and hierarchy update** — renamed `Conservative score` to `Total score`, updated secondary labels (`general` / `biohacking`, with RU variants), and adjusted vertical ordering/spacing for clearer score reading on the circle panel.
 - **Web setup UX clarification (EN/RU)** — replaced misleading “restarting” messaging with explicit next-step guidance (copy/open IP), added localized helper texts, and differentiated Insight flow to keep page open for Urban selection instead of suggesting close.
-- **Urban hardware reset + dual-LED indication (ESP32-C6)** — added GPIO7 long-press reset (hold >5s, release to confirm) that clears only Wi-Fi + Web UI credentials while preserving Robonomics identity; enabled 2-pixel addressable LED status (steady state) + activity (error-only, rate-limited pulse) indications for a calmer UX.
+- **Urban hardware reset + dual-LED indication (ESP32-C6)** — added GPIO7 long-press reset (hold >10s, release to confirm) that clears only Wi-Fi + Web UI credentials while preserving Robonomics identity; enabled 2-pixel addressable LED status (steady state) + activity (error-only, rate-limited pulse) indications for a calmer UX.
+- **Graphs screen layout + navigation polish (Insight)** — refined graph layout (larger plot area + compact nav), updated nav ordering, and improved header/current-value formatting and translations.
+- **Graphs screen i18n cleanup** — moved graphs hint/header strings to `INTL_...` keys to keep translations per-language and scalable.
+- **Main screen layout tuning (Insight)** — adjusted right-column alignment, QR strip padding, and title/separator formatting for better visual balance.
+- **Main screen typography + separators** — updated paired-value separators and label separators to use consistent `|` spacing; updated Noise suffix to `(avg | max)` (EN/RU).
+- **Footer tips readability** — reduced tips font size to 10px glyphs and widened wrapping area up to the sidebar boundary.
+
+### Build & tooling
+
+- **Font generator split by script** — `display/fontgen/ttf_to_bitmap.py` can now generate ASCII and Cyrillic glyph fonts from different TTFs (default: Orbitron for ASCII, `font.ttf` for Cyrillic), improving RU support with stylized Latin fonts.
+- **New glyph font sizes** — added wiring for `font_10_*` and `font_22_*` in `fonts.h` for UI use.
 
 ---
 

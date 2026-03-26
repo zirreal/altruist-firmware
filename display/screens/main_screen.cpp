@@ -635,10 +635,31 @@ static void drawWarningLevelIcon(uint16_t x, uint16_t y, int danger_direction) {
 }
 
 static uint16_t drawNumberWithUnit(uint16_t x, uint16_t y, const char *value, const char *unit) {
-    uint16_t value_w = Paint_GetStringWidth_Display(value, &Font24, &font_24_cyrillic, &font_24_ascii);
-    Paint_DrawString_Display(x, y, value, &Font24, &font_24_cyrillic, &font_24_ascii, WHITE, BLACK);
+    // Use 22px glyph font for numeric values.
+    sFONT* value_font_en = &Font24; // EN uses glyph overrides when provided
+    const Font* value_font_ru = &font_22_cyrillic;
+    const Font* value_font_ascii = &font_22_ascii;
+    uint16_t value_w = Paint_GetStringWidth_Display(value, value_font_en, value_font_ru, value_font_ascii);
+    Paint_DrawString_Display(x, y, value, value_font_en, value_font_ru, value_font_ascii, WHITE, BLACK);
+
+    // Make decimal point more noticeable on e-ink.
+    // Some glyph fonts render '.' very lightly; redraw '.' on top (slightly offset) to darken it.
+    const char* dot = strchr(value, '.');
+    if (dot) {
+        char prefix[16];
+        size_t n = (size_t)(dot - value);
+        if (n >= sizeof(prefix)) n = sizeof(prefix) - 1;
+        memcpy(prefix, value, n);
+        prefix[n] = '\0';
+        const uint16_t prefix_w = Paint_GetStringWidth_Display(prefix, value_font_en, value_font_ru, value_font_ascii);
+        const uint16_t dx = x + prefix_w;
+        Paint_DrawString_Display(dx,     y, ".", value_font_en, value_font_ru, value_font_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(dx + 1, y, ".", value_font_en, value_font_ru, value_font_ascii, WHITE, BLACK);
+    }
+
     if (unit != nullptr && unit[0] != '\0') {
-        uint16_t unit_y = y + (Font24.Height - Font12.Height);
+        const uint16_t value_h = value_font_ascii->line_height ? value_font_ascii->line_height : Font16.Height;
+        uint16_t unit_y = y + ((value_h > Font12.Height) ? (value_h - Font12.Height) : 0);
         Paint_DrawString_Display(x + value_w + 2, unit_y, unit, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         return x + value_w + 2 + Paint_GetStringWidth_Display(unit, &Font12, &font_12_cyrillic, &font_12_ascii);
     }
@@ -650,9 +671,20 @@ static void drawPairNumbersWithUnits(uint16_t x, uint16_t y,
                                      const char *v2, const char *u2) {
     uint16_t cur_x = x;
     cur_x = drawNumberWithUnit(cur_x, y, v1, u1);
-    // Use a single, medium slash for all paired values.
-    Paint_DrawString_Display(cur_x + 1, y + 7, "/", &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
-    cur_x += 6;
+    // Symmetric spacing around separator so it doesn't look one-sided.
+    const uint16_t sep_gap_left = 6;
+    const uint16_t sep_gap_right = 6;
+    cur_x += sep_gap_left;
+    // Draw separator slightly smaller than the numbers (18px).
+    sFONT* sep_font_en = &Font24; // EN uses glyph overrides when provided
+    const Font* sep_font_ru = &font_18_cyrillic;
+    const Font* sep_font_ascii = &font_18_ascii;
+    const char *sep = "|";
+    const uint16_t sep_y = y + 2; // separator slightly lower
+    Paint_DrawString_Display(cur_x, sep_y, sep, sep_font_en, sep_font_ru, sep_font_ascii, WHITE, BLACK);
+    // Advance by the actual separator width for clean spacing.
+    const uint16_t sep_w = Paint_GetStringWidth_Display(sep, sep_font_en, sep_font_ru, sep_font_ascii);
+    cur_x += sep_w + sep_gap_right;
     drawNumberWithUnit(cur_x, y, v2, u2);
 }
 
@@ -709,32 +741,69 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     bool show_insight_qr = hasValidGpsCoords();
     const uint16_t left_qr_x = content_left + 2;
     const uint16_t right_qr_x = (content_right > 41) ? (content_right - 41) : (content_left + 2);
-    const uint16_t top_qr_y = body_top + 1;
+    const uint16_t qr_pad_top_y = 2;
+    const uint16_t qr_pad_bottom_y = 6;       // bigger bottom padding under QRs
+    const uint16_t top_qr_y = body_top + qr_pad_top_y;
     int left_qr_size = drawSensorQR(urban_robonomics_address, left_qr_x, top_qr_y);
     int right_qr_size = show_insight_qr ? drawSensorQR(insight_robonomics_address, right_qr_x, top_qr_y) : 0;
     bool urban_online = (values.ip_address.length() > 0);
     bool insight_online = (device_ip.length() > 0);
-    uint16_t left_wifi_x = left_qr_x + (left_qr_size > 0 ? left_qr_size + 8 : 43);
-    uint16_t right_wifi_x = (right_qr_x > 36) ? (right_qr_x - 36) : content_left;
+    const int16_t left_wifi_nudge_x = -3;  // keep Urban side as-is
+    const int16_t right_wifi_nudge_x = +1; // move ONLY Insight-side WiFi to the right
+    uint16_t left_wifi_x = (uint16_t)((int32_t)left_qr_x + (left_qr_size > 0 ? (int32_t)left_qr_size + 8 : 43) + left_wifi_nudge_x);
+    if (left_wifi_x < content_left) left_wifi_x = content_left;
+    uint16_t right_wifi_x = (uint16_t)((int32_t)((right_qr_x > 36) ? (right_qr_x - 36) : content_left) + right_wifi_nudge_x);
+    if (right_wifi_x < content_left) right_wifi_x = content_left;
     uint16_t wifi_y = top_qr_y + 6;
     Paint_DrawImage(urban_online ? wifi_28x28 : wifi_x_28x28, left_wifi_x, wifi_y, 28, 28);
     Paint_DrawImage(insight_online ? wifi_28x28 : wifi_x_28x28, right_wifi_x, wifi_y, 28, 28);
     const uint16_t source_icon_gap = 4;
+    const uint16_t insight_icon_gap = 0; // as close as possible to its WiFi icon
     const uint16_t source_icon_size = 32;
     uint16_t source_icon_y = (wifi_y >= 2) ? (wifi_y - 2) : 0; // visually center 32px icon with 28px WiFi
-    uint16_t urban_icon_x = left_wifi_x + 28 + source_icon_gap;
-    uint16_t insight_icon_x = (right_wifi_x > (source_icon_size + source_icon_gap)) ? (right_wifi_x - (source_icon_size + source_icon_gap)) : content_left;
+    const int16_t urban_icon_nudge_x = -3; // move Urban icon a bit to the left
+    uint16_t urban_icon_x = (uint16_t)((int32_t)left_wifi_x + 28 + source_icon_gap + urban_icon_nudge_x);
+    if (urban_icon_x < content_left) urban_icon_x = content_left;
+    uint16_t insight_icon_x = (right_wifi_x > (source_icon_size + insight_icon_gap)) ? (right_wifi_x - (source_icon_size + insight_icon_gap)) : content_left;
+    uint16_t max_icon_x = (content_right > source_icon_size) ? (content_right - source_icon_size) : content_left;
+    if (urban_icon_x > max_icon_x) urban_icon_x = max_icon_x;
+    if (insight_icon_x > max_icon_x) insight_icon_x = max_icon_x;
     Paint_DrawImage(urban_32x32, urban_icon_x, source_icon_y, source_icon_size, source_icon_size);
     Paint_DrawImage(insight_32x32, insight_icon_x, source_icon_y, source_icon_size, source_icon_size);
 
-    const char *combined_title = "URBAN/INSIGHT";
-    int title_w = (int)Paint_GetStringWidth_Display(combined_title, &Font16, &font_16_cyrillic, &font_16_ascii);
-    int title_x = content_left + ((int)content_width - title_w) / 2;
-    Paint_DrawString_Display(title_x, body_top + 13, combined_title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    // Draw "URBAN | INSIGHT" with controlled pixel gaps (match number separator feel).
+    const char *title_left = "URBAN";
+    const char *title_sep = "|";
+    const char *title_right = "INSIGHT";
+    const uint16_t title_gap_left = 4;
+    const uint16_t title_gap_right = 4;
+    const uint16_t w_left = Paint_GetStringWidth_Display(title_left, &Font16, &font_16_cyrillic, &font_16_ascii);
+    const uint16_t w_sep = Paint_GetStringWidth_Display(title_sep, &Font16, &font_16_cyrillic, &font_16_ascii);
+    const uint16_t w_right = Paint_GetStringWidth_Display(title_right, &Font16, &font_16_cyrillic, &font_16_ascii);
+    const uint16_t title_w = w_left + title_gap_left + w_sep + title_gap_right + w_right;
+    int title_x = content_left + ((int)content_width - (int)title_w) / 2;
+    uint16_t tx = (title_x > 0) ? (uint16_t)title_x : 0;
+    uint16_t ty = body_top + 13;
+    Paint_DrawString_Display(tx, ty, title_left, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    tx += w_left + title_gap_left;
+    // Normal separator glyph (no dotted rendering).
+    Paint_DrawString_Display(tx, ty, title_sep, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    tx += w_sep + title_gap_right;
+    Paint_DrawString_Display(tx, ty, title_right, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
     // Taller header strip for better visual separation.
-    uint16_t top_sep_y = body_top + 44;
-    Paint_DrawLine(content_left, top_sep_y, content_right, top_sep_y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    const uint16_t qr_h = (left_qr_size > right_qr_size) ? (uint16_t)left_qr_size : (uint16_t)right_qr_size;
+    uint16_t top_sep_y = body_top + 44; // fallback
+    if (qr_h > 0) {
+        // Use asymmetric padding (bigger bottom padding requested).
+        top_sep_y = top_qr_y + qr_h + qr_pad_bottom_y;
+    }
+    // Dotted separator line under the top strip (subheader).
+    for (uint16_t x = content_left; x <= content_right; x += 4) {
+        uint16_t x1 = x + 1;
+        if (x1 > content_right) x1 = content_right;
+        Paint_DrawLine(x, top_sep_y, x1, top_sep_y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    }
 
     int temp_out_dir  = tempDangerDirection(values.temp_outdoor);
     int temp_in_dir   = tempDangerDirection(values.temp_indoor);
@@ -754,23 +823,27 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
 
     char temp_out[16], temp_in[16], hum_out[16], hum_in[16], press_out[16], press_in[16];
     char pm10_str[16], pm25_str[16], noise_avg[12], noise_max[12], co2_str[16];
-    formatMetricValue(temp_out, sizeof(temp_out), values.temp_outdoor, 1, true);
-    formatMetricValue(temp_in, sizeof(temp_in), values.temp_indoor, 1, true);
+    const bool footer_test_all_warnings = false; // temporary UI-fit test mode
+    formatMetricValue(temp_out, sizeof(temp_out), values.temp_outdoor, 0, true);
+    formatMetricValue(temp_in, sizeof(temp_in), values.temp_indoor, 0, true);
     formatMetricValue(hum_out, sizeof(hum_out), values.hum_outdoor, 0, false);
     formatMetricValue(hum_in, sizeof(hum_in), values.hum_indoor, 0, false);
     formatMetricValue(press_out, sizeof(press_out), values.press_outdoor, 0, false);
     formatMetricValue(press_in, sizeof(press_in), values.press_indoor, 0, false);
-    formatMetricValue(pm10_str, sizeof(pm10_str), values.pm10, 1, false);
-    formatMetricValue(pm25_str, sizeof(pm25_str), values.pm25, 1, false);
+    formatMetricValue(pm10_str, sizeof(pm10_str), values.pm10, 0, false);
+    formatMetricValue(pm25_str, sizeof(pm25_str), values.pm25, 0, false);
     formatMetricValue(noise_avg, sizeof(noise_avg), values.noise_avg, 0, false);
     formatMetricValue(noise_max, sizeof(noise_max), values.noise_max, 0, false);
     formatMetricValue(co2_str, sizeof(co2_str), values.co2, 0, false);
+
+    // UI fit-test: keep real PM strings (no forced PM overrides).
 
     // Move measurements lower, closer to QR section.
     const uint16_t row_top = top_sep_y + 14;
     const uint16_t row_step = 54;
     const uint16_t left_x = content_left;
-    const uint16_t right_x = content_left + content_width / 2 - 3;
+    const uint16_t right_col_shift_left = 9;
+    const uint16_t right_x = content_left + content_width / 2 - 3 - right_col_shift_left;
 
     // Left group: shared metrics Urban/Insight.
 
@@ -803,7 +876,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     // Right group: source-specific metrics.
 
     Paint_DrawImage(ear_hearing_34x34, right_x, row_top + 1, 34, 34);
-    String right_noise_label_s = String(INTL_DISP_NOISE) + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dB";
+    String right_noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dB";
     const char *right_noise_label = right_noise_label_s.c_str();
     uint16_t right_noise_label_x = right_x + 42;
     Paint_DrawString_Display(right_noise_label_x, row_top, right_noise_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
@@ -812,7 +885,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     drawPairNumbersWithUnits(right_noise_label_x, row_top + 13, noise_avg, "", noise_max, "");
 
     Paint_DrawImage(dust_34x34, right_x, row_top + row_step + 1, 34, 34);
-    const char *right_air_label = "PM10/PM2.5 ug/m3";
+    const char *right_air_label = "PM10 | PM2.5 ug/m3";
     uint16_t right_air_label_x = right_x + 42;
     Paint_DrawString_Display(right_air_label_x, row_top + row_step, right_air_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     uint16_t right_air_label_w = Paint_GetStringWidth_Display(right_air_label, &Font12, &font_12_cyrillic, &font_12_ascii);
@@ -848,7 +921,6 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
 
     String urban_issues = "";
     String insight_issues = "";
-    const bool footer_test_all_warnings = false; // temporary UI-fit test mode
 
     if (footer_test_all_warnings) {
         appendIssue(urban_issues, makeTooPhrase("RH", -1));
@@ -898,14 +970,15 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         source_lines[source_line_count++] = INTL_DISP_CHECK_MAP_FULL_DATA;
     }
 
-    // Footer text: use full content width.
-    uint16_t text_x = content_left + 3;
-    uint16_t text_right = (content_right > 6) ? (content_right - 6) : content_right;
+    // Footer text: use as much width as possible (excluding the right sidebar only).
+    uint16_t text_x = content_left;
+    // `content_right` is conservative; for footer wrapping we can go up to the last pixel before the sidebar.
+    uint16_t text_right = (DISPLAY_WIDTH > nav_sidebar_width + 1) ? (DISPLAY_WIDTH - nav_sidebar_width - 1) : content_right;
 
     // Wrap into center block between QRs, left-aligned next to info icon.
     const uint16_t info_icon_size = 32;
-    uint16_t info_icon_x = (text_x > 2) ? (text_x - 2) : text_x; // shift icon closer to the left
-    uint16_t body_text_x = info_icon_x + info_icon_size + 4;
+    uint16_t info_icon_x = text_x;
+    uint16_t body_text_x = info_icon_x + info_icon_size + 2;
     uint16_t body_text_w = (text_right > body_text_x) ? (text_right - body_text_x) : 0;
     String wrapped[4];
     int wrapped_count = 0;
@@ -925,7 +998,8 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
             }
 
             String candidate = (current.length() == 0) ? token : (current + " " + token);
-            uint16_t candidate_w = Paint_GetStringWidth_Display(candidate.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii);
+            // Measure with the SAME font as the tips, so wrapping uses the full available width.
+            uint16_t candidate_w = Paint_GetStringWidth_Display(candidate.c_str(), &Font12, &font_10_cyrillic, &font_10_ascii);
             if (candidate_w <= body_text_w || current.length() == 0) {
                 current = candidate;
             } else {
@@ -943,9 +1017,15 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     const uint16_t qr_y = DISPLAY_HEIGHT - 44;
     const uint16_t first_line_y = (qr_y > 10) ? (qr_y - 10) : qr_y;
     Paint_DrawImage(info_32x32, info_icon_x, first_line_y - 3, info_icon_size, info_icon_size);
-    const uint16_t line_step = 13;
+    const uint16_t tipLineH =
+#ifdef INTL_RU
+        (font_10_cyrillic.line_height ? font_10_cyrillic.line_height : Font12.Height);
+#else
+        (font_10_ascii.line_height ? font_10_ascii.line_height : Font12.Height);
+#endif
+    const uint16_t line_step = tipLineH + 2;
     for (int i = 0; i < wrapped_count; i++) {
-        Paint_DrawString_Display(body_text_x, first_line_y + i * line_step, wrapped[i].c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        Paint_DrawString_Display(body_text_x, first_line_y + i * line_step, wrapped[i].c_str(), &Font12, &font_10_cyrillic, &font_10_ascii, WHITE, BLACK);
     }
 }
 

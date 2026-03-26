@@ -44,6 +44,7 @@ static void drawCenteredFittedText(const char* text, int y, int x_left, int x_ri
     if (font_ru_override != nullptr) cyr = font_ru_override;
     if (font_ascii_override != nullptr) ascii = font_ascii_override;
 
+    const bool may_need_ellipsis = (src_len > n);
     while (n > 0) {
         int w = (int)Paint_GetStringWidth_Display(fitted, font, cyr, ascii);
         if (w <= max_width) break;
@@ -51,6 +52,28 @@ static void drawCenteredFittedText(const char* text, int y, int x_left, int x_ri
         fitted[n] = '\0';
     }
     if (n == 0) return;
+
+    // If we had to truncate, add ".." so the cut isn't confusing (e.g. "smartpho").
+    if (src_len > n && n > 2) {
+        // Prefer trimming trailing spaces before adding dots
+        while (n > 2 && fitted[n - 1] == ' ') {
+            fitted[n - 1] = '\0';
+            n--;
+        }
+        fitted[n - 1] = '.';
+        fitted[n - 2] = '.';
+        // Ensure still fits; if not, shrink further.
+        while (n > 2) {
+            int w = (int)Paint_GetStringWidth_Display(fitted, font, cyr, ascii);
+            if (w <= max_width) break;
+            n--;
+            fitted[n] = '\0';
+            if (n > 2) {
+                fitted[n - 1] = '.';
+                fitted[n - 2] = '.';
+            }
+        }
+    }
 
     int w = (int)Paint_GetStringWidth_Display(fitted, font, cyr, ascii);
     int x = x_left + (max_width - w) / 2;
@@ -199,17 +222,27 @@ void showSensorsMapPage(const String& robonomics_address) {
     const int content_center_x = content_left + content_width / 2;
 
     const char* title = INTL_DISP_MAP_PROMO_TITLE;
-    drawCenteredFittedText(title, content_top_y, content_left + 6, content_right - 6, &Font20);
+    // Use 18px glyph font (less tall than 20, still prominent).
+    drawCenteredFittedText(title, content_top_y, content_left + 6, content_right - 6, &Font20,
+                           &font_18_cyrillic, &font_18_ascii);
 
     const char* subtitle_line_1 = INTL_DISP_MAP_PROMO_LINE1;
     const char* subtitle_line_2 = INTL_DISP_MAP_PROMO_LINE2;
     const char* subtitle_line_3 = INTL_DISP_MAP_PROMO_LINE3;
     const int subtitle_line_gap = 3;
-    const int subtitle_line_height = Font12.Height;
+    const int subtitle_line_height =
+#ifdef INTL_RU
+        (font_14_cyrillic.line_height ? (int)font_14_cyrillic.line_height : (int)Font16.Height);
+#else
+        (font_14_ascii.line_height ? (int)font_14_ascii.line_height : (int)Font16.Height);
+#endif
     const int subtitle_top = content_top_y + Font20.Height + 14;
-    drawCenteredFittedText(subtitle_line_1, subtitle_top, content_left, content_right, &Font12);
-    drawCenteredFittedText(subtitle_line_2, subtitle_top + (subtitle_line_height + subtitle_line_gap), content_left, content_right, &Font12);
-    drawCenteredFittedText(subtitle_line_3, subtitle_top + 2 * (subtitle_line_height + subtitle_line_gap), content_left, content_right, &Font12);
+    drawCenteredFittedText(subtitle_line_1, subtitle_top, content_left, content_right, &Font16,
+                           &font_14_cyrillic, &font_14_ascii);
+    drawCenteredFittedText(subtitle_line_2, subtitle_top + (subtitle_line_height + subtitle_line_gap), content_left, content_right, &Font16,
+                           &font_14_cyrillic, &font_14_ascii);
+    drawCenteredFittedText(subtitle_line_3, subtitle_top + 2 * (subtitle_line_height + subtitle_line_gap), content_left, content_right, &Font16,
+                           &font_14_cyrillic, &font_14_ascii);
     int subtitle_bottom = subtitle_top + 3 * (subtitle_line_height + subtitle_line_gap);
 
     int qr_x = content_left + ((int)content_width - render_width) / 2;

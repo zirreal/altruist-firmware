@@ -180,4 +180,18 @@
 #define INTL_DISP_MAP_DOMAIN "SENSORS.SOCIAL"
 #endif
 
+// --- Graphs screen specific strings ---
+#ifndef INTL_DISP_GRAPHS_HEADER_PREFIX
+#define INTL_DISP_GRAPHS_HEADER_PREFIX "Current"
+#endif
+#ifndef INTL_DISP_GRAPHS_HINT_LINE1
+#define INTL_DISP_GRAPHS_HINT_LINE1 "long press ->"
+#endif
+#ifndef INTL_DISP_GRAPHS_HINT_LINE2
+#define INTL_DISP_GRAPHS_HINT_LINE2 "next/prev"
+#endif
+#ifndef INTL_DISP_GRAPHS_HINT_LINE3
+#define INTL_DISP_GRAPHS_HINT_LINE3 ""
+#endif
+
 #endif

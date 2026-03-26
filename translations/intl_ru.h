@@ -139,6 +139,11 @@ const char INTL_RESTART_SENSOR[] PROGMEM = "Перезапустить устр�
 #define INTL_HOME "Меню"
 #define INTL_BACK_TO_HOME "Вернуться в основное меню"
 const char INTL_CURRENT_DATA[] PROGMEM = "Текущие значения";
+// Graphs screen
+#define INTL_DISP_GRAPHS_HEADER_PREFIX ""
+#define INTL_DISP_GRAPHS_HINT_LINE1 "долгое нажатие ->"
+#define INTL_DISP_GRAPHS_HINT_LINE2 "след./пред."
+#define INTL_DISP_GRAPHS_HINT_LINE3 "экран"
 const char INTL_DEVICE_STATUS[] PROGMEM = "Состояние устройства";
 #define INTL_ACTIVE_SENSORS_MAP "Карта активных датчиков (внешняя ссылка)"
 #define INTL_CONFIGURATION_DELETE "Удалить конфигурацию"
@@ -308,4 +313,4 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_DEW_POINT_IS "Точка росы: "
 #define INTL_DISP_TEMP_SHORT "Темп."
 #define INTL_DISP_PRESS_SHORT "Давл."
-#define INTL_DISP_NOISE_AVGMAX_SUFFIX "(ср/макс)"
+#define INTL_DISP_NOISE_AVGMAX_SUFFIX "(ср | макс)"

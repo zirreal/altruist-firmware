@@ -8,6 +8,7 @@
 #include "../../sd_card/sd_card.h"
 #include "../../config_manager/config_helpers.h"
 #include "../icons/icons/icons_15x15.h"
+#include "../icons/icons/icons_10x10.h"
 #include "../paint_driver/fonts/fonts.h"
 #include <vector>
 
@@ -30,10 +31,33 @@ private:
 #endif
 
 uint8_t current_graph_screen = 1;
-static GraphValue current_graph_value = GraphValue::INSIGHT_TEMP;
+static GraphValue current_graph_value = GraphValue::INSIGHT_CO2;
 constexpr uint8_t kGraphValueCount = static_cast<uint8_t>(GraphValue::URBAN_PRESSURE) + 1;
 static bool g_graph_had_data[kGraphValueCount] = {false};
 static uint8_t g_graph_no_data_streak[kGraphValueCount] = {0};
+
+namespace {
+// Right-nav order (also used for cycling next/prev so UI is consistent)
+constexpr GraphValue kGraphNavOrder[] = {
+    GraphValue::INSIGHT_CO2,
+    GraphValue::INSIGHT_TEMP,
+    GraphValue::INSIGHT_HUM,
+    GraphValue::INSIGHT_PRESSURE,
+    GraphValue::URBAN_TEMP,
+    GraphValue::URBAN_HUM,
+    GraphValue::URBAN_PRESSURE,
+    GraphValue::URBAN_AIR,
+    GraphValue::URBAN_NOISE,
+};
+constexpr uint8_t kGraphNavOrderCount = sizeof(kGraphNavOrder) / sizeof(kGraphNavOrder[0]);
+
+static int navIndexOf(GraphValue v) {
+    for (uint8_t i = 0; i < kGraphNavOrderCount; i++) {
+        if (kGraphNavOrder[i] == v) return (int)i;
+    }
+    return -1;
+}
+} // namespace
 
 static uint8_t graphValueIndex(GraphValue value) {
     return static_cast<uint8_t>(value);
@@ -316,23 +340,232 @@ static uint16_t drawOneGraph(int left_x, int left_y, const char* sensor_name, co
     return graph.getGraphWidth();
 }
 
+namespace {
+struct ActiveGraphSummary {
+    bool has_data = false;
+    // Preformatted like "Max = 54dB / Avg = 47dB"
+    char headline[64] = {0};
+};
+
+static const char* urbanSuffix(const char* base, char* out, size_t out_sz) {
+    snprintf(out, out_sz, "%s (U)", base);
+    return out;
+}
+static const char* insightSuffix(const char* base, char* out, size_t out_sz) {
+    snprintf(out, out_sz, "%s (I)", base);
+    return out;
+}
+
+static bool isSharedMetric(GraphValue v) {
+    return (v == GraphValue::INSIGHT_TEMP || v == GraphValue::URBAN_TEMP ||
+            v == GraphValue::INSIGHT_HUM  || v == GraphValue::URBAN_HUM  ||
+            v == GraphValue::INSIGHT_PRESSURE || v == GraphValue::URBAN_PRESSURE);
+}
+
+static char graphSourceSuffix(GraphValue v) {
+    switch (v) {
+        case GraphValue::URBAN_TEMP:
+        case GraphValue::URBAN_HUM:
+        case GraphValue::URBAN_PRESSURE:
+        case GraphValue::URBAN_AIR:
+        case GraphValue::URBAN_NOISE:
+            return 'U';
+        case GraphValue::INSIGHT_TEMP:
+        case GraphValue::INSIGHT_HUM:
+        case GraphValue::INSIGHT_PRESSURE:
+        case GraphValue::INSIGHT_CO2:
+            return 'I';
+        default:
+            return '\0';
+    }
+}
+
+static void drawGraphNavButtonsBottomLeft(uint16_t menu_x, uint16_t menu_y, uint16_t menu_w, uint16_t menu_h) {
+    // Place up/down buttons (LEFT) + hint (RIGHT) at the BOTTOM of the nav column.
+    const uint16_t iconSize = 10;
+    const uint16_t iconGapY = 2;
+
+    const uint16_t padL = 0;
+    const uint16_t padB = 16; // move block a bit higher from bottom
+    const uint16_t iconBlockH = iconSize * 2 + iconGapY;
+    uint16_t x = menu_x + padL;
+    uint16_t y = (menu_h > (iconBlockH + padB)) ? (menu_y + menu_h - iconBlockH - padB) : menu_y;
+
+    Paint_DrawImage(button_up_10x10, x, y, iconSize, iconSize);
+    Paint_DrawImage(button_down_10x10, x, y + iconSize + iconGapY, iconSize, iconSize);
+
+    // Hint text next to arrows (keep it compact & readable).
+    // We keep it inside the nav column width so it never overlaps the graph.
+    const char* hint1 = INTL_DISP_GRAPHS_HINT_LINE1;
+    const char* hint2a = INTL_DISP_GRAPHS_HINT_LINE2;
+    const char* hint2b = INTL_DISP_GRAPHS_HINT_LINE3;
+    // Put hint text to the RIGHT of the icons.
+    const uint16_t hintX = x + iconSize + 7; // bigger gap between icon and text
+    uint16_t hintY = (y > 2) ? (y - 2) : y;
+
+    const uint16_t maxRight = (menu_x + menu_w > 2) ? (menu_x + menu_w - 2) : (menu_x + menu_w);
+    if (hintX < maxRight) {
+        const uint16_t maxW = maxRight - hintX;
+        auto drawFit = [&](uint16_t x0, uint16_t y0, const char* full, const char* fallback) {
+            uint16_t wFull = Paint_GetStringWidth_Display(full, &Font12, &font_12_cyrillic, &font_12_ascii);
+            if (wFull <= maxW) {
+                Paint_DrawString_Display(x0, y0, full, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+                return;
+            }
+            uint16_t wFallback = Paint_GetStringWidth_Display(fallback, &Font12, &font_12_cyrillic, &font_12_ascii);
+            if (wFallback <= maxW) {
+                Paint_DrawString_Display(x0, y0, fallback, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+                return;
+            }
+            // Last resort: draw fallback anyway (it will clip within the nav column).
+            Paint_DrawString_Display(x0, y0, fallback, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        };
+
+        const uint16_t hintLineGap = 4; // extra spacing between hint lines
+        // Prefer showing full "long press" even if it clips slightly.
+        drawFit(hintX, hintY, hint1, "long press ->");
+        hintY += Font12.Height + hintLineGap;
+        drawFit(hintX, hintY, hint2a, "next/prev");
+        if (hint2b && hint2b[0] != '\0') {
+            hintY += Font12.Height + hintLineGap;
+            drawFit(hintX, hintY, hint2b, "screen");
+        }
+    }
+}
+
+static void drawTriangleUp(uint16_t cx, uint16_t cy, uint16_t size, uint16_t color) {
+    // Simple outline triangle
+    Paint_DrawLine(cx, cy, cx - size, cy + size, color, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(cx, cy, cx + size, cy + size, color, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(cx - size, cy + size, cx + size, cy + size, color, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+}
+
+static void drawTriangleDown(uint16_t cx, uint16_t cy, uint16_t size, uint16_t color) {
+    Paint_DrawLine(cx, cy, cx - size, cy - size, color, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(cx, cy, cx + size, cy - size, color, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    Paint_DrawLine(cx - size, cy - size, cx + size, cy - size, color, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+}
+
+static void drawGraphValueMenu(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, GraphValue selected) {
+    // Keep this menu compact so the plot stays the primary focus.
+    const uint16_t padX = 6;             // items closer to the left edge
+    const uint16_t bottomPad = 8;        // leave ~8px below the last item
+    const int8_t letterSpacing = 0;      // as tight as possible (no extra tracking)
+
+    // Right-nav font: 12px glyph font.
+    // Keep `font_en` as Font12 since EN rendering uses `font_ascii` when provided.
+    sFONT* navFontEn = &Font12;
+    const Font* navFontRu = &font_12_cyrillic;
+    const Font* navFontAscii = &font_12_ascii;
+#ifdef INTL_RU
+    const uint16_t navLineH = font_12_cyrillic.line_height ? font_12_cyrillic.line_height : Font12.Height;
+#else
+    const uint16_t navLineH = font_12_ascii.line_height ? font_12_ascii.line_height : Font12.Height;
+#endif
+    const uint16_t rowGap = 6;
+    const uint16_t groupGap = 12;
+
+    // Top-align list. Reserve bottom space for the arrow+hint block (3 hint lines).
+    const uint16_t reservedBottomH = 60;
+    const uint16_t maxListBottom = (h > reservedBottomH + bottomPad) ? (y0 + h - reservedBottomH - bottomPad) : (y0 + h);
+    uint16_t y = y0 + 8;
+
+    auto drawItem = [&](const char* text, bool is_selected) {
+        const uint16_t textX = x0 + padX;
+        // Prevent overflow with wider fonts: truncate to fit the nav column.
+        const uint16_t maxRight = (x0 + w > 2) ? (x0 + w - 2) : (x0 + w);
+        const uint16_t maxW = (maxRight > textX) ? (maxRight - textX) : 0;
+        const char* toDraw = text;
+        char clipped[48];
+        auto stringW = [&](const char* s) -> uint16_t {
+            const uint16_t base = Paint_GetStringWidth_Display(s, navFontEn, navFontRu, navFontAscii);
+            const size_t len = strlen(s);
+            if (len <= 1) return base;
+            const int32_t spaced = (int32_t)base + (int32_t)(len - 1) * (int32_t)letterSpacing;
+            return (spaced > 0) ? (uint16_t)spaced : 0;
+        };
+        if (maxW > 0) {
+            uint16_t tw = stringW(text);
+            if (tw > maxW) {
+                strncpy(clipped, text, sizeof(clipped));
+                clipped[sizeof(clipped) - 1] = '\0';
+                // Trim until it fits, then add ".."
+                while (strlen(clipped) > 2) {
+                    uint16_t wNow = stringW(clipped);
+                    if (wNow <= maxW) break;
+                    clipped[strlen(clipped) - 1] = '\0';
+                }
+                if (strlen(clipped) > 2) {
+                    clipped[strlen(clipped) - 1] = '.';
+                    clipped[strlen(clipped) - 2] = '.';
+                }
+                toDraw = clipped;
+            }
+        }
+        if (is_selected) {
+            // Highlight: keep it simple and reliable on e-ink:
+            // - a left marker bar
+            // (no bold; bold text was harder to read on e-ink)
+            const uint16_t barW = 2;
+            // Move marker slightly lower to align visually with glyph baseline.
+            uint16_t barTop = y + 1;
+            uint16_t barBottom = y + navLineH + 1;
+            if (barBottom > y0 + h - 1) barBottom = y0 + h - 1;
+            // Put the marker closer to the text (less empty gutter).
+            uint16_t barX0 = (x0 + 2 < textX) ? (textX - 6) : x0;
+            uint16_t barX1 = barX0 + barW;
+            Paint_DrawRectangle(barX0, barTop, barX1, barBottom, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+
+            Paint_DrawString_Display_WithSpacing(textX, y, toDraw, navFontEn, navFontRu, navFontAscii, WHITE, BLACK, letterSpacing);
+        } else {
+            Paint_DrawString_Display_WithSpacing(textX, y, toDraw, navFontEn, navFontRu, navFontAscii, WHITE, BLACK, letterSpacing);
+        }
+        y += navLineH + rowGap;
+    };
+
+    char buf[48];
+    // Use the shared nav order list for drawing as well.
+    for (uint8_t i = 0; i < kGraphNavOrderCount; i++) {
+        if (y + navLineH > maxListBottom) {
+            break;
+        }
+        if (i == 4) {
+            // separator between Insight and Urban groups
+            y += groupGap;
+        }
+        GraphValue v = kGraphNavOrder[i];
+        const char* base = getGraphTitle(v);
+        // Use shorter label for Urban PM (avoid "Air quality" / long translations)
+        if (v == GraphValue::URBAN_AIR) {
+            base = INTL_DISP_AIR;
+        }
+        if (graphSourceSuffix(v) == 'U') {
+            drawItem(urbanSuffix(base, buf, sizeof(buf)), selected == v);
+        } else {
+            drawItem(insightSuffix(base, buf, sizeof(buf)), selected == v);
+        }
+    }
+}
+} // namespace
+
 // Draw a single, full-width graph for the currently selected value.
 // The graph is positioned to sit below the header and above the bottom navigation bar.
-static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t navTop, uint16_t contentTop) {
+static ActiveGraphSummary drawActiveGraph(GraphValue value,
+                                         const String& urban_key,
+                                         uint16_t navTop,
+                                         uint16_t contentTop,
+                                         uint16_t graphLeft,
+                                         uint16_t graphWidth,
+                                         uint16_t contentRight) {
+    ActiveGraphSummary summary;
     // Horizontal and vertical margins
-    const uint16_t marginX    = 10;
     const uint16_t topMargin  = contentTop;
     const uint16_t bottomGap  = 6;   // gap between graph and nav bar separator
 
     if (navTop <= topMargin + bottomGap + 40) {
-        return;
+        return summary;
     }
 
-    // Account for right sidebar navigation 
-    const uint16_t rightSidebarWidth = 29;
-    const uint16_t rightMargin = 0;  // No right margin - graph goes right up to sidebar
-    uint16_t graphLeft   = marginX;
-    uint16_t graphWidth  = DISPLAY_WIDTH - marginX - rightSidebarWidth - rightMargin;  // Left margin + right sidebar, no extra right margin
     uint16_t graphHeight = navTop - topMargin - bottomGap;
     uint16_t graphBottom = navTop - bottomGap;
 
@@ -345,11 +578,17 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
     // We'll determine hours_back after checking data, but for now use 12 as max
     // This will be updated after we calculate the actual time range
     uint8_t hours_to_read = 12;
+
+    // Capture last values for header summary even if only one line has data.
+    bool  has_pm10 = false, has_pm25 = false;
+    float last_pm10 = 0,   last_pm25 = 0;
     
     auto addLine = [&](const char* sensor_name,
                        const char* field_name,
                        const char* label,
-                       GraphLineStyle style) {
+                       GraphLineStyle style,
+                       bool* out_has_last = nullptr,
+                       float* out_last = nullptr) {
         if (lineCount >= 2) {
             return;
         }
@@ -359,6 +598,10 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
             // Filter to hourly intervals (keep only last value in each hour)
             filterToHourlyData(ld);
             if (ld.count > 0 && ld.values && ld.timestamps) {
+                if (out_has_last && out_last) {
+                    *out_has_last = true;
+                    *out_last = ld.values[ld.count - 1];
+                }
                 graph.addLineValues(ld.values, ld.timestamps, ld.count, label, style);
                 lineCount++;
             }
@@ -425,8 +668,8 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
             GraphLineStyle airDotted = solid;  
             airDotted.style = LINE_STYLE_DOTTED;
             airDotted.width = DOT_PIXEL_1X1;  
-            addLine(urban_key.c_str(), "SDS_P1", "PM10", airSolid);
-            addLine(urban_key.c_str(), "SDS_P2", "PM2.5", airDotted);
+            addLine(urban_key.c_str(), "SDS_P1", "PM10", airSolid,  &has_pm10, &last_pm10);
+            addLine(urban_key.c_str(), "SDS_P2", "PM2.5", airDotted, &has_pm25, &last_pm25);
             break;
         }
         case GraphValue::URBAN_NOISE:
@@ -444,6 +687,16 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         case GraphValue::URBAN_PRESSURE:
             addLine(urban_key.c_str(), "BME280_pressure", "Urban", solid);
             break;
+    }
+
+    // Precompute current summary for Air even if timestamp span logic fails.
+    if (value == GraphValue::URBAN_AIR && (has_pm10 || has_pm25)) {
+        char pm10_buf[8] = "--";
+        char pm25_buf[8] = "--";
+        if (has_pm10) snprintf(pm10_buf, sizeof(pm10_buf), "%d", (int)(last_pm10 + 0.5f));
+        if (has_pm25) snprintf(pm25_buf, sizeof(pm25_buf), "%d", (int)(last_pm25 + 0.5f));
+        snprintf(summary.headline, sizeof(summary.headline), "pm10/2.5 = %s/%sug/m3", pm10_buf, pm25_buf);
+        summary.has_data = true;
     }
 
     if (lineCount > 0) {
@@ -468,6 +721,57 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         
         if (oldest_timestamp != UINT32_MAX && newest_timestamp > 0) {
             markGraphDataState(value, true);
+            // Compose header-style summary from the latest values (when available)
+            if (value == GraphValue::URBAN_NOISE && lineCount >= 2) {
+                // Expect line 0 = Max, line 1 = Avg
+                float maxV = lineData[0].values ? lineData[0].values[lineData[0].count - 1] : 0;
+                float avgV = lineData[1].values ? lineData[1].values[lineData[1].count - 1] : 0;
+                // Match requested order/format: avg/max = 43/47db
+                snprintf(summary.headline, sizeof(summary.headline), "avg/max = %d/%ddb",
+                         (int)(avgV + 0.5f), (int)(maxV + 0.5f));
+                summary.has_data = true;
+            } else if (value == GraphValue::URBAN_AIR) {
+                // Show current PM values even if only one line has data.
+                if (has_pm10 || has_pm25) {
+                    char pm10_buf[8] = "--";
+                    char pm25_buf[8] = "--";
+                    if (has_pm10) snprintf(pm10_buf, sizeof(pm10_buf), "%d", (int)(last_pm10 + 0.5f));
+                    if (has_pm25) snprintf(pm25_buf, sizeof(pm25_buf), "%d", (int)(last_pm25 + 0.5f));
+                    snprintf(summary.headline, sizeof(summary.headline), "pm10/2.5 = %s/%sug/m3", pm10_buf, pm25_buf);
+                    summary.has_data = true;
+                }
+            } else if (lineCount >= 1 && lineData[0].values) {
+                // Single-line graphs: show last value only (no "Now =" prefix; header already says "Current ...")
+                float v = lineData[0].values[lineData[0].count - 1];
+                int rounded = (int)(v + (v >= 0 ? 0.5f : -0.5f));
+                const char* unit = "";
+                switch (value) {
+                    case GraphValue::INSIGHT_TEMP:
+                    case GraphValue::URBAN_TEMP:
+                        unit = "C";
+                        break;
+                    case GraphValue::INSIGHT_HUM:
+                    case GraphValue::URBAN_HUM:
+                        unit = "%";
+                        break;
+                    case GraphValue::INSIGHT_PRESSURE:
+                    case GraphValue::URBAN_PRESSURE:
+                        unit = "hPa";
+                        break;
+                    case GraphValue::INSIGHT_CO2:
+                        unit = "ppm";
+                        break;
+                    default:
+                        unit = "";
+                        break;
+                }
+                if (unit[0] != '\0') {
+                    snprintf(summary.headline, sizeof(summary.headline), "%d%s", rounded, unit);
+                } else {
+                    snprintf(summary.headline, sizeof(summary.headline), "%d", rounded);
+                }
+                summary.has_data = true;
+            }
             // Calculate total hours of data available
             uint32_t data_span_seconds = newest_timestamp - oldest_timestamp;
             float total_data_hours_float = (float)data_span_seconds / 3600.0f;
@@ -508,7 +812,7 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
                     }
                     lineData[i].count = 0;
                 }
-                return;
+                return summary;
             }
             
             uint8_t total_data_hours = (uint8_t)(total_data_hours_float + 0.5f);  // Round to nearest
@@ -544,7 +848,7 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
                     }
                     lineData[i].count = 0;
                 }
-                return;
+                return summary;
             }
             uint16_t graphCenterX = graphLeft + graphWidth / 2;
             uint16_t graphCenterY = navTop - (navTop - topMargin) / 2;
@@ -575,7 +879,7 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
                 }
                 lineData[i].count = 0;
             }
-            return;
+            return summary;
         }
         
         graph.drawGraph();
@@ -583,7 +887,7 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         // No data lines at all - show message
         markGraphDataState(value, false);
         if (!shouldShowNoDataMessage(value)) {
-            return;
+            return summary;
         }
         uint16_t graphCenterX = graphLeft + graphWidth / 2;
         uint16_t graphCenterY = navTop - (navTop - topMargin) / 2;
@@ -601,7 +905,7 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         
         Paint_DrawString_Display(msg1X, msg1Y, msg1, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
         Paint_DrawString_Display(msg2X, msg2Y, msg2, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        return;
+        return summary;
     }
 
     // Clean up allocated buffers
@@ -616,6 +920,7 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
         }
         lineData[i].count = 0;
     }
+    return summary;
 }
 #endif
 
@@ -626,44 +931,50 @@ static bool hasEnoughData() {
         return false;
     }
     
-    // Try to read a small sample of data to check if we have at least 1 hour
-    LineData testData = {};
-    String urban_key = ATRUIST_URBAN_SENSOR;
-    
-    // Try reading from a common sensor 
-    readSensorDataFromCSV(testData, "BME680", "temperature", 12);
-    
-    if (testData.count > 0 && testData.timestamps) {
-        // Filter to hourly intervals
-        filterToHourlyData(testData);
-        
-        // Check if we have at least 1 hour of data
-        if (testData.count >= 1) {
-            // Calculate time span
-            uint32_t oldest = UINT32_MAX;
-            uint32_t newest = 0;
-            for (int i = 0; i < testData.count; i++) {
-                if (testData.timestamps[i] < oldest) oldest = testData.timestamps[i];
-                if (testData.timestamps[i] > newest) newest = testData.timestamps[i];
-            }
-            
-            if (oldest != UINT32_MAX && newest > 0) {
-                uint32_t data_span_seconds = newest - oldest;
-                float total_data_hours = (float)data_span_seconds / 3600.0f;
-                
-                // Clean up
-                if (testData.values) { delete[] testData.values; }
-                if (testData.timestamps) { delete[] testData.timestamps; }
-                
-                return total_data_hours >= 1.0f;
+    // Robust check: try a few common fields across Insight/Urban.
+    // Some installations may not log BME680 temperature but still have lots of Urban data (PM/noise/etc).
+    struct Probe {
+        const char* sensor;
+        const char* field;
+    };
+    const Probe probes[] = {
+        {"SCD4x", "co2"},
+        {"BME680", "temperature"},
+        {"BME680", "humidity"},
+        {"BME680", "pressure"},
+        {ATRUIST_URBAN_SENSOR, "SDS_P1"},
+        {ATRUIST_URBAN_SENSOR, "SDS_P2"},
+        {ATRUIST_URBAN_SENSOR, "PCBA_noiseAvg"},
+        {ATRUIST_URBAN_SENSOR, "BME280_temperature"},
+        {ATRUIST_URBAN_SENSOR, "BME280_humidity"},
+        {ATRUIST_URBAN_SENSOR, "BME280_pressure"},
+    };
+
+    for (const auto& p : probes) {
+        LineData testData = {};
+        readSensorDataFromCSV(testData, p.sensor, p.field, 12);
+        if (testData.count > 0 && testData.timestamps) {
+            filterToHourlyData(testData);
+            if (testData.count >= 2 && testData.timestamps) {
+                uint32_t oldest = UINT32_MAX;
+                uint32_t newest = 0;
+                for (int i = 0; i < testData.count; i++) {
+                    if (testData.timestamps[i] < oldest) oldest = testData.timestamps[i];
+                    if (testData.timestamps[i] > newest) newest = testData.timestamps[i];
+                }
+                if (oldest != UINT32_MAX && newest > oldest) {
+                    float total_data_hours = (float)(newest - oldest) / 3600.0f;
+                    if (testData.values) { delete[] testData.values; }
+                    if (testData.timestamps) { delete[] testData.timestamps; }
+                    if (total_data_hours >= 1.0f) {
+                        return true;
+                    }
+                }
             }
         }
-        
-        // Clean up
         if (testData.values) { delete[] testData.values; }
         if (testData.timestamps) { delete[] testData.timestamps; }
     }
-    
     return false;
 #else
     return false;  // SD card not compiled in
@@ -673,7 +984,10 @@ static bool hasEnoughData() {
 // Public function to check if graphs are available
 bool areGraphsAvailable() {
 #if defined(USE_SD_CARD)
-    return checkSDCardAvailable() && checkDataFilesExist() && hasEnoughData();
+    // “Available” here controls navigation behavior (cycle values vs switch screens).
+    // Even if we don't yet have 1h of history, we still want the graphs screen to be usable;
+    // the renderer will show "collecting data" as needed.
+    return checkSDCardAvailable() && checkDataFilesExist();
 #else
     return false;  // SD card not compiled in
 #endif
@@ -686,7 +1000,7 @@ void drawGraphScreen() {
     String screenMsg = "Set graph screen " + String(current_graph_screen);
     debug_outln_info(screenMsg);
 
-    // === HEADER: left icon (graphs), centered title, right time ===
+    // === HEADER: left icon, left headline, right date ===
     struct tm timeinfo;
     const uint16_t header_top_y = 6;
     const uint16_t header_row_height = Font16.Height + 2;
@@ -698,57 +1012,35 @@ void drawGraphScreen() {
     const uint16_t header_icon_y    = header_top_y;
     Paint_DrawImage(chart_15x15, header_icon_x, header_icon_y, header_icon_size, header_icon_size);
 
-    // Prepare time on the right
+    // Prepare date on the right (like the reference)
     bool has_time = false;
-    char time_buf[8] = {0};
-    int time_x = 0;
+    char date_buf[16] = {0};
+    int date_x = 0;
     if (getLocalTime(&timeinfo)) {
-        strftime(time_buf, sizeof(time_buf), "%H:%M", &timeinfo);
-        int time_width = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
+        strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
+        int date_width = (int)Paint_GetStringWidth_Display(date_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         const int right_margin = 4;
-        time_x = DISPLAY_WIDTH - right_margin - time_width;
+        date_x = DISPLAY_WIDTH - right_margin - date_width;
         has_time = true;
     }
 
-    // Title area: graph title
-    const char* graph_title = getGraphTitle(current_graph_value);
-    uint16_t title_pixel_width = Paint_GetStringWidth_Display(graph_title, &Font16, &font_16_cyrillic, &font_16_ascii);
+    // Left headline (filled after we draw/compute the active graph)
+    const int min_x = header_icon_x + header_icon_size + 6;
+    int headline_x = min_x;
+    uint16_t headline_y = header_top_y;
 
-    // Start from screen-centered position
-    int title_x = (DISPLAY_WIDTH - title_pixel_width) / 2;
-    int min_x   = header_icon_x + header_icon_size + 4;
-    if (title_x < min_x) {
-        title_x = min_x;
-    }
-    // If we have a time label, ensure the title does not overlap it
+    // Right: date
     if (has_time) {
-        int max_title_right = time_x - 4;
-        int title_right = title_x + title_pixel_width;
-        if (title_right > max_title_right) {
-            title_x -= (title_right - max_title_right);
-            if (title_x < min_x) {
-                title_x = min_x;
-            }
-        }
-    }
-    uint16_t title_y = header_top_y;
-
-    // Draw title
-    Paint_DrawString_Display(title_x, title_y, graph_title, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
-
-    // Right: time (same display font as rest of UI)
-    if (has_time) {
-        int time_y = header_top_y;
-        Paint_DrawString_Display(time_x, time_y, time_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+        int date_y = header_top_y;
+        Paint_DrawString_Display(date_x, date_y, date_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     }
 
     // Bottom border for header
     Paint_DrawLine(0, header_bottom_border_y, DISPLAY_WIDTH, header_bottom_border_y,
                    BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
-    // Reserve space for the bottom navigation bar (always needed)
-    const uint16_t navBarHeight = 60;               
-    const uint16_t navTop       = DISPLAY_HEIGHT - navBarHeight;
+    // No bottom nav on graphs screen (right-side menu is the navigator)
+    const uint16_t navTop = DISPLAY_HEIGHT - 2;
 
 #if defined(USE_SD_CARD)
     // Check if SD card is available
@@ -797,9 +1089,101 @@ void drawGraphScreen() {
     else {
     
         String urban_key = ATRUIST_URBAN_SENSOR;
-        // Draw single active graph based on current_graph_value
-        uint16_t contentTop = header_bottom_border_y + 6;
-        drawActiveGraph(current_graph_value, urban_key, navTop, contentTop);
+        // Layout experiment: value menu on the LEFT, graph on the RIGHT.
+        // Keep the far-right screen indicator sidebar intact.
+        const uint16_t indicatorSidebarW = 26; // must match `drawScreenIndicator()`
+        const uint16_t contentRight = DISPLAY_WIDTH - indicatorSidebarW - 2;
+        const uint16_t contentTop = header_bottom_border_y + 6;
+
+        // Put the nav column fully flush to the left edge.
+        const uint16_t plotMarginL = 3;
+        // Make the graph a bit wider (nav still fits 2-line hint).
+        const uint16_t menuW = 120;
+        const uint16_t menuGap = 10;
+        uint16_t menuX = plotMarginL;
+        uint16_t menuY = contentTop;
+        uint16_t menuH = (navTop > contentTop + 8) ? (navTop - contentTop - 8) : 0;
+
+        // Plot area uses all remaining width to the RIGHT of the menu.
+        uint16_t plotLeft = menuX + menuW + menuGap;
+        uint16_t plotRight = contentRight;
+        uint16_t plotW = (plotRight > plotLeft) ? (plotRight - plotLeft) : 0;
+
+        ActiveGraphSummary summary = {};
+        if (plotW > 40 && menuH > 40) {
+            summary = drawActiveGraph(current_graph_value, urban_key, navTop, contentTop, plotLeft, plotW, contentRight);
+            drawGraphValueMenu(menuX, menuY, menuW, menuH, current_graph_value);
+            drawGraphNavButtonsBottomLeft(menuX, menuY, menuW, menuH);
+        } else if (plotW > 40) {
+            summary = drawActiveGraph(current_graph_value, urban_key, navTop, contentTop, plotLeft, plotW, contentRight);
+        }
+
+        // Header headline: "Current <Metric>: <summary>" (or just the metric name if no data yet)
+        const char* metricBase = getGraphTitle(current_graph_value);
+        // Use shorter label for Urban PM (matches mock text better)
+        if (current_graph_value == GraphValue::URBAN_AIR) {
+            metricBase = INTL_DISP_AIR;
+        }
+        char metric[48] = {0};
+        if (isSharedMetric(current_graph_value)) {
+            char suf = graphSourceSuffix(current_graph_value);
+            if (suf == 'U') {
+                urbanSuffix(metricBase, metric, sizeof(metric));
+            } else if (suf == 'I') {
+                insightSuffix(metricBase, metric, sizeof(metric));
+            } else {
+                snprintf(metric, sizeof(metric), "%s", metricBase);
+            }
+        } else {
+            snprintf(metric, sizeof(metric), "%s", metricBase);
+        }
+        char headline[96] = {0};
+        const bool hasPrefix = (INTL_DISP_GRAPHS_HEADER_PREFIX[0] != '\0');
+        // Header format requested:
+        // - EN: "Current - 17C" / "Current - avg/max = 43/47db"
+        // - RU: prefix may be empty => show just the summary.
+        if (summary.has_data && summary.headline[0] != '\0') {
+            if (hasPrefix) {
+                snprintf(headline, sizeof(headline), "%s - %s", INTL_DISP_GRAPHS_HEADER_PREFIX, summary.headline);
+            } else {
+                snprintf(headline, sizeof(headline), "%s", summary.headline);
+            }
+        } else {
+            if (hasPrefix) {
+                snprintf(headline, sizeof(headline), "%s", INTL_DISP_GRAPHS_HEADER_PREFIX);
+            } else {
+                snprintf(headline, sizeof(headline), "%s", metric);
+            }
+        }
+        // Clamp headline so it doesn't overlap the date
+        int max_right = has_time ? (date_x - 6) : (DISPLAY_WIDTH - 4);
+        // Use 14px glyph font for header.
+        sFONT* headerFontEn = &Font12;
+        const Font* headerFontRu = &font_14_cyrillic;
+        const Font* headerFontAscii = &font_14_ascii;
+        int headline_w = (int)Paint_GetStringWidth_Display(headline, headerFontEn, headerFontRu, headerFontAscii);
+        if (headline_x + headline_w > max_right) {
+            // If too long, fall back to a shorter string (and if still too long, clip).
+            if (summary.has_data && summary.headline[0] != '\0') {
+                snprintf(headline, sizeof(headline), "%s", summary.headline);
+            } else {
+                snprintf(headline, sizeof(headline), "%s", metric);
+            }
+            headline_w = (int)Paint_GetStringWidth_Display(headline, headerFontEn, headerFontRu, headerFontAscii);
+            if (headline_x + headline_w > max_right) {
+                // Clip with ".."
+                while (strlen(headline) > 2) {
+                    headline[strlen(headline) - 1] = '\0';
+                    headline_w = (int)Paint_GetStringWidth_Display(headline, headerFontEn, headerFontRu, headerFontAscii);
+                    if (headline_x + headline_w <= max_right) break;
+                }
+                if (strlen(headline) > 2) {
+                    headline[strlen(headline) - 1] = '.';
+                    headline[strlen(headline) - 2] = '.';
+                }
+            }
+        }
+        Paint_DrawString_Display(headline_x, headline_y, headline, headerFontEn, headerFontRu, headerFontAscii, WHITE, BLACK);
     }
 #else
     // SD card not available - show message
@@ -818,267 +1202,11 @@ void drawGraphScreen() {
     uint16_t y3 = y2 + Font12.Height + line_spacing;
     uint16_t x3 = DISPLAY_WIDTH / 2 - Paint_GetStringWidth_Display(sa3, &Font12, &font_12_cyrillic, &font_12_ascii) / 2;
     Paint_DrawString_Display(x3, y3, sa3, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    // Nav bar will be drawn after #endif (below)
+    // (No bottom nav on this screen)
 #endif
 
-    // Bottom navigation bar (only drawn if graphs are available)
-    if (areGraphsAvailable()) {
-        Paint_DrawLine(0, navTop, DISPLAY_WIDTH, navTop, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    // Bottom navigation removed.
 
-    const uint16_t paddingX = 6;
-
-    // Icon column: full icon (15x25) centered in column and vertically in nav bar
-    const uint16_t iconColWidth = 24;
-    uint16_t x = paddingX;
-    uint16_t iconAreaRight = x + iconColWidth;
-    const uint16_t iconSizeWidth  = 15;
-    const uint16_t iconSizeHeight = 25;
-    uint16_t iconX = x + (iconColWidth - iconSizeWidth) / 2;
-    uint16_t iconY = navTop + navBarHeight / 2 - iconSizeHeight / 2;
-    Paint_DrawImage(buttons_nav_15x15, iconX, iconY, iconSizeWidth, iconSizeHeight);
-
-    x = iconAreaRight;
-    Paint_DrawLine(x, navTop, x, DISPLAY_HEIGHT - 1, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    x += 2;
-
-    // Insight vs Urban: 4:5 ratio (Urban slightly wider for longer labels)
-    uint16_t availableWidth = DISPLAY_WIDTH - x - paddingX;
-    uint16_t insightWidth   = (availableWidth * 4) / 9;
-    uint16_t urbanWidth     = availableWidth - insightWidth;
-
-    uint16_t sectionHeaderH = Font12.Height + 6;
-    uint16_t headerTop      = navTop + 1;
-
-    // --- Insight section ---
-    uint16_t insightX       = x;
-    uint16_t insightHeaderY = navTop + 1;
-
-    Paint_DrawRectangle(insightX, insightHeaderY,
-                        insightX + insightWidth - 2,
-                        insightHeaderY + sectionHeaderH,
-                        BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawString_EN(insightX + 2, insightHeaderY + 3, INTL_DISP_INSIGHT_HEADER, &Font12, BLACK, WHITE);
-
-    uint16_t insightTextY = insightHeaderY + sectionHeaderH + 4;
-    uint16_t textX        = insightX + 4;
-
-    // Temperature
-    const char* tempLabel = INTL_DISP_TEMPERATURE;
-    uint16_t    tempWidth = Paint_GetStringWidth_Display(tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
-    bool        tempActive = (current_graph_value == GraphValue::INSIGHT_TEMP);
-    if (tempActive) {
-        // Bold-ish text
-        Paint_DrawString_Display(textX,     insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(textX + 1, insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t tempCenterX = textX + tempWidth / 2;
-        uint16_t tempArrowTopY  = insightTextY + Font12.Height + 1;
-        if (tempArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            tempArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t tempTipY   = tempArrowTopY;
-        uint16_t tempBaseY  = tempArrowTopY + 4;
-        Paint_DrawLine(tempCenterX,     tempTipY,  tempCenterX - 3, tempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(tempCenterX,     tempTipY,  tempCenterX + 3, tempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(tempCenterX - 3, tempBaseY, tempCenterX + 3, tempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    } else {
-        Paint_DrawString_Display(textX, insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-
-    // Humidity
-    textX += tempWidth + Font12.Width; // gap between words
-    const char* humLabel = INTL_DISP_HUMIDITY;
-    bool        humActive = (current_graph_value == GraphValue::INSIGHT_HUM);
-    if (humActive) {
-        Paint_DrawString_Display(textX,     insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(textX + 1, insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t humWidth   = Paint_GetStringWidth_Display(humLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
-        uint16_t humCenterX = textX + humWidth / 2;
-        uint16_t humArrowTopY  = insightTextY + Font12.Height + 1;
-        if (humArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            humArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t humTipY   = humArrowTopY;
-        uint16_t humBaseY  = humArrowTopY + 4;
-        Paint_DrawLine(humCenterX,     humTipY,  humCenterX - 3, humBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(humCenterX,     humTipY,  humCenterX + 3, humBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(humCenterX - 3, humBaseY, humCenterX + 3, humBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    } else {
-        Paint_DrawString_Display(textX, insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-
-    // CO2 
-    uint16_t insightTextY2 = insightTextY + Font12.Height + 8;
-    const char* co2Label = INTL_CO2;
-    uint16_t co2X = insightX + 4;
-    bool     co2Active = (current_graph_value == GraphValue::INSIGHT_CO2);
-    if (co2Active) {
-        Paint_DrawString_Display(co2X,     insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(co2X + 1, insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t co2Width   = Paint_GetStringWidth_Display(co2Label, &Font12, &font_12_cyrillic, &font_12_ascii);
-        uint16_t co2CenterX = co2X + co2Width / 2;
-        uint16_t co2ArrowTopY  = insightTextY2 + Font12.Height + 1;
-        if (co2ArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            co2ArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t co2TipY   = co2ArrowTopY;
-        uint16_t co2BaseY  = co2ArrowTopY + 4;
-        Paint_DrawLine(co2CenterX,     co2TipY,  co2CenterX - 3, co2BaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(co2CenterX,     co2TipY,  co2CenterX + 3, co2BaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(co2CenterX - 3, co2BaseY, co2CenterX + 3, co2BaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    } else {
-        Paint_DrawString_Display(co2X, insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-
-    // Pressure
-    const char* pressLabel = INTL_DISP_PRESSURE;
-    uint16_t    pressX     = insightX + 4 + 4 * Font12.Width;
-    bool        pressActive = (current_graph_value == GraphValue::INSIGHT_PRESSURE);
-    if (pressActive) {
-        Paint_DrawString_Display(pressX,     insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(pressX + 1, insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t pressWidth   = Paint_GetStringWidth_Display(pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
-        uint16_t pressCenterX = pressX + pressWidth / 2;
-        uint16_t pressArrowTopY  = insightTextY2 + Font12.Height + 1;
-        if (pressArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            pressArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t pressTipY   = pressArrowTopY;
-        uint16_t pressBaseY  = pressArrowTopY + 4;
-        Paint_DrawLine(pressCenterX,     pressTipY,  pressCenterX - 3, pressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(pressCenterX,     pressTipY,  pressCenterX + 3, pressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(pressCenterX - 3, pressBaseY, pressCenterX + 3, pressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    } else {
-        Paint_DrawString_Display(pressX, insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-
-    // --- Urban section ---
-    uint16_t urbanX        = insightX + insightWidth;
-    uint16_t urbanHeaderY  = navTop + 1;
-
-    // Vertical divider between Insight and Urban sections
-    Paint_DrawLine(urbanX - 1, navTop, urbanX - 1, DISPLAY_HEIGHT - 1, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-
-    Paint_DrawRectangle(urbanX, urbanHeaderY,
-                        urbanX + urbanWidth - 2,
-                        urbanHeaderY + sectionHeaderH,
-                        BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawString_EN(urbanX + 2, urbanHeaderY + 3, INTL_DISP_URBAN_HEADER, &Font12, BLACK, WHITE);
-
-    uint16_t urbanTextY = urbanHeaderY + sectionHeaderH + 4;
-    uint16_t uTextX     = urbanX + 4;
-
-    // Air
-    const char* airLabel = INTL_DISP_AIR;
-    bool        airActive = (current_graph_value == GraphValue::URBAN_AIR);
-    if (airActive) {
-        Paint_DrawString_Display(uTextX,     urbanTextY, airLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(uTextX + 1, urbanTextY, airLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    } else {
-        Paint_DrawString_Display(uTextX, urbanTextY, airLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-    uint16_t airWidth   = Paint_GetStringWidth_Display(airLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
-    uint16_t airCenterX = uTextX + airWidth / 2;
-    if (airActive) {
-        uint16_t airArrowTopY  = urbanTextY + Font12.Height + 1;
-        if (airArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            airArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t airTipY   = airArrowTopY;
-        uint16_t airBaseY  = airArrowTopY + 4;
-        Paint_DrawLine(airCenterX,     airTipY,  airCenterX - 3, airBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(airCenterX,     airTipY,  airCenterX + 3, airBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(airCenterX - 3, airBaseY, airCenterX + 3, airBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    }
-
-    // Noise
-    uTextX += airWidth + Font12.Width;
-    const char* noiseLabel = INTL_DISP_NOISE;
-    uint16_t    noiseWidth = Paint_GetStringWidth_Display(noiseLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
-    bool        noiseActive = (current_graph_value == GraphValue::URBAN_NOISE);
-    if (noiseActive) {
-        Paint_DrawString_Display(uTextX,     urbanTextY, noiseLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(uTextX + 1, urbanTextY, noiseLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t noiseCenterX = uTextX + noiseWidth / 2;
-        uint16_t noiseArrowTopY  = urbanTextY + Font12.Height + 1;
-        if (noiseArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            noiseArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t noiseTipY   = noiseArrowTopY;
-        uint16_t noiseBaseY  = noiseArrowTopY + 4;
-        Paint_DrawLine(noiseCenterX,     noiseTipY,  noiseCenterX - 3, noiseBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(noiseCenterX,     noiseTipY,  noiseCenterX + 3, noiseBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(noiseCenterX - 3, noiseBaseY, noiseCenterX + 3, noiseBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    } else {
-        Paint_DrawString_Display(uTextX, urbanTextY, noiseLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-    uTextX += noiseWidth + Font12.Width;
-    // Temperature
-    const char* urbanTempLabel = INTL_DISP_TEMPERATURE;
-    bool        urbanTempActive = (current_graph_value == GraphValue::URBAN_TEMP);
-    if (urbanTempActive) {
-        Paint_DrawString_Display(uTextX,     urbanTextY, urbanTempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(uTextX + 1, urbanTextY, urbanTempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t urbanTempWidth   = Paint_GetStringWidth_Display(urbanTempLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
-        uint16_t urbanTempCenterX = uTextX + urbanTempWidth / 2;
-        uint16_t urbanTempArrowTopY  = urbanTextY + Font12.Height + 1;
-        if (urbanTempArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            urbanTempArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t urbanTempTipY   = urbanTempArrowTopY;
-        uint16_t urbanTempBaseY  = urbanTempArrowTopY + 4;
-        Paint_DrawLine(urbanTempCenterX,     urbanTempTipY,  urbanTempCenterX - 3, urbanTempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(urbanTempCenterX,     urbanTempTipY,  urbanTempCenterX + 3, urbanTempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(urbanTempCenterX - 3, urbanTempBaseY, urbanTempCenterX + 3, urbanTempBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    } else {
-        Paint_DrawString_Display(uTextX, urbanTextY, urbanTempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-
-    // Second row
-    uint16_t urbanTextY2 = urbanTextY + Font12.Height + 8;
-    // Humidity
-    const char* urbanHumLabel = INTL_DISP_HUMIDITY;
-    uint16_t    urbanHumX     = urbanX + 4;
-    uint16_t    urbanHumWidth = Paint_GetStringWidth_Display(urbanHumLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
-    bool        urbanHumActive = (current_graph_value == GraphValue::URBAN_HUM);
-    if (urbanHumActive) {
-        Paint_DrawString_Display(urbanHumX,     urbanTextY2, urbanHumLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(urbanHumX + 1, urbanTextY2, urbanHumLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t urbanHumCenterX = urbanHumX + urbanHumWidth / 2;
-        uint16_t urbanHumArrowTopY  = urbanTextY2 + Font12.Height + 1;
-        if (urbanHumArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            urbanHumArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t urbanHumTipY   = urbanHumArrowTopY;
-        uint16_t urbanHumBaseY  = urbanHumArrowTopY + 4;
-        Paint_DrawLine(urbanHumCenterX,     urbanHumTipY,  urbanHumCenterX - 3, urbanHumBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(urbanHumCenterX,     urbanHumTipY,  urbanHumCenterX + 3, urbanHumBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(urbanHumCenterX - 3, urbanHumBaseY, urbanHumCenterX + 3, urbanHumBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    } else {
-        Paint_DrawString_Display(urbanHumX, urbanTextY2, urbanHumLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-
-    // Pressure (gap after Humidity = Font12.Width, same as other label spacing)
-    const char* urbanPressLabel = INTL_DISP_PRESSURE;
-    uint16_t    urbanPressX     = urbanHumX + urbanHumWidth + Font12.Width;
-    bool        urbanPressActive = (current_graph_value == GraphValue::URBAN_PRESSURE);
-    if (urbanPressActive) {
-        Paint_DrawString_Display(urbanPressX,     urbanTextY2, urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(urbanPressX + 1, urbanTextY2, urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        uint16_t urbanPressWidth   = Paint_GetStringWidth_Display(urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
-        uint16_t urbanPressCenterX = urbanPressX + urbanPressWidth / 2;
-        uint16_t urbanPressArrowTopY  = urbanTextY2 + Font12.Height + 1;
-        if (urbanPressArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
-            urbanPressArrowTopY = DISPLAY_HEIGHT - 1 - 4;
-        }
-        uint16_t urbanPressTipY   = urbanPressArrowTopY;
-        uint16_t urbanPressBaseY  = urbanPressArrowTopY + 4;
-        Paint_DrawLine(urbanPressCenterX,     urbanPressTipY,  urbanPressCenterX - 3, urbanPressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(urbanPressCenterX,     urbanPressTipY,  urbanPressCenterX + 3, urbanPressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-        Paint_DrawLine(urbanPressCenterX - 3, urbanPressBaseY, urbanPressCenterX + 3, urbanPressBaseY, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-    } else {
-        Paint_DrawString_Display(urbanPressX, urbanTextY2, urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    }
-    } 
 }
 
 void setNextGraphScreen() {
@@ -1098,81 +1226,31 @@ void setPrevGraphScreen() {
 }
 
 bool setNextGraphValue() {
-    // Check if we're at the last graph (URBAN_PRESSURE)
-    if (current_graph_value == GraphValue::URBAN_PRESSURE) {
-        // At last graph - return true to indicate we should switch screens
+    int idx = navIndexOf(current_graph_value);
+    if (idx < 0) {
+        current_graph_value = kGraphNavOrder[0];
+        return false;
+    }
+    if (idx >= (int)kGraphNavOrderCount - 1) {
+        // At the last item: signal to switch to the next screen (legacy behavior).
         return true;
     }
-    
-    switch (current_graph_value) {
-        case GraphValue::INSIGHT_TEMP:
-            current_graph_value = GraphValue::INSIGHT_HUM;
-            break;
-        case GraphValue::INSIGHT_HUM:
-            current_graph_value = GraphValue::INSIGHT_CO2;
-            break;
-        case GraphValue::INSIGHT_CO2:
-            current_graph_value = GraphValue::INSIGHT_PRESSURE;
-            break;
-        case GraphValue::INSIGHT_PRESSURE:
-            current_graph_value = GraphValue::URBAN_AIR;
-            break;
-        case GraphValue::URBAN_AIR:
-            current_graph_value = GraphValue::URBAN_NOISE;
-            break;
-        case GraphValue::URBAN_NOISE:
-            current_graph_value = GraphValue::URBAN_TEMP;
-            break;
-        case GraphValue::URBAN_TEMP:
-            current_graph_value = GraphValue::URBAN_HUM;
-            break;
-        case GraphValue::URBAN_HUM:
-            current_graph_value = GraphValue::URBAN_PRESSURE;
-            break;
-        case GraphValue::URBAN_PRESSURE:
-            // Should not reach here due to check above, but handle it anyway
-            return true;
-    }
-    return false;  // Not at last graph, continue cycling
+    current_graph_value = kGraphNavOrder[idx + 1];
+    return false;
 }
 
 bool setPrevGraphValue() {
-    // Check if we're at the first graph 
-    if (current_graph_value == GraphValue::INSIGHT_TEMP) {
-        // At first graph - return true to indicate we should switch screens
+    int idx = navIndexOf(current_graph_value);
+    if (idx < 0) {
+        current_graph_value = kGraphNavOrder[0];
+        return false;
+    }
+    if (idx == 0) {
+        // At the first item: signal to switch to the previous screen (legacy behavior).
         return true;
     }
-    
-    switch (current_graph_value) {
-        case GraphValue::INSIGHT_TEMP:
-            // Should not reach here due to check above, but handle it anyway
-            return true;
-        case GraphValue::INSIGHT_HUM:
-            current_graph_value = GraphValue::INSIGHT_TEMP;
-            break;
-        case GraphValue::INSIGHT_CO2:
-            current_graph_value = GraphValue::INSIGHT_HUM;
-            break;
-        case GraphValue::INSIGHT_PRESSURE:
-            current_graph_value = GraphValue::INSIGHT_CO2;
-            break;
-        case GraphValue::URBAN_AIR:
-            current_graph_value = GraphValue::INSIGHT_PRESSURE;
-            break;
-        case GraphValue::URBAN_NOISE:
-            current_graph_value = GraphValue::URBAN_AIR;
-            break;
-        case GraphValue::URBAN_TEMP:
-            current_graph_value = GraphValue::URBAN_NOISE;
-            break;
-        case GraphValue::URBAN_HUM:
-            current_graph_value = GraphValue::URBAN_TEMP;
-            break;
-        case GraphValue::URBAN_PRESSURE:
-            current_graph_value = GraphValue::URBAN_HUM;
-            break;
-    }
-    return false;  // Not at first graph, continue cycling
+    current_graph_value = kGraphNavOrder[idx - 1];
+    return false;
 }
 
 #endif

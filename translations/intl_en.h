@@ -139,6 +139,11 @@ const char INTL_RESTART_SENSOR[] PROGMEM = "Restart sensor";
 #define INTL_HOME "Home"
 #define INTL_BACK_TO_HOME "Back to home page"
 const char INTL_CURRENT_DATA[] PROGMEM = "Current data";
+// Graphs screen
+#define INTL_DISP_GRAPHS_HEADER_PREFIX "Current"
+#define INTL_DISP_GRAPHS_HINT_LINE1 "long press ->"
+#define INTL_DISP_GRAPHS_HINT_LINE2 "next/prev"
+#define INTL_DISP_GRAPHS_HINT_LINE3 "screen"
 const char INTL_DEVICE_STATUS[] PROGMEM = "Device status";
 #define INTL_ACTIVE_SENSORS_MAP "Active sensors map (external link)"
 #define INTL_CONFIGURATION_DELETE "Delete configuration"
@@ -308,4 +313,4 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_DEW_POINT_IS "Dew Point is "
 #define INTL_DISP_TEMP_SHORT "Temp"
 #define INTL_DISP_PRESS_SHORT "Press."
-#define INTL_DISP_NOISE_AVGMAX_SUFFIX "(avg/max)"
+#define INTL_DISP_NOISE_AVGMAX_SUFFIX "(avg | max)"
