@@ -263,7 +263,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 // - If graphs are available:
                 //   - SHORT UP/SET: cycle graph values (or switch screen if at last graph)
                 //   - LONG  UP/SET: change screens (prev/next)
-                if (!areGraphsAvailable()) {
+                // IMPORTANT: don't use areGraphsAvailable() here.
+                // It may touch SD/file scanning and can transiently fail due to SD mutex contention
+                // while graphs are reading CSVs, which causes wrong navigation (screen switch instead of graph switch).
+                bool graphs_storage_ok = false;
+#if defined(USE_SD_CARD)
+                graphs_storage_ok = deviceStatus.sd_card_connected && sdCardLogger.checkInserted();
+#endif
+                if (!graphs_storage_ok) {
                     // No graphs available - navigate to next/prev screen on any button press
                     if (btn_press.button_num == ButtonNum::UP) {
                         ScreenPage target = getPrevScreen(currentScreenID);

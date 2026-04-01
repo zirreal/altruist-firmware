@@ -2,32 +2,30 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
-## [R_2026-03.1](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-03.1) — 2026-03-17
+## [R_2026-04](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-04) — 2026-04-01
+
+### Bug Fixes
+
+- **Robonomics on-chain datalog compatibility with runtime specVersion=42** — fixed extrinsic encoding to match current Robonomics `TxExtension` (removed unsupported subscription extension; adjusted signed extra/payload layout) so `author_submitExtrinsic` no longer fails with `code:1002 wasm unreachable` for valid calls.
+- **RWS fee-less path restored via `rws.call`** — fixed SCALE encoding for `rws.call(owner, Box<Call>)` parameters to prevent runtime decode traps (`code:1002`) and allow fee-less subscription execution when the device is linked to the owner.
+- **On-chain error reporting** — improved detection of JSON-RPC error objects returned by `author_submitExtrinsic` so failures like `code:1002` / `code:1010` are not misreported as success.
 
 ### Improvements
 
-- **Main screen UX redesign (Insight, WIP)** — continued iterative rework of the main interface to improve usability and readability on e-ink.
+- **Main screen UX redesign (Insight)** — rework of the main interface to improve usability and readability on e-ink.
 - **Typography tuning for key metrics (Insight main)** — increased key text sizes where layout permits and tightened label/value spacing for faster scanning.
 - **Main metrics layout restructuring** — refined left/right metric grouping and alignment for a cleaner, more consistent visual hierarchy.
 - **Warning indicators refinement (main screen)** — adjusted warning icon positioning and visibility logic to improve legibility near labels.
-- **Footer info readability updates** — improved informational sentence formatting between QR blocks, including compact dew point output with degree notation (`°C`).
 - **Icon asset cleanup** — removed unused generated icon headers (including unused `30x30`, most `35x35`/`40x40`, and stale helper headers) to reduce asset clutter and maintenance overhead.
-- **Main screen labels and values retuned (Insight)** — labels switched to compact `Font12` with units near titles, paired values moved closer to labels, and slash rendering unified/lighter across all metric pairs.
 - **Main header and top-strip polish** — title updated to `URBAN/INSIGHT`; WiFi and source icons (`urban`/`insight`) were resized/repositioned for cleaner spacing and better visual hierarchy.
 - **Footer redesign with source grouping** — bottom status text now groups warnings by source (`Urban:` / `Insight:`), includes dew point in Urban context, and supports wrapped multi-line layout with icon-led footer entry.
 - **Footer info icon integration** — added `info.svg` conversion pipeline and replaced text label with dedicated monochrome icon on main screen.
 - **Sidebar visual cleanup** — removed the outer bottom sidebar border line while preserving internal navigation separator lines.
 - **Insight LED mapping aligned to main screen order** — LED segments now follow displayed measurement order with pressure at the end; noise and PM remain split (`avg/max`, `PM10/PM2.5`) for clearer diagnostics.
 - **Insight LED transition behavior softened** — replaced abrupt color-change blink with subtle short dim pulse on changed segments only, reducing visual annoyance.
-- **Sensors Map screen redesign and stabilization (Insight)** — rebuilt layout to promo-style composition (new title/subtitle hierarchy, centered QR, `SENSORS.SOCIAL` footer), tightened header/sidebar alignment with other screens, and fixed out-of-bounds rendering that previously caused repeated boundary warnings and occasional stack overflow resets.
+- **Sensors Map screen redesign and stabilization (Insight)** — rebuilt layout to promo-style composition (new title/subtitle hierarchy, centered QR, `SENSORS.SOCIAL` footer), tightened header/sidebar alignment with other screens.
 - **Night Analytics wording and hierarchy update** — renamed `Conservative score` to `Total score`, updated secondary labels (`general` / `biohacking`, with RU variants), and adjusted vertical ordering/spacing for clearer score reading on the circle panel.
-- **Web setup UX clarification (EN/RU)** — replaced misleading “restarting” messaging with explicit next-step guidance (copy/open IP), added localized helper texts, and differentiated Insight flow to keep page open for Urban selection instead of suggesting close.
 - **Urban hardware reset + dual-LED indication (ESP32-C6)** — added GPIO7 long-press reset (hold >10s, release to confirm) that clears only Wi-Fi + Web UI credentials while preserving Robonomics identity; enabled 2-pixel addressable LED status (steady state) + activity (error-only, rate-limited pulse) indications for a calmer UX.
-- **Graphs screen layout + navigation polish (Insight)** — refined graph layout (larger plot area + compact nav), updated nav ordering, and improved header/current-value formatting and translations.
-- **Graphs screen i18n cleanup** — moved graphs hint/header strings to `INTL_...` keys to keep translations per-language and scalable.
-- **Main screen layout tuning (Insight)** — adjusted right-column alignment, QR strip padding, and title/separator formatting for better visual balance.
-- **Main screen typography + separators** — updated paired-value separators and label separators to use consistent `|` spacing; updated Noise suffix to `(avg | max)` (EN/RU).
-- **Footer tips readability** — reduced tips font size to 10px glyphs and widened wrapping area up to the sidebar boundary.
 
 ### Build & tooling
 

@@ -3,6 +3,7 @@
 #include "graphPainter.h"
 #include "utils.h"
 #include "../utils.h"
+#include "fonts/fonts.h"
 #include "../../config_manager/config_helpers.h"
 
 int get_timezone_offset() {
@@ -22,6 +23,14 @@ GraphPainter::GraphPainter(uint16_t left_bottom_x, uint16_t left_bottom_y,
                            uint16_t height, uint16_t width)
     : left_bottom_x(left_bottom_x), left_bottom_y(left_bottom_y),
       height(height), width(width) {}
+
+void GraphPainter::setUpdateNote(const char* note) {
+    if (note == nullptr || note[0] == '\0') {
+        update_note[0] = '\0';
+        return;
+    }
+    snprintf(update_note, sizeof(update_note), "%s", note);
+}
 
 void GraphPainter::addLineValues(float* values, uint32_t* timestamps, int values_count, const char* label) {
     addLineValues(values, timestamps, values_count, label, GraphLineStyle{});
@@ -232,8 +241,15 @@ void GraphPainter::drawGraph() {
 void GraphPainter::drawLabel() {
     // Show only the update cadence note (no legend/value text).
     const char* hourly_note = "hourly update";
+    char label_buf[96];
+    if (update_note[0] != '\0') {
+        // Prefer "<value> (hourly update)" so the important part is first.
+        snprintf(label_buf, sizeof(label_buf), "%s (%s)", update_note, hourly_note);
+    } else {
+        snprintf(label_buf, sizeof(label_buf), "%s", hourly_note);
+    }
 
-    uint16_t text_width = strlen(hourly_note) * labelFont.Width;
+    uint16_t text_width = Paint_GetStringWidth_Display(label_buf, &labelFont, &font_12_cyrillic, &font_12_ascii);
     // Right-align so it sits near the global sidebar (instead of centered).
     const uint16_t right_pad = 2;
     uint16_t x = left_bottom_x;
@@ -242,7 +258,7 @@ void GraphPainter::drawLabel() {
     }
 
     uint16_t y = left_bottom_graph_y - graph_height - labelFont.Height - 4;
-    Paint_DrawString_EN(x, y, hourly_note, &labelFont, background_color, main_color);
+    Paint_DrawString_Display(x, y, label_buf, &labelFont, &font_12_cyrillic, &font_12_ascii, background_color, main_color);
 }
 
 void GraphPainter::drawLine(uint8_t line_number, time_t *time_now) {
