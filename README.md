@@ -84,10 +84,12 @@ After configuration, the device restarts and connects to the specified WiFi netw
 
 ### Insight
 
-- `UP` or `DOWN` short press -- show or change graphs screen
-- `SET` short press -- show main screen or refresh
-- `SET` + `DOWN` long press (4s) -- reset WiFi configuration
-- `SET` + `DOWN` pressed while powering on -- reset all configuration
+- `UP` short press - previous screen
+- `DOWN` short press - next screen
+- `UP` / `DOWN` short press on **Graphs** screen - switch graph (at edges switches screen). Long press changes screen
+- `SET` long press - sleep
+- `SET` + `DOWN` long press (4s) - reset WiFi configuration
+- `SET` + `DOWN` pressed while powering on - reset all configuration
 
 ### Urban
 
