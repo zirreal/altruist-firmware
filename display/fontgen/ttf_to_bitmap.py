@@ -1,8 +1,9 @@
 """
 Generate C bitmap fonts for display (ASCII + Cyrillic).
-Run: python display/fontgen/ttf_to_bitmap.py
+Run: python3 display/fontgen/ttf_to_bitmap.py
 Use a different font: put DejaVuSans.ttf (or NotoSans-Regular.ttf) in this dir,
 or set env FONT_FILE=DejaVuSans.ttf. DejaVu / Noto often look cleaner than Roboto at small e-ink sizes.
+Orbitron is the default one now.
 """
 import freetype
 import os
@@ -10,27 +11,34 @@ import os
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(SCRIPT_DIR, "out")
 
-# Font: FONT_FILE env, or first file that exists (e-ink friendly first)
-FONT_CANDIDATES = [
-    os.environ.get("FONT_FILE"),
-    "font.ttf",
-    "NotoSans.ttf",
-    "DejaVuSans.ttf",
-]
-FONT_FILE = None
-for name in FONT_CANDIDATES:
-    if name:
-        path = os.path.join(SCRIPT_DIR, name) if not os.path.isabs(name) else name
-        if os.path.isfile(path):
-            FONT_FILE = path
-            break
-if not FONT_FILE:
-    FONT_FILE = os.path.join(SCRIPT_DIR, "font.ttf")
-if not os.path.isfile(FONT_FILE):
-    raise SystemExit("No font found. Put DejaVuSans.ttf or font.ttf in " + SCRIPT_DIR)
-print("Using font:", os.path.basename(FONT_FILE))
+def _resolve_font_path(name: str | None) -> str | None:
+    if not name:
+        return None
+    path = os.path.join(SCRIPT_DIR, name) if not os.path.isabs(name) else name
+    return path if os.path.isfile(path) else None
 
-SIZES = [8, 12, 16, 20, 24, 32, 36, 40, 48]
+# Support using different fonts for ASCII vs Cyrillic.
+# Defaults chosen per your request:
+#  - ASCII/Latin: Orbitron.ttf
+#  - Cyrillic:    font.ttf
+FONT_FILE_ASCII = _resolve_font_path(os.environ.get("FONT_FILE_ASCII")) or _resolve_font_path("Orbitron.ttf")
+FONT_FILE_CYRILLIC = _resolve_font_path(os.environ.get("FONT_FILE_CYRILLIC")) or _resolve_font_path("font.ttf")
+
+# Backwards-compatible single-font override (applies to both) if set.
+FONT_FILE_SINGLE = _resolve_font_path(os.environ.get("FONT_FILE"))
+if FONT_FILE_SINGLE:
+    FONT_FILE_ASCII = FONT_FILE_SINGLE
+    FONT_FILE_CYRILLIC = FONT_FILE_SINGLE
+
+if not FONT_FILE_ASCII:
+    raise SystemExit("No ASCII font found. Put Orbitron.ttf (or set FONT_FILE_ASCII) in " + SCRIPT_DIR)
+if not FONT_FILE_CYRILLIC:
+    raise SystemExit("No Cyrillic font found. Put font.ttf (or set FONT_FILE_CYRILLIC) in " + SCRIPT_DIR)
+
+print("Using ASCII font:", os.path.basename(FONT_FILE_ASCII))
+print("Using Cyrillic font:", os.path.basename(FONT_FILE_CYRILLIC))
+
+SIZES = [8, 10, 12, 14, 16, 18, 20, 22, 24, 32, 36, 40, 48]
 
 EXTRA_SYMBOLS = [
     0x00B0,  # degree sign: °
@@ -53,14 +61,18 @@ LANGUAGES = {
 
 os.makedirs(OUT_DIR, exist_ok=True)
 
-def render(face, cp, size):
+def render(face, cp, size, fallback_face=None):
+    # If glyph missing in primary font, try fallback font (useful for symbols like µ, ³).
+    try_face = face
+    if try_face.get_char_index(cp) == 0 and fallback_face is not None and fallback_face.get_char_index(cp) != 0:
+        try_face = fallback_face
     # FORCE_AUTOHINT: grid-fit small glyphs and punctuation; TARGET_MONO: 1bpp
-    face.load_char(chr(cp),
+    try_face.load_char(chr(cp),
         freetype.FT_LOAD_RENDER | freetype.FT_LOAD_TARGET_MONO | freetype.FT_LOAD_FORCE_AUTOHINT)
 
-    bmp = face.glyph.bitmap
+    bmp = try_face.glyph.bitmap
     w = bmp.width
-    bitmap_top = face.glyph.bitmap_top  # distance from baseline to top of bitmap
+    bitmap_top = try_face.glyph.bitmap_top  # distance from baseline to top of bitmap
     bh = bmp.rows  # actual bitmap height (e.g. 3 for period, 16 for 'A')
 
     rows = []
@@ -79,10 +91,15 @@ def render(face, cp, size):
     return rows, w, bh, top
 
 for size in SIZES:
-    face = freetype.Face(FONT_FILE)
-    face.set_pixel_sizes(0, size)
-
     for lang, cps in LANGUAGES.items():
+        font_file = FONT_FILE_ASCII if lang == "ascii" else FONT_FILE_CYRILLIC
+        face = freetype.Face(font_file)
+        face.set_pixel_sizes(0, size)
+        fallback_face = None
+        # For ASCII font generation, allow pulling missing symbols from the Cyrillic font (font.ttf).
+        if lang == "ascii" and FONT_FILE_CYRILLIC and FONT_FILE_CYRILLIC != font_file:
+            fallback_face = freetype.Face(FONT_FILE_CYRILLIC)
+            fallback_face.set_pixel_sizes(0, size)
         c_name = f"font_{size}_{lang}.c"
         h_name = f"font_{size}_{lang}.h"
 
@@ -110,7 +127,7 @@ for size in SIZES:
             glyph_entries = []
 
             for cp in cps:
-                rows, w, bh, top = render(face, cp, size)
+                rows, w, bh, top = render(face, cp, size, fallback_face=fallback_face)
                 bmp_name = f"bmp_{size}_{lang}_{cp:04X}"
 
                 c.write(f"// U+{cp:04X} '{chr(cp)}'\n")

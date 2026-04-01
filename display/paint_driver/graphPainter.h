@@ -35,6 +35,9 @@ public:
 
     void addLineValues(float* values, uint32_t* timestamps, int values_count, const char* label);
     void setShowHours(uint8_t hours);
+    // Optional right-aligned note shown next to "hourly update" label.
+    // `note` is copied into an internal buffer (nullptr/empty clears it).
+    void setUpdateNote(const char* note);
     void setBlackMode() {
         main_color = WHITE;
         background_color = BLACK;
@@ -78,6 +81,7 @@ private:
     uint16_t graph_height;
     uint16_t left_bottom_graph_x;
     uint16_t left_bottom_graph_y;
+    char update_note[48] = {0};
 
     void calculateYLabelWidth();
     void calculateMinMax();

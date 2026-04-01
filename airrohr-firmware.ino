@@ -656,10 +656,18 @@ void sensorAndAPIWorker(void *pvParameters) {
 				senders_ok = senders_ok && status.is_ok;
 			}
 #ifdef ALTRUIST_URBAN
-			if (senders_ok) {
-				leds_controller_urban.setMode(LedMode::BLINK_GREEN);
-			} else {
-				leds_controller_urban.setMode(LedMode::BLINK_RED);
+			// Urban LED policy:
+			// - Keep connection/status LED steady (handled elsewhere: GREEN/PROVISIONING/etc.)
+			// - Blink activity LED ONLY on errors, rate-limited.
+			{
+				static unsigned long last_error_blink_ms = 0;
+				const unsigned long ERROR_BLINK_MIN_INTERVAL_MS = 60UL * 1000UL;
+				if (!senders_ok) {
+					if (last_error_blink_ms == 0 || msSince(last_error_blink_ms) > ERROR_BLINK_MIN_INTERVAL_MS) {
+						last_error_blink_ms = millis();
+						leds_controller_urban.setMode(LedMode::BLINK_RED);
+					}
+				}
 			}
 #endif
 			}
@@ -693,21 +701,62 @@ void ledsWorker(void *pvParameters) {
 }
 
 void buttonsWorker(void *pvParameters) {
+#ifdef ALTRUIST_URBAN
+	static bool reset_pressed = false;
+	static bool reset_armed = false;
+	static unsigned long reset_press_start_ms = 0;
+	static int reset_idle_level = -1;
+#endif
 	for (;;) {
 		button_pressed_t res = button_manager.process();
 		vTaskDelay(10 / portTICK_PERIOD_MS);
+#ifdef ALTRUIST_URBAN
+		// Dedicated Urban reset button on GPIO7.
+		// We treat "pressed" as a change from idle level so it works for both:
+		// - active-low wiring (button -> GND, INPUT_PULLUP)
+		// - active-high wiring (button -> 3V3, external pulldown)
+		if (URBAN_RESET_BTN_PIN != -1) {
+			int level = digitalRead(URBAN_RESET_BTN_PIN);
+			if (reset_idle_level == -1) {
+				reset_idle_level = level;
+				debug_outln_info(F("[RESET] GPIO idle level: "), String(reset_idle_level));
+			}
+			bool pressed_now = (level != reset_idle_level);
+			if (pressed_now && !reset_pressed) {
+				reset_pressed = true;
+				reset_armed = false;
+				reset_press_start_ms = millis();
+			} else if (!pressed_now && reset_pressed) {
+				// Release edge: if long-press was armed, execute reset on release.
+				if (reset_armed) {
+					debug_outln_info(F("[RESET] Confirmed by release, wiping WiFi + Web UI creds"));
+					leds_controller_urban.setMode(LedMode::RESETTING);
+					leds_controller_urban.process();
+					removeWiFiCredentials();
+					removeWebUiCredentials();
+					delay(200);
+					WiFi.disconnect(true);
+					delay(200);
+					esp_restart();
+				}
+				reset_pressed = false;
+				reset_armed = false;
+			}
+			if (reset_pressed && !reset_armed) {
+				if (msSince(reset_press_start_ms) > 5000) {
+					// Arm reset, require release to confirm (prevents stuck-low pin wipe).
+					reset_armed = true;
+					debug_outln_info(F("[RESET] Armed (hold >5s). Release to confirm."));
+				}
+			}
+		}
+#endif
 		if (res.pressed) {
 			btn_press.button_num = res.button_num;
 			btn_press.press_type = res.press_type;
 			btn_press.double_long = res.double_long;
 			btn_press.second_button_num = res.second_button_num;
 			btn_press.pressed = true;
-#ifdef ALTRUIST_URBAN
-			if (btn_press.press_type == PressType::LONG) {
-				removeWiFiCredentials();
-				esp_restart();
-			}
-#endif
 #ifdef ALTRUIST_INSIDE
 			if (btn_press.double_long) {
 				debug_outln_info(F("Get double long press, reset wifi"));
@@ -794,6 +843,9 @@ void setup(void) {
 	// If SET button pressed while turn on, reset the configuration
 #ifdef ALTRUIST_URBAN
 	leds_controller_urban.init();
+	if (URBAN_RESET_BTN_PIN != -1) {
+		pinMode(URBAN_RESET_BTN_PIN, INPUT_PULLUP);
+	}
 #endif
 #ifdef ALTRUIST_INSIDE
 	leds_controller_insight.init();
@@ -909,7 +961,7 @@ void setup(void) {
 		displayManager.process(btn_press);
 #endif
 #ifdef ALTRUIST_URBAN
-		leds_controller_urban.setMode(LedMode::BLUE);
+		leds_controller_urban.setMode(LedMode::PROVISIONING);
 		leds_controller_urban.process();
 #endif
 		wifiConfig(webserver);

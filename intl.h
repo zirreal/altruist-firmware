@@ -92,4 +92,106 @@
 #define INTL_DISP_ANALYTICS_HOUR_SUFFIX "h"
 #endif
 
+#ifndef INTL_DISP_INFO_LABEL
+#define INTL_DISP_INFO_LABEL "Info:"
+#endif
+#ifndef INTL_DISP_LEVEL_HIGH
+#define INTL_DISP_LEVEL_HIGH "high"
+#endif
+#ifndef INTL_DISP_LEVEL_LOW
+#define INTL_DISP_LEVEL_LOW "low"
+#endif
+#ifndef INTL_DISP_IS_TOO
+#define INTL_DISP_IS_TOO "is too"
+#endif
+#ifndef INTL_DISP_CHECK_MAP_FULL_DATA
+#define INTL_DISP_CHECK_MAP_FULL_DATA "Check out our sensor map for full data and analytics."
+#endif
+#ifndef INTL_DISP_DEW_POINT_U_PREFIX
+#define INTL_DISP_DEW_POINT_U_PREFIX "Dew Point (U): "
+#endif
+#ifndef INTL_DISP_DEW_POINT_IS
+#define INTL_DISP_DEW_POINT_IS "Dew Point is "
+#endif
+#ifndef INTL_DISP_TEMP_SHORT
+#define INTL_DISP_TEMP_SHORT "Temp"
+#endif
+#ifndef INTL_DISP_PRESS_SHORT
+#define INTL_DISP_PRESS_SHORT "Press."
+#endif
+#ifndef INTL_DISP_NOISE_AVGMAX_SUFFIX
+#define INTL_DISP_NOISE_AVGMAX_SUFFIX "(avg/max)"
+#endif
+#ifndef INTL_DISP_EXPLORE_ADVANTAGES
+#define INTL_DISP_EXPLORE_ADVANTAGES "Explore all advantages"
+#endif
+#ifndef INTL_DISP_EXPLORE_ENVIRONMENT
+#define INTL_DISP_EXPLORE_ENVIRONMENT "Explore your environment"
+#endif
+#ifndef INTL_DISP_EXPLORE_YOUR
+#define INTL_DISP_EXPLORE_YOUR "Explore your"
+#endif
+#ifndef INTL_DISP_ENVIRONMENT_CAPS
+#define INTL_DISP_ENVIRONMENT_CAPS "ENVIRONMENT"
+#endif
+#ifndef INTL_DISP_SENSORS_MAP
+#define INTL_DISP_SENSORS_MAP "SENSORS MAP"
+#endif
+#ifndef INTL_DISP_POWERED
+#define INTL_DISP_POWERED "Powered"
+#endif
+#ifndef INTL_DISP_BY_ROBONOMICS
+#define INTL_DISP_BY_ROBONOMICS "by Robonomics"
+#endif
+#ifndef INTL_DISP_MAP_ENV_BETTER
+#define INTL_DISP_MAP_ENV_BETTER "Know your environment better."
+#endif
+#ifndef INTL_DISP_MAP_REVIEW_INSIGHTS
+#define INTL_DISP_MAP_REVIEW_INSIGHTS "Review insights over time."
+#endif
+#ifndef INTL_DISP_MAP_COMPARE_CONDITIONS
+#define INTL_DISP_MAP_COMPARE_CONDITIONS "Compare with others nearby."
+#endif
+#ifndef INTL_GUEST_CONNECTED
+#define INTL_GUEST_CONNECTED "Connected!"
+#endif
+#ifndef INTL_GUEST_IP_ADDRESS
+#define INTL_GUEST_IP_ADDRESS "IP Address:"
+#endif
+#ifndef INTL_GUEST_OPEN_IP_HINT
+#define INTL_GUEST_OPEN_IP_HINT "Copy the IP address and open it in your browser. You can close this page now."
+#endif
+#ifndef INTL_GUEST_KEEP_OPEN_HINT
+#define INTL_GUEST_KEEP_OPEN_HINT "Keep this page open and select your Urban device below."
+#endif
+#ifndef INTL_DISP_MAP_PROMO_TITLE
+#define INTL_DISP_MAP_PROMO_TITLE "Better analytics on your smartphone!"
+#endif
+#ifndef INTL_DISP_MAP_PROMO_LINE1
+#define INTL_DISP_MAP_PROMO_LINE1 "Just go to our web map: AQI, data history,"
+#endif
+#ifndef INTL_DISP_MAP_PROMO_LINE2
+#define INTL_DISP_MAP_PROMO_LINE2 "color-coded charts, easy sharing, and"
+#endif
+#ifndef INTL_DISP_MAP_PROMO_LINE3
+#define INTL_DISP_MAP_PROMO_LINE3 "more features coming soon!"
+#endif
+#ifndef INTL_DISP_MAP_DOMAIN
+#define INTL_DISP_MAP_DOMAIN "SENSORS.SOCIAL"
+#endif
+
+// --- Graphs screen specific strings ---
+#ifndef INTL_DISP_GRAPHS_HEADER_PREFIX
+#define INTL_DISP_GRAPHS_HEADER_PREFIX "Current"
+#endif
+#ifndef INTL_DISP_GRAPHS_HINT_LINE1
+#define INTL_DISP_GRAPHS_HINT_LINE1 "long press ->"
+#endif
+#ifndef INTL_DISP_GRAPHS_HINT_LINE2
+#define INTL_DISP_GRAPHS_HINT_LINE2 "next/prev"
+#endif
+#ifndef INTL_DISP_GRAPHS_HINT_LINE3
+#define INTL_DISP_GRAPHS_HINT_LINE3 ""
+#endif
+
 #endif

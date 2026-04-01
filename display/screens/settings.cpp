@@ -108,13 +108,12 @@ void showSettingsPage(UBYTE *BlackImage, device_status_t &deviceStatus, const St
         int time_y = header_top_y;
         Paint_DrawString_Display(time_x, time_y, time_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-        // Right: date (same display font as rest of UI)
-        int date_width = (int)Paint_GetStringWidth_Display(date_buf, &Font12, &font_12_cyrillic, &font_12_ascii);
+        // Right: date 
+        int date_width = (int)Paint_GetStringWidth_Display(date_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         const int right_margin = 4;
         int date_x = DISPLAY_WIDTH - right_margin - date_width;
-        int date_y = header_top_y + 2;
-        Paint_DrawString_Display(date_x,     date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(date_x + 1, date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        int date_y = header_top_y;
+        Paint_DrawString_Display(date_x, date_y, date_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     }
 
     // Header bottom border

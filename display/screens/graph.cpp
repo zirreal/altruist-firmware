@@ -316,6 +316,78 @@ static uint16_t drawOneGraph(int left_x, int left_y, const char* sensor_name, co
     return graph.getGraphWidth();
 }
 
+static bool buildGraphUpdateNote(char *out, size_t out_size, GraphValue value, const LineData *lineData, int lineCount) {
+    if (!out || out_size == 0) return false;
+    out[0] = '\0';
+    if (!lineData || lineCount <= 0) return false;
+
+    auto lastValue = [&](int idx, float &v_out) -> bool {
+        if (idx < 0 || idx >= lineCount) return false;
+        const LineData &ld = lineData[idx];
+        if (ld.count <= 0 || ld.values == nullptr) return false;
+        v_out = ld.values[ld.count - 1];
+        return true;
+    };
+
+    float v1 = 0.0f, v2 = 0.0f;
+    bool has1 = lastValue(0, v1);
+    bool has2 = lastValue(1, v2);
+    if (!has1 && !has2) return false;
+
+    const char *unit = "";
+    switch (value) {
+        case GraphValue::INSIGHT_TEMP:
+        case GraphValue::URBAN_TEMP:
+            unit = "°C";
+            break;
+        case GraphValue::INSIGHT_HUM:
+        case GraphValue::URBAN_HUM:
+            unit = "%";
+            break;
+        case GraphValue::INSIGHT_CO2:
+            unit = "ppm";
+            break;
+        case GraphValue::INSIGHT_PRESSURE:
+        case GraphValue::URBAN_PRESSURE:
+            unit = "mmHg";
+            break;
+        case GraphValue::URBAN_AIR:
+            unit = "ug/m3";
+            break;
+        case GraphValue::URBAN_NOISE:
+            unit = "dB";
+            break;
+        default:
+            unit = "";
+            break;
+    }
+
+    char s1[16] = {0};
+    char s2[16] = {0};
+    int precision = 0;
+    if (value == GraphValue::URBAN_AIR) precision = 1;   // PM can be fractional (e.g. 2.5)
+    if (has1) stringFromFloat(s1, v1, precision);
+    if (has2) stringFromFloat(s2, v2, precision);
+
+    if (has1 && has2) {
+        // Two-line graphs: use descriptive labels instead of "v1|v2".
+        if (value == GraphValue::URBAN_AIR) {
+            // line 0 = PM10, line 1 = PM2.5 (see addLine order)
+            snprintf(out, out_size, "PM10 %s, PM2.5 %s %s", s1, s2, unit);
+        } else if (value == GraphValue::URBAN_NOISE) {
+            // line 0 = Max, line 1 = Avg (see addLine order)
+            snprintf(out, out_size, "Max %s, Avg %s %s", s1, s2, unit);
+        } else {
+            snprintf(out, out_size, "%s, %s %s", s1, s2, unit);
+        }
+    } else if (has1) {
+        snprintf(out, out_size, "%s %s", s1, unit);
+    } else {
+        snprintf(out, out_size, "%s %s", s2, unit);
+    }
+    return true;
+}
+
 // Draw a single, full-width graph for the currently selected value.
 // The graph is positioned to sit below the header and above the bottom navigation bar.
 static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t navTop, uint16_t contentTop) {
@@ -578,6 +650,12 @@ static void drawActiveGraph(GraphValue value, const String& urban_key, uint16_t 
             return;
         }
         
+        char update_note[48];
+        if (buildGraphUpdateNote(update_note, sizeof(update_note), value, lineData, lineCount)) {
+            graph.setUpdateNote(update_note);
+        } else {
+            graph.setUpdateNote(nullptr);
+        }
         graph.drawGraph();
     } else {
         // No data lines at all - show message
@@ -857,7 +935,7 @@ void drawGraphScreen() {
                         insightX + insightWidth - 2,
                         insightHeaderY + sectionHeaderH,
                         BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawString_EN(insightX + 2, insightHeaderY + 3, INTL_DISP_INSIGHT_HEADER, &Font12, BLACK, WHITE);
+    Paint_DrawString_Display_OnBlack(insightX + 2, insightHeaderY + 3, INTL_DISP_INSIGHT_HEADER, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
 
     uint16_t insightTextY = insightHeaderY + sectionHeaderH + 4;
     uint16_t textX        = insightX + 4;
@@ -867,9 +945,7 @@ void drawGraphScreen() {
     uint16_t    tempWidth = Paint_GetStringWidth_Display(tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
     bool        tempActive = (current_graph_value == GraphValue::INSIGHT_TEMP);
     if (tempActive) {
-        // Bold-ish text
         Paint_DrawString_Display(textX,     insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(textX + 1, insightTextY, tempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t tempCenterX = textX + tempWidth / 2;
         uint16_t tempArrowTopY  = insightTextY + Font12.Height + 1;
         if (tempArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
@@ -890,7 +966,6 @@ void drawGraphScreen() {
     bool        humActive = (current_graph_value == GraphValue::INSIGHT_HUM);
     if (humActive) {
         Paint_DrawString_Display(textX,     insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(textX + 1, insightTextY, humLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t humWidth   = Paint_GetStringWidth_Display(humLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
         uint16_t humCenterX = textX + humWidth / 2;
         uint16_t humArrowTopY  = insightTextY + Font12.Height + 1;
@@ -913,7 +988,6 @@ void drawGraphScreen() {
     bool     co2Active = (current_graph_value == GraphValue::INSIGHT_CO2);
     if (co2Active) {
         Paint_DrawString_Display(co2X,     insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(co2X + 1, insightTextY2, co2Label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t co2Width   = Paint_GetStringWidth_Display(co2Label, &Font12, &font_12_cyrillic, &font_12_ascii);
         uint16_t co2CenterX = co2X + co2Width / 2;
         uint16_t co2ArrowTopY  = insightTextY2 + Font12.Height + 1;
@@ -931,11 +1005,13 @@ void drawGraphScreen() {
 
     // Pressure
     const char* pressLabel = INTL_DISP_PRESSURE;
-    uint16_t    pressX     = insightX + 4 + 4 * Font12.Width;
+    // Add extra spacing so "CO2" and "Pressure" don't visually stick together.
+    uint16_t    co2LabelWidth = Paint_GetStringWidth_Display(co2Label, &Font12, &font_12_cyrillic, &font_12_ascii);
+    const uint16_t co2PressGap = 2 * Font12.Width;
+    uint16_t    pressX     = co2X + co2LabelWidth + co2PressGap;
     bool        pressActive = (current_graph_value == GraphValue::INSIGHT_PRESSURE);
     if (pressActive) {
         Paint_DrawString_Display(pressX,     insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(pressX + 1, insightTextY2, pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t pressWidth   = Paint_GetStringWidth_Display(pressLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
         uint16_t pressCenterX = pressX + pressWidth / 2;
         uint16_t pressArrowTopY  = insightTextY2 + Font12.Height + 1;
@@ -962,7 +1038,7 @@ void drawGraphScreen() {
                         urbanX + urbanWidth - 2,
                         urbanHeaderY + sectionHeaderH,
                         BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawString_EN(urbanX + 2, urbanHeaderY + 3, INTL_DISP_URBAN_HEADER, &Font12, BLACK, WHITE);
+    Paint_DrawString_Display_OnBlack(urbanX + 2, urbanHeaderY + 3, INTL_DISP_URBAN_HEADER, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
 
     uint16_t urbanTextY = urbanHeaderY + sectionHeaderH + 4;
     uint16_t uTextX     = urbanX + 4;
@@ -972,7 +1048,6 @@ void drawGraphScreen() {
     bool        airActive = (current_graph_value == GraphValue::URBAN_AIR);
     if (airActive) {
         Paint_DrawString_Display(uTextX,     urbanTextY, airLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(uTextX + 1, urbanTextY, airLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     } else {
         Paint_DrawString_Display(uTextX, urbanTextY, airLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     }
@@ -997,7 +1072,6 @@ void drawGraphScreen() {
     bool        noiseActive = (current_graph_value == GraphValue::URBAN_NOISE);
     if (noiseActive) {
         Paint_DrawString_Display(uTextX,     urbanTextY, noiseLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(uTextX + 1, urbanTextY, noiseLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t noiseCenterX = uTextX + noiseWidth / 2;
         uint16_t noiseArrowTopY  = urbanTextY + Font12.Height + 1;
         if (noiseArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
@@ -1017,7 +1091,6 @@ void drawGraphScreen() {
     bool        urbanTempActive = (current_graph_value == GraphValue::URBAN_TEMP);
     if (urbanTempActive) {
         Paint_DrawString_Display(uTextX,     urbanTextY, urbanTempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(uTextX + 1, urbanTextY, urbanTempLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t urbanTempWidth   = Paint_GetStringWidth_Display(urbanTempLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
         uint16_t urbanTempCenterX = uTextX + urbanTempWidth / 2;
         uint16_t urbanTempArrowTopY  = urbanTextY + Font12.Height + 1;
@@ -1042,7 +1115,6 @@ void drawGraphScreen() {
     bool        urbanHumActive = (current_graph_value == GraphValue::URBAN_HUM);
     if (urbanHumActive) {
         Paint_DrawString_Display(urbanHumX,     urbanTextY2, urbanHumLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(urbanHumX + 1, urbanTextY2, urbanHumLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t urbanHumCenterX = urbanHumX + urbanHumWidth / 2;
         uint16_t urbanHumArrowTopY  = urbanTextY2 + Font12.Height + 1;
         if (urbanHumArrowTopY + 4 > DISPLAY_HEIGHT - 1) {
@@ -1063,7 +1135,6 @@ void drawGraphScreen() {
     bool        urbanPressActive = (current_graph_value == GraphValue::URBAN_PRESSURE);
     if (urbanPressActive) {
         Paint_DrawString_Display(urbanPressX,     urbanTextY2, urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(urbanPressX + 1, urbanTextY2, urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         uint16_t urbanPressWidth   = Paint_GetStringWidth_Display(urbanPressLabel, &Font12, &font_12_cyrillic, &font_12_ascii);
         uint16_t urbanPressCenterX = urbanPressX + urbanPressWidth / 2;
         uint16_t urbanPressArrowTopY  = urbanTextY2 + Font12.Height + 1;

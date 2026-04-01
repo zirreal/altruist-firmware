@@ -1455,7 +1455,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     );
 
     const int score_x = cx - (int)sw / 2;
-    const int score_y = cy - 38;
+    const int score_y = cy - 50;
 
     Paint_DrawString_Display(
         score_x,
@@ -1470,8 +1470,8 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
     // ================= TOP TEXT =================
 
-    const char *top_txt_line1 = A_TXT("Conservative score", "Консервативная");
-    const char *top_txt_line2 = A_TXT("", "оценка");
+    const char *top_txt_line1 = A_TXT("Total score", "Общий показатель");
+    const char *top_txt_line2 = A_TXT("general", "для всех");
 
     uint16_t tw1 = Paint_GetStringWidth_Display(
         top_txt_line1,
@@ -1482,7 +1482,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
     Paint_DrawString_Display(
         cx - (int)tw1 / 2,
-        cy - 58,
+        cy - 64,
         top_txt_line1,
         &Font12,
         &font_12_cyrillic,
@@ -1491,30 +1491,29 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         BLACK
     );
 
-    if (top_txt_line2[0] != '\0') {
-        uint16_t tw2 = Paint_GetStringWidth_Display(
-            top_txt_line2,
-            &Font12,
-            &font_12_cyrillic,
-            &font_12_ascii
-        );
-        Paint_DrawString_Display(
-            cx - (int)tw2 / 2,
-            cy - 46,
-            top_txt_line2,
-            &Font12,
-            &font_12_cyrillic,
-            &font_12_ascii,
-            WHITE,
-            BLACK
-        );
-    }
+    uint16_t tw2 = Paint_GetStringWidth_Display(
+        top_txt_line2,
+        &Font12,
+        &font_12_cyrillic,
+        &font_12_ascii
+    );
+    const int general_y = cy + 2; // directly after main score, before biohacking block
+    Paint_DrawString_Display(
+        cx - (int)tw2 / 2,
+        general_y,
+        top_txt_line2,
+        &Font12,
+        &font_12_cyrillic,
+        &font_12_ascii,
+        WHITE,
+        BLACK
+    );
 
     // ================= BOTTOM TEXT =================
     // Keep number visually dominant and place label below it.
     char bio_score_txt[8];
     snprintf(bio_score_txt, sizeof(bio_score_txt), "%d", bio_score);
-    const char *bio_label = A_TXT("Biohacking score", "Биохакинг");
+    const char *bio_label = A_TXT("biohacking", "для биохакеров");
     uint16_t nsw = Paint_GetStringWidth_Display(
         bio_score_txt,
         &Font20,
@@ -1528,7 +1527,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         &font_12_ascii
     );
     if (blw > (uint16_t)(r * 2 - 12)) {
-        bio_label = A_TXT("Biohacking", "Биохакинг");
+        bio_label = A_TXT("biohacking", "для биохак.");
         blw = Paint_GetStringWidth_Display(
             bio_label,
             &Font12,
@@ -1537,7 +1536,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         );
     }
 
-    const int bio_num_y = cy + 18;
+    const int bio_num_y = cy + 24;
     const int sep_w = (int)((nsw > blw) ? nsw : blw) + 8;
     const int sep_y = bio_num_y + Font20.Height + 2;
     const int bio_label_y = sep_y + 3;
@@ -1633,12 +1632,11 @@ void showAnalyticsPage(UBYTE *BlackImage, const analytics_screen_values_t &value
         int time_x = (DISPLAY_WIDTH - time_width) / 2;
         Paint_DrawString_Display(time_x, header_top_y, time_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-        int date_width = (int)Paint_GetStringWidth_Display(date_buf, &Font12, &font_12_cyrillic, &font_12_ascii);
+        int date_width = (int)Paint_GetStringWidth_Display(date_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         const int right_margin = 4;
         int date_x = DISPLAY_WIDTH - right_margin - date_width;
-        int date_y = header_top_y + 2;
-        Paint_DrawString_Display(date_x, date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-        Paint_DrawString_Display(date_x + 1, date_y, date_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        int date_y = header_top_y;
+        Paint_DrawString_Display(date_x, date_y, date_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
     }
 
     char period_text[96];

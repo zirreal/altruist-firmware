@@ -248,8 +248,13 @@ void SensorWebServer::_webserver_guest() {
 				String address = WiFi.localIP().toString();
 				debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
 				page_content = "<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>";
-				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>Connected!</h2></div>\n";
-				page_content += "<div class='guest__reboot guest__reboot--ip'>IP Address: <span class='ip-address'>" + address + "</span> <button class='copy-btn' onclick='copyText()'></button></div>";
+				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_GUEST_CONNECTED "</h2></div>\n";
+				page_content += "<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS " <span class='ip-address'>" + address + "</span> <button class='copy-btn' onclick='copyText()'></button></div>";
+#ifdef ALTRUIST_INSIDE
+				page_content += "<p class='guest__reboot' style='margin-top:10px;'>" INTL_GUEST_KEEP_OPEN_HINT "</p>";
+#else
+				page_content += "<p class='guest__reboot' style='margin-top:10px;'>" INTL_GUEST_OPEN_IP_HINT "</p>";
+#endif
 				page_content += "<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>";
 				server.sendContent(page_content);
 
@@ -348,16 +353,15 @@ void SensorWebServer::_webserver_guest() {
 				// Return without restarting — wait for /select_urban POST
 				return;
 #else
-				page_content = "<div class='guest__connect-status'><span class='guest__reboot'>Restarting sensor...</span><div class='loader'></div></div>\n";
-				server.sendContent(page_content);
-				debug_outln_info(F("After send content"));
+				// Urban flow: we already showed IP + hint above.
+				// Don't send the same instruction twice.
 				delay(5000);
 #endif
 			} else {
 				page_content = F("<h2 class='guest__connect-subtitle error'>Connection Failed</h2>"
 								"<p class='guest__reboot'>Failed to connect to: ");
 				page_content += cfg::wlanssid;
-				page_content += F("</p><div class='guest__connect-status'><span class='guest__reboot'>Restarting sensor...</span><div class='loader'></div></div>\n");
+				page_content += F("</p><div class='guest__connect-status'><span class='guest__reboot'>" INTL_GUEST_OPEN_IP_HINT "</span></div>\n");
 				server.sendContent(page_content);
 			}
 
@@ -423,12 +427,15 @@ void SensorWebServer::_webserver_select_urban() {
 
 	RESERVE_STRING(page_content, LARGE_STR);
 	start_html_page(page_content, F(INTL_SETUP_COMPLETE));
-	page_content += F(
-		"<div style='text-align:center;padding:40px;'>"
+	String setup_ip = WiFi.localIP().toString();
+	page_content += F("<div style='text-align:center;padding:40px;'>"
 		"<h2 style='color:#4CAF50;'>" INTL_SETTINGS_SAVED "</h2>"
-		"<p>" INTL_DEVICE_RESTARTING "</p>"
-		"<div class='loader'></div>"
-		"</div>");
+		"<p>" INTL_GUEST_IP_ADDRESS " <strong><span class='ip-address'>");
+	page_content += setup_ip;
+	page_content += F("</span></strong> <button class='copy-btn' onclick='copyText()'></button></p>"
+		"<p>" INTL_GUEST_OPEN_IP_HINT "</p>"
+		"</div>"
+		"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
 	end_html_page(page_content);
 
 	if (writeConfig()) {

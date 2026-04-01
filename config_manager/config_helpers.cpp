@@ -54,6 +54,27 @@ void removeWiFiCredentials() {
 	}
 }
 
+void removeWebUiCredentials() {
+	for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {
+		ConfigShapeEntry c;
+		memcpy_P(&c, &configShape[e], sizeof(ConfigShapeEntry));
+		const String s_param(c.cfg_key());
+		if (s_param != "www_username" && s_param != "www_password" && s_param != "www_basicauth_enabled") {
+			continue;
+		}
+		if (s_param == "www_username") {
+			strncpy(c.cfg_val.as_str, "admin", c.cfg_len);
+			c.cfg_val.as_str[c.cfg_len] = '\0';
+		} else if (s_param == "www_password") {
+			strncpy(c.cfg_val.as_str, "", c.cfg_len);
+			c.cfg_val.as_str[c.cfg_len] = '\0';
+		} else if (s_param == "www_basicauth_enabled") {
+			*(c.cfg_val.as_bool) = false;
+		}
+	}
+	writeConfig();
+}
+
 void saveRobonomicsPrivateKey(const char* private_key) {
 	for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {
 		ConfigShapeEntry c;

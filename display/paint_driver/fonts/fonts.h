@@ -92,17 +92,25 @@ extern sFONT Font16_RU;
 // Glyph-based fonts from display/fontgen/out (Cyrillic for RU, ASCII for English in RU builds)
 #include "../../fontgen/out/font_8_cyrillic.h"
 extern const Font font_12_cyrillic;
+extern const Font font_10_cyrillic;
+extern const Font font_14_cyrillic;
+extern const Font font_18_cyrillic;
 extern const Font font_16_cyrillic;
 extern const Font font_20_cyrillic;
+extern const Font font_22_cyrillic;
 extern const Font font_24_cyrillic;
 extern const Font font_32_cyrillic;
 extern const Font font_36_cyrillic;
 extern const Font font_40_cyrillic;
 extern const Font font_48_cyrillic;
 extern const Font font_8_ascii;
+extern const Font font_10_ascii;
 extern const Font font_12_ascii;
+extern const Font font_14_ascii;
+extern const Font font_18_ascii;
 extern const Font font_16_ascii;
 extern const Font font_20_ascii;
+extern const Font font_22_ascii;
 extern const Font font_24_ascii;
 extern const Font font_32_ascii;
 extern const Font font_36_ascii;

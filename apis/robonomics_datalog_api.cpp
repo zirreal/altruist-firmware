@@ -30,11 +30,14 @@ void RobonomicsDatalogAPI::_send(JsonDocument &data) {
     debug_outln_verbose(F("[Datalog] RWS owner: "), rws_owner);
     debug_outln_verbose(F("[Datalog] Node: "), robonomics_public_node);
     const char* res = robonomics->sendRWSDatalogRecord(datalog_data.c_str(), rws_owner.c_str());
-    is_ok = (strcmp(res, "error") != 0);
+    const String res_s = String(res ? res : "");
+    const bool lib_level_error = (res_s == "error");
+    const bool json_error_object = (res_s.startsWith("{") && (res_s.indexOf("\"code\"") >= 0 || res_s.indexOf("\"message\"") >= 0));
+    is_ok = (!lib_level_error && !json_error_object);
     if (is_ok) {
-        debug_outln_verbose(F("[Datalog] OK, result: "), res);
+        debug_outln_verbose(F("[Datalog] OK, result: "), res_s);
     } else {
         debug_outln_error(F("[Datalog] FAILED"));
-        debug_outln_verbose(F("[Datalog] Error response: "), res);
+        debug_outln_verbose(F("[Datalog] Error response: "), res_s);
     }
 }

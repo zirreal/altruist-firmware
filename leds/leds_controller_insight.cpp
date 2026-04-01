@@ -5,6 +5,17 @@
 #include "../utils.h"
 #include "../config_manager/config_helpers.h"
 
+static uint32_t scaleColor(uint32_t color, uint8_t percent) {
+    if (percent >= 100) return color;
+    uint8_t r = (color >> 16) & 0xFF;
+    uint8_t g = (color >> 8) & 0xFF;
+    uint8_t b = color & 0xFF;
+    r = (uint8_t)((r * percent) / 100);
+    g = (uint8_t)((g * percent) / 100);
+    b = (uint8_t)((b * percent) / 100);
+    return ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+}
+
 
 void LedControllerInsight::init() {
     if (LED_PIN != -1 && cfg::leds_on) {
@@ -47,7 +58,6 @@ void LedControllerInsight::process() {
         return;
     }
     
-    uint32_t color;
     if (msSince(last_refresh_time) > REFRESH_INTERVAL) {
         static unsigned long mutex_diag_window_start_ms = 0;
         static unsigned long mutex_diag_last_warn_ms = 0;
@@ -141,59 +151,143 @@ void LedControllerInsight::process() {
             mutex_diag_success_in_window = 0;
         }
         
-        // Got mutex - safe to update LEDs
-        _setAllPixels(pixels.Color(255, 255, 255));
-        
+        // Build target colors in main-screen order:
+        // Temp -> Hum -> CO2 -> Noise(avg,max) -> PM(pm10,pm2.5) -> Pressure (pressure last).
+        uint32_t white = pixels.Color(255, 255, 255);
+        uint32_t urban_temp_color = white;
+        uint32_t insight_temp_color = white;
+        uint32_t urban_humidity_color = white;
+        uint32_t insight_humidity_color = white;
+        uint32_t co2_color = white;
+        uint32_t noise_avg_color = white;
+        uint32_t noise_max_color = white;
+        uint32_t pm10_color = white;
+        uint32_t pm25_color = white;
+        uint32_t urban_pressure_color = white;
+        uint32_t insight_pressure_color = white;
+
         if (sensors_data.containsKey(ATRUIST_URBAN_SENSOR)) {
-            if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P1") && sensors_data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P2")) {
-                color = _getPMColor(sensors_data[ATRUIST_URBAN_SENSOR]["SDS_P1"]["value"].as<float>(), sensors_data[ATRUIST_URBAN_SENSOR]["SDS_P2"]["value"].as<float>());
-                _setPartColor(1, 3, color);
+            if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P1")) {
+                pm10_color = _getColorByThresholds(
+                    sensors_data[ATRUIST_URBAN_SENSOR]["SDS_P1"]["value"].as<float>(),
+                    SensorConfigs::pm10_thresholds,
+                    SensorConfigs::pm_colors,
+                    5
+                );
+            }
+            if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P2")) {
+                pm25_color = _getColorByThresholds(
+                    sensors_data[ATRUIST_URBAN_SENSOR]["SDS_P2"]["value"].as<float>(),
+                    SensorConfigs::pm25_thresholds,
+                    SensorConfigs::pm_colors,
+                    5
+                );
             }
             
-            // Handle noise - prefer max if available, otherwise use avg
+            // Noise is split to match main screen: avg first, then max.
+            if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("PCBA_noiseAvg")) {
+                noise_avg_color = _getNoiseColor(sensors_data[ATRUIST_URBAN_SENSOR]["PCBA_noiseAvg"]["value"].as<float>());
+                debug_outln_verbose(F("Set Noise AVG color "), getColorName(noise_avg_color));
+            }
             if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("PCBA_noiseMax")) {
-                color = _getNoiseColor(sensors_data[ATRUIST_URBAN_SENSOR]["PCBA_noiseMax"]["value"].as<float>());
-                _setPartColor(4, 6, color);
-                debug_outln_verbose(F("Set Noise color "), getColorName(color));
-            } else if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("PCBA_noiseAvg")) {
-                color = _getNoiseColor(sensors_data[ATRUIST_URBAN_SENSOR]["PCBA_noiseAvg"]["value"].as<float>());
-                _setPartColor(4, 6, color);
-                debug_outln_verbose(F("Set Noise color "), getColorName(color));
+                noise_max_color = _getNoiseColor(sensors_data[ATRUIST_URBAN_SENSOR]["PCBA_noiseMax"]["value"].as<float>());
+                debug_outln_verbose(F("Set Noise MAX color "), getColorName(noise_max_color));
             }
             if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("BME280_temperature")) {
-                color = _getTempColor(sensors_data[ATRUIST_URBAN_SENSOR]["BME280_temperature"]["value"].as<float>());
-                _setPartColor(7, 9, color);
-                debug_outln_verbose(F("Set U Temp color "), getColorName(color));
+                urban_temp_color = _getTempColor(sensors_data[ATRUIST_URBAN_SENSOR]["BME280_temperature"]["value"].as<float>());
+                debug_outln_verbose(F("Set U Temp color "), getColorName(urban_temp_color));
             }
             if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("BME280_humidity")) {
-                color = _getHumidityColor(sensors_data[ATRUIST_URBAN_SENSOR]["BME280_humidity"]["value"].as<float>());
-                _setPartColor(10, 12, color);
-                debug_outln_verbose(F("Set U Humidity color "), getColorName(color));
+                urban_humidity_color = _getHumidityColor(sensors_data[ATRUIST_URBAN_SENSOR]["BME280_humidity"]["value"].as<float>());
+                debug_outln_verbose(F("Set U Humidity color "), getColorName(urban_humidity_color));
             }
             if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("BME280_pressure")) {
-                color = _getPressureColor(sensors_data[ATRUIST_URBAN_SENSOR]["BME280_pressure"]["value"].as<float>() * 0.0075);
-                _setPartColor(13, 16, color);
-                debug_outln_verbose(F("Set U Pressure color "), getColorName(color));
+                urban_pressure_color = _getPressureColor(sensors_data[ATRUIST_URBAN_SENSOR]["BME280_pressure"]["value"].as<float>() * 0.0075);
+                debug_outln_verbose(F("Set U Pressure color "), getColorName(urban_pressure_color));
             }
         }
         if (sensors_data.containsKey("BME680")) {
-            color = _getTempColor(sensors_data["BME680"]["temperature"]["value"].as<float>());
-            _setPartColor(17, 19, color);
-            debug_outln_verbose(F("Set Temp color "), getColorName(color));
-            color = _getHumidityColor(sensors_data["BME680"]["humidity"]["value"].as<float>());
-            _setPartColor(20, 22, color);
-            debug_outln_verbose(F("Set Humidity color "), getColorName(color));
-            color = _getPressureColor(sensors_data["BME680"]["pressure"]["value"].as<float>() * 0.0075);
-            _setPartColor(23, 25, color);
-            debug_outln_verbose(F("Set Pressure color "), getColorName(color));
+            insight_temp_color = _getTempColor(sensors_data["BME680"]["temperature"]["value"].as<float>());
+            debug_outln_verbose(F("Set Temp color "), getColorName(insight_temp_color));
+            insight_humidity_color = _getHumidityColor(sensors_data["BME680"]["humidity"]["value"].as<float>());
+            debug_outln_verbose(F("Set Humidity color "), getColorName(insight_humidity_color));
+            insight_pressure_color = _getPressureColor(sensors_data["BME680"]["pressure"]["value"].as<float>() * 0.0075);
+            debug_outln_verbose(F("Set Pressure color "), getColorName(insight_pressure_color));
         }
         
         if (sensors_data.containsKey("SCD4x")) {
-            color = _getCO2Color(sensors_data["SCD4x"]["co2"]["value"].as<float>());
-            _setPartColor(26, 28, color);
-            debug_outln_verbose(F("Set CO2 color "), getColorName(color));
+            co2_color = _getCO2Color(sensors_data["SCD4x"]["co2"]["value"].as<float>());
+            debug_outln_verbose(F("Set CO2 color "), getColorName(co2_color));
         }
         xSemaphoreGive(mutex);
+
+        const uint8_t seg_start[SEGMENT_COUNT] = {
+            1,  // Urban temp
+            4,  // Insight temp
+            7,  // Urban humidity
+            10, // Insight humidity
+            13, // CO2
+            16, // Noise avg
+            17, // Noise max
+            19, // PM10
+            20, // PM2.5
+            22, // Urban pressure
+            26  // Insight pressure
+        };
+        const uint8_t seg_end[SEGMENT_COUNT] = {
+            3,
+            6,
+            9,
+            12,
+            15,
+            16,
+            18,
+            19,
+            21,
+            25,
+            28
+        };
+        const uint32_t seg_color[SEGMENT_COUNT] = {
+            urban_temp_color,
+            insight_temp_color,
+            urban_humidity_color,
+            insight_humidity_color,
+            co2_color,
+            noise_avg_color,
+            noise_max_color,
+            pm10_color,
+            pm25_color,
+            urban_pressure_color,
+            insight_pressure_color
+        };
+
+        const uint8_t pulse_percent = 40;  
+        const uint16_t pulse_ms = 25;     
+        bool has_changed_segments = false;
+        bool changed_segments[SEGMENT_COUNT] = {false};
+
+        for (uint8_t i = 0; i < SEGMENT_COUNT; i++) {
+            bool changed = segment_initialized[i] && segment_last_color[i] != seg_color[i];
+            changed_segments[i] = changed;
+            if (changed) {
+                has_changed_segments = true;
+            }
+            segment_last_color[i] = seg_color[i];
+            segment_initialized[i] = true;
+            uint32_t initial_color = changed ? scaleColor(seg_color[i], pulse_percent) : seg_color[i];
+            _setPartColor(seg_start[i], seg_end[i], initial_color);
+        }
+
+        // Subtle one-shot dim pulse only for segments that changed color.
+        if (has_changed_segments) {
+            pixels.show();
+            delay(pulse_ms);
+            for (uint8_t i = 0; i < SEGMENT_COUNT; i++) {
+                if (changed_segments[i]) {
+                    _setPartColor(seg_start[i], seg_end[i], seg_color[i]);
+                }
+            }
+        }
         pixels.show();
         last_refresh_time = millis();  // Only mark as refreshed after successful update
     }
@@ -298,24 +392,24 @@ uint32_t LedControllerInsight::_getPMColor(float pm10, float pm25) {
 }
 
 uint32_t LedControllerInsight::_getNoiseColor(float noise) {
-    return _getColorByThresholds(noise, SensorConfigs::noise_thresholds, SensorConfigs::noise_colors, 4);
+    return _getColorByThresholds(noise, SensorConfigs::noise_thresholds, SensorConfigs::noise_colors, 5);
 }
 
 uint32_t LedControllerInsight::_getCO2Color(float co2) {
-    return _getColorByThresholds(co2, SensorConfigs::co2_thresholds, SensorConfigs::co2_colors, 3);
+    return _getColorByThresholds(co2, SensorConfigs::co2_thresholds, SensorConfigs::co2_colors, 4);
 }
 
 uint32_t LedControllerInsight::_getTempColor(float temperature) {
     // Use SensorConfigs thresholds and colors directly
-    return _getColorByThresholds(temperature, SensorConfigs::temp_thresholds, SensorConfigs::temp_colors, 4);
+    return _getColorByThresholds(temperature, SensorConfigs::temp_thresholds, SensorConfigs::temp_colors, 5);
 }
 
 uint32_t LedControllerInsight::_getHumidityColor(float humidity) {
-    return _getColorByThresholds(humidity, SensorConfigs::humidity_thresholds, SensorConfigs::humidity_colors, 4);
+    return _getColorByThresholds(humidity, SensorConfigs::humidity_thresholds, SensorConfigs::humidity_colors, 5);
 }
 
 uint32_t LedControllerInsight::_getPressureColor(float pressure) {
-    return _getColorByThresholds(pressure, SensorConfigs::pressure_thresholds, SensorConfigs::pressure_colors, 3);
+    return _getColorByThresholds(pressure, SensorConfigs::pressure_thresholds, SensorConfigs::pressure_colors, 4);
 }
 
 // Calculate brightness based on time of day

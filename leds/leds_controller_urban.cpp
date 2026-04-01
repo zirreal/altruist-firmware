@@ -45,24 +45,59 @@ void LedControllerUrban::process() {
         switch (current_mode) {
             case LedMode::NONE:
                 pixels.clear();
+                connection_color_set = false;
+                break;
             case LedMode::BLUE:
-                pixels.setPixelColor(LED_NUM_CONNECTION, pixels.Color(0, 0, 255));
+                connection_color = pixels.Color(0, 0, 255);
+                connection_color_set = true;
+                pixels.setPixelColor(LED_NUM_CONNECTION, connection_color);
+                break;
             case LedMode::GREEN:
-                pixels.setPixelColor(LED_NUM_CONNECTION, pixels.Color(0, 255, 0));
+                connection_color = pixels.Color(0, 255, 0);
+                connection_color_set = true;
+                pixels.setPixelColor(LED_NUM_CONNECTION, connection_color);
+                break;
+            case LedMode::PROVISIONING:
+                // Purple: AP/provisioning mode
+                connection_color = pixels.Color(160, 0, 255);
+                connection_color_set = true;
+                pixels.setPixelColor(LED_NUM_CONNECTION, connection_color);
+                break;
+            case LedMode::RESETTING:
+                // Yellow: reset in progress (both LEDs)
+                connection_color = pixels.Color(255, 200, 0);
+                connection_color_set = true;
+                pixels.setPixelColor(LED_NUM_CONNECTION, connection_color);
+                pixels.setPixelColor(LED_NUM_DATA_SENDING, connection_color);
+                break;
             case LedMode::BLINK_RED:
+                // Keep connection LED as-is; blink only the data LED.
+                if (connection_color_set) {
+                    pixels.setPixelColor(LED_NUM_CONNECTION, connection_color);
+                }
                 for (int blink_count = 0; blink_count < MAX_BLINK_COUNT; blink_count++) {
                     pixels.setPixelColor(LED_NUM_DATA_SENDING, pixels.Color(255, 0, 0));
-                    delay(500);
+                    pixels.show();
+                    delay(150);
                     pixels.setPixelColor(LED_NUM_DATA_SENDING, pixels.Color(0, 0, 0));
-                    delay(500);
+                    pixels.show();
+                    delay(150);
                 }
+                break;
             case LedMode::BLINK_GREEN:
+                // Keep connection LED as-is; blink only the data LED.
+                if (connection_color_set) {
+                    pixels.setPixelColor(LED_NUM_CONNECTION, connection_color);
+                }
                 for (int blink_count = 0; blink_count < MAX_BLINK_COUNT; blink_count++) {
                     pixels.setPixelColor(LED_NUM_DATA_SENDING, pixels.Color(0, 255, 0));
-                    delay(500);
+                    pixels.show();
+                    delay(150);
                     pixels.setPixelColor(LED_NUM_DATA_SENDING, pixels.Color(0, 0, 0));
-                    delay(500);
+                    pixels.show();
+                    delay(150);
                 }
+                break;
         }
         pixels.show();
     }

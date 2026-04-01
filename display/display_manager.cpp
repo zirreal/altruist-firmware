@@ -263,7 +263,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 // - If graphs are available:
                 //   - SHORT UP/SET: cycle graph values (or switch screen if at last graph)
                 //   - LONG  UP/SET: change screens (prev/next)
-                if (!areGraphsAvailable()) {
+                // IMPORTANT: don't use areGraphsAvailable() here.
+                // It may touch SD/file scanning and can transiently fail due to SD mutex contention
+                // while graphs are reading CSVs, which causes wrong navigation (screen switch instead of graph switch).
+                bool graphs_storage_ok = false;
+#if defined(USE_SD_CARD)
+                graphs_storage_ok = deviceStatus.sd_card_connected && sdCardLogger.checkInserted();
+#endif
+                if (!graphs_storage_ok) {
                     // No graphs available - navigate to next/prev screen on any button press
                     if (btn_press.button_num == ButtonNum::UP) {
                         ScreenPage target = getPrevScreen(currentScreenID);
@@ -580,8 +587,13 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 showSensorsMapPage(addr);
             }
         } else if (currentScreenID == ScreenPage::SETTINGS) {
-            // Get urban IP address from config or sensors_data
-            String urban_ip = String(cfg::chosen_altruist_urban);
+            // Get urban IP address from config (chosen or custom) or sensors_data
+            String urban_ip;
+            if (cfg::use_custom_urban && strlen(cfg::custom_altruist_urban) > 0) {
+                urban_ip = String(cfg::custom_altruist_urban);
+            } else {
+                urban_ip = String(cfg::chosen_altruist_urban);
+            }
             // Fallback: try to get from sensors_data if config is empty (with mutex)
             if (urban_ip.length() == 0) {
                 if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100))) {

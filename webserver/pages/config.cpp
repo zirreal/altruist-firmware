@@ -237,6 +237,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	if (LED_PIN != -1) {
 		add_form_checkbox(Config_leds_on, FPSTR(INTL_LEDS_ON), true);
 		add_form_input(page_content, Config_leds_brightness, FPSTR(INTL_LEDS_BRIGHTNESS), 5);
+#ifdef ALTRUIST_INSIDE
 		add_form_input(page_content, Config_leds_off_hour, FPSTR(INTL_LEDS_OFF_HOUR), 2);
 		add_form_input(page_content, Config_leds_on_hour, FPSTR(INTL_LEDS_ON_HOUR), 2);
 		add_form_input(page_content, Config_analytics_night_start_hour, F("Analytics night start hour"), 2);
@@ -253,6 +254,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 				"if(nightEnd){nightEnd.min='0';nightEnd.max='23';nightEnd.step='1';}"
 			"})();"
 		"</script>");
+#endif
 	}
 	page_content += F("</div>");
 
