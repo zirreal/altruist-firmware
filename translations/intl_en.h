@@ -73,6 +73,8 @@ const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Use Custom Altruist Urban Address"
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "RWS Owner Address";
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Robonomics Public Node";
+const char INTL_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "Robonomics Map Host (connectivity)";
+const char INTL_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "Robonomics Map Hosts pool (one per line)";
 const char INTL_COORD_LAT[] PROGMEM = "Latitude";
 const char INTL_COORD_LON[] PROGMEM = "Longtitude";
 const char INTL_COORDS[] PROGMEM = "GPS: Latitude, Longtitude";
@@ -243,6 +245,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_ENABLE_SD "Please enable SD card"
 #define INTL_DISP_INSIGHT_HEADER "Insight"
 #define INTL_DISP_URBAN_HEADER "Urban"
+#define INTL_DISP_URBAN_ONLY "Urban only"
 #define INTL_DISP_GOING_TO_SLEEP "Going to sleep..."
 #define INTL_DISP_OTA_UPDATING "Updating firmware"
 #define INTL_DISP_OTA_DO_NOT_DISCONNECT "Do not disconnect power"

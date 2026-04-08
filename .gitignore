@@ -3,3 +3,4 @@
 .platformio/
 builds
 .DS_Store
+.pio-core

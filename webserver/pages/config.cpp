@@ -58,6 +58,46 @@ void webserver_config_send_body_post(WebServer &server) {
 		}
 	}
 
+	// Robonomics Map (connectivity) hosts:
+	// Modes:
+	// - auto: use built-in HOST_ROBONOMICS pool (clear both config values)
+	// - preset: pinned to one of built-in hosts (store in robonomics_connectivity_host)
+	// - custom: pinned custom host (store in robonomics_connectivity_host)
+	// - pool: custom host pool list (store in robonomics_connectivity_hosts)
+	//
+	// Important: only update when selector is present, so saving other tabs doesn't clobber.
+	if (server.hasArg("robonomics_connectivity_mode")) {
+		const String mode = server.arg("robonomics_connectivity_mode");
+		if (mode == "auto") {
+			cfg::robonomics_connectivity_host[0] = '\0';
+			cfg::robonomics_connectivity_hosts[0] = '\0';
+		} else if (mode == "pool") {
+			cfg::robonomics_connectivity_host[0] = '\0';
+			if (server.hasArg("robonomics_connectivity_hosts")) {
+				String v = server.arg("robonomics_connectivity_hosts");
+				v.trim();
+				strncpy(cfg::robonomics_connectivity_hosts, v.c_str(), LEN_ROBONOMICS_CONNECTIVITY_HOSTS - 1);
+				cfg::robonomics_connectivity_hosts[LEN_ROBONOMICS_CONNECTIVITY_HOSTS - 1] = '\0';
+			}
+		} else if (mode == "preset") {
+			cfg::robonomics_connectivity_hosts[0] = '\0';
+			if (server.hasArg("robonomics_connectivity_preset")) {
+				String v = server.arg("robonomics_connectivity_preset");
+				v.trim();
+				strncpy(cfg::robonomics_connectivity_host, v.c_str(), LEN_ROBONOMICS_CONNECTIVITY_HOST - 1);
+				cfg::robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST - 1] = '\0';
+			}
+		} else { // "custom"
+			cfg::robonomics_connectivity_hosts[0] = '\0';
+			if (server.hasArg("robonomics_connectivity_host")) {
+				String v = server.arg("robonomics_connectivity_host");
+				v.trim();
+				strncpy(cfg::robonomics_connectivity_host, v.c_str(), LEN_ROBONOMICS_CONNECTIVITY_HOST - 1);
+				cfg::robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST - 1] = '\0';
+			}
+		}
+	}
+
 #ifdef ALTRUIST_INSIDE
 	// Keep LED schedule values in a safe 0..23 range even for crafted requests.
 	if (cfg::leds_off_hour > 23) cfg::leds_off_hour = 0;
@@ -160,6 +200,105 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 					"if(sel){sel.onchange=sync;}"
 				"})();"
 				"</script>");
+	}
+
+	// Robonomics Map (connectivity) custom hosts.
+	{
+		String pinned = String(cfg::robonomics_connectivity_host);
+		pinned.trim();
+		pinned.replace("'", "&#39;");
+		String pool = String(cfg::robonomics_connectivity_hosts);
+		pool.trim();
+		pool.replace("'", "&#39;");
+
+		const bool is_auto = (pinned.length() == 0 && pool.length() == 0);
+		const bool is_pool = (pinned.length() == 0 && pool.length() > 0);
+		const bool is_default0 = pinned == "connectivity.robonomics.network";
+		const bool is_default1 = pinned == "1.connectivity.robonomics.network";
+		const bool is_default2 = pinned == "2.connectivity.robonomics.network";
+		const bool is_preset = (pinned.length() > 0 && (is_default0 || is_default1 || is_default2));
+		const bool is_custom = (pinned.length() > 0 && !is_preset);
+
+		page_content += F("<div class='form-group'>"
+			"<label for='robonomics_connectivity_mode'>");
+		page_content += FPSTR(INTL_ROBONOMICS_CONNECTIVITY_HOST);
+		page_content += F("</label>"
+			"<select id='robonomics_connectivity_mode' name='robonomics_connectivity_mode'>"
+				"<option value='auto'");
+		if (is_auto) page_content += F(" selected='selected'");
+		page_content += F(">Default pool (auto)</option>"
+				"<option value='preset'");
+		if (is_preset) page_content += F(" selected='selected'");
+		page_content += F(">Pinned (preset)</option>"
+				"<option value='custom'");
+		if (is_custom) page_content += F(" selected='selected'");
+		page_content += F(">Custom host</option>"
+				"<option value='pool'");
+		if (is_pool) page_content += F(" selected='selected'");
+		page_content += F(">Custom pool</option>"
+			"</select>"
+			"</div>");
+
+		page_content += F("<div class='form-group' id='robonomics_connectivity_preset_wrap'>"
+			"<label for='robonomics_connectivity_preset'>Pinned host (preset)</label>"
+			"<select id='robonomics_connectivity_preset' name='robonomics_connectivity_preset'>"
+				"<option value='connectivity.robonomics.network'");
+		if (is_default0) page_content += F(" selected='selected'");
+		page_content += F(">connectivity.robonomics.network</option>"
+				"<option value='1.connectivity.robonomics.network'");
+		if (is_default1) page_content += F(" selected='selected'");
+		page_content += F(">1.connectivity.robonomics.network</option>"
+				"<option value='2.connectivity.robonomics.network'");
+		if (is_default2) page_content += F(" selected='selected'");
+		page_content += F(">2.connectivity.robonomics.network</option>"
+			"</select>"
+			"</div>");
+
+		page_content += F("<div class='form-group' id='robonomics_connectivity_host_wrap'>"
+			"<label for='robonomics_connectivity_host'>Custom host</label>"
+			"<input type='text' id='robonomics_connectivity_host' name='robonomics_connectivity_host' "
+			"placeholder='custom.connectivity.example' maxlength='");
+		page_content += String(LEN_ROBONOMICS_CONNECTIVITY_HOST - 1);
+		page_content += F("' value='");
+		page_content += (is_custom ? pinned : String(""));
+		page_content += F("'/></div>");
+
+		page_content += F("<div class='form-group'>"
+			"<label for='robonomics_connectivity_hosts'>");
+		page_content += FPSTR(INTL_ROBONOMICS_CONNECTIVITY_HOSTS);
+		page_content += F("</label>"
+			"<textarea id='robonomics_connectivity_hosts' name='robonomics_connectivity_hosts' rows='4' "
+			"placeholder='Example:&#10;connectivity.robonomics.network&#10;1.connectivity.robonomics.network&#10;2.connectivity.robonomics.network' maxlength='");
+		page_content += String(LEN_ROBONOMICS_CONNECTIVITY_HOSTS - 1);
+		page_content += F("'>");
+		page_content += (is_pool ? pool : String(""));
+		page_content += F("</textarea></div>");
+
+		page_content += F("<div id='robonomics_connectivity_hosts_hint' style='font-size:12px;color:#666;margin-top:-6px;margin-bottom:10px;display:none;'>"
+			"Example pool:<br/>"
+			"<code>connectivity.robonomics.network<br/>1.connectivity.robonomics.network<br/>2.connectivity.robonomics.network</code>"
+			"</div>");
+
+		page_content += F("<script>"
+			"(function(){"
+				"var mode=document.getElementById('robonomics_connectivity_mode');"
+				"var wPreset=document.getElementById('robonomics_connectivity_preset_wrap');"
+				"var wHost=document.getElementById('robonomics_connectivity_host_wrap');"
+				"var ta=document.getElementById('robonomics_connectivity_hosts');"
+				"var hint=document.getElementById('robonomics_connectivity_hosts_hint');"
+				"function sync(){"
+					"var m=mode?mode.value:'auto';"
+					"if(wPreset) wPreset.style.display=(m==='preset')?'block':'none';"
+					"if(wHost) wHost.style.display=(m==='custom')?'block':'none';"
+					"if(ta) ta.disabled=(m!=='pool');"
+					"var wTa=ta?ta.parentElement:null;"
+					"if(wTa) wTa.style.display=(m==='pool')?'block':'none';"
+					"if(hint) hint.style.display=(m==='pool')?'block':'none';"
+				"}"
+				"sync();"
+				"if(mode) mode.onchange=sync;"
+			"})();"
+			"</script>");
 	}
 
 	page_content += F("<h3 class='panel-subtitle' style='margin-top:16px;'>" INTL_PANEL_TITLE_DATA_SHARING "</h3>");

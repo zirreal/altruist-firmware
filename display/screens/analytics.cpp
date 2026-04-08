@@ -1276,7 +1276,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         if (p_has) { pm25_sum += use_prev ? pm25_prev[h] : pm25_day[h]; pm25_count++; }
         if (n_has) { noise_sum += use_prev ? noise_prev[h] : noise_day[h]; noise_count++; }
         if (t_has) { temp_sum += use_prev ? temp_prev[h] : temp_day[h]; temp_count++; }
-        if (hum_has) { hum_sum += use_prev ? hum_prev[h] : hum_day[h]; hum_count++; }
+        if (hum_has) { hum_sum += use_prev ? hum_prev[h] : hum_has_day[h]; hum_count++; }
     }
     has_co2 = (co2_count > 0U);
     has_pm25 = (pm25_count > 0U);
@@ -1388,9 +1388,10 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
     // ================= OUTER METRIC CARDS =================
     // Card style close to reference: title, value, and bottom fill bar.
-    auto drawMetricCard = [&](int x, int y, int w, int h, const char *title, const char *value, const char *unit, float fill, int value_y_shift, bool small_title, int sep_shift, bool draw_border, bool draw_bar_border) {
+    auto drawMetricCard = [&](int x, int y, int w, int h, const char *title, const char *value, const char *unit, float fill, int value_y_shift, bool small_title, int sep_shift, bool draw_border, bool /*draw_bar_border*/) {
         if (w < 40 || h < 28) return;
-        fill = clamp01(fill);
+        (void)fill; // value shown on card is already the night average
+        const bool is_temp_card = (strcmp(title, "T°") == 0);
 
         // Outer card.
         if (draw_border) {
@@ -1402,17 +1403,16 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         const Font *title_cyr = small_title ? &font_12_cyrillic : &font_16_cyrillic;
         const Font *title_ascii = small_title ? &font_12_ascii : &font_16_ascii;
         uint16_t tw = Paint_GetStringWidth_Display(title, title_font, title_cyr, title_ascii);
-        int title_y = y + 3;
-        if (strcmp(title, "T°") == 0) {
-            title_y -= 5;
-        }
+        // Lift labels a bit (except the compact T° block which has its own tuning).
+        int title_y = y + (is_temp_card ? 3 : 1);
+        if (is_temp_card) title_y -= 5;
         Paint_DrawString_Display(x + (w - (int)tw) / 2, title_y, title, title_font, title_cyr, title_ascii, WHITE, BLACK);
 
         // Divider line.
-        const int sep_y = y + 17 + sep_shift;
+        const int sep_y = y + (is_temp_card ? 17 : 15) + sep_shift;
         Paint_DrawLine(x + 16, sep_y, x + w - 16, sep_y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
-        // Value + unit.
+        // Value + unit (primary).
         uint16_t vw = Paint_GetStringWidth_Display(value, &Font20, &font_20_cyrillic, &font_20_ascii);
         uint16_t uw = 0;
         if (unit && unit[0] != '\0') {
@@ -1421,25 +1421,26 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         const int gap = (uw > 0) ? 3 : 0;
         const int total_w = (int)vw + (int)uw + gap;
         const int vx = x + (w - total_w) / 2;
-        const int vy = y + 24 + value_y_shift;
+        // Lift the value a bit to open space above the "night avg" tag (except T°).
+        const int vy = y + (is_temp_card ? 24 : 21) + value_y_shift;
         Paint_DrawString_Display(vx, vy, value, &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
         if (uw > 0) {
             Paint_DrawString_Display(vx + (int)vw + gap, vy + 5, unit, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         }
 
-        // Bottom progress bar glued to container bottom/left/right.
-        const int bar_x = x + 1;
-        const int bar_y = y + h - 7;
-        const int bar_w = w - 2;
-        const int bar_h = 7;
-        if (draw_bar_border) {
-            Paint_DrawRectangle(bar_x, bar_y, bar_x + bar_w, bar_y + bar_h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-        }
-        Paint_DrawRectangle(bar_x + 1, bar_y + 1, bar_x + bar_w - 1, bar_y + bar_h, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-        const int fill_w = (int)lroundf((float)(bar_w - 2) * fill);
-        if (fill_w > 0) {
-            Paint_DrawRectangle(bar_x + 1, bar_y + 1, bar_x + 1 + fill_w, bar_y + bar_h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-        }
+        // Bottom label where the old scale lived: makes the "average" semantics explicit.
+        // RU looks cramped at Font8, so use a bigger font + a tighter label.
+#if defined(INTL_RU)
+        const char *avg_tag = "ср. за ночь";
+        uint16_t aw = Paint_GetStringWidth_Display(avg_tag, &Font12, &font_12_cyrillic, &font_12_ascii);
+        Paint_DrawString_Display(x + (w - (int)aw) / 2, y + h - Font12.Height - 2,
+                                 avg_tag, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+#else
+        const char *avg_tag = "night avg";
+        uint16_t aw = Paint_GetStringWidth_Display(avg_tag, &Font8, &font_8_cyrillic, &font_8_ascii);
+        Paint_DrawString_Display(x + (w - (int)aw) / 2, y + h - Font8.Height - 2,
+                                 avg_tag, &Font8, &font_8_cyrillic, &font_8_ascii, WHITE, BLACK);
+#endif
     };
 
     // ================= SCORE TEXT =================
@@ -1599,6 +1600,9 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
     // Try layout variant: Temp small top block (near QR), RH in right metric stack.
     drawMetricCard(top_rh_x, top_row_y, top_rh_w, top_rh_h, "T°", tv, "°C", f_temp, -4, false, 0, false, true);
+
+    // No extra label here; the header clarifies night average semantics.
+
     drawMetricCard(card_x, cards_top + 0 * (card_h + card_gap), card_w, card_h, "CO2",   co2v, "ppm",   f_co2,   -1, false, 4, true, true);
     drawMetricCard(card_x, cards_top + 1 * (card_h + card_gap), card_w, card_h, "PM2.5", pmv,  "µg/m³", f_pm25,  -1, false, 4, true, true);
     drawMetricCard(card_x, cards_top + 2 * (card_h + card_gap), card_w, card_h, A_TXT("Noise", "Шум"), nv, "dB", f_noise, -1, false, 4, true, true);

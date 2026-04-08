@@ -879,6 +879,8 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     String right_noise_label_s = String(INTL_DISP_NOISE) + " " + String(INTL_DISP_NOISE_AVGMAX_SUFFIX) + " dB";
     const char *right_noise_label = right_noise_label_s.c_str();
     uint16_t right_noise_label_x = right_x + 42;
+    // Noise on main screen comes from Urban device/sensors.
+    Paint_DrawString_Display(right_noise_label_x, row_top - 10, INTL_DISP_URBAN_ONLY, &Font8, &font_8_cyrillic, &font_8_ascii, WHITE, BLACK);
     Paint_DrawString_Display(right_noise_label_x, row_top, right_noise_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     uint16_t right_noise_label_w = Paint_GetStringWidth_Display(right_noise_label, &Font12, &font_12_cyrillic, &font_12_ascii);
     drawWarningLevelIcon(right_noise_label_x + right_noise_label_w + 4, row_top - 1, noise_icon_dir);
@@ -887,6 +889,8 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     Paint_DrawImage(dust_34x34, right_x, row_top + row_step + 1, 34, 34);
     const char *right_air_label = "PM10 | PM2.5 ug/m3";
     uint16_t right_air_label_x = right_x + 42;
+    // PM on main screen comes from Urban device/sensors.
+    Paint_DrawString_Display(right_air_label_x, row_top + row_step - 10, INTL_DISP_URBAN_ONLY, &Font8, &font_8_cyrillic, &font_8_ascii, WHITE, BLACK);
     Paint_DrawString_Display(right_air_label_x, row_top + row_step, right_air_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     uint16_t right_air_label_w = Paint_GetStringWidth_Display(right_air_label, &Font12, &font_12_cyrillic, &font_12_ascii);
     drawWarningLevelIcon(right_air_label_x + right_air_label_w + 4, row_top + row_step - 1, pm_icon_dir);
