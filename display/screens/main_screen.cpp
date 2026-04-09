@@ -868,6 +868,8 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     Paint_DrawImage(co2_svgrepo_com_32x32, left_x, row_top + 2 * row_step + 1, 32, 32);
     const char *left_co2_label = "CO2 ppm";
     uint16_t left_co2_label_x = left_x + 42;
+    // CO2 on main screen comes from Insight device/sensors.
+    Paint_DrawString_Display(left_co2_label_x, row_top + 2 * row_step - 10, INTL_DISP_INSIGHT_HEADER, &Font8, &font_8_cyrillic, &font_8_ascii, WHITE, BLACK);
     Paint_DrawString_Display(left_co2_label_x, row_top + 2 * row_step, left_co2_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
     uint16_t left_co2_label_w = Paint_GetStringWidth_Display(left_co2_label, &Font12, &font_12_cyrillic, &font_12_ascii);
     drawWarningLevelIcon(left_co2_label_x + left_co2_label_w + 4, row_top + 2 * row_step - 1, co2_icon_dir);
