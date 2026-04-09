@@ -1,3 +1,6 @@
+// This file is the platform bridge between the generic Renesas HAL interface
+// and the ESP32 I2C implementation used by this firmware.
+
 #include "zmod4510_hal_port.h"
 
 #include <Arduino.h>
@@ -5,8 +8,9 @@
 
 static constexpr TickType_t ZMOD_I2C_TIMEOUT_TICKS = pdMS_TO_TICKS(200);
 
-// This HAL expects the ESP32 I2C driver to be initialized by the caller
-// before any Renesas ZMOD API function is invoked.
+// Renesas HAL read callback.
+// For register reads, the SDK first writes a register pointer and then performs
+// a repeated-start read from the same slave address.
 static int esp_i2c_read(void *handle,
                         uint8_t slave_addr,
                         uint8_t *tx_buf,
@@ -36,6 +40,10 @@ static int esp_i2c_read(void *handle,
     return (err == ESP_OK) ? 0 : -1;
 }
 
+// Renesas HAL write callback.
+// The SDK may pass up to two transmit buffers: typically a register address
+// followed by payload bytes. For device probing it may also call this function
+// with zero-length payloads.
 static int esp_i2c_write(void *handle,
                          uint8_t slave_addr,
                          uint8_t *tx_buf1,
@@ -82,11 +90,20 @@ static int esp_i2c_write(void *handle,
     return (err == ESP_OK) ? 0 : -1;
 }
 
+// Renesas SDK relies on millisecond delays to preserve measurement timing.
 static void esp_ms_sleep(uint32_t ms)
 {
     delay(ms);
 }
 
+// Wire the generic Renesas interface to this project's ESP32-specific
+// implementations. The caller is still responsible for initializing the I2C
+// peripheral before using the sensor.
+// Important: this HAL layer does not own the I2C bus lifecycle.
+// It only provides read/write/delay callbacks expected by the Renesas SDK.
+// Bus initialization and teardown are handled by the sensor driver.
+// zmod4xxx_init(...) from the Renesas SDK consumes Interface_t and maps these
+// callbacks into the legacy zmod4xxx_dev_t read/write/delay function pointers.
 int zmod4510_fill_interface(Interface_t *hal)
 {
     if (hal == nullptr)
@@ -98,6 +115,8 @@ int zmod4510_fill_interface(Interface_t *hal)
     hal->i2cRead = esp_i2c_read;
     hal->i2cWrite = esp_i2c_write;
     hal->msSleep = esp_ms_sleep;
+    // Hardware reset is intentionally not provided because RES_N is not connected
+    // on the current board revision.
     hal->reset = nullptr;
 
     return 0;
