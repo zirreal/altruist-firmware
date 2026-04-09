@@ -28,6 +28,8 @@ namespace cfg {
 
 	char rws_owner[LEN_RWS_OWNER] = "Not Set";
 	char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE] = ROBONOMICS_PUBLIC_NODE;
+	char robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST] = "";
+	char robonomics_connectivity_hosts[LEN_ROBONOMICS_CONNECTIVITY_HOSTS] = "";
 	char private_key[LEN_PRIVATE_KEY] = "Not Set";
 	char coords_gps[LEN_GPS_COORDS] = GPS_COORDS;
 

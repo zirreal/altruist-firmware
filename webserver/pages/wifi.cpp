@@ -61,7 +61,7 @@ void webserver_wifi(struct_wifiInfo* wifiInfo, uint8_t count_wifiInfo, String &p
 			page_content += wlan_ssid_to_table_row(wifiInfo[indices[i]].ssid, ((wifiInfo[indices[i]].encryptionType == WIFI_AUTH_OPEN) ? " " : "🔒"), wifiInfo[indices[i]].RSSI);
 #endif
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
-			page_content += wlan_ssid_to_table_row(wifiInfo[indices[i]].ssid, ((wifiInfo[indices[i]].encryptionType == WIFI_AUTH_OPEN) ? " " : u8"🔒"), wifiInfo[indices[i]].RSSI);
+			page_content += wlan_ssid_to_table_row(wifiInfo[indices[i]].ssid, ((wifiInfo[indices[i]].encryptionType == WIFI_AUTH_OPEN) ? " " : "🔒"), wifiInfo[indices[i]].RSSI);
 #endif
 		}
 		page_content += FPSTR(TABLE_TAG_CLOSE_BR);

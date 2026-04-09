@@ -2,6 +2,18 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
+## [R_2026-04.1](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-04.1) — 2026-04-09
+
+### Bug Fixes
+
+- **Robonomics RPC custom endpoints (mirrors) made reliable** — accept `host` or full URL in config, normalize to `https://.../rpc/`, and retry once on HTTP redirects (301/302/307/308) to avoid failures on mirror endpoints.
+
+### Improvements
+
+- **Robonomics Map connectivity hosts are now configurable** — added config options to use a pinned host or a custom host pool (with the same health checks as the default pool) instead of the built-in `connectivity.robonomics.network` list.
+- **Analytics (Insight) clarity & layout polish** — analytics metric cards now explicitly indicate values are the _night average_ via an in-card label (`night avg`) and improved vertical spacing for better readability.
+- **Main screen (Insight) source clarity** — Urban-only metrics (Noise, PM) are labeled as `Urban only` to avoid confusion when viewing combined Urban/Insight data.
+
 ## [R_2026-04](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-04) — 2026-04-01
 
 ### Bug Fixes

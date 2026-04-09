@@ -162,7 +162,9 @@ static WiFiEventId_t disconnectEventHandler;
 #endif
 
 bool connectWifi(SensorWebServer &webserver) {
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
+#if defined(CONFIG_IDF_TARGET_ESP32C3) && defined(ALTRUIST_HAS_WIFI_AUTOCONNECT_API)
+	// Some Arduino-ESP32 cores provide get/setAutoConnect, others don't.
+	// Keep this optional so ESP32-C3 builds don't break on cores without it.
 	if (WiFi.getAutoConnect()) {
 		WiFi.setAutoConnect(false);
 	}

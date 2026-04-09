@@ -40,6 +40,8 @@ enum ConfigShapeId {
 	Config_www_basicauth_enabled,
 	Config_rws_owner,
 	Config_robonomics_public_node,
+	Config_robonomics_connectivity_host,
+	Config_robonomics_connectivity_hosts,
 	Config_private_key,
 	Config_coords_gps,
 	Config_send2robonomics,
@@ -101,6 +103,8 @@ static constexpr char CFG_KEY_FS_PWD[] PROGMEM = "fs_pwd";
 static constexpr char CFG_KEY_WWW_BASICAUTH_ENABLED[] PROGMEM = "www_basicauth_enabled";
 static constexpr char CFG_KEY_RWS_OWNER[] PROGMEM = "rws_owner";
 static constexpr char CFG_KEY_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "robonomics_public_node";
+static constexpr char CFG_KEY_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "robonomics_connectivity_host";
+static constexpr char CFG_KEY_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "robonomics_connectivity_hosts";
 static constexpr char CFG_KEY_PRIVATE_KEY[] PROGMEM = "private_key";
 static constexpr char CFG_KEY_COORDS_GPS[] PROGMEM = "coords_gps";
 static constexpr char CFG_KEY_SEND2ROBONOMICS[] PROGMEM = "send2robonomics";
@@ -162,6 +166,8 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_WWW_BASICAUTH_ENABLED, &cfg::www_basicauth_enabled },
 	{ Config_Type_String, sizeof(cfg::rws_owner)-1, CFG_KEY_RWS_OWNER, cfg::rws_owner },
 	{ Config_Type_String, sizeof(cfg::robonomics_public_node)-1, CFG_KEY_ROBONOMICS_PUBLIC_NODE, cfg::robonomics_public_node },
+	{ Config_Type_String, sizeof(cfg::robonomics_connectivity_host)-1, CFG_KEY_ROBONOMICS_CONNECTIVITY_HOST, cfg::robonomics_connectivity_host },
+	{ Config_Type_String, sizeof(cfg::robonomics_connectivity_hosts)-1, CFG_KEY_ROBONOMICS_CONNECTIVITY_HOSTS, cfg::robonomics_connectivity_hosts },
 	{ Config_Type_String, sizeof(cfg::private_key)-1, CFG_KEY_PRIVATE_KEY, cfg::private_key },
 	{ Config_Type_String, sizeof(cfg::coords_gps)-1, CFG_KEY_COORDS_GPS, cfg::coords_gps },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2ROBONOMICS, &cfg::send2robonomics },

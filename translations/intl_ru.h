@@ -73,6 +73,8 @@ const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Использовать поль�
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "Адрес владельца подписки";
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Адрес публичной ноды Робономики";
+const char INTL_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "Хост Robonomics Map (connectivity)";
+const char INTL_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "Пул хостов Robonomics Map (по одному в строке)";
 const char INTL_COORD_LAT[] PROGMEM = "Широта";
 const char INTL_COORD_LON[] PROGMEM = "Долгота";
 const char INTL_COORDS[] PROGMEM = "GPS: Широта, Долгота";
@@ -243,6 +245,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_ENABLE_SD "Включите SD карту"
 #define INTL_DISP_INSIGHT_HEADER "Insight"
 #define INTL_DISP_URBAN_HEADER "Urban"
+#define INTL_DISP_URBAN_ONLY "Urban only"
 #define INTL_DISP_GOING_TO_SLEEP "Уход в сон..."
 #define INTL_DISP_OTA_UPDATING "Обновление прошивки"
 #define INTL_DISP_OTA_DO_NOT_DISCONNECT "Не отключайте питание"
