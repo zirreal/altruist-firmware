@@ -2,7 +2,7 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
-## [R_2026-04.01](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-04.01) — 2026-04-08
+## [R_2026-04.01](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-04.01) — 2026-04-09
 
 ### Bug Fixes
 
