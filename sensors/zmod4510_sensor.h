@@ -48,6 +48,9 @@ private:
     float last_no2_value = 0.0f;
     float last_fast_aqi_value = 0.0f;
     float last_epa_aqi_value = 0.0f;
+
+    int default_temperature = -300;
+    int default_humidity = 50;
 };
 
 #endif // __ZMOD4510_H__

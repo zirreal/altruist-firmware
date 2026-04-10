@@ -7,14 +7,13 @@
 #include "drivers/i2c.h"
 
 // Renesas NO2_O3 mode requires a 6 s sampling cadence
-#define ZMOD4510_SENSOR_MIN_TIMEOUT 6000UL
+#define ZMOD4510_SENSOR_FETCH_INTERVAL_MS 6000UL
 
 ZMOD4510Sensor::ZMOD4510Sensor(unsigned long sending_timeout)
     : Sensor(sending_timeout)
 {
-    timeout = (sending_timeout > ZMOD4510_SENSOR_MIN_TIMEOUT)
-                  ? sending_timeout
-                  : ZMOD4510_SENSOR_MIN_TIMEOUT;
+    (void)sending_timeout;
+    timeout = ZMOD4510_SENSOR_FETCH_INTERVAL_MS;
     sensor_name = ZMOD4510_SENSOR_NAME;
 }
 
@@ -100,4 +99,106 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
     }
 
     debug_outln_verbose(F("fetch ZMOD4510"));
+
+    if (i2c_master_init() != ESP_OK)
+    {
+        debug_outln_error(F("ZMOD4510 i2c_master_init failed in fetch"));
+        return;
+    }
+
+    // Start one full NO2_O3 measurement cycle in the sensor sequencer
+    int ret = zmod4xxx_start_measurement(&dev);
+    if (ret != ZMOD4XXX_OK)
+    {
+        debug_outln_error(F("ZMOD4510 start_measurement failed"));
+        debug_outln_info(F("ZMOD4510 start_measurement error code: "), String(ret));
+        deinit_i2c();
+        return;
+    }
+
+    // The Renesas NO2_O3 algorithm expects a fixed 6 s sampling cadence
+    // Reading earlier would break the measurement sequence and algorithm timing
+    dev.delay_ms(ZMOD4510_NO2_O3_SAMPLE_TIME);
+
+    // Verify that the internal measurement sequencer has finished before reading ADC data
+    ret = zmod4xxx_read_status(&dev, &status);
+    if (ret != ZMOD4XXX_OK)
+    {
+        debug_outln_error(F("ZMOD4510 read_status failed"));
+        debug_outln_info(F("ZMOD4510 read_status error code: "), String(ret));
+        deinit_i2c();
+        return;
+    }
+
+    // If the sequencer is still running, ADC results are not yet valid
+    if (status & STATUS_SEQUENCER_RUNNING_MASK)
+    {
+        ret = zmod4xxx_check_error_event(&dev);
+        switch (ret)
+        {
+        case ERROR_POR_EVENT:
+            debug_outln_error(F("ZMOD4510 unexpected sensor reset"));
+            debug_outln_info(F("ZMOD4510 error code: "), String(ret));
+            break;
+        case ZMOD4XXX_OK:
+            debug_outln_error(F("ZMOD4510 measurement still running, wrong sensor setup"));
+            break;
+        default:
+            debug_outln_error(F("ZMOD4510 measurement still running, unknown error"));
+            debug_outln_info(F("ZMOD4510 error code: "), String(ret));
+            break;
+        }
+        deinit_i2c();
+        return;
+    }
+
+    // Read raw ADC output from the sensor; gas concentrations are computed later by the algorithm
+    ret = zmod4xxx_read_adc_result(&dev, adc_result);
+    if (ret != ZMOD4XXX_OK)
+    {
+        debug_outln_error(F("ZMOD4510 read_adc_result failed"));
+        debug_outln_info(F("ZMOD4510 read_adc_result error code: "), String(ret));
+        deinit_i2c();
+        return;
+    }
+
+    // Use Renesas-recommended fallback inputs until external BME280 compensation
+    // is wired in: RH = 50%, temperature = -300°C enables on-chip temperature usage.
+    algo_input.adc_result = adc_result;
+    algo_input.humidity_pct = default_humidity;
+    algo_input.temperature_degc = default_temperature;
+
+    // Convert raw sensor data into O3, NO2 and AQI values using the Renesas NO2_O3 library
+    ret = calc_no2_o3(&algo_handle, &dev, &algo_input, &algo_results);
+
+    last_o3_value = algo_results.O3_conc_ppb;
+    last_no2_value = algo_results.NO2_conc_ppb;
+    last_fast_aqi_value = algo_results.FAST_AQI;
+    last_epa_aqi_value = algo_results.EPA_AQI;
+
+    debug_outln_verbose(F("ZMOD4510 O3 [ppb]: "), String(last_o3_value, 2));
+    debug_outln_verbose(F("ZMOD4510 NO2 [ppb]: "), String(last_no2_value, 2));
+    debug_outln_verbose(F("ZMOD4510 FAST_AQI: "), String(last_fast_aqi_value, 0));
+    debug_outln_verbose(F("ZMOD4510 EPA_AQI: "), String(last_epa_aqi_value, 0));
+
+    // The algorithm return code indicates result validity: warm-up, valid, or damage state
+    switch (ret)
+    {
+    case NO2_O3_STABILIZATION:
+        debug_outln_verbose(F("ZMOD4510 status: Warm-Up"));
+        break;
+    case NO2_O3_OK:
+        debug_outln_verbose(F("ZMOD4510 status: Valid"));
+        break;
+    case NO2_O3_DAMAGE:
+        debug_outln_error(F("ZMOD4510 status: Damage"));
+        break;
+    default:
+        debug_outln_error(F("ZMOD4510 algorithm calculation failed"));
+        debug_outln_info(F("ZMOD4510 algorithm error code: "), String(ret));
+        deinit_i2c();
+        return;
+    }
+
+    deinit_i2c();
 }
