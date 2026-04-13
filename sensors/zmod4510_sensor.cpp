@@ -196,8 +196,7 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
 
     debug_outln_verbose(
         F("ZMOD4510 compensation T/RH: "),
-        String(algo_input.temperature_degc, 2) + F(" C, ") 
-        + String(algo_input.humidity_pct, 2) + F(" %"));
+        String(algo_input.temperature_degc, 2) + F(" C, ") + String(algo_input.humidity_pct, 2) + F(" %"));
 
     // Convert raw sensor data into O3, NO2 and AQI values using the Renesas NO2_O3 library
     ret = calc_no2_o3(&algo_handle, &dev, &algo_input, &algo_results);
@@ -211,34 +210,55 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
     debug_outln_verbose(F("ZMOD4510 NO2 [ppb]: "), String(last_no2_value, 2));
     debug_outln_verbose(F("ZMOD4510 FAST_AQI: "), String(last_fast_aqi_value, 0));
     debug_outln_verbose(F("ZMOD4510 EPA_AQI: "), String(last_epa_aqi_value, 0));
-    addValueToJSON(data, F("o3"), last_o3_value, F("O3"), F("ppb"));
-    addValueToJSON(data, F("no2"), last_no2_value, F("NO2"), F("ppb"));
-    addValueToJSON(data, F("fast_aqi"), last_fast_aqi_value, F("FAST AQI"), F(""));
-    addValueToJSON(data, F("epa_aqi"), last_epa_aqi_value, F("EPA AQI"), F(""));
 
     // The algorithm return code indicates result validity: warm-up, valid, or damage state
+    JsonObject sensorObj = data[sensor_name];
     String sensor_status;
     switch (ret)
     {
     case NO2_O3_STABILIZATION:
         debug_outln_verbose(F("ZMOD4510 status: Warm-Up"));
+        if (!sensorObj.isNull())
+        {
+            sensorObj.remove("o3");
+            sensorObj.remove("no2");
+            sensorObj.remove("fast_aqi");
+            sensorObj.remove("epa_aqi");
+        }
         sensor_status = F("warmup");
         break;
     case NO2_O3_OK:
         debug_outln_verbose(F("ZMOD4510 status: Valid"));
+        addValueToJSON(data, F("o3"), last_o3_value, F("O3"), F("ppb"));
+        addValueToJSON(data, F("no2"), last_no2_value, F("NO2"), F("ppb"));
+        addValueToJSON(data, F("fast_aqi"), last_fast_aqi_value, F("FAST AQI"), F(""));
+        addValueToJSON(data, F("epa_aqi"), last_epa_aqi_value, F("EPA AQI"), F(""));
         sensor_status = F("valid");
         break;
     case NO2_O3_DAMAGE:
         debug_outln_error(F("ZMOD4510 status: Damage"));
+        if (!sensorObj.isNull())
+        {
+            sensorObj.remove("o3");
+            sensorObj.remove("no2");
+            sensorObj.remove("fast_aqi");
+            sensorObj.remove("epa_aqi");
+        }
         sensor_status = F("damage");
         break;
     default:
         debug_outln_error(F("ZMOD4510 algorithm calculation failed"));
         debug_outln_info(F("ZMOD4510 algorithm error code: "), String(ret));
-        deinit_i2c();
-        return;
+        if (!sensorObj.isNull())
+        {
+            sensorObj.remove("o3");
+            sensorObj.remove("no2");
+            sensorObj.remove("fast_aqi");
+            sensorObj.remove("epa_aqi");
+        }
+        sensor_status = F("error");
     }
-    addValueToJSON(data, F("status"), sensor_status, F("Status"), F(""));
 
+    addValueToJSON(data, F("status"), sensor_status, F("Status"), F(""));
     deinit_i2c();
 }
