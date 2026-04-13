@@ -162,11 +162,42 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
         return;
     }
 
-    // Use Renesas-recommended fallback inputs until external BME280 compensation
-    // is wired in: RH = 50%, temperature = -300°C enables on-chip temperature usage.
     algo_input.adc_result = adc_result;
+
+    // Default Renesas fallback values:
+    // RH = 50%, temperature = -300°C enables on-chip temperature usage
     algo_input.humidity_pct = default_humidity;
     algo_input.temperature_degc = default_temperature;
+
+    // Prefer ambient temperature/humidity from BME280 when available
+    JsonObject bme = data[BME_SENSOR_NAME];
+    if (!bme.isNull())
+    {
+        JsonObject bme_humidity = bme["humidity"];
+        if (!bme_humidity.isNull() && bme_humidity["value"].is<float>())
+        {
+            float humidity = bme_humidity["value"].as<float>();
+            if (humidity >= 0.0f && humidity <= 100.0f)
+            {
+                algo_input.humidity_pct = humidity;
+            }
+        }
+
+        JsonObject bme_temperature = bme["temperature"];
+        if (!bme_temperature.isNull() && bme_temperature["value"].is<float>())
+        {
+            float temperature = bme_temperature["value"].as<float>();
+            if (temperature > -40.0f && temperature < 85.0f)
+            {
+                algo_input.temperature_degc = temperature;
+            }
+        }
+    }
+
+    debug_outln_verbose(
+        F("ZMOD4510 compensation T/RH: "),
+        String(algo_input.temperature_degc, 2) + F(" C, ") 
+        + String(algo_input.humidity_pct, 2) + F(" %"));
 
     // Convert raw sensor data into O3, NO2 and AQI values using the Renesas NO2_O3 library
     ret = calc_no2_o3(&algo_handle, &dev, &algo_input, &algo_results);
