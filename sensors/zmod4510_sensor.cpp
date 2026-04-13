@@ -180,18 +180,26 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
     debug_outln_verbose(F("ZMOD4510 NO2 [ppb]: "), String(last_no2_value, 2));
     debug_outln_verbose(F("ZMOD4510 FAST_AQI: "), String(last_fast_aqi_value, 0));
     debug_outln_verbose(F("ZMOD4510 EPA_AQI: "), String(last_epa_aqi_value, 0));
+    addValueToJSON(data, F("o3"), last_o3_value, F("O3"), F("ppb"));
+    addValueToJSON(data, F("no2"), last_no2_value, F("NO2"), F("ppb"));
+    addValueToJSON(data, F("fast_aqi"), last_fast_aqi_value, F("FAST AQI"), F(""));
+    addValueToJSON(data, F("epa_aqi"), last_epa_aqi_value, F("EPA AQI"), F(""));
 
     // The algorithm return code indicates result validity: warm-up, valid, or damage state
+    String sensor_status;
     switch (ret)
     {
     case NO2_O3_STABILIZATION:
         debug_outln_verbose(F("ZMOD4510 status: Warm-Up"));
+        sensor_status = F("warmup");
         break;
     case NO2_O3_OK:
         debug_outln_verbose(F("ZMOD4510 status: Valid"));
+        sensor_status = F("valid");
         break;
     case NO2_O3_DAMAGE:
         debug_outln_error(F("ZMOD4510 status: Damage"));
+        sensor_status = F("damage");
         break;
     default:
         debug_outln_error(F("ZMOD4510 algorithm calculation failed"));
@@ -199,6 +207,7 @@ void ZMOD4510Sensor::_fetch(JsonDocument &data)
         deinit_i2c();
         return;
     }
+    addValueToJSON(data, F("status"), sensor_status, F("Status"), F(""));
 
     deinit_i2c();
 }
