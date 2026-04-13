@@ -1,47 +1,109 @@
-# airRohr Sensor Firmware for SPS30, SDS011, DHT22, BMP180, BMP/E 280 and many more
+# Altruist Firmware
 
-## Features:
-* many environmental and air quality sensors can be used concurrently
-* Integration in Sensor.Community (formerly Luftdaten.Info)
-* Configuration via HTTP in local WiFi or with a Sensor-as Access-Point
-* Support for OLED- and LCD-Displays (SSD1306, SH1106 and LCD1602, LCD2004)
-* Wide selection of API integrations for measurement reporting
-* Ability to print measurements as CSV via USB-serial
-* Used with ESP8266 (NodeMCU v2/v3 and compatible) and ESP32 (experimental)
+Firmware for the Altruist environmental sensor station, built on ESP32-C6.
 
-## Buttons Control
+## Architecture Overview
+
+In the Robonomics sensors architecture, the Altruist plays two roles:
+
+- **Datalog reporting**: Signs and sends measurement datalogs directly to the Robonomics parachain via RPC node (every 10 minutes).
+- **Connectivity reporting**: Signs and sends measurement data to Sensors Connectivity Provider nodes via HTTP POST on port 65 (every 30 seconds).
+
+```
+Altruist (ESP32-C6)
+  |
+  |-- Signed extrinsic --> Robonomics Parachain (Polkadot)
+  |                            |
+  |                  RoSeMAN indexes --> MongoDB --> sensors.social
+  |
+  +-- Signed msg HTTP:65 --> Sensors Connectivity Provider
+        |-- Real-time: IPFS pubsub --> Robonomics dApp
+        +-- Batch: IPFS pin --> datalog hash --> Parachain
+```
+
+An ED25519 keypair is generated on first boot and stored in SPIFFS (`/config.json`). This identity is used to sign both datalog extrinsics and connectivity messages.
+
+The connectivity server pool is defined in `robonomics_servers.h` (currently 3 servers). On startup, the device polls all servers and picks one where it is already registered, or the least loaded one.
+
+Hardware reset (GPIO7) clears WiFi credentials and password but preserves the Robonomics identity.
+
+## Hardware Variants
+
+### Altruist Urban
+
+Outdoor station (ESP32-C6). Provides environmental and air quality measurements. Discovered by Insight devices via mDNS (`altruist._tcp`).
+
+### Altruist Insight
+
+Indoor station (ESP32-C6) with display and QR code support. Can aggregate data from nearby Urban devices over the local network.
+
+## Supported Sensors
+
+| Sensor | Measurement |
+|--------|-------------|
+| SDS011 | PM2.5, PM10 |
+| BMx280 (BMP/BME 280) | Temperature, humidity, pressure |
+| BME680 | Temperature, humidity, pressure, gas resistance |
+| SCD4x (SCD40/SCD41) | CO2, temperature, humidity |
+| RadSens | Radiation (counts per minute) |
+| I2S microphone | Noise level (dBA) |
+| GPS (Neo-6M) | Latitude, longitude |
+| HTTP Altruist sensor | Data from linked Urban devices |
+
+## Building and Flashing
+
+The project uses [PlatformIO](https://platformio.org/install/cli). Build environments are defined in `platformio.ini`.
+
+Build for a specific target:
+
+```bash
+pio run -e esp32c6_urban_en
+pio run -e esp32c6_inside_en
+```
+
+Flash:
+
+```bash
+pio run -e esp32c6_urban_en --target upload
+```
+
+Available environments: `esp32c6_urban_en`, `esp32c6_urban_ru`, `esp32c6_inside_en`, `esp32c6_inside_ru` (plus `_dev` variants with debug output).
+
+## Configuration
+
+On first boot (or after reset), the device starts in Access Point mode. Connect to its WiFi network and open the configuration page to set:
+
+- WiFi credentials
+- GPS coordinates
+- Sensor enable/disable
+- API endpoints
+
+After configuration, the device restarts and connects to the specified WiFi network. The web UI remains available on the local network for reconfiguration.
+
+## Button Controls
 
 ### Insight
 
-- `UP` or `DOWN` short press - show graphs screen or change graphs screen
-- `SET` short press - show main screen or refresh main screen
+- `UP` short press - previous screen
+- `DOWN` short press - next screen
+- `UP` / `DOWN` short press on **Graphs** screen - switch graph (at edges switches screen). Long press changes screen
+- `SET` long press - sleep
 - `SET` + `DOWN` long press (4s) - reset WiFi configuration
-- `SET` + `DOWN` are pressed while turn on - reset all configuration
+- `SET` + `DOWN` pressed while powering on - reset all configuration
 
 ### Urban
 
-- `SET` long press (4s) - reset WiFi configuration
-- `SET` is pressed while turn on - reset all configuration
+- `SET` long press (4s) -- reset WiFi configuration
+- `SET` pressed while powering on -- reset all configuration
 
 ## Contributing
 
-To add your Connectivity Robonomics Server to sensors firmware fork this repository and edit [robonomics_servers.h](./robonomics_servers.h) file. Add your server in a list in the following format:
-```bash
-{"<server_address>", <Region>}
-```
-Use one of the following variables fo region:
-```
-INTL_REGION_GLOBAL - Global Servers
-INTL_REGION_EU - Europe
-INTL_REGION_AS - Asia
-INTL_REGION_AF - Africa
-INTL_REGION_AU - Australia
-INTL_REGION_NA - North America
-INTL_REGION_SA - South America
-```
-For example:
-```
-{"connectivity.robonomics.network", INTL_REGION_GLOBAL}
+All development changes should be submitted as pull requests against the **beta** branch. The **master** branch reflects the current release firmware.
+
+To add a Connectivity Robonomics Server, fork this repository and edit `robonomics_servers.h`. Add your server:
+
+```c
+{"<server_address>", REGION_XX}
 ```
 
-Then make a pull request.
+Available regions: `REGION_GLOBAL`, `REGION_EU`, `REGION_AS`, `REGION_AF`, `REGION_AU`, `REGION_NA`, `REGION_SA`.

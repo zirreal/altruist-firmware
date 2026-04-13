@@ -29,6 +29,8 @@ namespace cfg {
 
 	extern char rws_owner[LEN_RWS_OWNER];
 	extern char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE];
+	extern char robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST];
+	extern char robonomics_connectivity_hosts[LEN_ROBONOMICS_CONNECTIVITY_HOSTS];
 	extern char private_key[LEN_PRIVATE_KEY];
 	extern char coords_gps[LEN_GPS_COORDS];
 

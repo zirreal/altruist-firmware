@@ -136,6 +136,13 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 #define BTN_SET_PIN -1
 #define BTN_UP_PIN -1
 
+// Urban reset button pin (ESP32-C3 boards).
+// Most ESP32-C3 variants of this project don't have this button populated,
+// so keep it disabled by default to avoid accidental GPIO conflicts.
+#ifndef URBAN_RESET_BTN_PIN
+#define URBAN_RESET_BTN_PIN -1
+#endif
+
 // Led pin
 
 #define LED_PIN -1
@@ -342,6 +349,12 @@ static const char CURRENT_REG[] PROGMEM = "Global";
 // #define PORT_ROBONOMICS 31112
 #define PORT_ROBONOMICS 65
 #define ROBONOMICS_PUBLIC_NODE "polkadot.rpc.robonomics.network"
+
+// Robonomics Map (connectivity) host override / pool.
+// - `robonomics_connectivity_host`: pinned single host (optional)
+// - `robonomics_connectivity_hosts`: list/pool of hosts to try (optional)
+#define LEN_ROBONOMICS_CONNECTIVITY_HOST 80
+#define LEN_ROBONOMICS_CONNECTIVITY_HOSTS 240
 
 // Donated by
 static const char DONATED_BY[] PROGMEM = "";

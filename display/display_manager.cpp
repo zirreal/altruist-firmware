@@ -539,6 +539,24 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         } else if (currentScreenID == ScreenPage::LOGO) {
             showLogoPage();
         } else if (currentScreenID == ScreenPage::SENSOR_MAP) {
+            // Sensor map QR target logic:
+            // - If Insight has valid GPS coords configured -> show Insight sensor QR
+            // - Otherwise -> show Urban sensor QR (wait for Urban ID, then fall back)
+            auto insightHasValidCoords = []() -> bool {
+                if (cfg::coords_gps == nullptr || strlen(cfg::coords_gps) == 0) return false;
+                double lat = 0.0, lon = 0.0;
+                if (sscanf(cfg::coords_gps, "%lf,%lf", &lat, &lon) != 2) return false;
+                if (lat == 0.0 && lon == 0.0) return false;
+                return true;
+            };
+
+            if (insightHasValidCoords()) {
+                sensor_map_waiting_addr  = false;
+                sensor_map_waiting_tries = 0;
+                showSensorsMapPage(robonomics_address);
+                goto draw_complete;
+            }
+
             // Refresh cache if Urban address present; if it appears newly, use it (with mutex)
             if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100))) {
                 if (sensors_data.containsKey("service_data")) {
