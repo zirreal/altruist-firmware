@@ -93,12 +93,18 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
 #define INTL_PANEL_TITLE_DATA_SHARING "Публикация на карту"
 #define INTL_DATA_SHARING_DISCLAIMER "По умолчанию все данные датчиков отправляются на публичную карту. Вы можете выбрать, какие данные передавать. Остальные данные будут отображаться на экране устройства и доступны локально."
+#define INTL_DATA_SHARING_ADDITIONAL "Доп. датчики (опционально)"
 const char INTL_SHARE_TEMPERATURE[] PROGMEM = "Температура";
 const char INTL_SHARE_HUMIDITY[] PROGMEM = "Влажность";
 const char INTL_SHARE_PRESSURE[] PROGMEM = "Давление";
 const char INTL_SHARE_CO2[] PROGMEM = "CO2";
 const char INTL_SHARE_PM[] PROGMEM = "Пыль (PM2.5/PM10)";
 const char INTL_SHARE_NOISE[] PROGMEM = "Уровень шума";
+const char INTL_SHARE_RADIATION[] PROGMEM = "Радиация";
+const char INTL_SHARE_O3[] PROGMEM = "Озон (O3)";
+const char INTL_SHARE_NO2[] PROGMEM = "Диоксид азота (NO2)";
+const char INTL_SHARE_FAST_AQI[] PROGMEM = "FAST AQI";
+const char INTL_SHARE_EPA_AQI[] PROGMEM = "EPA AQI";
 
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "Название WiFi устройства в режиме конфигурации";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Имя";

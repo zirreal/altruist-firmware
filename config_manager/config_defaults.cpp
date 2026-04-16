@@ -85,6 +85,12 @@ namespace cfg {
 	bool share_co2 = true;
 	bool share_pm = true;
 	bool share_noise = true;
+	// Additional (optional) sensors: default OFF (most devices don't have them)
+	bool share_radiation = false;
+	bool share_o3 = false;
+	bool share_no2 = false;
+	bool share_fast_aqi = false;
+	bool share_epa_aqi = false;
 
 	void initNonTrivials(const char* id) {
 		strcpy(cfg::current_lang, CURRENT_LANG);

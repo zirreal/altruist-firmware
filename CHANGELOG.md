@@ -2,7 +2,13 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
-## [R_2026-04.1](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-04.1) — 2026-04-09
+## [R_2026-04.2](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.2) — 2026-04-15
+
+### Improvements
+
+- **Publish to Map: additional Urban sensors** — added optional toggles for Radiation, O3, NO2, FAST AQI, and EPA AQI; shown under a dedicated “Additional sensors (optional)” section (off by default).
+
+## [R_2026-04.1](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.1) — 2026-04-09
 
 ### Bug Fixes
 
@@ -14,7 +20,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Analytics (Insight) clarity & layout polish** — analytics metric cards now explicitly indicate values are the _night average_ via an in-card label (`night avg`) and improved vertical spacing for better readability.
 - **Main screen (Insight) source clarity** — Urban-only metrics (Noise, PM) are labeled as `Urban only` to avoid confusion when viewing combined Urban/Insight data.
 
-## [R_2026-04](https://github.com/airalab/altruist-firmware/releases/tag/R_2026-04) — 2026-04-01
+## [R_2026-04](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04) — 2026-04-01
 
 ### Bug Fixes
 

@@ -71,6 +71,14 @@ void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig
 #ifdef ALTRUIST_URBAN
 	page_content += form_checkbox(Config_share_pm, FPSTR(INTL_SHARE_PM), false);
 	page_content += form_checkbox(Config_share_noise, FPSTR(INTL_SHARE_NOISE), false);
+	page_content += F("<div style='margin-top:14px;margin-bottom:14px;font-size:14px;color:#555;'>");
+	page_content += F(INTL_DATA_SHARING_ADDITIONAL);
+	page_content += F("</div>");
+	page_content += form_checkbox(Config_share_radiation, FPSTR(INTL_SHARE_RADIATION), false);
+	page_content += form_checkbox(Config_share_o3, FPSTR(INTL_SHARE_O3), false);
+	page_content += form_checkbox(Config_share_no2, FPSTR(INTL_SHARE_NO2), false);
+	page_content += form_checkbox(Config_share_fast_aqi, FPSTR(INTL_SHARE_FAST_AQI), false);
+	page_content += form_checkbox(Config_share_epa_aqi, FPSTR(INTL_SHARE_EPA_AQI), false);
 #endif
 	page_content += F("</div></div>");
 }
