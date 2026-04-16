@@ -86,6 +86,11 @@ namespace cfg {
 	extern bool share_co2;
 	extern bool share_pm;
 	extern bool share_noise;
+	extern bool share_radiation;
+	extern bool share_o3;
+	extern bool share_no2;
+	extern bool share_fast_aqi;
+	extern bool share_epa_aqi;
 
 	extern void initNonTrivials(const char* id);
 }

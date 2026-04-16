@@ -93,12 +93,18 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
 #define INTL_PANEL_TITLE_DATA_SHARING "Publish to Map"
 #define INTL_DATA_SHARING_DISCLAIMER "By default, all sensor data is shared to the public sensors map. You can choose which data types to share below. Unshared data will still be displayed on your device screen and available locally."
+#define INTL_DATA_SHARING_ADDITIONAL "Additional sensors (optional)"
 const char INTL_SHARE_TEMPERATURE[] PROGMEM = "Temperature";
 const char INTL_SHARE_HUMIDITY[] PROGMEM = "Humidity";
 const char INTL_SHARE_PRESSURE[] PROGMEM = "Pressure";
 const char INTL_SHARE_CO2[] PROGMEM = "CO2";
 const char INTL_SHARE_PM[] PROGMEM = "Particulate Matter (PM2.5/PM10)";
 const char INTL_SHARE_NOISE[] PROGMEM = "Noise Level";
+const char INTL_SHARE_RADIATION[] PROGMEM = "Radiation";
+const char INTL_SHARE_O3[] PROGMEM = "Ozone (O3)";
+const char INTL_SHARE_NO2[] PROGMEM = "Nitrogen dioxide (NO2)";
+const char INTL_SHARE_FAST_AQI[] PROGMEM = "FAST AQI";
+const char INTL_SHARE_EPA_AQI[] PROGMEM = "EPA AQI";
 
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "WiFi Sensor in configuration mode";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Network name";

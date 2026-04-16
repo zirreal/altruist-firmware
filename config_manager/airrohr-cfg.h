@@ -91,6 +91,11 @@ enum ConfigShapeId {
 	Config_share_co2,
 	Config_share_pm,
 	Config_share_noise,
+	Config_share_radiation,
+	Config_share_o3,
+	Config_share_no2,
+	Config_share_fast_aqi,
+	Config_share_epa_aqi,
 };
 static constexpr char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 static constexpr char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
@@ -154,6 +159,11 @@ static constexpr char CFG_KEY_SHARE_PRESSURE[] PROGMEM = "share_pressure";
 static constexpr char CFG_KEY_SHARE_CO2[] PROGMEM = "share_co2";
 static constexpr char CFG_KEY_SHARE_PM[] PROGMEM = "share_pm";
 static constexpr char CFG_KEY_SHARE_NOISE[] PROGMEM = "share_noise";
+static constexpr char CFG_KEY_SHARE_RADIATION[] PROGMEM = "share_radiation";
+static constexpr char CFG_KEY_SHARE_O3[] PROGMEM = "share_o3";
+static constexpr char CFG_KEY_SHARE_NO2[] PROGMEM = "share_no2";
+static constexpr char CFG_KEY_SHARE_FAST_AQI[] PROGMEM = "share_fast_aqi";
+static constexpr char CFG_KEY_SHARE_EPA_AQI[] PROGMEM = "share_epa_aqi";
 static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::current_lang)-1, CFG_KEY_CURRENT_LANG, cfg::current_lang },
 	{ Config_Type_String, sizeof(cfg::wlanssid)-1, CFG_KEY_WLANSSID, cfg::wlanssid },
@@ -217,6 +227,11 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_CO2, &cfg::share_co2 },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_PM, &cfg::share_pm },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_NOISE, &cfg::share_noise },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_RADIATION, &cfg::share_radiation },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_O3, &cfg::share_o3 },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_NO2, &cfg::share_no2 },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_FAST_AQI, &cfg::share_fast_aqi },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_EPA_AQI, &cfg::share_epa_aqi },
 };
           
 #endif // __CONFIG_H__
