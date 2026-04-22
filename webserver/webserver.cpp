@@ -237,7 +237,9 @@ void SensorWebServer::_webserver_guest() {
 
 			int counter = 0;
 			while (WiFi.status() != WL_CONNECTED) {
-				if (counter > 60) {
+				// Fail-fast: don't keep user stuck on "Connecting..." for too long.
+				// 20 * 500ms = ~10s.
+				if (counter > 20) {
 					break;
 				}
 				delay(500);
@@ -361,8 +363,20 @@ void SensorWebServer::_webserver_guest() {
 				page_content = F("<h2 class='guest__connect-subtitle error'>Connection Failed</h2>"
 								"<p class='guest__reboot'>Failed to connect to: ");
 				page_content += cfg::wlanssid;
-				page_content += F("</p><div class='guest__connect-status'><span class='guest__reboot'>" INTL_GUEST_OPEN_IP_HINT "</span></div>\n");
+				page_content += F("</p>");
+#ifdef ALTRUIST_INSIDE
+				page_content += F("<p class='guest__reboot'>Rebooting to WiFi setup… You can close this page and try again.</p>");
+#endif
 				server.sendContent(page_content);
+
+#ifdef ALTRUIST_INSIDE
+				// For Insight: reboot back into WiFi setup quickly so user can retry.
+				if (writeConfig()) {
+					set_restart_reason(RESTART_REASON_CONFIG);
+					sensor_restart();
+				}
+				return;
+#endif
 			}
 
 			if (writeConfig()) {
