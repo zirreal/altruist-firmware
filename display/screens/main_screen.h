@@ -22,6 +22,11 @@ struct main_screen_values_t {
     float co2 = -1;
     String ip_address = "";
     String urban_robonomics_address = "";
+
+    // Urban connectivity freshness (TTL)
+    // 0 = unknown/online, 1 = stale, 2 = offline
+    uint8_t urban_ttl_state = 0;
+    uint16_t urban_age_min = 0;
 };
 
 void extractMainScreenValues(const JsonDocument &data, main_screen_values_t &values);

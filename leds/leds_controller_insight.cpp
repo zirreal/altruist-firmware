@@ -166,7 +166,32 @@ void LedControllerInsight::process() {
         uint32_t urban_pressure_color = white;
         uint32_t insight_pressure_color = white;
 
-        if (sensors_data.containsKey(ATRUIST_URBAN_SENSOR)) {
+        // Apply the same TTL semantics as the main screen:
+        // if Urban hasn't been refreshed recently, ignore cached Urban values
+        // so LED segments don't look "connected" forever.
+        bool urban_fresh = true;
+        {
+            const uint32_t URBAN_STALE_AFTER_MS   = 6UL * 60UL * 1000UL;
+            const uint32_t URBAN_OFFLINE_AFTER_MS = 10UL * 60UL * 1000UL;
+            uint32_t last_ok_ms = 0;
+            if (sensors_data.containsKey("service_data")) {
+                JsonObjectConst service = sensors_data["service_data"].as<JsonObjectConst>();
+                if (!service.isNull() && service.containsKey("urban_last_ok_ms")) {
+                    last_ok_ms = service["urban_last_ok_ms"].as<uint32_t>();
+                }
+            }
+            if (last_ok_ms != 0) {
+                const uint32_t age_ms = (uint32_t)(millis() - last_ok_ms);
+                if (age_ms > URBAN_OFFLINE_AFTER_MS) {
+                    urban_fresh = false;
+                } else if (age_ms > URBAN_STALE_AFTER_MS) {
+                    // Stale: treat as disconnected for LEDs to match UI icon behavior.
+                    urban_fresh = false;
+                }
+            }
+        }
+
+        if (urban_fresh && sensors_data.containsKey(ATRUIST_URBAN_SENSOR)) {
             if (sensors_data[ATRUIST_URBAN_SENSOR].containsKey("SDS_P1")) {
                 pm10_color = _getColorByThresholds(
                     sensors_data[ATRUIST_URBAN_SENSOR]["SDS_P1"]["value"].as<float>(),

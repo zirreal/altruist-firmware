@@ -399,6 +399,44 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
             values.noise_avg = isValidRange(noise, 0, 120) ? noise : -1;
         }
     }
+
+    // Urban TTL: if we haven't successfully fetched Urban data recently,
+    // don't keep showing stale cached values as "live".
+    //
+    // We store the last successful fetch timestamp in service_data. If it gets too old,
+    // treat Urban as offline (hide metrics + show disconnected icon).
+    {
+        const uint32_t URBAN_STALE_AFTER_MS   = 6UL * 60UL * 1000UL;   // ~1 fetch interval + buffer
+        const uint32_t URBAN_OFFLINE_AFTER_MS = 10UL * 60UL * 1000UL;  // ~2 fetch intervals
+        uint32_t last_ok_ms = 0;
+        if (data.containsKey("service_data")) {
+            JsonObjectConst service = data["service_data"].as<JsonObjectConst>();
+            if (!service.isNull() && service.containsKey("urban_last_ok_ms")) {
+                last_ok_ms = service["urban_last_ok_ms"].as<uint32_t>();
+            }
+        }
+        if (last_ok_ms != 0) {
+            const uint32_t age_ms = (uint32_t)(millis() - last_ok_ms);
+            values.urban_age_min = (uint16_t)(age_ms / 60000UL);
+            if (age_ms > URBAN_OFFLINE_AFTER_MS) {
+                values.urban_ttl_state = 2; // offline
+                // Mark as offline: clear all Urban-derived values so UI shows "no data".
+                values.pm10 = -1;
+                values.pm25 = -1;
+                values.noise_avg = -1;
+                values.noise_max = -1;
+                values.temp_outdoor = -1000;
+                values.hum_outdoor = -1;
+                values.press_outdoor = -1;
+                values.ip_address = "";
+            } else if (age_ms > URBAN_STALE_AFTER_MS) {
+                values.urban_ttl_state = 1; // stale
+                // Stale but not yet fully offline: still show last values,
+                // but mark source as "not currently connected".
+                values.ip_address = "";
+            }
+        }
+    }
     
     // Update metrics to get current uptime
     updateMetrics();
@@ -675,15 +713,13 @@ static void drawPairNumbersWithUnits(uint16_t x, uint16_t y,
     const uint16_t sep_gap_left = 6;
     const uint16_t sep_gap_right = 6;
     cur_x += sep_gap_left;
-    // Draw separator slightly smaller than the numbers (18px).
-    sFONT* sep_font_en = &Font24; // EN uses glyph overrides when provided
-    const Font* sep_font_ru = &font_18_cyrillic;
-    const Font* sep_font_ascii = &font_18_ascii;
-    const char *sep = "|";
-    const uint16_t sep_y = y + 2; // separator slightly lower
-    Paint_DrawString_Display(cur_x, sep_y, sep, sep_font_en, sep_font_ru, sep_font_ascii, WHITE, BLACK);
-    // Advance by the actual separator width for clean spacing.
-    const uint16_t sep_w = Paint_GetStringWidth_Display(sep, sep_font_en, sep_font_ru, sep_font_ascii);
+    // Separator: draw a visible centered dot (not a glyph), since small '.' glyphs
+    // can become nearly invisible on e-ink with some fonts.
+    const uint16_t sep_w = 8;                 // width budget for the separator area
+    const uint16_t dot_x = cur_x + (sep_w/2); // center of separator area
+    const uint16_t dot_y = y + 15;            // slightly lower for better visual centering
+    Paint_DrawPoint(dot_x, dot_y, BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
+    // Advance by a fixed width so spacing stays stable.
     cur_x += sep_w + sep_gap_right;
     drawNumberWithUnit(cur_x, y, v2, u2);
 }
@@ -700,24 +736,27 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     const uint16_t header_row_height = Font16.Height + 2; 
     uint16_t       header_bottom_border_y = header_top_y + header_row_height + 2;
 
-    if (getLocalTime(&timeinfo)) {
-        char date_buf[12], time_buf[8];
+    // Left: current page icon (always visible even if time isn't synced yet)
+    const uint16_t header_icon_size = 15;
+    const uint16_t header_icon_x    = 4;
+    const uint16_t header_icon_y    = header_top_y;
+    Paint_DrawImage(home_nav_15x15, header_icon_x, header_icon_y, header_icon_size, header_icon_size);
+
+    char date_buf[12] = {0};
+    char time_buf[8] = {0};
+    const bool has_time = getLocalTime(&timeinfo);
+    if (has_time) {
         strftime(date_buf, sizeof(date_buf), "%m/%d/%Y", &timeinfo);
         strftime(time_buf, sizeof(time_buf), "%H:%M",    &timeinfo);
+    }
 
-        // Left: current page icon 
-        const uint16_t header_icon_size = 15;
-        const uint16_t header_icon_x    = 4;
-        const uint16_t header_icon_y    = header_top_y;
-        Paint_DrawImage(home_nav_15x15, header_icon_x, header_icon_y, header_icon_size, header_icon_size);
-
-        // Center: time in bold (same display font as rest of UI)
+    // Center/right: only show when time is valid (NTP synced)
+    if (has_time) {
         int time_width = (int)Paint_GetStringWidth_Display(time_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         int time_x = (DISPLAY_WIDTH - time_width) / 2;
         int time_y = header_top_y;
         Paint_DrawString_Display(time_x, time_y, time_buf, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
-        // Right: date (same font as time for consistent header look)
         int date_width = (int)Paint_GetStringWidth_Display(date_buf, &Font16, &font_16_cyrillic, &font_16_ascii);
         const int right_margin = 4;
         int date_x = DISPLAY_WIDTH - right_margin - date_width;
@@ -785,6 +824,28 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     uint16_t tx = (title_x > 0) ? (uint16_t)title_x : 0;
     uint16_t ty = body_top + 13;
     Paint_DrawString_Display(tx, ty, title_left, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+
+    // Urban freshness label (TTL): show under "URBAN", but keep it above the dotted separator.
+    if (values.urban_ttl_state == 1 || values.urban_ttl_state == 2) {
+        char ttl_buf[24];
+        if (values.urban_ttl_state == 2) {
+            strncpy(ttl_buf, "offline", sizeof(ttl_buf));
+            ttl_buf[sizeof(ttl_buf) - 1] = '\0';
+        } else {
+            snprintf(ttl_buf, sizeof(ttl_buf), "stale %um", (unsigned)values.urban_age_min);
+        }
+        // Place the label directly under "URBAN" title.
+        const uint16_t ttl_x = tx;
+        uint16_t ttl_y = ty + Font16.Height + 2;
+        // Ensure it doesn't cross the dotted separator line.
+        // top_sep_y is computed later as body_top + 44 (or based on QR), so we use that worst-case minimum here.
+        const uint16_t top_sep_y_min = body_top + 44;
+        if (ttl_y + Font12.Height >= top_sep_y_min) {
+            ttl_y = (top_sep_y_min > (Font12.Height + 1)) ? (top_sep_y_min - Font12.Height - 1) : ttl_y;
+        }
+        Paint_DrawString_Display(ttl_x, ttl_y, ttl_buf, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    }
+
     tx += w_left + title_gap_left;
     // Normal separator glyph (no dotted rendering).
     Paint_DrawString_Display(tx, ty, title_sep, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
@@ -929,19 +990,19 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     String insight_issues = "";
 
     if (footer_test_all_warnings) {
-        appendIssue(urban_issues, makeTooPhrase("RH", -1));
+        appendIssue(urban_issues, makeTooPhrase("Hum.", -1));
         appendIssue(urban_issues, makeTooPhrase(INTL_DISP_TEMP_SHORT, 1));
         appendIssue(urban_issues, makeTooPhrase(INTL_DISP_PRESS_SHORT, -1));
         appendIssue(urban_issues, makeTooPhrase("PM", 1));
         appendIssue(urban_issues, makeTooPhrase(INTL_DISP_NOISE, 1));
         appendIssue(urban_issues, String(INTL_DISP_DEW_POINT_IS) + String("12°C"));
-        appendIssue(insight_issues, makeTooPhrase("RH", 1));
+        appendIssue(insight_issues, makeTooPhrase("Hum.", 1));
         appendIssue(insight_issues, makeTooPhrase(INTL_DISP_TEMP_SHORT, 1));
         appendIssue(insight_issues, makeTooPhrase(INTL_DISP_PRESS_SHORT, -1));
         appendIssue(insight_issues, makeTooPhrase("CO2", 1));
     } else {
-        if (hum_out_dir != 0) appendIssue(urban_issues, makeTooPhrase("RH", hum_out_dir));
-        if (hum_in_dir != 0) appendIssue(insight_issues, makeTooPhrase("RH", hum_in_dir));
+        if (hum_out_dir != 0) appendIssue(urban_issues, makeTooPhrase("Hum.", hum_out_dir));
+        if (hum_in_dir != 0) appendIssue(insight_issues, makeTooPhrase("Hum.", hum_in_dir));
 
         if (temp_out_dir != 0) appendIssue(urban_issues, makeTooPhrase(INTL_DISP_TEMP_SHORT, temp_out_dir));
         if (temp_in_dir != 0) appendIssue(insight_issues, makeTooPhrase(INTL_DISP_TEMP_SHORT, temp_in_dir));

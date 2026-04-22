@@ -110,6 +110,16 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data) {
 		is_ok = false;
 		return;
 	}
+
+	// If time isn't synced yet, signing will fail and we'll spam DNS/HTTP retries.
+	// Skip Map sends until NTP time becomes available.
+	struct tm timeinfo;
+	if (!getLocalTime(&timeinfo)) {
+		debug_outln_info(F("[Map] Skipping send: time not synced yet"));
+		is_ok = false;
+		return;
+	}
+
 	formatDataToSend(data_to_send, data);
     debug_outln_verbose(F("[Map] Payload: "), data_to_send);
 	is_ok = false;
