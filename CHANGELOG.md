@@ -2,6 +2,18 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
+## [R_2026-04.3](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.3) — 2026-04-22
+
+### Bug Fixes
+
+- **Insight (ESP32-C6): prevent reboot loop during time sync** — replaced time setup path with a safe SNTP init to avoid lwIP asserts during boot (e.g. `udp_new_ip_type`, `tcpip_timeouts_mbox_fetch`, `sys_mutex_unlock`).
+- **Robonomics Map: avoid send attempts before time is synced** — Map send is skipped until `getLocalTime()` is available, preventing empty signatures and reducing DNS/HTTP retry spam on networks without internet.
+
+### Improvements
+
+- **Main screen readability** — numeric value separator is rendered as a visible dot and its vertical position was adjusted for better visual centering on e-ink.
+- **Urban disconnect handling (Insight)** — added TTL-based stale/offline detection for Urban data so Insight UI/LEDs stop showing outdated Urban readings after Urban is powered off.
+
 ## [R_2026-04.2](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.2) — 2026-04-15
 
 ### Improvements

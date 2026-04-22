@@ -66,6 +66,16 @@
 // ESP32 system includes for reset reason
 #include <esp_system.h>
 #include <Preferences.h>
+#if defined(ESP32)
+// Run some lwIP operations on the TCPIP thread (ESP32-C6 asserts otherwise).
+#include <lwip/tcpip.h>
+#include <lwip/apps/sntp.h>
+#include <esp_netif.h>
+#ifdef CONFIG_LWIP_TCPIP_CORE_LOCKING
+// Needed for sys_thread_tcpip() + LWIP_CORE_LOCK_QUERY_HOLDER (Arduino core uses it too).
+#include <lwip/priv/tcpip_priv.h>
+#endif
+#endif
 
 #define ARDUINOJSON_ENABLE_ARDUINO_STREAM 0
 #define ARDUINOJSON_ENABLE_ARDUINO_PRINT 0
@@ -430,15 +440,57 @@ static void setupEnabledAPIs() {
 
 }
 
+#if defined(ESP32)
+// Workaround for a core bug in Arduino-ESP32 configTzTime()/configTime()
+// when CONFIG_LWIP_TCPIP_CORE_LOCKING is enabled: it may UNLOCK_TCPIP_CORE()
+// even if it never LOCKed it, causing sys_mutex_unlock asserts on ESP32-C6.
+static void safeConfigTzTime(const char* tz, const char* server1, const char* server2, const char* server3) {
+	esp_netif_init();
+
+	bool locked = false;
+#ifdef CONFIG_LWIP_TCPIP_CORE_LOCKING
+	if (!sys_thread_tcpip(LWIP_CORE_LOCK_QUERY_HOLDER)) {
+		LOCK_TCPIP_CORE();
+		locked = true;
+	}
+#endif
+
+	if (sntp_enabled()) {
+		sntp_stop();
+	}
+
+	sntp_setoperatingmode(SNTP_OPMODE_POLL);
+	sntp_setservername(0, (char*)server1);
+	sntp_setservername(1, (char*)server2);
+	sntp_setservername(2, (char*)server3);
+	sntp_init();
+
+#ifdef CONFIG_LWIP_TCPIP_CORE_LOCKING
+	if (locked) {
+		UNLOCK_TCPIP_CORE();
+	}
+#endif
+
+	setenv("TZ", tz, 1);
+	tzset();
+}
+#endif
+
 static void setupNetworkTime() {
 	// server name ptrs must be persisted after the call to configTime because internally
 	// the pointers are stored see implementation of lwip sntp_setservername()
 	debug_outln_info(F("Setup time, timezone: "), cfg::timezone);
+
 	static char ntpServer1[18], ntpServer2[18];
 	strcpy_P(ntpServer1, NTP_SERVER_1);
 	strcpy_P(ntpServer2, NTP_SERVER_2);
 
+#if defined(ESP32)
+	// Use safe SNTP init to avoid lwIP core-locking asserts on ESP32-C6.
+	safeConfigTzTime(cfg::timezone, ntpServer1, ntpServer2, "");
+#else
 	configTzTime(cfg::timezone, ntpServer1, ntpServer2);
+#endif
 }
 
 static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &doc, analytics_screen_values_t &values) {
@@ -935,7 +987,6 @@ void setup(void) {
 		strcpy(cfg::current_lang, CURRENT_LANG);
 		writeConfig();
 	}
-	setupNetworkTime();
 	setupEnabledAPIs();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
 #ifdef ALTRUIST_INSIDE
@@ -965,6 +1016,12 @@ void setup(void) {
 		leds_controller_urban.process();
 #endif
 		wifiConfig(webserver);
+	}
+
+	// Configure SNTP time only after TCP/IP + WiFi are up.
+	// On ESP32-C6 we observed lwIP asserts when configTzTime() runs before WiFi is connected.
+	if (WiFi.status() == WL_CONNECTED) {
+		setupNetworkTime();
 	}
 #ifdef ALTRUIST_URBAN
 		leds_controller_urban.setMode(LedMode::GREEN);

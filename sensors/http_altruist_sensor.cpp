@@ -254,6 +254,15 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
         }
         // Mark JSON as updated so SD card logger (and graph data) see Urban data
         _jsonUpdated = true;
+
+        // TTL support: remember last time we successfully received Urban data.
+        // UI can use this to mark Urban as stale/offline instead of showing old cached values forever.
+        {
+            JsonObject service = data["service_data"].isNull()
+                ? data.createNestedObject("service_data")
+                : data["service_data"].as<JsonObject>();
+            service["urban_last_ok_ms"] = (uint32_t)millis();
+        }
         // Capture Urban device's Robonomics address from data.json, or fallback to HTML extraction
         bool has_urban_addr = false;
         if (doc.containsKey("service_data") && doc["service_data"].containsKey("robonomics_address")) {

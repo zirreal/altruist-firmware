@@ -56,7 +56,7 @@ void addTimeAndSign(const String &data, String &signature, Robonomics *robonomic
   // Get the local time.
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
-    debug_outln_error(F("Failed to obtain time"));
+    debug_outln_verbose(F("Failed to obtain time"));
     return;
   }
   debug_outln_info(F("Local time: "), timeinfo.tm_hour);
