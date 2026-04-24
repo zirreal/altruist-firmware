@@ -1276,7 +1276,7 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
         if (p_has) { pm25_sum += use_prev ? pm25_prev[h] : pm25_day[h]; pm25_count++; }
         if (n_has) { noise_sum += use_prev ? noise_prev[h] : noise_day[h]; noise_count++; }
         if (t_has) { temp_sum += use_prev ? temp_prev[h] : temp_day[h]; temp_count++; }
-        if (hum_has) { hum_sum += use_prev ? hum_prev[h] : hum_has_day[h]; hum_count++; }
+        if (hum_has) { hum_sum += use_prev ? hum_prev[h] : hum_day[h]; hum_count++; }
     }
     has_co2 = (co2_count > 0U);
     has_pm25 = (pm25_count > 0U);

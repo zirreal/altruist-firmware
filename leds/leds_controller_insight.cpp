@@ -4,6 +4,7 @@
 #include <string.h>
 #include "../utils.h"
 #include "../config_manager/config_helpers.h"
+#include "../defines.h"
 
 static uint32_t scaleColor(uint32_t color, uint8_t percent) {
     if (percent >= 100) return color;
@@ -171,8 +172,6 @@ void LedControllerInsight::process() {
         // so LED segments don't look "connected" forever.
         bool urban_fresh = true;
         {
-            const uint32_t URBAN_STALE_AFTER_MS   = 6UL * 60UL * 1000UL;
-            const uint32_t URBAN_OFFLINE_AFTER_MS = 10UL * 60UL * 1000UL;
             uint32_t last_ok_ms = 0;
             if (sensors_data.containsKey("service_data")) {
                 JsonObjectConst service = sensors_data["service_data"].as<JsonObjectConst>();
@@ -180,14 +179,18 @@ void LedControllerInsight::process() {
                     last_ok_ms = service["urban_last_ok_ms"].as<uint32_t>();
                 }
             }
-            if (last_ok_ms != 0) {
-                const uint32_t age_ms = (uint32_t)(millis() - last_ok_ms);
+            const uint32_t now_ms = (uint32_t)millis();
+            if (last_ok_ms != 0 && last_ok_ms <= now_ms) {
+                const uint32_t age_ms = (uint32_t)(now_ms - last_ok_ms);
                 if (age_ms > URBAN_OFFLINE_AFTER_MS) {
                     urban_fresh = false;
                 } else if (age_ms > URBAN_STALE_AFTER_MS) {
                     // Stale: treat as disconnected for LEDs to match UI icon behavior.
                     urban_fresh = false;
                 }
+            } else if (last_ok_ms > now_ms) {
+                // Invalid timestamp; don't force "disconnected" instantly.
+                urban_fresh = true;
             }
         }
 

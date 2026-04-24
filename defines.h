@@ -1,13 +1,15 @@
 #ifndef __DEFINES_H__
 #define __DEFINES_H__
 
+#include <stdint.h>
+
 // increment on change
 #if defined(ALTRUIST_INSIDE)
-#define SOFTWARE_VERSION_STR "R-INS_2026-04"
+#define SOFTWARE_VERSION_STR "R-INS_2026-04.4"
 #define PM_SENSOR_NAME "Altruist Insight"
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_STR "R-URB_2026-04"
+#define SOFTWARE_VERSION_STR "R-URB_2026-04.4"
 #define PM_SENSOR_NAME "Altruist Urban"
 #endif
 
@@ -92,6 +94,13 @@ constexpr const unsigned long DISPLAY_UPDATE_INTERVAL_MS = 5000;						// time be
 constexpr const unsigned long ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 constexpr const unsigned long PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS = ONE_DAY_IN_MS;		// check for firmware updates once a day
 constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS * 28;	// force a reboot every ~4 weeks
+
+// ------------------------------------------------------------
+// Urban TTL constants (Insight only)
+// ------------------------------------------------------------
+constexpr const uint32_t URBAN_STALE_AFTER_MS   = 6UL * 60UL * 1000UL;   // ~1 fetch interval + buffer
+constexpr const uint32_t URBAN_OFFLINE_AFTER_MS = 10UL * 60UL * 1000UL;  // ~2 fetch intervals
+constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL;
 
 // Pins Config
 

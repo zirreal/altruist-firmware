@@ -406,8 +406,10 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
     // We store the last successful fetch timestamp in service_data. If it gets too old,
     // treat Urban as offline (hide metrics + show disconnected icon).
     {
-        const uint32_t URBAN_STALE_AFTER_MS   = 6UL * 60UL * 1000UL;   // ~1 fetch interval + buffer
-        const uint32_t URBAN_OFFLINE_AFTER_MS = 10UL * 60UL * 1000UL;  // ~2 fetch intervals
+        // Default: assume "fresh/online" unless TTL says otherwise.
+        values.urban_ttl_state = 0;
+        values.urban_age_min = 0;
+
         uint32_t last_ok_ms = 0;
         if (data.containsKey("service_data")) {
             JsonObjectConst service = data["service_data"].as<JsonObjectConst>();
@@ -415,8 +417,9 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
                 last_ok_ms = service["urban_last_ok_ms"].as<uint32_t>();
             }
         }
-        if (last_ok_ms != 0) {
-            const uint32_t age_ms = (uint32_t)(millis() - last_ok_ms);
+        const uint32_t now_ms = (uint32_t)millis();
+        if (last_ok_ms != 0 && last_ok_ms <= now_ms) {
+            const uint32_t age_ms = (uint32_t)(now_ms - last_ok_ms);
             values.urban_age_min = (uint16_t)(age_ms / 60000UL);
             if (age_ms > URBAN_OFFLINE_AFTER_MS) {
                 values.urban_ttl_state = 2; // offline
@@ -435,6 +438,10 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
                 // but mark source as "not currently connected".
                 values.ip_address = "";
             }
+        } else if (last_ok_ms > now_ms) {
+            // Guard against invalid/uninitialized timestamps (would underflow and look "instantly offline").
+            values.urban_ttl_state = 0;
+            values.urban_age_min = 0;
         }
     }
     
@@ -716,9 +723,12 @@ static void drawPairNumbersWithUnits(uint16_t x, uint16_t y,
     // Separator: draw a visible centered dot (not a glyph), since small '.' glyphs
     // can become nearly invisible on e-ink with some fonts.
     const uint16_t sep_w = 8;                 // width budget for the separator area
-    const uint16_t dot_x = cur_x + (sep_w/2); // center of separator area
-    const uint16_t dot_y = y + 15;            // slightly lower for better visual centering
-    Paint_DrawPoint(dot_x, dot_y, BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
+    const uint16_t dot_y = y + 14;      
+    const uint16_t mid_x = cur_x + (sep_w / 2);
+    const uint16_t dot_dy = 6; // spacing between dots (in px)
+    Paint_DrawPoint(mid_x, dot_y - dot_dy, BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
+    Paint_DrawPoint(mid_x, dot_y,          BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
+    Paint_DrawPoint(mid_x, dot_y + dot_dy, BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
     // Advance by a fixed width so spacing stays stable.
     cur_x += sep_w + sep_gap_right;
     drawNumberWithUnit(cur_x, y, v2, u2);
@@ -810,14 +820,13 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     Paint_DrawImage(urban_32x32, urban_icon_x, source_icon_y, source_icon_size, source_icon_size);
     Paint_DrawImage(insight_32x32, insight_icon_x, source_icon_y, source_icon_size, source_icon_size);
 
-    // Draw "URBAN | INSIGHT" with controlled pixel gaps (match number separator feel).
+    // Draw "URBAN ⋮ INSIGHT" with controlled pixel gaps (match number separator feel).
     const char *title_left = "URBAN";
-    const char *title_sep = "|";
     const char *title_right = "INSIGHT";
     const uint16_t title_gap_left = 4;
     const uint16_t title_gap_right = 4;
     const uint16_t w_left = Paint_GetStringWidth_Display(title_left, &Font16, &font_16_cyrillic, &font_16_ascii);
-    const uint16_t w_sep = Paint_GetStringWidth_Display(title_sep, &Font16, &font_16_cyrillic, &font_16_ascii);
+    const uint16_t w_sep = 10; // fixed width budget for the dotted separator
     const uint16_t w_right = Paint_GetStringWidth_Display(title_right, &Font16, &font_16_cyrillic, &font_16_ascii);
     const uint16_t title_w = w_left + title_gap_left + w_sep + title_gap_right + w_right;
     int title_x = content_left + ((int)content_width - (int)title_w) / 2;
@@ -847,8 +856,15 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     }
 
     tx += w_left + title_gap_left;
-    // Normal separator glyph (no dotted rendering).
-    Paint_DrawString_Display(tx, ty, title_sep, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
+    // Dotted separator ("⋮") in the title.
+    {
+        const uint16_t mid_x = tx + (w_sep / 2);
+        const uint16_t dot_center_y = ty + (Font16.Height / 2) + 2;
+        const uint16_t dot_dy = 6;
+        Paint_DrawPoint(mid_x, dot_center_y - dot_dy, BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
+        Paint_DrawPoint(mid_x, dot_center_y,          BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
+        Paint_DrawPoint(mid_x, dot_center_y + dot_dy, BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
+    }
     tx += w_sep + title_gap_right;
     Paint_DrawString_Display(tx, ty, title_right, &Font16, &font_16_cyrillic, &font_16_ascii, WHITE, BLACK);
 
@@ -885,14 +901,26 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     char temp_out[16], temp_in[16], hum_out[16], hum_in[16], press_out[16], press_in[16];
     char pm10_str[16], pm25_str[16], noise_avg[12], noise_max[12], co2_str[16];
     const bool footer_test_all_warnings = false; // temporary UI-fit test mode
+    const bool force_all_warning_icons = false;  // layout test: show warning icons for all metrics
+    if (force_all_warning_icons) {
+        temp_icon_dir = 1;
+        hum_icon_dir = 1;
+        press_icon_dir = 1;
+        co2_icon_dir = 1;
+        noise_icon_dir = 1;
+        pm_icon_dir = 1;
+    }
     formatMetricValue(temp_out, sizeof(temp_out), values.temp_outdoor, 0, true);
     formatMetricValue(temp_in, sizeof(temp_in), values.temp_indoor, 0, true);
     formatMetricValue(hum_out, sizeof(hum_out), values.hum_outdoor, 0, false);
     formatMetricValue(hum_in, sizeof(hum_in), values.hum_indoor, 0, false);
     formatMetricValue(press_out, sizeof(press_out), values.press_outdoor, 0, false);
     formatMetricValue(press_in, sizeof(press_in), values.press_indoor, 0, false);
-    formatMetricValue(pm10_str, sizeof(pm10_str), values.pm10, 0, false);
-    formatMetricValue(pm25_str, sizeof(pm25_str), values.pm25, 0, false);
+    // PM: keep decimals for sub-1.0 values (avoid rounding to 0).
+    const uint8_t pm10_prec = (!isGenericNoData(values.pm10) && values.pm10 > 0.0f && values.pm10 < 1.0f) ? 1 : 0;
+    const uint8_t pm25_prec = (!isGenericNoData(values.pm25) && values.pm25 > 0.0f && values.pm25 < 1.0f) ? 1 : 0;
+    formatMetricValue(pm10_str, sizeof(pm10_str), values.pm10, pm10_prec, false);
+    formatMetricValue(pm25_str, sizeof(pm25_str), values.pm25, pm25_prec, false);
     formatMetricValue(noise_avg, sizeof(noise_avg), values.noise_avg, 0, false);
     formatMetricValue(noise_max, sizeof(noise_max), values.noise_max, 0, false);
     formatMetricValue(co2_str, sizeof(co2_str), values.co2, 0, false);
@@ -902,9 +930,14 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     // Move measurements lower, closer to QR section.
     const uint16_t row_top = top_sep_y + 14;
     const uint16_t row_step = 54;
-    const uint16_t left_x = content_left;
+    // Swap columns: render the former "right" column on the left and vice versa.
     const uint16_t right_col_shift_left = 9;
-    const uint16_t right_x = content_left + content_width / 2 - 3 - right_col_shift_left;
+    const uint16_t col_left_x  = content_left;
+    const int16_t right_col_nudge_px = 26;
+    const int32_t col_right_x_i32 = (int32_t)content_left + (int32_t)content_width / 2 - 3 - (int32_t)right_col_shift_left + (int32_t)right_col_nudge_px;
+    const uint16_t col_right_x = (col_right_x_i32 > 0) ? (uint16_t)col_right_x_i32 : col_left_x;
+    const uint16_t left_x  = col_right_x;
+    const uint16_t right_x = col_left_x;
 
     // Left group: shared metrics Urban/Insight.
 
@@ -926,15 +959,14 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     drawWarningLevelIcon(left_hum_label_x + left_hum_label_w + 4, row_top + row_step - 1, hum_icon_dir);
     drawPairNumbersWithUnits(left_hum_label_x, row_top + row_step + 13, hum_out, "", hum_in, "");
 
-    Paint_DrawImage(co2_svgrepo_com_32x32, left_x, row_top + 2 * row_step + 1, 32, 32);
-    const char *left_co2_label = "CO2 ppm";
-    uint16_t left_co2_label_x = left_x + 42;
-    // CO2 on main screen comes from Insight device/sensors.
-    Paint_DrawString_Display(left_co2_label_x, row_top + 2 * row_step - 10, INTL_DISP_INSIGHT_HEADER, &Font8, &font_8_cyrillic, &font_8_ascii, WHITE, BLACK);
-    Paint_DrawString_Display(left_co2_label_x, row_top + 2 * row_step, left_co2_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    uint16_t left_co2_label_w = Paint_GetStringWidth_Display(left_co2_label, &Font12, &font_12_cyrillic, &font_12_ascii);
-    drawWarningLevelIcon(left_co2_label_x + left_co2_label_w + 4, row_top + 2 * row_step - 1, co2_icon_dir);
-    drawNumberWithUnit(left_co2_label_x, row_top + 2 * row_step + 13, co2_str, "");
+    Paint_DrawImage(pressure_32x32, left_x, row_top + 2 * row_step + 1, 32, 32);
+    String left_press_label_s = String(INTL_DISP_PRESSURE) + " mmHg";
+    const char *left_press_label = left_press_label_s.c_str();
+    uint16_t left_press_label_x = left_x + 42;
+    Paint_DrawString_Display(left_press_label_x, row_top + 2 * row_step, left_press_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    uint16_t left_press_label_w = Paint_GetStringWidth_Display(left_press_label, &Font12, &font_12_cyrillic, &font_12_ascii);
+    drawWarningLevelIcon(left_press_label_x + left_press_label_w + 4, row_top + 2 * row_step - 1, press_icon_dir);
+    drawPairNumbersWithUnits(left_press_label_x, row_top + 2 * row_step + 13, press_out, "", press_in, "");
 
     // Right group: source-specific metrics.
 
@@ -959,14 +991,14 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     drawWarningLevelIcon(right_air_label_x + right_air_label_w + 4, row_top + row_step - 1, pm_icon_dir);
     drawPairNumbersWithUnits(right_air_label_x, row_top + row_step + 13, pm10_str, "", pm25_str, "");
 
-    Paint_DrawImage(pressure_32x32, right_x, row_top + 2 * row_step + 1, 32, 32);
-    String right_press_label_s = String(INTL_DISP_PRESSURE) + " mmHg";
-    const char *right_press_label = right_press_label_s.c_str();
-    uint16_t right_press_label_x = right_x + 42;
-    Paint_DrawString_Display(right_press_label_x, row_top + 2 * row_step, right_press_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
-    uint16_t right_press_label_w = Paint_GetStringWidth_Display(right_press_label, &Font12, &font_12_cyrillic, &font_12_ascii);
-    drawWarningLevelIcon(right_press_label_x + right_press_label_w + 4, row_top + 2 * row_step - 1, press_icon_dir);
-    drawPairNumbersWithUnits(right_press_label_x, row_top + 2 * row_step + 13, press_out, "", press_in, "");
+    Paint_DrawImage(co2_svgrepo_com_32x32, right_x, row_top + 2 * row_step + 1, 32, 32);
+    const char *right_co2_label = "CO2 ppm";
+    uint16_t right_co2_label_x = right_x + 42;
+    Paint_DrawString_Display(right_co2_label_x, row_top + 2 * row_step - 10, INTL_DISP_INSIGHT_ONLY, &Font8, &font_8_cyrillic, &font_8_ascii, WHITE, BLACK);
+    Paint_DrawString_Display(right_co2_label_x, row_top + 2 * row_step, right_co2_label, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+    uint16_t right_co2_label_w = Paint_GetStringWidth_Display(right_co2_label, &Font12, &font_12_cyrillic, &font_12_ascii);
+    drawWarningLevelIcon(right_co2_label_x + right_co2_label_w + 4, row_top + 2 * row_step - 1, co2_icon_dir);
+    drawNumberWithUnit(right_co2_label_x, row_top + 2 * row_step + 13, co2_str, "");
 
     // Footer info: grouped by source to improve readability.
     auto levelWord = [](int dir) -> const char* { return (dir > 0) ? INTL_DISP_LEVEL_HIGH : INTL_DISP_LEVEL_LOW; };
