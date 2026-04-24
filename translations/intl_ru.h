@@ -250,6 +250,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_GRAPHS_REQUIRE_SD "Графикам нужна SD карта"
 #define INTL_DISP_ENABLE_SD "Включите SD карту"
 #define INTL_DISP_INSIGHT_HEADER "Insight"
+#define INTL_DISP_INSIGHT_ONLY "Insight only"
 #define INTL_DISP_URBAN_HEADER "Urban"
 #define INTL_DISP_URBAN_ONLY "Urban only"
 #define INTL_DISP_GOING_TO_SLEEP "Уход в сон..."

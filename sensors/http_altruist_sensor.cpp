@@ -11,7 +11,6 @@
 // Maximum discovery attempts when Urban is not initially present.
 // We will try to find Urban up to this many times, spaced 5 minutes apart.
 static const uint8_t URBAN_MAX_DISCOVERY_ATTEMPTS = 3;
-static const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL; // 5 minutes
 
 HTTPAltruistSensor::HTTPAltruistSensor(unsigned long sending_timeout)
     : Sensor(sending_timeout) {
@@ -168,6 +167,14 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
     if (httpCode == HTTP_CODE_OK) {
         debug_outln_verbose(F("Success request to Altruis Urban"));
 
+        {
+            JsonObject service = data["service_data"].isNull()
+                ? data.createNestedObject("service_data")
+                : data["service_data"].as<JsonObject>();
+            service["urban_last_ok_ms"] = (uint32_t)millis();
+        }
+        debug_outln_info(F("[Urban][TTL] HTTP OK -> ttl updated"));
+
         // Ensure we have a dedicated Urban block in the global sensors_data:
         // "altruist_urban": { IP_address, SDS_P1, SDS_P2, ... }
         // It is pre-created at boot in setup(), but if for some reason it's missing, create it here without clearing the rest of sensors_data.
@@ -201,7 +208,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
         DynamicJsonDocument doc(2048);
         DeserializationError err = deserializeJson(doc, payload);
         if (err) {
-            debug_outln_info(F("JSON parse error: "), err.c_str());
+            debug_outln_info(F("[Urban][TTL] JSON parse error (ttl kept fresh): "), err.c_str());
             http.end();
             return;
         }
@@ -255,14 +262,6 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
         // Mark JSON as updated so SD card logger (and graph data) see Urban data
         _jsonUpdated = true;
 
-        // TTL support: remember last time we successfully received Urban data.
-        // UI can use this to mark Urban as stale/offline instead of showing old cached values forever.
-        {
-            JsonObject service = data["service_data"].isNull()
-                ? data.createNestedObject("service_data")
-                : data["service_data"].as<JsonObject>();
-            service["urban_last_ok_ms"] = (uint32_t)millis();
-        }
         // Capture Urban device's Robonomics address from data.json, or fallback to HTML extraction
         bool has_urban_addr = false;
         if (doc.containsKey("service_data") && doc["service_data"].containsKey("robonomics_address")) {
