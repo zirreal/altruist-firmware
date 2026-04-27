@@ -68,8 +68,8 @@ void LedControllerInsight::process() {
         static unsigned long last_forced_on_ms = 0;
         const unsigned long mutex_diag_window_ms = 10000UL;       // 10s summary window
         const unsigned long mutex_diag_warn_cooldown_ms = 5000UL; // throttle detailed warnings
-        const unsigned long led_force_on_after_ms = 90000UL;       // 90s without successful update
-        const unsigned long led_force_on_cooldown_ms = 10000UL;    // max one forced fallback per 10s
+        const unsigned long led_force_on_after_ms = 5UL * 60UL * 1000UL;   // 5 min without successful update
+        const unsigned long led_force_on_cooldown_ms = 60UL * 1000UL;      // max one forced fallback per 60s
 
         // Calculate brightness:
         // 1. Scale user setting to 30% max (so 100% user = 30% actual)
@@ -121,6 +121,7 @@ void LedControllerInsight::process() {
             // force a neutral ON state without touching shared sensor data.
             // This prevents "stuck OFF after night" behavior.
             if (final_brightness > 0 &&
+                mutex_diag_fail_streak >= 30 &&
                 msSince(last_refresh_time) > led_force_on_after_ms &&
                 msSince(last_forced_on_ms) > led_force_on_cooldown_ms) {
                 pixels.setBrightness(final_brightness);
