@@ -725,15 +725,6 @@ void sensorAndAPIWorker(void *pvParameters) {
 			}
 		}
 
-		// IMPORTANT (INSIGHT):
-		// On Insight we must *not* shrink sensors_data, otherwise there is no
-		// free capacity left to add new keys later (like altruist_urban when
-		// Urban appears after boot). For Urban firmware this was used to save
-		// RAM, but on Insight it prevents dynamic updates.
-#if defined(ALTRUIST_URBAN)
-		sensors_data.shrinkToFit();
-#endif
-
 		vTaskDelay(100 / portTICK_PERIOD_MS);  // yield to other tasks, run ~10x/sec
 	}
 }
