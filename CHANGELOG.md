@@ -2,13 +2,17 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
-## [R_2026-04.4](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.4) — 2026-04-24
+## [R_2026-04.4](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.4) — 2026-04-27
 
 ### Bug Fixes
 
 - **Urban “false offline” on Insight** — Urban connectivity TTL (`service_data.urban_last_ok_ms`) is now refreshed on every successful Urban HTTP `200 OK`, even if Urban `data.json` fails to parse, so UI/LEDs only show `offline` when Urban is actually unreachable.
 - **Urban TTL label recovery (Insight main screen)** — fixed a case where the `offline/stale` label could remain visible after Urban connectivity was restored by always resetting `urban_ttl_state` back to “online” when TTL is fresh.
-- **Night Analytics: humidity calculation corrected (Insight)** — fixed an aggregation typo that could show unrealistically low humidity (e.g. `8%`) by summing the actual hourly humidity values instead of a boolean “has data” flag.
+- **Night Analytics: humidity calculation corrected (Insight)** — fixed an aggregation typo that could show unrealistically low humidity (e.g. `8%`) by summing the actual hourly humidity values.
+
+### New
+
+- **ZMOD4510 gas sensor support (Urban)** — added support for Renesas ZMOD4510 (O₃ / NO₂) sensor, including initialization, measurement flow, status handling (warmup/valid/error), AQI metrics (FAST_AQI, EPA_AQI), temperature/humidity compensation, and exposure in local JSON/UI pipeline.
 
 ## [R_2026-04.3](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.3) — 2026-04-22
 
