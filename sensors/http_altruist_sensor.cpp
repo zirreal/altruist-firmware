@@ -345,6 +345,17 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
                 }
             }
         }
+
+        // Extra robustness: if Urban is "healthy" but its IP changed (DHCP),
+        // don't wait a full URBAN_REDISCOVER_INTERVAL_MS before trying to re-bind.
+        // Throttle rediscovery attempts to avoid spamming mDNS on unstable networks.
+        const unsigned long FAST_REDISCOVER_THROTTLE_MS = 60UL * 1000UL; // 1 minute
+        bool fast_interval_elapsed = (last_discovery_attempt_time == 0) ||
+                                     (msSince(last_discovery_attempt_time) >= FAST_REDISCOVER_THROTTLE_MS);
+        if (fast_interval_elapsed) {
+            debug_outln_info(F("HTTPAltruistSensor: fast rediscovery after HTTP failure"));
+            _discoverSensors();
+        }
         
         // Close the HTTP connection even on failure
         http.end();

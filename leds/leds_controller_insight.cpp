@@ -68,8 +68,8 @@ void LedControllerInsight::process() {
         static unsigned long last_forced_on_ms = 0;
         const unsigned long mutex_diag_window_ms = 10000UL;       // 10s summary window
         const unsigned long mutex_diag_warn_cooldown_ms = 5000UL; // throttle detailed warnings
-        const unsigned long led_force_on_after_ms = 90000UL;       // 90s without successful update
-        const unsigned long led_force_on_cooldown_ms = 10000UL;    // max one forced fallback per 10s
+        const unsigned long led_force_on_after_ms = 5UL * 60UL * 1000UL;   // 5 min without successful update
+        const unsigned long led_force_on_cooldown_ms = 60UL * 1000UL;      // max one forced fallback per 60s
 
         // Calculate brightness:
         // 1. Scale user setting to 30% max (so 100% user = 30% actual)
@@ -121,6 +121,7 @@ void LedControllerInsight::process() {
             // force a neutral ON state without touching shared sensor data.
             // This prevents "stuck OFF after night" behavior.
             if (final_brightness > 0 &&
+                mutex_diag_fail_streak >= 30 &&
                 msSince(last_refresh_time) > led_force_on_after_ms &&
                 msSince(last_forced_on_ms) > led_force_on_cooldown_ms) {
                 pixels.setBrightness(final_brightness);
@@ -152,8 +153,8 @@ void LedControllerInsight::process() {
             mutex_diag_success_in_window = 0;
         }
         
-        // Build target colors in main-screen order:
-        // Temp -> Hum -> CO2 -> Noise(avg,max) -> PM(pm10,pm2.5) -> Pressure (pressure last).
+        // Build target colors in the same reading order as the main screen:
+        // Noise(avg,max) -> PM(pm10,pm2.5) -> CO2 -> Temp(U/I) -> Hum(U/I) -> Pressure(U/I)
         uint32_t white = pixels.Color(255, 255, 255);
         uint32_t urban_temp_color = white;
         uint32_t insight_temp_color = white;
@@ -249,42 +250,43 @@ void LedControllerInsight::process() {
         }
         xSemaphoreGive(mutex);
 
+        // matching the main screen.
         const uint8_t seg_start[SEGMENT_COUNT] = {
-            1,  // Urban temp
-            4,  // Insight temp
-            7,  // Urban humidity
-            10, // Insight humidity
-            13, // CO2
-            16, // Noise avg
-            17, // Noise max
-            19, // PM10
-            20, // PM2.5
-            22, // Urban pressure
-            26  // Insight pressure
+            16, // Noise avg (Urban)
+            17, // Noise max (Urban)
+            19, // PM10 (Urban)
+            20, // PM2.5 (Urban)
+            13, // CO2 (Insight)
+            1,  // Temp (Urban)
+            4,  // Temp (Insight)
+            7,  // Hum (Urban)
+            10, // Hum (Insight)
+            22, // Pressure (Urban)
+            26  // Pressure (Insight)
         };
         const uint8_t seg_end[SEGMENT_COUNT] = {
-            3,
-            6,
-            9,
-            12,
-            15,
             16,
             18,
             19,
             21,
+            15,
+            3,
+            6,
+            9,
+            12,
             25,
             28
         };
         const uint32_t seg_color[SEGMENT_COUNT] = {
-            urban_temp_color,
-            insight_temp_color,
-            urban_humidity_color,
-            insight_humidity_color,
-            co2_color,
             noise_avg_color,
             noise_max_color,
             pm10_color,
             pm25_color,
+            co2_color,
+            urban_temp_color,
+            insight_temp_color,
+            urban_humidity_color,
+            insight_humidity_color,
             urban_pressure_color,
             insight_pressure_color
         };
