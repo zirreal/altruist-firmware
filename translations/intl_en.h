@@ -100,6 +100,7 @@ const char INTL_SHARE_PRESSURE[] PROGMEM = "Pressure";
 const char INTL_SHARE_CO2[] PROGMEM = "CO2";
 const char INTL_SHARE_PM[] PROGMEM = "Particulate Matter (PM2.5/PM10)";
 const char INTL_SHARE_NOISE[] PROGMEM = "Noise Level";
+const char INTL_SHARE_CO[] PROGMEM = "Carbon monoxide (CO)";
 const char INTL_SHARE_RADIATION[] PROGMEM = "Radiation";
 const char INTL_SHARE_O3[] PROGMEM = "Ozone (O3)";
 const char INTL_SHARE_NO2[] PROGMEM = "Nitrogen dioxide (NO2)";

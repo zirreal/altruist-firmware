@@ -61,6 +61,7 @@ Bool		share_pressure
 Bool		share_co2
 Bool		share_pm
 Bool		share_noise
+Bool		share_co
 """
 
 with open("airrohr-cfg.h", "w") as h:

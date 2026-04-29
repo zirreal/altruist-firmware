@@ -44,6 +44,7 @@ void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
                      && !skip_temp_hum) datalog_data += "h:" + value + ",";
             else if (type == "radiation") datalog_data += "gc:" + value + ",";
             else if (type == "co2" && cfg::share_co2) datalog_data += "co:" + value + ",";
+            else if (type == "co" && cfg::share_co) datalog_data += "co1:" + value + ",";
             else if (type == "o3") datalog_data += "o3:" + value + ",";
             else if (type == "no2") datalog_data += "no2:" + value + ",";
             else if (type == "fast_aqi") datalog_data += "fa:" + value + ",";
