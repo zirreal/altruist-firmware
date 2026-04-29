@@ -63,6 +63,7 @@ void AGS3871Sensor::_fetch(JsonDocument &data)
         debug_outln_verbose(
             F("AGS3871 warming up, seconds left: "),
             String((AGS3871_WARMUP_MS - warmup_elapsed_ms + 999UL) / 1000UL));
+        addValueToJSON(data, F("status"), String(F("warmup")), F("Status"), F(""));
         return;
     }
 
@@ -73,6 +74,7 @@ void AGS3871Sensor::_fetch(JsonDocument &data)
     if (i2c_master_init() != ESP_OK)
     {
         debug_outln_error(F("AGS3871 i2c_master_init failed in fetch"));
+        addValueToJSON(data, F("status"), String(F("i2c_error")), F("Status"), F(""));
         return;
     }
 
@@ -85,6 +87,7 @@ void AGS3871Sensor::_fetch(JsonDocument &data)
         // RDY is inverted in the datasheet: status bit 0 set means there is no
         // fresh concentration value yet.
         debug_outln_verbose(F("AGS3871 data not ready, status: "), String(reading.status, HEX));
+        addValueToJSON(data, F("status"), String(F("not_ready")), F("Status"), F(""));
         return;
     }
 
@@ -96,6 +99,7 @@ void AGS3871Sensor::_fetch(JsonDocument &data)
         {
             debug_outln_info(F("AGS3871 last I2C error: "), String(ags3871.lastI2CError()));
         }
+        addValueToJSON(data, F("status"), String(F("error")), F("Status"), F(""));
         return;
     }
 
@@ -103,4 +107,6 @@ void AGS3871Sensor::_fetch(JsonDocument &data)
     debug_outln_verbose(F("AGS3871 CO [ppm]: "), String(last_co_ppm));
     // Publish only values that passed the driver's I2C, CRC and RDY checks.
     addValueToJSON(data, F("co"), static_cast<float>(last_co_ppm), F("CO"), F("ppm"));
+    // UI-only field: Robonomics formatter does not map "status" to datalog.
+    addValueToJSON(data, F("status"), String(F("valid")), F("Status"), F(""));
 }
