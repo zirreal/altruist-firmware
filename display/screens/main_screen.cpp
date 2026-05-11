@@ -410,6 +410,9 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
         values.urban_ttl_state = 0;
         values.urban_age_min = 0;
 
+        static uint8_t urban_stale_confirm_count = 0;
+        static uint32_t urban_ttl_tracked_last_ok_ms = 0xFFFFFFFFu;
+
         uint32_t last_ok_ms = 0;
         if (data.containsKey("service_data")) {
             JsonObjectConst service = data["service_data"].as<JsonObjectConst>();
@@ -417,11 +420,17 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
                 last_ok_ms = service["urban_last_ok_ms"].as<uint32_t>();
             }
         }
+        if (last_ok_ms != urban_ttl_tracked_last_ok_ms) {
+            urban_stale_confirm_count = 0;
+            urban_ttl_tracked_last_ok_ms = last_ok_ms;
+        }
+
         const uint32_t now_ms = (uint32_t)millis();
         if (last_ok_ms != 0 && last_ok_ms <= now_ms) {
             const uint32_t age_ms = (uint32_t)(now_ms - last_ok_ms);
             values.urban_age_min = (uint16_t)(age_ms / 60000UL);
             if (age_ms > URBAN_OFFLINE_AFTER_MS) {
+                urban_stale_confirm_count = 0;
                 values.urban_ttl_state = 2; // offline
                 // Mark as offline: clear all Urban-derived values so UI shows "no data".
                 values.pm10 = -1;
@@ -433,13 +442,24 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
                 values.press_outdoor = -1;
                 values.ip_address = "";
             } else if (age_ms > URBAN_STALE_AFTER_MS) {
-                values.urban_ttl_state = 1; // stale
-                // Stale but not yet fully offline: still show last values,
-                // but mark source as "not currently connected".
-                values.ip_address = "";
+                if (urban_stale_confirm_count < URBAN_STALE_CONFIRMATIONS_REQUIRED) {
+                    urban_stale_confirm_count++;
+                }
+                if (urban_stale_confirm_count >= URBAN_STALE_CONFIRMATIONS_REQUIRED) {
+                    values.urban_ttl_state = 1; // stale
+                    // Stale but not yet fully offline: still show last values,
+                    // but mark source as "not currently connected".
+                    values.ip_address = "";
+                } else {
+                    // Still in grace: keep treating Urban as OK for Wi‑Fi icon / LEDs until N refreshes.
+                    values.urban_ttl_state = 0;
+                }
+            } else {
+                urban_stale_confirm_count = 0;
             }
         } else if (last_ok_ms > now_ms) {
             // Guard against invalid/uninitialized timestamps (would underflow and look "instantly offline").
+            urban_stale_confirm_count = 0;
             values.urban_ttl_state = 0;
             values.urban_age_min = 0;
         }

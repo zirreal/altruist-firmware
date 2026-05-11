@@ -168,11 +168,14 @@ void LedControllerInsight::process() {
         uint32_t urban_pressure_color = white;
         uint32_t insight_pressure_color = white;
 
-        // Apply the same TTL semantics as the main screen:
+        // Apply the same TTL semantics as the main screen (with stale debounce):
         // if Urban hasn't been refreshed recently, ignore cached Urban values
         // so LED segments don't look "connected" forever.
         bool urban_fresh = true;
         {
+            static uint8_t urban_led_stale_confirm = 0;
+            static uint32_t urban_led_tracked_last_ok_ms = 0xFFFFFFFFu;
+
             uint32_t last_ok_ms = 0;
             if (sensors_data.containsKey("service_data")) {
                 JsonObjectConst service = sensors_data["service_data"].as<JsonObjectConst>();
@@ -180,14 +183,24 @@ void LedControllerInsight::process() {
                     last_ok_ms = service["urban_last_ok_ms"].as<uint32_t>();
                 }
             }
+            if (last_ok_ms != urban_led_tracked_last_ok_ms) {
+                urban_led_stale_confirm = 0;
+                urban_led_tracked_last_ok_ms = last_ok_ms;
+            }
+
             const uint32_t now_ms = (uint32_t)millis();
             if (last_ok_ms != 0 && last_ok_ms <= now_ms) {
                 const uint32_t age_ms = (uint32_t)(now_ms - last_ok_ms);
                 if (age_ms > URBAN_OFFLINE_AFTER_MS) {
+                    urban_led_stale_confirm = 0;
                     urban_fresh = false;
                 } else if (age_ms > URBAN_STALE_AFTER_MS) {
-                    // Stale: treat as disconnected for LEDs to match UI icon behavior.
-                    urban_fresh = false;
+                    if (urban_led_stale_confirm < URBAN_STALE_CONFIRMATIONS_REQUIRED) {
+                        urban_led_stale_confirm++;
+                    }
+                    urban_fresh = (urban_led_stale_confirm < URBAN_STALE_CONFIRMATIONS_REQUIRED);
+                } else {
+                    urban_led_stale_confirm = 0;
                 }
             } else if (last_ok_ms > now_ms) {
                 // Invalid timestamp; don't force "disconnected" instantly.
@@ -250,30 +263,31 @@ void LedControllerInsight::process() {
         }
         xSemaphoreGive(mutex);
 
-        // matching the main screen.
+        // Map metrics to physical LED ranges so the bar order is:
+        // Noise -> PM -> CO2 -> Temp -> Hum -> Pressure
         const uint8_t seg_start[SEGMENT_COUNT] = {
-            16, // Noise avg (Urban)
-            17, // Noise max (Urban)
-            19, // PM10 (Urban)
-            20, // PM2.5 (Urban)
+            1,  // Noise avg (Urban)
+            4,  // Noise max (Urban)
+            7,  // PM10 (Urban)
+            10, // PM2.5 (Urban)
             13, // CO2 (Insight)
-            1,  // Temp (Urban)
-            4,  // Temp (Insight)
-            7,  // Hum (Urban)
-            10, // Hum (Insight)
+            16, // Temp (Urban)
+            17, // Temp (Insight)
+            19, // Hum (Urban)
+            20, // Hum (Insight)
             22, // Pressure (Urban)
             26  // Pressure (Insight)
         };
         const uint8_t seg_end[SEGMENT_COUNT] = {
-            16,
-            18,
-            19,
-            21,
-            15,
             3,
             6,
             9,
             12,
+            15,
+            16,
+            18,
+            19,
+            21,
             25,
             28
         };

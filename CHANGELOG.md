@@ -2,6 +2,14 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
+## [R_2026-05](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05) — 2026-05-11
+
+## [R_2026-04.5](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.5) — 2026-04-27
+
+### Bug Fixes
+
+- **Insight LEDs: segment order aligned with main screen** — updated LED segment mapping to match the main screen metric order (Noise → PM → CO₂ → Temp → Hum → Pressure) after UI column/layout changes; reduced frequency of “forced white” fallback.
+
 ## [R_2026-04.4](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.4) — 2026-04-27
 
 ### Bug Fixes
