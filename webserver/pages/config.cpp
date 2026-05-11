@@ -321,6 +321,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<div style='margin-top:14px;margin-bottom:14px;font-size:0.9em;color:#666;'>");
 	page_content += F(INTL_DATA_SHARING_ADDITIONAL);
 	page_content += F("</div>");
+	add_form_checkbox(Config_share_co, FPSTR(INTL_SHARE_CO), true);
 	add_form_checkbox(Config_share_radiation, FPSTR(INTL_SHARE_RADIATION), true);
 	add_form_checkbox(Config_share_o3, FPSTR(INTL_SHARE_O3), true);
 	add_form_checkbox(Config_share_no2, FPSTR(INTL_SHARE_NO2), true);
@@ -497,6 +498,5 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	server.sendContent(page_content);
 	page_content = emptyString;
 }
-
 
 

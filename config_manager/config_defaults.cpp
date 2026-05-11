@@ -86,6 +86,7 @@ namespace cfg {
 	bool share_pm = true;
 	bool share_noise = true;
 	// Additional (optional) sensors: default OFF (most devices don't have them)
+	bool share_co = false;
 	bool share_radiation = false;
 	bool share_o3 = false;
 	bool share_no2 = false;

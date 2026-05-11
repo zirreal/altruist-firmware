@@ -100,6 +100,7 @@ const char INTL_SHARE_PRESSURE[] PROGMEM = "Давление";
 const char INTL_SHARE_CO2[] PROGMEM = "CO2";
 const char INTL_SHARE_PM[] PROGMEM = "Пыль (PM2.5/PM10)";
 const char INTL_SHARE_NOISE[] PROGMEM = "Уровень шума";
+const char INTL_SHARE_CO[] PROGMEM = "Угарный газ (CO)";
 const char INTL_SHARE_RADIATION[] PROGMEM = "Радиация";
 const char INTL_SHARE_O3[] PROGMEM = "Озон (O3)";
 const char INTL_SHARE_NO2[] PROGMEM = "Диоксид азота (NO2)";

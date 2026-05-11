@@ -91,6 +91,7 @@ enum ConfigShapeId {
 	Config_share_co2,
 	Config_share_pm,
 	Config_share_noise,
+	Config_share_co,
 	Config_share_radiation,
 	Config_share_o3,
 	Config_share_no2,
@@ -159,6 +160,7 @@ static constexpr char CFG_KEY_SHARE_PRESSURE[] PROGMEM = "share_pressure";
 static constexpr char CFG_KEY_SHARE_CO2[] PROGMEM = "share_co2";
 static constexpr char CFG_KEY_SHARE_PM[] PROGMEM = "share_pm";
 static constexpr char CFG_KEY_SHARE_NOISE[] PROGMEM = "share_noise";
+static constexpr char CFG_KEY_SHARE_CO[] PROGMEM = "share_co";
 static constexpr char CFG_KEY_SHARE_RADIATION[] PROGMEM = "share_radiation";
 static constexpr char CFG_KEY_SHARE_O3[] PROGMEM = "share_o3";
 static constexpr char CFG_KEY_SHARE_NO2[] PROGMEM = "share_no2";
@@ -227,6 +229,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_CO2, &cfg::share_co2 },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_PM, &cfg::share_pm },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_NOISE, &cfg::share_noise },
+	{ Config_Type_Bool, 0, CFG_KEY_SHARE_CO, &cfg::share_co },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_RADIATION, &cfg::share_radiation },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_O3, &cfg::share_o3 },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_NO2, &cfg::share_no2 },
