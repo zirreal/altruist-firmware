@@ -11,6 +11,8 @@ class SensorWebServer {
 public:
     SensorWebServer(JsonDocument &_data, device_status_t &_deviceStatus, SemaphoreHandle_t _mutex) : server(80), sensors_data(_data), deviceStatus(_deviceStatus), mutex{_mutex} {}
     void setup();
+    /** After STA gets a usable IP again (post-outage); re-open listen socket — some lwIP stacks keep a dead listener. */
+    void notifyStaIpRestored();
     void setWifiConfigLoop(bool loop) { wificonfig_loop = loop; };
     void handleClient() { server.handleClient(); };
     void setWifiInfo(struct_wifiInfo* info, uint8_t count);

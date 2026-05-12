@@ -4,6 +4,20 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ## [R_2026-05](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05) — 2026-05-11
 
+### Bug Fixes
+
+- **STA recovery after Wi‑Fi / router outages (Urban & Insight)** — runtime reconnect no longer calls `WiFi.disconnect(true, true)` (that path cleared STA NVS and powered STA off, fighting `WiFi.begin()` and often requiring a reboot). Recovery now uses a safe `disconnect(false, false)` + bounded delay, DHCP grace while `WL_CONNECTED` but IPv4 is not ready yet (avoids killing DHCP every reconnect interval), and deep `WIFI_OFF` pacing with a forced deep after repeated throttle stalls.
+- **`wifiStaLinkReady()` false negatives** — dropped the default-gateway requirement so a valid STA IPv4 is not treated as “down” when the gateway field lags at `0.0.0.0` (Insight skipped Urban HTTP, recovery spun, LAN looked dead).
+- **Periodic reconnect bookkeeping** — `wifiStaRuntimeRecovery()` returns whether a reconnect attempt actually ran; the sensor worker only advances the periodic timer when it did, so inner throttles do not “consume” reconnect slots without doing work.
+- **Web UI / HTTP listener after STA IP changes** — `notifyStaIpRestored()` explicitly stops the listener and calls `begin()` again after STA gets an address (helps browsers reach the device by IP after outages).
+- **Insight → Urban HTTP after Wi‑Fi drops** — Urban fetch path gates on `wifiStaLinkReady()` and clears the cached Urban bind when STA comes back so HTTP/mDNS rediscovery can run; HTTP client timeout increased for slow LAN.
+
+### Improvements
+
+- **ESP32 STA events** — disconnect debounce triggers runtime recovery; `STA_GOT_IP` debounce refreshes mDNS + web listener when DHCP renews without a clean “link down” edge.
+- **STA join tuning** — `WiFi.setSleep(false)` during join; Insight can start STA early after config read so association overlaps slower init; `connectWifi(..., already_started)` avoids double `begin()`.
+- **Urban / Insight UX (related)** — Urban NeoPixel default pin/order options where applicable; Urban LED mode uses the same “LAN ready” test as Wi‑Fi recovery; Insight long reset shows cleared state then restarts into setup flow.
+
 ## [R_2026-04.5](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.5) — 2026-04-27
 
 ### Bug Fixes

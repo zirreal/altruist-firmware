@@ -95,6 +95,25 @@ constexpr const unsigned long ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 constexpr const unsigned long PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS = ONE_DAY_IN_MS;		// check for firmware updates once a day
 constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS * 28;	// force a reboot every ~4 weeks
 
+// STA recovery when home Wi‑Fi is configured but link drops (Urban/Insight).
+constexpr const unsigned long WIFI_STA_PERIODIC_RECONNECT_MS = 18000UL;
+/** After association, STA can report WL_CONNECTED before IPv4; do not tear down the link during this window. */
+constexpr const unsigned long WIFI_STA_DHCP_GRACE_MS = 40000UL;
+/** After this long without a usable STA link, use radio off/on (WIFI_OFF) before re-begin — stronger than disconnect() alone, no MCU reboot. */
+constexpr const unsigned long WIFI_STA_DEEP_RECOVER_AFTER_MS = 180000UL;
+/** Minimum gap between WIFI_OFF deep recoveries (avoids IDF un-init timeouts if hammered). */
+constexpr const unsigned long WIFI_STA_DEEP_RADIO_MIN_INTERVAL_MS = 90000UL;
+/**
+ * If deep recovery is wanted but throttled, force WIFI_OFF after this many stalled attempts
+ * (~one per WIFI_STA_PERIODIC_RECONNECT_MS) so the link can return without an MCU reboot.
+ */
+constexpr const uint8_t WIFI_STA_DEEP_FORCE_AFTER_THROTTLED_SKIPS = 5;
+/**
+ * Last-resort MCU reboot if STA link never returns (rare stuck WiFi stack).
+ * 0 = never reboot on STA loss (soft recovery only). 30 min = long failsafe without the old ~10 min surprise reboot.
+ */
+constexpr const unsigned long WIFI_STA_REBOOT_AFTER_MS = (30UL * 60UL * 1000UL);
+
 // ------------------------------------------------------------
 // Urban TTL constants (Insight only)
 // ------------------------------------------------------------

@@ -1,6 +1,7 @@
 #include "webserver.h"
 #include "pages/pages.h"
 #include "html-content.h"
+#include <WiFi.h>
 #include "script-js.h"
 #include "utils.h"
 #include "../config_manager/config_helpers.h"
@@ -41,6 +42,18 @@ void SensorWebServer::setup() {
 
 	debug_outln_info(F("Starting Webserver... "), WiFi.localIP().toString());
 	server.begin();
+}
+
+void SensorWebServer::notifyStaIpRestored() {
+#if defined(ESP32)
+	// WebServer::begin() calls close() internally, but after a netif/IP change an explicit stop + short yield
+	// avoids a stuck listen socket so phones/browsers can reach the device again on the LAN IP.
+	debug_outln_info(F("Webserver: rebind after STA IP "), WiFi.localIP().toString());
+	server.stop();
+	yield();
+	delay(30);
+	server.begin();
+#endif
 }
 
 void SensorWebServer::_webserver_status() {
@@ -614,7 +627,22 @@ bool SensorWebServer::webserver_request_auth() {
 }
 
 void SensorWebServer::sendHttpRedirectGuest() {
-	server.sendHeader(F("Location"), F("http://192.168.4.1/guest"));
+	// Never hard-code 192.168.4.1 in STA-only mode: after a home-WiFi drop the device is not that AP,
+	// and browsers following this redirect appear "stuck" / webserver dead while HTTP is still up.
+	const IPAddress ap_ip = WiFi.softAPIP();
+	const IPAddress sta_ip = WiFi.localIP();
+	String loc = F("http://");
+	if (wificonfig_loop && ap_ip[0] != 0) {
+		loc += ap_ip.toString();
+	} else if (sta_ip[0] != 0) {
+		loc += sta_ip.toString();
+	} else {
+		server.send(503, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN),
+		             F("WiFi not ready yet; try again in a few seconds."));
+		return;
+	}
+	loc += F("/guest");
+	server.sendHeader(F("Location"), loc);
 	server.send(302, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), emptyString);
 }
 
