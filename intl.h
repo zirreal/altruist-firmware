@@ -164,6 +164,15 @@
 #ifndef INTL_GUEST_KEEP_OPEN_HINT
 #define INTL_GUEST_KEEP_OPEN_HINT "Keep this page open and select your Urban device below."
 #endif
+#ifndef INTL_SETUP_INSIGHT_MODE_HINT
+#define INTL_SETUP_INSIGHT_MODE_HINT "If you have an Altruist Urban (outdoor unit), check the box and press Continue to search the network and pick it. Leave the box unchecked to use this Insight on its own — the device will restart right away."
+#endif
+#ifndef INTL_SETUP_PAIR_WITH_URBAN
+#define INTL_SETUP_PAIR_WITH_URBAN "Set up link to an Altruist Urban now"
+#endif
+#ifndef INTL_SETUP_CONTINUE
+#define INTL_SETUP_CONTINUE "Continue"
+#endif
 #ifndef INTL_DISP_MAP_PROMO_TITLE
 #define INTL_DISP_MAP_PROMO_TITLE "Better analytics on your smartphone!"
 #endif

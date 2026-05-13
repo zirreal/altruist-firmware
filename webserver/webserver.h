@@ -63,6 +63,8 @@ private:
 #ifdef ALTRUIST_INSIDE
     void _webserver_select_urban();
     void _webserver_scan_urbans();
+    /** After user opts to pair: mDNS scan + Urban IP form (no reboot). */
+    void _send_urban_pairing_form_html();
 #endif
 };
 

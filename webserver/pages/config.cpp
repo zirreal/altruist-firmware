@@ -343,16 +343,22 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_input(page_content, Config_sds_meas_interval_ms, FPSTR(INTL_SDS_MEAS_INTERVAL), 5);
 #endif
 #ifdef ALTRUIST_INSIDE
-	page_content += form_select_altruist(data);
-	add_form_checkbox(Config_use_custom_urban, FPSTR(INTL_USE_CUSTOM_URBAN), true);
-	add_form_input(page_content, Config_custom_altruist_urban, FPSTR(INTL_CUSTOM_ALTRUIST), LEN_CHOSEN_ALTRUIS_ADDRESS-1);
-	page_content += F("<script>"
-	    "var $ = function(e) { return document.getElementById(e); };"
-	    "function updateUrbanOptions() { "
-		"$('custom_altruist_urban').disabled = !$('use_custom_urban').checked; "
-		"$('chosen_altruist_urban').disabled = $('use_custom_urban').checked;"
-		"}; updateUrbanOptions(); $('use_custom_urban').onchange = updateUrbanOptions;"
-		"</script>");
+	if (!cfg::standalone) {
+		page_content += form_select_altruist(data);
+		add_form_checkbox(Config_use_custom_urban, FPSTR(INTL_USE_CUSTOM_URBAN), true);
+		add_form_input(page_content, Config_custom_altruist_urban, FPSTR(INTL_CUSTOM_ALTRUIST), LEN_CHOSEN_ALTRUIS_ADDRESS-1);
+		page_content += F("<script>"
+		    "var $ = function(e) { return document.getElementById(e); };"
+		    "function updateUrbanOptions() { "
+			"$('custom_altruist_urban').disabled = !$('use_custom_urban').checked; "
+			"$('chosen_altruist_urban').disabled = $('use_custom_urban').checked;"
+			"}; updateUrbanOptions(); $('use_custom_urban').onchange = updateUrbanOptions;"
+			"</script>");
+	} else {
+		page_content += F("<p style='font-size:14px;color:#555;margin:0 0 8px;line-height:1.5;'>");
+		page_content += FPSTR(INTL_INSIGHT_STANDALONE);
+		page_content += F("</p>");
+	}
 #endif
 	page_content += F("<div class='map-container'><div id='map'></div>");
 	page_content += F("</div><span class='map-text'> <em>The marker on the map shows approximate location to make sure you have the right hemisphere</em></span>");
@@ -415,6 +421,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_FIRMWARE "</h3>");
 	add_form_checkbox(Config_auto_update, FPSTR(INTL_AUTO_UPDATE), true);
 	add_form_checkbox(Config_use_beta, FPSTR(INTL_USE_BETA), true);
+#ifdef ALTRUIST_INSIDE
+	add_form_checkbox(Config_standalone, FPSTR(INTL_INSIGHT_STANDALONE), true);
+#endif
 
 	page_content += form_select_lang();
 

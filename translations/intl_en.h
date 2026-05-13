@@ -43,13 +43,17 @@ const char INTL_DNMS_CORRECTION[] PROGMEM = "correction in dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Temperature correction in °C";
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Custom Altruist Urban Address";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Use Custom Altruist Urban Address";
+const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 
 // Urban selection (guest setup & config page)
 #define INTL_SCANNING_URBANS "Scanning for Altruist Urban devices..."
 #define INTL_SELECT_URBAN_TITLE "Select Altruist Urban Device"
 #define INTL_SELECT_URBAN_DESC "Choose which Urban device this Insight should read outdoor sensor data from."
-#define INTL_NO_URBANS_FOUND "No Altruist Urban devices found on this network. Make sure your Urban device is powered on and connected to the same WiFi network. You can enter a custom IP address below or skip and configure later."
+#define INTL_NO_URBANS_FOUND "No Altruist Urban devices found on this network. Make sure your Urban device is powered on and connected to the same WiFi network. You can enter a custom IP address below, then save. You can add or change Urban later in Settings."
 #define INTL_USE_CUSTOM_IP "Use custom IP address:"
+#define INTL_SETUP_INSIGHT_MODE_HINT "If you have an Altruist Urban (outdoor unit), check the box and press Continue to search the network and pick it. Leave the box unchecked to use this Insight on its own — the device will restart right away."
+#define INTL_SETUP_PAIR_WITH_URBAN "Set up link to an Altruist Urban now"
+#define INTL_SETUP_CONTINUE "Continue"
 #define INTL_SKIP_URBAN_SELECTION "Skip &mdash; configure later from Settings page"
 #define INTL_SETUP_COMPLETE "Setup Complete"
 #define INTL_SETTINGS_SAVED "Settings Saved!"

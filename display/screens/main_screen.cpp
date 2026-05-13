@@ -361,7 +361,7 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
     JsonObjectConst data = doc.as<JsonObjectConst>();
     String urban_key = ATRUIST_URBAN_SENSOR;
 
-    if (data.containsKey(urban_key)) {
+    if (!cfg::standalone && data.containsKey(urban_key)) {
         auto urban = data[urban_key];
         if (urban.containsKey("IP_address")) values.ip_address = urban["IP_address"]["value"].as<String>();
         
@@ -405,7 +405,7 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
     //
     // We store the last successful fetch timestamp in service_data. If it gets too old,
     // treat Urban as offline (hide metrics + show disconnected icon).
-    {
+    if (!cfg::standalone) {
         // Default: assume "fresh/online" unless TTL says otherwise.
         values.urban_ttl_state = 0;
         values.urban_age_min = 0;
@@ -699,11 +699,11 @@ static void drawWarningLevelIcon(uint16_t x, uint16_t y, int danger_direction) {
     }
 }
 
-static uint16_t drawNumberWithUnit(uint16_t x, uint16_t y, const char *value, const char *unit) {
-    // Use 22px glyph font for numeric values.
-    sFONT* value_font_en = &Font24; // EN uses glyph overrides when provided
-    const Font* value_font_ru = &font_22_cyrillic;
-    const Font* value_font_ascii = &font_22_ascii;
+static uint16_t drawNumberWithUnit(uint16_t x, uint16_t y, const char *value, const char *unit, bool larger_value_glyphs = false) {
+    // Default: 22px glyph numerals; optional 32px for standalone main (labels stay Font12).
+    sFONT*        value_font_en    = &Font24;
+    const Font* value_font_ru    = larger_value_glyphs ? &font_32_cyrillic : &font_22_cyrillic;
+    const Font* value_font_ascii = larger_value_glyphs ? &font_32_ascii : &font_22_ascii;
     uint16_t value_w = Paint_GetStringWidth_Display(value, value_font_en, value_font_ru, value_font_ascii);
     Paint_DrawString_Display(x, y, value, value_font_en, value_font_ru, value_font_ascii, WHITE, BLACK);
 
@@ -723,7 +723,8 @@ static uint16_t drawNumberWithUnit(uint16_t x, uint16_t y, const char *value, co
     }
 
     if (unit != nullptr && unit[0] != '\0') {
-        const uint16_t value_h = value_font_ascii->line_height ? value_font_ascii->line_height : Font16.Height;
+        const uint16_t value_h_fallback = larger_value_glyphs ? 32u : Font16.Height;
+        const uint16_t value_h = value_font_ascii->line_height ? value_font_ascii->line_height : value_h_fallback;
         uint16_t unit_y = y + ((value_h > Font12.Height) ? (value_h - Font12.Height) : 0);
         Paint_DrawString_Display(x + value_w + 2, unit_y, unit, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
         return x + value_w + 2 + Paint_GetStringWidth_Display(unit, &Font12, &font_12_cyrillic, &font_12_ascii);
@@ -804,6 +805,248 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     const uint16_t content_right = (DISPLAY_WIDTH > nav_sidebar_width + 2) ? (DISPLAY_WIDTH - nav_sidebar_width - 2) : (DISPLAY_WIDTH - 1);
     const uint16_t content_width = (content_right > content_left) ? (content_right - content_left) : 0;
     const uint16_t body_top = header_bottom_border_y + 4;
+
+    if (cfg::standalone) {
+        const uint16_t footer_band = 38;
+        const uint16_t footer_top = (DISPLAY_HEIGHT > footer_band + header_bottom_border_y + 40)
+            ? (DISPLAY_HEIGHT - footer_band)
+            : (DISPLAY_HEIGHT - 24);
+
+        const uint16_t hdr_y = body_top + 4;
+        const uint16_t qr_sa_x = (uint16_t)(content_left + 20);
+        uint16_t       left_after_qr = content_left;
+        int            qr_sz_sa = 0;
+        const bool     show_qr_sa = (insight_robonomics_address.length() > 0) && hasValidGpsCoords();
+        if (show_qr_sa) {
+            qr_sz_sa = drawSensorQR(insight_robonomics_address, qr_sa_x, hdr_y);
+            left_after_qr = (uint16_t)((int)qr_sa_x + qr_sz_sa + 6);
+        }
+
+        const bool     insight_online_sa = (device_ip.length() > 0);
+        const uint16_t wifi_w         = 28;
+        const uint16_t wifi_hdr_pad   = 8;
+        uint16_t       wifi_x         = (content_right > wifi_w + wifi_hdr_pad + 2)
+            ? (uint16_t)(content_right - wifi_w - wifi_hdr_pad)
+            : content_left;
+        if (wifi_x < content_left) {
+            wifi_x = content_left;
+        }
+        Paint_DrawImage(insight_online_sa ? wifi_28x28 : wifi_x_28x28, wifi_x, (uint16_t)(hdr_y + 7), wifi_w, wifi_w);
+
+        // Insight mark + title: full-size icon, slightly larger title than body metrics; centered on the
+        // content band and clamped so it does not collide with QR or Wi‑Fi columns.
+        char sole_title_caps[40];
+        {
+            const char *src = INTL_DISP_INSIGHT_HEADER;
+            size_t      i  = 0;
+            for (; src[i] != '\0' && i + 1 < sizeof(sole_title_caps); i++) {
+                unsigned char c = (unsigned char)src[i];
+                sole_title_caps[i] = (c >= 'a' && c <= 'z') ? (char)(c - 32u) : (char)c;
+            }
+            sole_title_caps[i] = '\0';
+        }
+        const char    *sole_title = sole_title_caps;
+        const uint16_t tw_sa      = Paint_GetStringWidth_Display(sole_title, &Font20, &font_20_cyrillic, &font_20_ascii);
+        const uint16_t ic_sz      = 32;
+        const uint16_t gap_ic_title = 6;
+        const uint16_t grp_w      = (uint16_t)(ic_sz + gap_ic_title + tw_sa);
+
+        const uint16_t hdr_pad_qr   = 6;
+        const uint16_t hdr_pad_wifi = 8;
+        const uint16_t min_grp_x    = (uint16_t)((int)left_after_qr + (int)hdr_pad_qr);
+        int            max_grp_i    = (int)wifi_x - (int)hdr_pad_wifi - (int)grp_w;
+        if (max_grp_i < (int)min_grp_x) {
+            max_grp_i = (int)min_grp_x;
+        }
+        const uint16_t max_grp_x = (uint16_t)max_grp_i;
+
+        const int content_mid   = (int)content_left + (int)content_width / 2;
+        const int ideal_grp_x = content_mid - (int)grp_w / 2;
+        uint16_t  cx_grp      = (ideal_grp_x < (int)min_grp_x) ? min_grp_x : (uint16_t)ideal_grp_x;
+        if ((int)cx_grp > (int)max_grp_x) {
+            cx_grp = max_grp_x;
+        }
+
+        const uint16_t ic_y = (uint16_t)(hdr_y + 2);
+        Paint_DrawImage(insight_32x32, cx_grp, ic_y, ic_sz, ic_sz);
+        Paint_DrawString_Display((uint16_t)(cx_grp + ic_sz + gap_ic_title), (uint16_t)(hdr_y + 10), sole_title,
+                                 &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
+
+        uint16_t header_row_h = 40;
+        if (show_qr_sa && (uint16_t)qr_sz_sa + 4 > header_row_h) {
+            header_row_h = (uint16_t)qr_sz_sa + 4;
+        }
+        const uint16_t top_sep_sa = (uint16_t)(hdr_y + header_row_h + 6);
+        for (uint16_t sx = content_left; sx <= content_right; sx += 4) {
+            uint16_t x1 = sx + 1;
+            if (x1 > content_right) {
+                x1 = content_right;
+            }
+            Paint_DrawLine(sx, top_sep_sa, x1, top_sep_sa, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        }
+
+        const int t_di = tempDangerDirection(values.temp_indoor);
+        const int h_di = humidityDangerDirection(values.hum_indoor);
+        const int p_di = pressureDangerDirection(values.press_indoor);
+        const int c_di = co2DangerDirection(values.co2);
+
+        char t_in[16], h_in[16], p_in[16], co2b[16];
+        formatMetricValue(t_in, sizeof(t_in), values.temp_indoor, 0, true);
+        formatMetricValue(h_in, sizeof(h_in), values.hum_indoor, 0, false);
+        formatMetricValue(p_in, sizeof(p_in), values.press_indoor, 0, false);
+        formatMetricValue(co2b, sizeof(co2b), values.co2, 0, false);
+
+        const uint16_t col_gap = 8;
+        uint16_t       col_w = (content_width > col_gap + 4) ? (uint16_t)(((int)content_width - (int)col_gap) / 2) : (content_width / 2);
+        const uint16_t colL  = content_left + 2;
+        const uint16_t colR  = (uint16_t)(content_left + (int)col_w + (int)col_gap + 2);
+
+        const uint16_t metrics_top = (uint16_t)(top_sep_sa + 8);
+        uint16_t       metrics_bottom = (uint16_t)(footer_top - 4);
+        if (metrics_bottom <= metrics_top + 60) {
+            metrics_bottom = (DISPLAY_HEIGHT > 80) ? (uint16_t)(DISPLAY_HEIGHT - 12) : metrics_top;
+        }
+        int span_col = (int)metrics_bottom - (int)metrics_top;
+        int row_step = span_col / 2;
+        if (row_step < 50) {
+            row_step = 50;
+        }
+        if (row_step > 60) {
+            row_step = 60;
+        }
+
+        // Tight label→value spacing (values use 24px glyphs; row_step still keeps rows apart).
+        const uint16_t val_dy = (uint16_t)(Font12.Height + 2);
+        const uint16_t mxL  = colL;
+        const uint16_t mxR  = colR;
+        const uint16_t labL = (uint16_t)(mxL + 42);
+        const uint16_t labR = (uint16_t)(mxR + 42);
+
+        // Left column: Temperature, Humidity
+        Paint_DrawImage(wi_thermometer_cropped_34x32, mxL, metrics_top + 1, 34, 32);
+        String tls = String(INTL_DISP_TEMPERATURE) + " °C";
+        Paint_DrawString_Display(labL, metrics_top, tls.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        uint16_t tlw = Paint_GetStringWidth_Display(tls.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii);
+        drawWarningLevelIcon(labL + tlw + 4, metrics_top - 1, t_di);
+        drawNumberWithUnit(labL, (uint16_t)(metrics_top + val_dy), t_in, "", true);
+
+        Paint_DrawImage(wi_humidity_cropped_34x34, mxL, (uint16_t)(metrics_top + row_step + 1), 34, 34);
+        String hls = String(INTL_DISP_HUMIDITY) + " %";
+        Paint_DrawString_Display(labL, (uint16_t)(metrics_top + row_step), hls.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        uint16_t hlw = Paint_GetStringWidth_Display(hls.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii);
+        drawWarningLevelIcon(labL + hlw + 4, (uint16_t)(metrics_top + row_step - 1), h_di);
+        drawNumberWithUnit(labL, (uint16_t)(metrics_top + row_step + val_dy), h_in, "", true);
+
+        // Right column: CO2, Pressure
+        Paint_DrawImage(co2_svgrepo_com_32x32, mxR, metrics_top + 1, 32, 32);
+        const char *co2_lbl = "CO2 ppm";
+        Paint_DrawString_Display(labR, metrics_top, co2_lbl, &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        uint16_t clw = Paint_GetStringWidth_Display(co2_lbl, &Font12, &font_12_cyrillic, &font_12_ascii);
+        drawWarningLevelIcon(labR + clw + 4, metrics_top - 1, c_di);
+        drawNumberWithUnit(labR, (uint16_t)(metrics_top + val_dy), co2b, "", true);
+
+        Paint_DrawImage(pressure_32x32, mxR, (uint16_t)(metrics_top + row_step + 1), 32, 32);
+        String pls = String(INTL_DISP_PRESSURE) + " mmHg";
+        Paint_DrawString_Display(labR, (uint16_t)(metrics_top + row_step), pls.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii, WHITE, BLACK);
+        uint16_t plw = Paint_GetStringWidth_Display(pls.c_str(), &Font12, &font_12_cyrillic, &font_12_ascii);
+        drawWarningLevelIcon(labR + plw + 4, (uint16_t)(metrics_top + row_step - 1), p_di);
+        drawNumberWithUnit(labR, (uint16_t)(metrics_top + row_step + val_dy), p_in, "", true);
+
+        auto levelWord_sa = [](int dir) -> const char* { return (dir > 0) ? INTL_DISP_LEVEL_HIGH : INTL_DISP_LEVEL_LOW; };
+        auto makeToo_sa = [&](const char *measure, int dir) -> String {
+            String s = String(measure);
+            if (strlen(INTL_DISP_IS_TOO) > 0) {
+                s += " ";
+                s += INTL_DISP_IS_TOO;
+            }
+            s += " ";
+            s += levelWord_sa(dir);
+            return s;
+        };
+        auto append_sa = [](String &line, const String &issue) {
+            if (issue.length() == 0) {
+                return;
+            }
+            if (line.length() > 0) {
+                line += ", ";
+            }
+            line += issue;
+        };
+        String insight_line = "";
+        if (h_di != 0) {
+            append_sa(insight_line, makeToo_sa("Hum.", h_di));
+        }
+        if (t_di != 0) {
+            append_sa(insight_line, makeToo_sa(INTL_DISP_TEMP_SHORT, t_di));
+        }
+        if (p_di != 0) {
+            append_sa(insight_line, makeToo_sa(INTL_DISP_PRESS_SHORT, p_di));
+        }
+        if (c_di != 0) {
+            append_sa(insight_line, makeToo_sa("CO2", c_di));
+        }
+
+        String wrapped_sa[3];
+        int wcnt = 0;
+        const uint16_t nav_sw = 26;
+        const uint16_t text_r = (DISPLAY_WIDTH > nav_sw + 1) ? (DISPLAY_WIDTH - nav_sw - 1) : content_right;
+        // Footer: same info glyph as dual mode, text to the right of it (standalone only).
+        const uint16_t info_icon_size = 32;
+        const uint16_t footer_icon_pad = 6;
+        const uint16_t info_icon_x = (uint16_t)(content_left + footer_icon_pad);
+        const uint16_t body_text_x = (uint16_t)(info_icon_x + info_icon_size + 4);
+        const uint16_t body_text_w = (text_r > body_text_x + 24) ? (uint16_t)(text_r - body_text_x) : 0u;
+        String src = (insight_line.length() > 0) ? insight_line : String(INTL_DISP_CHECK_MAP_FULL_DATA);
+        {
+            String cur = "";
+            int pos = 0;
+            while (pos < src.length() && wcnt < 3) {
+                int ns = src.indexOf(' ', pos);
+                if (ns < 0) {
+                    ns = src.length();
+                }
+                String tok = src.substring(pos, ns);
+                if (tok.length() == 0) {
+                    pos = ns + 1;
+                    continue;
+                }
+                String cand = (cur.length() == 0) ? tok : (cur + " " + tok);
+                uint16_t cw = Paint_GetStringWidth_Display(cand.c_str(), &Font12, &font_10_cyrillic, &font_10_ascii);
+                if (cw <= body_text_w || cur.length() == 0) {
+                    cur = cand;
+                } else {
+                    wrapped_sa[wcnt++] = cur;
+                    cur = tok;
+                }
+                pos = ns + 1;
+            }
+            if (wcnt < 3 && cur.length() > 0) {
+                wrapped_sa[wcnt++] = cur;
+            }
+        }
+        const uint16_t line_h_sa =
+#if defined(INTL_RU)
+            (font_10_cyrillic.line_height ? font_10_cyrillic.line_height : Font12.Height);
+#else
+            (font_10_ascii.line_height ? font_10_ascii.line_height : Font12.Height);
+#endif
+        const uint16_t line_block = (uint16_t)wcnt * (line_h_sa + 2);
+        const uint16_t lowest_allowed = (uint16_t)(metrics_top + row_step + val_dy + 8u);
+        const uint16_t footer_bottom_margin = 22;
+        uint16_t fy_sa = (DISPLAY_HEIGHT > line_block + footer_bottom_margin)
+            ? (uint16_t)(DISPLAY_HEIGHT - footer_bottom_margin - line_block)
+            : lowest_allowed;
+        if (fy_sa < lowest_allowed) {
+            fy_sa = lowest_allowed;
+        }
+        const uint16_t icon_ty = (fy_sa >= 3) ? (uint16_t)(fy_sa - 3) : fy_sa;
+        Paint_DrawImage(info_32x32, info_icon_x, icon_ty, info_icon_size, info_icon_size);
+        for (int i = 0; i < wcnt; i++) {
+            Paint_DrawString_Display(body_text_x, (uint16_t)(fy_sa + (uint16_t)i * (line_h_sa + 2)), wrapped_sa[i].c_str(),
+                                     &Font12, &font_10_cyrillic, &font_10_ascii, WHITE, BLACK);
+        }
+        return;
+    }
 
     // Top strip: QR codes left/right + combined title in the middle.
     // Hide Insight QR when GPS coords are (0,0) — we can't verify Urban's coords (different device)

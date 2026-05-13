@@ -43,13 +43,17 @@ const char INTL_DNMS_CORRECTION[] PROGMEM = "поправка в dB(A)";
 const char INTL_TEMP_CORRECTION[] PROGMEM = "Коррекция температуры в °C";
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Пользовательский адрес Altruist Urban";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Использовать пользовательский адрес Altruist Urban";
+const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без связи с Urban)";
 
 // Выбор Urban (настройка и страница конфигурации)
 #define INTL_SCANNING_URBANS "Поиск устройств Altruist Urban..."
 #define INTL_SELECT_URBAN_TITLE "Выберите устройство Altruist Urban"
 #define INTL_SELECT_URBAN_DESC "Выберите устройство Urban, с которого этот Insight будет получать данные уличных датчиков."
-#define INTL_NO_URBANS_FOUND "Устройства Altruist Urban не найдены в этой сети. Убедитесь, что Urban включён и подключён к той же сети WiFi. Вы можете ввести IP-адрес вручную или пропустить этот шаг и настроить позже."
+#define INTL_NO_URBANS_FOUND "Устройства Altruist Urban не найдены в этой сети. Убедитесь, что Urban включён и подключён к той же сети WiFi. Укажите IP вручную ниже и сохраните; Urban можно настроить позже в Настройках."
 #define INTL_USE_CUSTOM_IP "Указать IP-адрес вручную:"
+#define INTL_SETUP_INSIGHT_MODE_HINT "Если у вас есть Altruist Urban (уличный блок), отметьте галочку и нажмите «Дальше», чтобы найти его в сети и выбрать. Если Urban нет — оставьте галочку снятой: устройство перезагрузится сразу в режиме только Insight."
+#define INTL_SETUP_PAIR_WITH_URBAN "Настроить связь с Altruist Urban сейчас"
+#define INTL_SETUP_CONTINUE "Дальше"
 #define INTL_SKIP_URBAN_SELECTION "Пропустить &mdash; настроить позже в Настройках"
 #define INTL_SETUP_COMPLETE "Настройка завершена"
 #define INTL_SETTINGS_SAVED "Настройки сохранены!"

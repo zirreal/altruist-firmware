@@ -70,6 +70,7 @@ namespace cfg {
 	char timezone[LEN_TIMEZONE] = "<+00>0";
 	char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	bool use_custom_urban = false;
+	bool standalone = false;
 
 	unsigned leds_brightness = 100; // Default 100% = 30% actual brightness (scaled down)
 	bool leds_on = true;

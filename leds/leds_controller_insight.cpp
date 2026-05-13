@@ -179,10 +179,11 @@ void LedControllerInsight::process() {
         uint32_t urban_pressure_color = white;
         uint32_t insight_pressure_color = white;
 
-        // Apply the same TTL semantics as the main screen (with stale debounce).
-        // UX requirement: show WHITE only when Urban is OFFLINE (not just stale).
         enum class urban_link_state_t : uint8_t { FRESH, STALE, OFFLINE };
         urban_link_state_t urban_link_state = urban_link_state_t::FRESH;
+        if (!cfg::standalone) {
+        // Apply the same TTL semantics as the main screen (with stale debounce).
+        // UX requirement: show WHITE only when Urban is OFFLINE (not just stale).
         {
             static uint8_t urban_led_stale_confirm = 0;
             static uint32_t urban_led_tracked_last_ok_ms = 0xFFFFFFFFu;
@@ -264,6 +265,7 @@ void LedControllerInsight::process() {
                 debug_outln_verbose(F("Set U Pressure color "), getColorName(urban_pressure_color));
             }
         }
+        }
         if (sensors_data.containsKey("BME680")) {
             insight_temp_color = _getTempColor(sensors_data["BME680"]["temperature"]["value"].as<float>());
             debug_outln_verbose(F("Set Temp color "), getColorName(insight_temp_color));
@@ -276,6 +278,17 @@ void LedControllerInsight::process() {
         if (sensors_data.containsKey("SCD4x")) {
             co2_color = _getCO2Color(sensors_data["SCD4x"]["co2"]["value"].as<float>());
             debug_outln_verbose(F("Set CO2 color "), getColorName(co2_color));
+        }
+
+        if (cfg::standalone) {
+            // No Urban stream: reuse Insight + CO2 semantics so the bar is coherent (not long white runs).
+            pm10_color = co2_color;
+            pm25_color = co2_color;
+            noise_avg_color = co2_color;
+            noise_max_color = co2_color;
+            urban_temp_color = insight_temp_color;
+            urban_humidity_color = insight_humidity_color;
+            urban_pressure_color = insight_pressure_color;
         }
         xSemaphoreGive(mutex);
 

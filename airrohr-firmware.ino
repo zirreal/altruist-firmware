@@ -397,6 +397,12 @@ static void powerOnTestSensors() {
 	debug_outln_info(F("Current reg: "), cfg::current_reg);
 
 	for (int i = 0; i < sizeof(supported_sensor_names) / sizeof(supported_sensor_names[0]); i++) {
+#if defined(ALTRUIST_INSIDE)
+		if (cfg::standalone && supported_sensor_names[i] == HTTP_ALTRUIST_SENSOR_NAME) {
+			debug_outln_info(F("Skipping Urban HTTP sensor (standalone mode)"));
+			continue;
+		}
+#endif
 		Sensor* new_sensor = createSensor(supported_sensor_names[i], cfg::sending_intervall_ms);
 		if (new_sensor->begin()) {
 			activeSensors[activeSensorsCount] = new_sensor;

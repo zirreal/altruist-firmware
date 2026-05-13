@@ -71,6 +71,8 @@ namespace cfg {
 
 	extern char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS];
 	extern bool use_custom_urban;
+	/** When true (Insight), do not register the HTTP Urban client sensor. */
+	extern bool standalone;
 
 	extern unsigned leds_brightness;
 	extern bool leds_on;

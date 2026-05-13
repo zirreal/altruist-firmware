@@ -572,12 +572,16 @@ bool analyticsHistoryIsLoaded() {
 
 bool analyticsHistoryHasData() {
     loadRollingHistoryIfNeeded();
-    return rollingHistoryHasAnyData(g_temp_hour_hist) ||
-           rollingHistoryHasAnyData(g_hum_hour_hist) ||
-           rollingHistoryHasAnyData(g_dew_hour_hist) ||
+    const bool indoor = rollingHistoryHasAnyData(g_temp_hour_hist) ||
+                        rollingHistoryHasAnyData(g_hum_hour_hist) ||
+                        rollingHistoryHasAnyData(g_dew_hour_hist) ||
+                        rollingHistoryHasAnyData(g_co2_hour_hist);
+    if (cfg::standalone) {
+        return indoor;
+    }
+    return indoor ||
            rollingHistoryHasAnyData(g_pm10_hour_hist) ||
            rollingHistoryHasAnyData(g_pm25_hour_hist) ||
-           rollingHistoryHasAnyData(g_co2_hour_hist) ||
            rollingHistoryHasAnyData(g_noise_hour_hist);
 }
 
@@ -608,7 +612,6 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
 
     values = analytics_screen_values_t{};
     JsonObjectConst data = doc.as<JsonObjectConst>();
-    String urban_key = ATRUIST_URBAN_SENSOR;
 
     updateMetrics();
     bool use_bme680_for_temp_hum = (system_metrics.uptime_sec < 360);
@@ -660,41 +663,44 @@ void extractAnalyticsScreenValues(const DynamicJsonDocument &doc, analytics_scre
         }
     }
 
-    if (data.containsKey(urban_key)) {
-        JsonObjectConst urban = data[urban_key].as<JsonObjectConst>();
-        if (urban.containsKey("BME280_temperature")) {
-            float t_urban = urban["BME280_temperature"]["value"].as<float>();
-            if (isValidTemp(t_urban)) {
-                values.temp_urban.current = t_urban;
-                values.temp_urban.has_current = true;
+    if (!cfg::standalone) {
+        const char* urban_key = ATRUIST_URBAN_SENSOR;
+        if (data.containsKey(urban_key)) {
+            JsonObjectConst urban = data[urban_key].as<JsonObjectConst>();
+            if (urban.containsKey("BME280_temperature")) {
+                float t_urban = urban["BME280_temperature"]["value"].as<float>();
+                if (isValidTemp(t_urban)) {
+                    values.temp_urban.current = t_urban;
+                    values.temp_urban.has_current = true;
+                }
             }
-        }
-        if (urban.containsKey("BME280_humidity")) {
-            float h_urban = urban["BME280_humidity"]["value"].as<float>();
-            if (isValidHumidity(h_urban)) {
-                values.hum_urban.current = h_urban;
-                values.hum_urban.has_current = true;
+            if (urban.containsKey("BME280_humidity")) {
+                float h_urban = urban["BME280_humidity"]["value"].as<float>();
+                if (isValidHumidity(h_urban)) {
+                    values.hum_urban.current = h_urban;
+                    values.hum_urban.has_current = true;
+                }
             }
-        }
-        if (urban.containsKey("SDS_P1")) {
-            float pm10 = urban["SDS_P1"]["value"].as<float>();
-            if (isValidPM10(pm10)) {
-                values.pm10.current = pm10;
-                values.pm10.has_current = true;
+            if (urban.containsKey("SDS_P1")) {
+                float pm10 = urban["SDS_P1"]["value"].as<float>();
+                if (isValidPM10(pm10)) {
+                    values.pm10.current = pm10;
+                    values.pm10.has_current = true;
+                }
             }
-        }
-        if (urban.containsKey("SDS_P2")) {
-            float pm25 = urban["SDS_P2"]["value"].as<float>();
-            if (isValidPM25(pm25)) {
-                values.pm25.current = pm25;
-                values.pm25.has_current = true;
+            if (urban.containsKey("SDS_P2")) {
+                float pm25 = urban["SDS_P2"]["value"].as<float>();
+                if (isValidPM25(pm25)) {
+                    values.pm25.current = pm25;
+                    values.pm25.has_current = true;
+                }
             }
-        }
-        if (urban.containsKey("PCBA_noiseAvg")) {
-            float noise = urban["PCBA_noiseAvg"]["value"].as<float>();
-            if (isValidNoise(noise)) {
-                values.noise_avg.current = noise;
-                values.noise_avg.has_current = true;
+            if (urban.containsKey("PCBA_noiseAvg")) {
+                float noise = urban["PCBA_noiseAvg"]["value"].as<float>();
+                if (isValidNoise(noise)) {
+                    values.noise_avg.current = noise;
+                    values.noise_avg.has_current = true;
+                }
             }
         }
     }
@@ -753,23 +759,25 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
             updated = true;
             updated_metrics++;
         }
-        if (values.pm10.has_current) {
-            updateRollingHourMetric(g_pm10_hour_hist, values.pm10.current, hour_key);
-            updated = true;
-            updated_metrics++;
-        }
-        if (values.pm25.has_current) {
-            updateRollingHourMetric(g_pm25_hour_hist, values.pm25.current, hour_key);
-            updated = true;
-            updated_metrics++;
+        if (!cfg::standalone) {
+            if (values.pm10.has_current) {
+                updateRollingHourMetric(g_pm10_hour_hist, values.pm10.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
+            if (values.pm25.has_current) {
+                updateRollingHourMetric(g_pm25_hour_hist, values.pm25.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
+            if (values.noise_avg.has_current) {
+                updateRollingHourMetric(g_noise_hour_hist, values.noise_avg.current, hour_key);
+                updated = true;
+                updated_metrics++;
+            }
         }
         if (values.co2.has_current) {
             updateRollingHourMetric(g_co2_hour_hist, values.co2.current, hour_key);
-            updated = true;
-            updated_metrics++;
-        }
-        if (values.noise_avg.has_current) {
-            updateRollingHourMetric(g_noise_hour_hist, values.noise_avg.current, hour_key);
             updated = true;
             updated_metrics++;
         }
@@ -855,21 +863,23 @@ void populateAnalyticsPeriodStats(analytics_screen_values_t &values) {
             ok = applyHourlyMedianForDay(values.dew_indoor, g_dew_hour_hist, completed_day);
             if (!ok) applyHourlyMedianForDay(values.dew_indoor, g_dew_hour_hist, today);
         }
-        if (!values.pm10.has_24h) {
-            ok = applyHourlyMedianForDay(values.pm10, g_pm10_hour_hist, completed_day);
-            if (!ok) applyHourlyMedianForDay(values.pm10, g_pm10_hour_hist, today);
-        }
-        if (!values.pm25.has_24h) {
-            ok = applyHourlyMedianForDay(values.pm25, g_pm25_hour_hist, completed_day);
-            if (!ok) applyHourlyMedianForDay(values.pm25, g_pm25_hour_hist, today);
+        if (!cfg::standalone) {
+            if (!values.pm10.has_24h) {
+                ok = applyHourlyMedianForDay(values.pm10, g_pm10_hour_hist, completed_day);
+                if (!ok) applyHourlyMedianForDay(values.pm10, g_pm10_hour_hist, today);
+            }
+            if (!values.pm25.has_24h) {
+                ok = applyHourlyMedianForDay(values.pm25, g_pm25_hour_hist, completed_day);
+                if (!ok) applyHourlyMedianForDay(values.pm25, g_pm25_hour_hist, today);
+            }
+            if (!values.noise_avg.has_24h) {
+                ok = applyHourlyMedianForDay(values.noise_avg, g_noise_hour_hist, completed_day);
+                if (!ok) applyHourlyMedianForDay(values.noise_avg, g_noise_hour_hist, today);
+            }
         }
         if (!values.co2.has_24h) {
             ok = applyHourlyMedianForDay(values.co2, g_co2_hour_hist, completed_day);
             if (!ok) applyHourlyMedianForDay(values.co2, g_co2_hour_hist, today);
-        }
-        if (!values.noise_avg.has_24h) {
-            ok = applyHourlyMedianForDay(values.noise_avg, g_noise_hour_hist, completed_day);
-            if (!ok) applyHourlyMedianForDay(values.noise_avg, g_noise_hour_hist, today);
         }
     }
 }
@@ -1247,14 +1257,18 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
     float co2_prev[24] = {0}, pm25_prev[24] = {0}, noise_prev[24] = {0}, temp_prev[24] = {0}, hum_prev[24] = {0};
     bool co2_has_prev[24] = {false}, pm25_has_prev[24] = {false}, noise_has_prev[24] = {false}, temp_has_prev[24] = {false}, hum_has_prev[24] = {false};
     readHourlyDayValuesFromHistory(g_co2_hour_hist, end_day, co2_day, co2_has_day);
-    readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day, pm25_day, pm25_has_day);
-    readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day, noise_day, noise_has_day);
+    if (!cfg::standalone) {
+        readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day, pm25_day, pm25_has_day);
+        readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day, noise_day, noise_has_day);
+    }
     readHourlyDayValuesFromHistory(g_temp_hour_hist, end_day, temp_day, temp_has_day);
     readHourlyDayValuesFromHistory(g_hum_hour_hist, end_day, hum_day, hum_has_day);
     if (cross_midnight && end_day > 0U) {
         readHourlyDayValuesFromHistory(g_co2_hour_hist, end_day - 1U, co2_prev, co2_has_prev);
-        readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day - 1U, pm25_prev, pm25_has_prev);
-        readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day - 1U, noise_prev, noise_has_prev);
+        if (!cfg::standalone) {
+            readHourlyDayValuesFromHistory(g_pm25_hour_hist, end_day - 1U, pm25_prev, pm25_has_prev);
+            readHourlyDayValuesFromHistory(g_noise_hour_hist, end_day - 1U, noise_prev, noise_has_prev);
+        }
         readHourlyDayValuesFromHistory(g_temp_hour_hist, end_day - 1U, temp_prev, temp_has_prev);
         readHourlyDayValuesFromHistory(g_hum_hour_hist, end_day - 1U, hum_prev, hum_has_prev);
     }
@@ -1603,10 +1617,16 @@ static void drawNightSinglePage(int content_left, int content_top, int content_w
 
     // No extra label here; the header clarifies night average semantics.
 
-    drawMetricCard(card_x, cards_top + 0 * (card_h + card_gap), card_w, card_h, "CO2",   co2v, "ppm",   f_co2,   -1, false, 4, true, true);
-    drawMetricCard(card_x, cards_top + 1 * (card_h + card_gap), card_w, card_h, "PM2.5", pmv,  "µg/m³", f_pm25,  -1, false, 4, true, true);
-    drawMetricCard(card_x, cards_top + 2 * (card_h + card_gap), card_w, card_h, A_TXT("Noise", "Шум"), nv, "dB", f_noise, -1, false, 4, true, true);
-    drawMetricCard(card_x, cards_top + 3 * (card_h + card_gap), card_w, card_h, "RH", hv, "", f_hum, -1, false, 4, true, true);
+    int metric_row = 0;
+    drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, "CO2", co2v, "ppm", f_co2, -1, false, 4, true, true);
+    metric_row++;
+    if (!cfg::standalone) {
+        drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, "PM2.5", pmv, "µg/m³", f_pm25, -1, false, 4, true, true);
+        metric_row++;
+        drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, A_TXT("Noise", "Шум"), nv, "dB", f_noise, -1, false, 4, true, true);
+        metric_row++;
+    }
+    drawMetricCard(card_x, cards_top + metric_row * (card_h + card_gap), card_w, card_h, "RH", hv, "", f_hum, -1, false, 4, true, true);
 
     // circle/cards-only screen
     return;

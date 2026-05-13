@@ -519,7 +519,9 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 xSemaphoreGive(mutex);
             }
             populateAnalyticsPeriodStats(cached_analytics_values);
-            String analytics_map_addr = cached_urban_address.length() > 0 ? cached_urban_address : robonomics_address;
+            String analytics_map_addr = cfg::standalone
+                ? robonomics_address
+                : (cached_urban_address.length() > 0 ? cached_urban_address : robonomics_address);
             showAnalyticsPage(BlackImage, cached_analytics_values, analytics_map_addr);
         } else if (currentScreenID == ScreenPage::GRAPHS) {
             // Always draw graph screen - it will show appropriate message if no data/card
@@ -551,6 +553,13 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             };
 
             if (insightHasValidCoords()) {
+                sensor_map_waiting_addr  = false;
+                sensor_map_waiting_tries = 0;
+                showSensorsMapPage(robonomics_address);
+                goto draw_complete;
+            }
+
+            if (cfg::standalone) {
                 sensor_map_waiting_addr  = false;
                 sensor_map_waiting_tries = 0;
                 showSensorsMapPage(robonomics_address);
