@@ -4,6 +4,54 @@
 #include "../html-content.h"
 #include "../utils.h"
 
+#ifdef ALTRUIST_INSIDE
+/** Parse "H:MM" or "HH:MM" (24h) into minutes since midnight [0..1439]. */
+static bool altruistParseWebHHMM(const String &raw, unsigned *out_min) {
+	if (!out_min) {
+		return false;
+	}
+	String s = raw;
+	s.trim();
+	const int colon = s.indexOf(':');
+	if (colon <= 0) {
+		return false;
+	}
+	String hs = s.substring(0, colon);
+	String ms = s.substring(colon + 1);
+	ms.trim();
+	if (ms.length() == 0) {
+		return false;
+	}
+	const int h = hs.toInt();
+	const int m = ms.toInt();
+	if (h < 0 || h > 23 || m < 0 || m > 59) {
+		return false;
+	}
+	*out_min = (unsigned)(h * 60 + m);
+	return true;
+}
+
+static String altruistFormatHHMM(unsigned minutes) {
+	if (minutes > 1439u) {
+		minutes = 0;
+	}
+	char b[8];
+	snprintf(b, sizeof(b), "%02u:%02u", (unsigned)(minutes / 60U), (unsigned)(minutes % 60U));
+	return String(b);
+}
+
+/** Raw NVS value: legacy 0..23 = whole hour; else minutes 0..1439. */
+static unsigned altruistNightCfgRawToMinutes(unsigned raw, unsigned fallback_minutes) {
+	if (raw <= 23u) {
+		return raw * 60u;
+	}
+	if (raw > 1439u) {
+		return fallback_minutes;
+	}
+	return raw;
+}
+#endif
+
 void webserver_config_send_body_post(WebServer &server) {
 	String masked_pwd;
 	const char *kRobonomicsNodePolkadot = "polkadot.rpc.robonomics.network";
@@ -102,8 +150,21 @@ void webserver_config_send_body_post(WebServer &server) {
 	// Keep LED schedule values in a safe 0..23 range even for crafted requests.
 	if (cfg::leds_off_hour > 23) cfg::leds_off_hour = 0;
 	if (cfg::leds_on_hour > 23) cfg::leds_on_hour = 6;
-	if (cfg::analytics_night_start_hour > 23) cfg::analytics_night_start_hour = 22;
-	if (cfg::analytics_night_end_hour > 23) cfg::analytics_night_end_hour = 10;
+	// Sleep analytics window: minutes [0..1439] (also clamp UInt posts).
+	if (cfg::analytics_night_start_hour > 1439) cfg::analytics_night_start_hour = 22 * 60;
+	if (cfg::analytics_night_end_hour > 1439) cfg::analytics_night_end_hour = 7 * 60;
+	if (server.hasArg("analytics_night_start_time")) {
+		unsigned v = 0;
+		if (altruistParseWebHHMM(server.arg("analytics_night_start_time"), &v)) {
+			cfg::analytics_night_start_hour = v;
+		}
+	}
+	if (server.hasArg("analytics_night_end_time")) {
+		unsigned v = 0;
+		if (altruistParseWebHHMM(server.arg("analytics_night_end_time"), &v)) {
+			cfg::analytics_night_end_hour = v;
+		}
+	}
 #endif
 }
 
@@ -394,18 +455,31 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 #ifdef ALTRUIST_INSIDE
 		add_form_input(page_content, Config_leds_off_hour, FPSTR(INTL_LEDS_OFF_HOUR), 2);
 		add_form_input(page_content, Config_leds_on_hour, FPSTR(INTL_LEDS_ON_HOUR), 2);
-		add_form_input(page_content, Config_analytics_night_start_hour, F("Analytics night start hour"), 2);
-		add_form_input(page_content, Config_analytics_night_end_hour, F("Analytics night end hour"), 2);
+		{
+			const String start_v =
+			    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_start_hour, 22u * 60u));
+			const String end_v =
+			    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_end_hour, 7u * 60u));
+			page_content += F("<div class='form-group'><label for='analytics_night_start_time'>Sleep analytics night start (local, HH:MM)</label>"
+				"<input type='text' id='analytics_night_start_time' name='analytics_night_start_time' "
+				"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='22:00' value='");
+			page_content += start_v;
+			page_content += F("'/></div><div class='form-group'><label for='analytics_night_end_time'>Sleep analytics night end (local, HH:MM)</label>"
+				"<input type='text' id='analytics_night_end_time' name='analytics_night_end_time' "
+				"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='07:00' value='");
+			page_content += end_v;
+			page_content += F("'/></div><p style='font-size:12px;color:#666;margin:4px 0 0;'>End is exclusive for hourly buckets (e.g. 07:00 uses hours through 06:xx).</p>");
+			if (!cfg::standalone) {
+				add_form_checkbox(Config_analytics_sleep_add_urban,
+				                  F("Add Urban data to sleep analytics (PM2.5 & noise)"), true);
+			}
+		}
 		page_content += F("<script>"
 			"(function(){"
 				"var off=document.getElementById('leds_off_hour');"
 				"var on=document.getElementById('leds_on_hour');"
-				"var nightStart=document.getElementById('analytics_night_start_hour');"
-				"var nightEnd=document.getElementById('analytics_night_end_hour');"
 				"if(off){off.min='0';off.max='23';off.step='1';}"
 				"if(on){on.min='0';on.max='23';on.step='1';}"
-				"if(nightStart){nightStart.min='0';nightStart.max='23';nightStart.step='1';}"
-				"if(nightEnd){nightEnd.min='0';nightEnd.max='23';nightEnd.step='1';}"
 			"})();"
 		"</script>");
 #endif

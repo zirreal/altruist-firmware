@@ -22,7 +22,8 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **STA join tuning** — `WiFi.setSleep(false)` during join; Insight can start STA early after config read so association overlaps slower init; `connectWifi(..., already_started)` avoids double `begin()`.
 - **Urban / Insight UX (related)** — Urban NeoPixel default pin/order options where applicable; Urban LED mode uses the same “LAN ready” test as Wi‑Fi recovery; Insight long reset shows cleared state then restarts into setup flow.
 - **Insight** - Removed gas heater since the device do not use its measurements.
-- **Web UI header / favicon** — `/{lang}_s1.4?r=logo` serves **device-specific SVG** logos (cache-busted query); **`/favicon.ico`** uses the **colored Robonomics PNG** again for tab visibility. Web canvas `<h3>` uses **`PM_SENSOR_NAME`** (**“Altruist Insight”** / **“Altruist Urban”**). With **Insight standalone**, **Urban pairing** fields on the config GPS tab are hidden and the standalone hint is shown.
+- **Web UI header** — `/{lang}_s1.4?r=logo` serves **device-specific SVG** logos; **`/favicon.ico`** uses the **colored Robonomics PNG** again for tab visibility. Web canvas `<h3>` uses **`PM_SENSOR_NAME`** (**“Altruist Insight”** / **“Altruist Urban”**). With **Insight standalone**, **Urban pairing** fields on the config GPS tab are hidden and the standalone hint is shown.
+- **Sleep Analytics** - default analytics time changed from 22:00–10:00 to 22:00–07:00 local time. Added support for custom hours and minutes (e.g. 07:15).
 
 ## [R_2026-04.5](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.5) — 2026-04-27
 
