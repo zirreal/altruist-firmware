@@ -12,6 +12,9 @@ enum {
 	SDS_REPLY_BODY = 8
 } SDS_waiting_for;
 
+/** Consecutive measurement windows with no valid samples → UART/protocol recover (issue #110). */
+static constexpr uint8_t kSdsRecoverAfterBadWindows = 3;
+
 SDS011Sensor::SDS011Sensor(unsigned long sending_timeout)
 	: Sensor(sending_timeout) {
 	if (cfg::sds_meas_interval_ms > sds_SENSOR_MIN_TIMEOUT) {
@@ -37,14 +40,27 @@ bool SDS011Sensor::begin() {
     return last_value_SDS_version.length() > 0;
 }
 
-void SDS011Sensor::_fetch(JsonDocument &data) {
-	serialSDS.begin(9600, SERIAL_8N1, PM_SERIAL_RX, PM_SERIAL_TX);
-    serialSDS.setTimeout((4 * 12 * 1000) / 9600);
-	if (first_fetch) {
-		first_fetch = false;
-		addValueToJSON(data, F("P1"), (float)-1.0, "PM10", F("ppm"));
-        addValueToJSON(data, F("P2"), (float)-1.0, "PM2.5", F("ppm"));
+void SDS011Sensor::sdsUartRecover() {
+	debug_outln_info(F("[SDS011] recover: drain UART, re-init, idle cycle"));
+	while (serialSDS.available()) {
+		(void)serialSDS.read();
 	}
+	serialSDS.flush();
+#if defined(ESP32)
+	serialSDS.end();
+	delay(80);
+#endif
+	serialSDS.begin(9600, SERIAL_8N1, PM_SERIAL_RX, PM_SERIAL_TX);
+	serialSDS.setTimeout((4 * 12 * 1000) / 9600);
+	delay(150);
+	cmd(PmSensorCmd::ContinuousMode);
+	delay(100);
+	is_SDS_running = cmd(PmSensorCmd::Stop);
+	SDS_waiting_for = SDS_REPLY_HDR;
+	last_measure_time = millis() - (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS));
+}
+
+void SDS011Sensor::_fetch(JsonDocument &data) {
 	if (msSince(last_measure_time) < (sending_timeout - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
 		if (is_SDS_running) {
 			is_SDS_running = cmd(PmSensorCmd::Stop);
@@ -104,6 +120,7 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
             last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
             addValueToJSON(data, F("P1"), last_value_SDS_P1, "PM10", F("ppm"));
             addValueToJSON(data, F("P2"), last_value_SDS_P2, "PM2.5", F("ppm"));
+            sds_bad_window_streak = 0;
             debug_outln_verbose(F("PM10: "), String(last_value_SDS_P1));
             debug_outln_verbose(F("PM2.5: "), String(last_value_SDS_P2));
             #ifdef DEV
@@ -117,6 +134,12 @@ void SDS011Sensor::_fetch(JsonDocument &data) {
             }
         } else {
             SDS_error_count++;
+            sds_bad_window_streak++;
+            if (sds_bad_window_streak >= kSdsRecoverAfterBadWindows) {
+                debug_outln_info(F("[SDS011] consecutive empty windows -> recover"));
+                sdsUartRecover();
+                sds_bad_window_streak = 0;
+            }
         }
         sds_pm10_sum = 0;
         sds_pm25_sum = 0;

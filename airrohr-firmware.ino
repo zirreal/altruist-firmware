@@ -546,10 +546,6 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 
 	if (data.containsKey(urban_key)) {
 		JsonObjectConst urban = data[urban_key].as<JsonObjectConst>();
-		if (urban.containsKey("SDS_P1")) {
-			const float v = urban["SDS_P1"]["value"].as<float>();
-			if (validPM(v)) { values.pm10.current = v; values.pm10.has_current = true; }
-		}
 		if (urban.containsKey("SDS_P2")) {
 			const float v = urban["SDS_P2"]["value"].as<float>();
 			if (validPM(v)) { values.pm25.current = v; values.pm25.has_current = true; }
