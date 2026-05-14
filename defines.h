@@ -455,4 +455,10 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define DEBUG 3
 #endif
 
+// Insight standalone main: 1 = force all four footer warnings (Hum/Temp/Press/CO2) for layout preview.
+// Default 0. Set to 1 while tuning UI, or build with: -DINSIGHT_DEBUG_ALL_WARNINGS=1
+#ifndef INSIGHT_DEBUG_ALL_WARNINGS
+#define INSIGHT_DEBUG_ALL_WARNINGS 0
+#endif
+
 #endif // __DEFINES_H__

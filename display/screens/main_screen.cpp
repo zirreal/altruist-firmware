@@ -605,7 +605,7 @@ static int drawSensorQR(const String &sensor_address, int x, int y) {
 }
 
 /** Pixel scale for standalone shop QR (`https://cyberpunks.shop/`); must match in measure + draw. */
-static const int STANDALONE_SHOP_QR_SCALE = 2;
+static const int STANDALONE_SHOP_QR_SCALE = 1;
 
 /** Side length in pixels (square QR) for a URL at ECC_LOW; must match `drawUrlQR()`. */
 static int measureUrlQrSidePx(const char *url) {
@@ -666,6 +666,38 @@ static int drawUrlQR(const char *url, int x, int y) {
     Paint_DrawImage(qr_bitmap_scaled, x, y, total_width, total_height);
     free(qr_bitmap_scaled);
     return total_height;
+}
+
+/** Greedy word-wrap by pixel width (standalone boxed footer). */
+static int wrapWordsByWidth(const String &src, uint16_t max_w, String out[], int max_lines, sFONT *font_en, const Font *font_cyr,
+                            const Font *font_ascii) {
+    int nlines = 0;
+    String cur = "";
+    int pos = 0;
+    while (pos < (int)src.length() && nlines < max_lines) {
+        int ns = src.indexOf(' ', pos);
+        if (ns < 0) {
+            ns = (int)src.length();
+        }
+        String tok = src.substring(pos, ns);
+        if (tok.length() == 0) {
+            pos = ns + 1;
+            continue;
+        }
+        String cand = (cur.length() == 0) ? tok : (cur + " " + tok);
+        uint16_t cw = Paint_GetStringWidth_Display(cand.c_str(), font_en, font_cyr, font_ascii);
+        if (cw <= max_w || cur.length() == 0) {
+            cur = cand;
+        } else {
+            out[nlines++] = cur;
+            cur = tok;
+        }
+        pos = ns + 1;
+    }
+    if (nlines < max_lines && cur.length() > 0) {
+        out[nlines++] = cur;
+    }
+    return nlines;
 }
 
 static void drawWarningGlyph(uint16_t x, uint16_t y, int danger_direction) {
@@ -951,10 +983,17 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
             Paint_DrawLine(sx, top_sep_sa, x1, top_sep_sa, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
         }
 
-        const int t_di = tempDangerDirection(values.temp_indoor);
-        const int h_di = humidityDangerDirection(values.hum_indoor);
-        const int p_di = pressureDangerDirection(values.press_indoor);
-        const int c_di = co2DangerDirection(values.co2);
+        int t_di = tempDangerDirection(values.temp_indoor);
+        int h_di = humidityDangerDirection(values.hum_indoor);
+        int p_di = pressureDangerDirection(values.press_indoor);
+        int c_di = co2DangerDirection(values.co2);
+#if INSIGHT_DEBUG_ALL_WARNINGS
+        // Mix of "too low" / "too high" so both glyph variants show in the preview.
+        t_di = 1;
+        h_di = -1;
+        p_di = -1;
+        c_di = 1;
+#endif
 
         char t_in[16], h_in[16], p_in[16], co2b[16];
         formatMetricValue(t_in, sizeof(t_in), values.temp_indoor, 0, true);
@@ -1052,108 +1091,163 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
             append_sa(insight_line, makeToo_sa("CO2", c_di));
         }
 
-        String wrapped_sa[3];
-        int wcnt = 0;
-        const uint16_t nav_sw = 26;
-        const uint16_t text_r = (DISPLAY_WIDTH > nav_sw + 1) ? (DISPLAY_WIDTH - nav_sw - 1) : content_right;
-        // Footer: same info glyph as dual mode, text to the right of it (standalone only).
-        const uint16_t info_icon_size = 32;
-        // Tighter than dual-mode footer so warning lines get more width (two issues should fit).
-        const uint16_t footer_icon_pad = 4;
-        const uint16_t info_icon_x = (uint16_t)(content_left + footer_icon_pad);
-        const uint16_t body_text_x = (uint16_t)(info_icon_x + info_icon_size + 2);
-        static const char STANDALONE_SHOP_URL[] = "https://cyberpunks.shop/";
-        const int shop_qr_px = measureUrlQrSidePx(STANDALONE_SHOP_URL);
-        const uint16_t promo_text_w =
-            Paint_GetStringWidth_Display(INTL_STANDALONE_SHOP_PROMPT, &Font8, &font_8_cyrillic, &font_8_ascii);
-        // Promo is one line on the first footer row; QR extends down — line 0 clears max(promo, QR), next lines only QR.
-        const uint16_t shop_rail_full =
-            (shop_qr_px > 0) ? (uint16_t)((promo_text_w > (uint16_t)shop_qr_px) ? promo_text_w : (uint16_t)shop_qr_px) : 0u;
-        const uint16_t shop_rail_qr_only = (shop_qr_px > 0) ? (uint16_t)shop_qr_px : 0u;
-        // Right column: one Font8 line above QR (left warning block keeps original fy_sa from line_block only).
-        const uint16_t promo_gap_sa = 4u;
-        const uint16_t promo_stack_sa = (uint16_t)((uint16_t)Font8.Height + promo_gap_sa);
-        const uint16_t body_text_w_raw = (text_r > body_text_x + 24) ? (uint16_t)(text_r - body_text_x) : 0u;
-        const uint16_t body_shop_h_gap = 6u;
-        const uint16_t body_w_first =
-            (shop_rail_full > 0 && body_text_w_raw > shop_rail_full + body_shop_h_gap)
-                ? (uint16_t)(body_text_w_raw - shop_rail_full)
-                : body_text_w_raw;
-        const uint16_t body_w_next =
-            (shop_rail_qr_only > 0 && body_text_w_raw > shop_rail_qr_only + body_shop_h_gap)
-                ? (uint16_t)(body_text_w_raw - shop_rail_qr_only)
-                : body_text_w_raw;
-        String src = (insight_line.length() > 0) ? insight_line : String(INTL_DISP_CHECK_MAP_FULL_DATA);
-        {
-            String cur = "";
-            int pos = 0;
-            while (pos < src.length() && wcnt < 3) {
-                int ns = src.indexOf(' ', pos);
-                if (ns < 0) {
-                    ns = src.length();
-                }
-                String tok = src.substring(pos, ns);
-                if (tok.length() == 0) {
-                    pos = ns + 1;
-                    continue;
-                }
-                String cand = (cur.length() == 0) ? tok : (cur + " " + tok);
-                uint16_t cw = Paint_GetStringWidth_Display(cand.c_str(), &Font12, &font_10_cyrillic, &font_10_ascii);
-                const uint16_t line_lim = (wcnt == 0) ? body_w_first : body_w_next;
-                if (cw <= line_lim || cur.length() == 0) {
-                    cur = cand;
-                } else {
-                    wrapped_sa[wcnt++] = cur;
-                    cur = tok;
-                }
-                pos = ns + 1;
-            }
-            if (wcnt < 3 && cur.length() > 0) {
-                wrapped_sa[wcnt++] = cur;
-            }
-        }
         const uint16_t line_h_sa =
 #if defined(INTL_RU)
             (font_10_cyrillic.line_height ? font_10_cyrillic.line_height : Font12.Height);
 #else
             (font_10_ascii.line_height ? font_10_ascii.line_height : Font12.Height);
 #endif
-        const uint16_t line_block = (uint16_t)wcnt * (line_h_sa + 2);
+
+        String wrapped_sa[3];
+        int wcnt = 0;
+        const uint16_t nav_sw = 26;
+        const uint16_t text_r = (DISPLAY_WIDTH > nav_sw + 1) ? (DISPLAY_WIDTH - nav_sw - 1) : content_right;
+        const uint16_t bx0 = (uint16_t)(content_left + 2);
+        const uint16_t footer_box_right_margin = 3u;
+        const uint16_t bx1 = (text_r > bx0 + footer_box_right_margin + 8u)
+            ? (uint16_t)(text_r - footer_box_right_margin)
+            : text_r;
+        const uint16_t alert_col_w = 30u;
+        const uint16_t text1_x = (uint16_t)(bx0 + alert_col_w + 5u);
+        const uint16_t text1_w = (bx1 > text1_x + 16u) ? (uint16_t)(bx1 - text1_x - 2u) : 16u;
+
+        String src_alert = (insight_line.length() > 0) ? insight_line : String(INTL_DISP_CHECK_MAP_FULL_DATA);
+        wcnt = wrapWordsByWidth(src_alert, text1_w, wrapped_sa, 3, &Font12, &font_10_cyrillic, &font_10_ascii);
+        if (wcnt <= 0) {
+            wrapped_sa[0] = src_alert;
+            wcnt = 1;
+        }
+
+        const uint16_t row1_pad_v = 3u;
+        const uint16_t row1_inner_h = (uint16_t)(wcnt * (line_h_sa + 2u) + 2u * row1_pad_v);
+        const uint16_t row1_h_from_bang = (uint16_t)(Font20.Height + 2u * row1_pad_v);
+        const uint16_t row1_h_min_text = (uint16_t)(line_h_sa + 6u);
+        const uint16_t row1_h_min =
+            (row1_h_from_bang > row1_h_min_text) ? row1_h_from_bang : row1_h_min_text;
+        const uint16_t row1_h = (row1_inner_h < row1_h_min) ? row1_h_min : row1_inner_h;
+
+        static const char STANDALONE_SHOP_URL[] = "https://cyberpunks.shop/";
+        const int shop_qr_px = measureUrlQrSidePx(STANDALONE_SHOP_URL);
+        const uint16_t pad_h = 3u;
+        const uint16_t pad_v_top = 2u;
+        const uint16_t pad_v_bot = 4u;
+        const uint16_t promo_line_gap = 1u;
+        const int max_promo_lines = 4;
+        const uint16_t promo_line_h =
+#if defined(INTL_RU)
+            (uint16_t)(font_10_cyrillic.line_height ? font_10_cyrillic.line_height : Font12.Height);
+#else
+            (uint16_t)(font_10_ascii.line_height ? font_10_ascii.line_height : Font12.Height);
+#endif
+        const uint16_t promo_qr_gap = 6u; // horizontal space between QR right edge and promo text
+
+        String promo_lines[4];
+        uint16_t promo_w_for_wrap;
+        if (shop_qr_px > 0) {
+            const uint16_t ptx0 = (uint16_t)(bx0 + pad_h + 1u + (uint16_t)shop_qr_px + promo_qr_gap);
+            promo_w_for_wrap = (bx1 > ptx0 + 10u) ? (uint16_t)(bx1 - ptx0 - pad_h) : 10u;
+        } else {
+            promo_w_for_wrap =
+                (bx1 > bx0 + 2u * pad_h + 8u) ? (uint16_t)(bx1 - bx0 - 2u * pad_h - 4u) : 8u;
+        }
+        int n_promo = wrapWordsByWidth(String(INTL_STANDALONE_INSIGHT_FOOTER_PROMPT), promo_w_for_wrap, promo_lines,
+                                       max_promo_lines, &Font12, &font_10_cyrillic, &font_10_ascii);
+        if (n_promo <= 0) {
+            promo_lines[0] = String(INTL_STANDALONE_INSIGHT_FOOTER_PROMPT);
+            n_promo = 1;
+        }
+        const uint16_t promo_stack_h =
+            (uint16_t)((uint16_t)n_promo * (promo_line_h + promo_line_gap));
+        uint16_t inner_band_h = promo_stack_h;
+        if (shop_qr_px > 0 && (uint16_t)shop_qr_px > inner_band_h) {
+            inner_band_h = (uint16_t)shop_qr_px;
+        }
+        const uint16_t row2_h = (uint16_t)(2u + pad_v_top + inner_band_h + pad_v_bot + 2u);
+
         const uint16_t lowest_allowed = (uint16_t)(metrics_top + row_step + val_dy + 8u);
-        const uint16_t footer_bottom_margin = 22;
-        uint16_t fy_sa = (DISPLAY_HEIGHT > line_block + footer_bottom_margin)
-            ? (uint16_t)(DISPLAY_HEIGHT - footer_bottom_margin - line_block)
+        // Space from screen bottom for shop row + nav; 3px = slightly above previous 1px flush.
+        const uint16_t footer_bottom_pad = 3u;
+        // Nudge whole warning + shop stack up (smaller Y) when there is room below the nav strip.
+        const uint16_t footer_stack_lift_px = 2u;
+        const uint16_t box_gap = 8u;
+        uint16_t row2_top = (DISPLAY_HEIGHT > footer_bottom_pad + row2_h + footer_stack_lift_px)
+            ? (uint16_t)(DISPLAY_HEIGHT - footer_bottom_pad - row2_h - footer_stack_lift_px)
             : lowest_allowed;
-        if (fy_sa < lowest_allowed) {
-            fy_sa = lowest_allowed;
-        }
-        const uint16_t shop_nav_margin_sa = 8u;
-        const uint16_t icon_ty = (fy_sa >= 3) ? (uint16_t)(fy_sa - 3) : fy_sa;
-        Paint_DrawImage(info_32x32, info_icon_x, icon_ty, info_icon_size, info_icon_size);
-        for (int i = 0; i < wcnt; i++) {
-            Paint_DrawString_Display(body_text_x, (uint16_t)(fy_sa + (uint16_t)i * (line_h_sa + 2)), wrapped_sa[i].c_str(),
-                                     &Font12, &font_10_cyrillic, &font_10_ascii, WHITE, BLACK);
-        }
-        if (shop_qr_px > 0 && (int)text_r > shop_qr_px + 6) {
-            const uint16_t shop_block_nudge_l = 3u;
-            const uint16_t col_right =
-                (text_r > 1u + shop_block_nudge_l) ? (uint16_t)(text_r - 1u - shop_block_nudge_l) : (text_r - 1u);
-            const uint16_t shop_qr_x = (col_right > (uint16_t)shop_qr_px) ? (uint16_t)((int)col_right - shop_qr_px + 1) : content_left;
-            const uint16_t promo_px =
-                (col_right > promo_text_w) ? (uint16_t)((int)col_right - (int)promo_text_w + 1) : shop_qr_x;
-            uint16_t qr_y = (uint16_t)(fy_sa + promo_stack_sa);
-            const uint16_t max_qr_y =
-                (DISPLAY_HEIGHT > shop_nav_margin_sa + (uint16_t)shop_qr_px)
-                    ? (uint16_t)(DISPLAY_HEIGHT - shop_nav_margin_sa - (uint16_t)shop_qr_px)
-                    : qr_y;
-            if ((uint32_t)qr_y + (uint32_t)shop_qr_px > (uint32_t)DISPLAY_HEIGHT - shop_nav_margin_sa) {
-                qr_y = max_qr_y;
+        uint16_t row1_top = (row2_top > row1_h + box_gap) ? (uint16_t)(row2_top - box_gap - row1_h) : lowest_allowed;
+        if (row1_top < lowest_allowed) {
+            row1_top = lowest_allowed;
+            row2_top = (uint16_t)(row1_top + row1_h + box_gap);
+            if ((uint32_t)row2_top + (uint32_t)row2_h > (uint32_t)DISPLAY_HEIGHT - footer_bottom_pad
+                && DISPLAY_HEIGHT > footer_bottom_pad + row2_h + footer_stack_lift_px) {
+                row2_top = (uint16_t)(DISPLAY_HEIGHT - footer_bottom_pad - row2_h - footer_stack_lift_px);
             }
-            const uint16_t promo_y =
-                (qr_y > (uint16_t)Font8.Height + promo_gap_sa) ? (uint16_t)(qr_y - promo_gap_sa - (uint16_t)Font8.Height) : fy_sa;
-            Paint_DrawString_Display(promo_px, promo_y, INTL_STANDALONE_SHOP_PROMPT, &Font8, &font_8_cyrillic, &font_8_ascii,
-                                     WHITE, BLACK);
-            drawUrlQR(STANDALONE_SHOP_URL, (int)shop_qr_x, (int)qr_y);
+        }
+
+        Paint_DrawRectangle(bx0, row1_top, bx1, (uint16_t)(row1_top + row1_h - 1u), BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+        Paint_DrawLine((uint16_t)(bx0 + alert_col_w), (uint16_t)(row1_top + 2u), (uint16_t)(bx0 + alert_col_w),
+                       (uint16_t)(row1_top + row1_h - 3u), BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+        {
+            const char bang[] = "!";
+            const uint16_t bw =
+                Paint_GetStringWidth_Display(bang, &Font20, &font_20_cyrillic, &font_20_ascii);
+            int gix_i = (int)bx0 + (((int)alert_col_w - (int)bw) / 2);
+            uint16_t gix = (gix_i > 0) ? (uint16_t)gix_i : bx0;
+            int giy_i = (int)row1_top + (((int)row1_h - (int)Font20.Height) / 2) - 1;
+            if (giy_i < (int)row1_top) {
+                giy_i = (int)row1_top;
+            }
+            uint16_t giy = (uint16_t)giy_i;
+            Paint_DrawString_Display(gix, giy, bang, &Font20, &font_20_cyrillic, &font_20_ascii, WHITE, BLACK);
+        }
+        for (int i = 0; i < wcnt; i++) {
+            Paint_DrawString_Display(text1_x, (uint16_t)(row1_top + row1_pad_v + (uint16_t)i * (line_h_sa + 2u)),
+                                     wrapped_sa[i].c_str(), &Font12, &font_10_cyrillic, &font_10_ascii, WHITE, BLACK);
+        }
+
+        Paint_DrawRectangle(bx0, row2_top, bx1, (uint16_t)(row2_top + row2_h - 1u), BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+        if (shop_qr_px > 0) {
+            // QR bitmap is 1bpp; even X/Y often look cleaner on the panel.
+            uint16_t qr_x = (uint16_t)(bx0 + pad_h + 1u);
+            if ((qr_x & 1u) != 0u && qr_x > bx0 + 1u) {
+                qr_x = (uint16_t)(qr_x - 1u);
+            }
+            const uint16_t y_cell_top = (uint16_t)(row2_top + 1u + pad_v_top + 1u);
+            const uint16_t y_cell_bot = (uint16_t)(row2_top + row2_h - 1u - pad_v_bot - 1u);
+            // Bottom-align in cell, then nudge up. No even-Y snap here — it ate the nudge vs. clamps.
+            const int qr_nudge_up = 3;
+            int qr_y_i = (int)y_cell_bot - shop_qr_px + 1 - qr_nudge_up;
+            const int max_qr_y_i =
+                (DISPLAY_HEIGHT > footer_bottom_pad + (uint16_t)shop_qr_px)
+                    ? (int)((int32_t)DISPLAY_HEIGHT - (int32_t)footer_bottom_pad - (int32_t)shop_qr_px)
+                    : qr_y_i;
+            if (qr_y_i > max_qr_y_i) {
+                qr_y_i = max_qr_y_i;
+            }
+            if (qr_y_i < (int)y_cell_top) {
+                qr_y_i = (int)y_cell_top;
+            }
+            uint16_t qr_y = (uint16_t)qr_y_i;
+            drawUrlQR(STANDALONE_SHOP_URL, (int)qr_x, (int)qr_y);
+            const uint16_t ptx = (uint16_t)(qr_x + (uint16_t)shop_qr_px + promo_qr_gap);
+            uint16_t py = (uint16_t)qr_y;
+            if (promo_stack_h > 0u && promo_stack_h <= (uint16_t)shop_qr_px) {
+                py = (uint16_t)(qr_y + (uint16_t)(((int)shop_qr_px - (int)promo_stack_h) / 2));
+            }
+            if (py < y_cell_top) {
+                py = y_cell_top;
+            }
+            for (int pi = 0; pi < n_promo; pi++) {
+                Paint_DrawString_Display(ptx, py, promo_lines[pi].c_str(), &Font12, &font_10_cyrillic, &font_10_ascii,
+                                         WHITE, BLACK);
+                py = (uint16_t)(py + promo_line_h + promo_line_gap);
+            }
+        } else {
+            uint16_t py = (uint16_t)(row2_top + 2u + pad_v_top);
+            for (int pi = 0; pi < n_promo; pi++) {
+                Paint_DrawString_Display((uint16_t)(bx0 + pad_h + 1u), py, promo_lines[pi].c_str(), &Font12,
+                                         &font_10_cyrillic, &font_10_ascii, WHITE, BLACK);
+                py = (uint16_t)(py + promo_line_h + promo_line_gap);
+            }
         }
         return;
     }

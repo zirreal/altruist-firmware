@@ -122,6 +122,10 @@
 #ifndef INTL_STANDALONE_SHOP_PROMPT
 #define INTL_STANDALONE_SHOP_PROMPT "Add more measurements to your home!"
 #endif
+#ifndef INTL_STANDALONE_INSIGHT_FOOTER_PROMPT
+#define INTL_STANDALONE_INSIGHT_FOOTER_PROMPT \
+    "Add noise, air dust and outdoor atmospheric measurements to your Insight."
+#endif
 #ifndef INTL_DISP_NOISE_AVGMAX_SUFFIX
 #define INTL_DISP_NOISE_AVGMAX_SUFFIX "(avg/max)"
 #endif
