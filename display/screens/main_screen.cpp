@@ -26,6 +26,7 @@
 #include "../utils.h"
 #include "../../utils.h"
 #include "../../config_manager/config_helpers.h"
+#include "../../wifi_manager.h"
 #include "display_common.h"
 #include "../../intl.h"
 #include "../paint_driver/fonts/fonts.h"
@@ -358,6 +359,7 @@ int co2DangerDirection(float co2) {
 // Extract main screen values directly from shared sensors data.
 // This avoids serialize->deserialize on every refresh.
 void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &values) {
+    values.wifi_sta_link_ok = wifiStaLinkReady();
     JsonObjectConst data = doc.as<JsonObjectConst>();
     String urban_key = ATRUIST_URBAN_SENSOR;
 
@@ -602,6 +604,70 @@ static int drawSensorQR(const String &sensor_address, int x, int y) {
     return total_height;
 }
 
+/** Pixel scale for standalone shop QR (`https://cyberpunks.shop/`); must match in measure + draw. */
+static const int STANDALONE_SHOP_QR_SCALE = 2;
+
+/** Side length in pixels (square QR) for a URL at ECC_LOW; must match `drawUrlQR()`. */
+static int measureUrlQrSidePx(const char *url) {
+    if (url == nullptr || url[0] == '\0') {
+        return 0;
+    }
+    QRCode qr;
+    const uint8_t qr_version = 4;
+    uint8_t qrcodeData[qrcode_getBufferSize(qr_version)];
+    qrcode_initText(&qr, qrcodeData, qr_version, ECC_LOW, url);
+    const int quiet_zone = 1;
+    return (int)qr.size * STANDALONE_SHOP_QR_SCALE + 2 * quiet_zone;
+}
+
+/** QR for short HTTPS URLs (Insight standalone footer). Returns square side in pixels, 0 on failure. */
+static int drawUrlQR(const char *url, int x, int y) {
+    if (url == nullptr || url[0] == '\0') {
+        return 0;
+    }
+
+    QRCode qr;
+    const uint8_t qr_version = 4; // short URL; v3 can be tight for https + path
+    uint8_t qrcodeData[qrcode_getBufferSize(qr_version)];
+    qrcode_initText(&qr, qrcodeData, qr_version, ECC_LOW, url);
+
+    const int scale_factor = STANDALONE_SHOP_QR_SCALE;
+    const int quiet_zone = 1;
+    const int total_width = qr.size * scale_factor + 2 * quiet_zone;
+    const int total_height = qr.size * scale_factor + 2 * quiet_zone;
+    const int qr_bitmap_width_bytes = (total_width + 7) / 8;
+    const int qr_bitmap_size = total_height * qr_bitmap_width_bytes;
+
+    unsigned char *qr_bitmap_scaled = (unsigned char*)malloc(qr_bitmap_size);
+    if (!qr_bitmap_scaled) {
+        return 0;
+    }
+
+    memset(qr_bitmap_scaled, 0x00, qr_bitmap_size);
+
+    for (uint8_t qr_y = 0; qr_y < qr.size; qr_y++) {
+        for (uint8_t qr_x = 0; qr_x < qr.size; qr_x++) {
+            if (!qrcode_getModule(&qr, qr_x, qr_y)) {
+                continue;
+            }
+            for (int sy = 0; sy < scale_factor; sy++) {
+                for (int sx = 0; sx < scale_factor; sx++) {
+                    int pixel_x = quiet_zone + qr_x * scale_factor + sx;
+                    int pixel_y = quiet_zone + qr_y * scale_factor + sy;
+                    if (pixel_x >= 0 && pixel_x < total_width && pixel_y >= 0 && pixel_y < total_height) {
+                        int byte_index = pixel_y * qr_bitmap_width_bytes + (pixel_x / 8);
+                        qr_bitmap_scaled[byte_index] |= (0x80 >> (pixel_x % 8));
+                    }
+                }
+            }
+        }
+    }
+
+    Paint_DrawImage(qr_bitmap_scaled, x, y, total_width, total_height);
+    free(qr_bitmap_scaled);
+    return total_height;
+}
+
 static void drawWarningGlyph(uint16_t x, uint16_t y, int danger_direction) {
     // Slightly larger warning marker for readability.
     const uint16_t tri_w = 18;
@@ -822,7 +888,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
             left_after_qr = (uint16_t)((int)qr_sa_x + qr_sz_sa + 6);
         }
 
-        const bool     insight_online_sa = (device_ip.length() > 0);
+        const bool     insight_wifi_ok = values.wifi_sta_link_ok;
         const uint16_t wifi_w         = 28;
         const uint16_t wifi_hdr_pad   = 8;
         uint16_t       wifi_x         = (content_right > wifi_w + wifi_hdr_pad + 2)
@@ -831,7 +897,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         if (wifi_x < content_left) {
             wifi_x = content_left;
         }
-        Paint_DrawImage(insight_online_sa ? wifi_28x28 : wifi_x_28x28, wifi_x, (uint16_t)(hdr_y + 7), wifi_w, wifi_w);
+        Paint_DrawImage(insight_wifi_ok ? wifi_28x28 : wifi_x_28x28, wifi_x, (uint16_t)(hdr_y + 7), wifi_w, wifi_w);
 
         // Insight mark + title: full-size icon, slightly larger title than body metrics; centered on the
         // content band and clamped so it does not collide with QR or Wi‑Fi columns.
@@ -992,10 +1058,31 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         const uint16_t text_r = (DISPLAY_WIDTH > nav_sw + 1) ? (DISPLAY_WIDTH - nav_sw - 1) : content_right;
         // Footer: same info glyph as dual mode, text to the right of it (standalone only).
         const uint16_t info_icon_size = 32;
-        const uint16_t footer_icon_pad = 6;
+        // Tighter than dual-mode footer so warning lines get more width (two issues should fit).
+        const uint16_t footer_icon_pad = 4;
         const uint16_t info_icon_x = (uint16_t)(content_left + footer_icon_pad);
-        const uint16_t body_text_x = (uint16_t)(info_icon_x + info_icon_size + 4);
-        const uint16_t body_text_w = (text_r > body_text_x + 24) ? (uint16_t)(text_r - body_text_x) : 0u;
+        const uint16_t body_text_x = (uint16_t)(info_icon_x + info_icon_size + 2);
+        static const char STANDALONE_SHOP_URL[] = "https://cyberpunks.shop/";
+        const int shop_qr_px = measureUrlQrSidePx(STANDALONE_SHOP_URL);
+        const uint16_t promo_text_w =
+            Paint_GetStringWidth_Display(INTL_STANDALONE_SHOP_PROMPT, &Font8, &font_8_cyrillic, &font_8_ascii);
+        // Promo is one line on the first footer row; QR extends down — line 0 clears max(promo, QR), next lines only QR.
+        const uint16_t shop_rail_full =
+            (shop_qr_px > 0) ? (uint16_t)((promo_text_w > (uint16_t)shop_qr_px) ? promo_text_w : (uint16_t)shop_qr_px) : 0u;
+        const uint16_t shop_rail_qr_only = (shop_qr_px > 0) ? (uint16_t)shop_qr_px : 0u;
+        // Right column: one Font8 line above QR (left warning block keeps original fy_sa from line_block only).
+        const uint16_t promo_gap_sa = 4u;
+        const uint16_t promo_stack_sa = (uint16_t)((uint16_t)Font8.Height + promo_gap_sa);
+        const uint16_t body_text_w_raw = (text_r > body_text_x + 24) ? (uint16_t)(text_r - body_text_x) : 0u;
+        const uint16_t body_shop_h_gap = 6u;
+        const uint16_t body_w_first =
+            (shop_rail_full > 0 && body_text_w_raw > shop_rail_full + body_shop_h_gap)
+                ? (uint16_t)(body_text_w_raw - shop_rail_full)
+                : body_text_w_raw;
+        const uint16_t body_w_next =
+            (shop_rail_qr_only > 0 && body_text_w_raw > shop_rail_qr_only + body_shop_h_gap)
+                ? (uint16_t)(body_text_w_raw - shop_rail_qr_only)
+                : body_text_w_raw;
         String src = (insight_line.length() > 0) ? insight_line : String(INTL_DISP_CHECK_MAP_FULL_DATA);
         {
             String cur = "";
@@ -1012,7 +1099,8 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
                 }
                 String cand = (cur.length() == 0) ? tok : (cur + " " + tok);
                 uint16_t cw = Paint_GetStringWidth_Display(cand.c_str(), &Font12, &font_10_cyrillic, &font_10_ascii);
-                if (cw <= body_text_w || cur.length() == 0) {
+                const uint16_t line_lim = (wcnt == 0) ? body_w_first : body_w_next;
+                if (cw <= line_lim || cur.length() == 0) {
                     cur = cand;
                 } else {
                     wrapped_sa[wcnt++] = cur;
@@ -1039,11 +1127,33 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
         if (fy_sa < lowest_allowed) {
             fy_sa = lowest_allowed;
         }
+        const uint16_t shop_nav_margin_sa = 8u;
         const uint16_t icon_ty = (fy_sa >= 3) ? (uint16_t)(fy_sa - 3) : fy_sa;
         Paint_DrawImage(info_32x32, info_icon_x, icon_ty, info_icon_size, info_icon_size);
         for (int i = 0; i < wcnt; i++) {
             Paint_DrawString_Display(body_text_x, (uint16_t)(fy_sa + (uint16_t)i * (line_h_sa + 2)), wrapped_sa[i].c_str(),
                                      &Font12, &font_10_cyrillic, &font_10_ascii, WHITE, BLACK);
+        }
+        if (shop_qr_px > 0 && (int)text_r > shop_qr_px + 6) {
+            const uint16_t shop_block_nudge_l = 3u;
+            const uint16_t col_right =
+                (text_r > 1u + shop_block_nudge_l) ? (uint16_t)(text_r - 1u - shop_block_nudge_l) : (text_r - 1u);
+            const uint16_t shop_qr_x = (col_right > (uint16_t)shop_qr_px) ? (uint16_t)((int)col_right - shop_qr_px + 1) : content_left;
+            const uint16_t promo_px =
+                (col_right > promo_text_w) ? (uint16_t)((int)col_right - (int)promo_text_w + 1) : shop_qr_x;
+            uint16_t qr_y = (uint16_t)(fy_sa + promo_stack_sa);
+            const uint16_t max_qr_y =
+                (DISPLAY_HEIGHT > shop_nav_margin_sa + (uint16_t)shop_qr_px)
+                    ? (uint16_t)(DISPLAY_HEIGHT - shop_nav_margin_sa - (uint16_t)shop_qr_px)
+                    : qr_y;
+            if ((uint32_t)qr_y + (uint32_t)shop_qr_px > (uint32_t)DISPLAY_HEIGHT - shop_nav_margin_sa) {
+                qr_y = max_qr_y;
+            }
+            const uint16_t promo_y =
+                (qr_y > (uint16_t)Font8.Height + promo_gap_sa) ? (uint16_t)(qr_y - promo_gap_sa - (uint16_t)Font8.Height) : fy_sa;
+            Paint_DrawString_Display(promo_px, promo_y, INTL_STANDALONE_SHOP_PROMPT, &Font8, &font_8_cyrillic, &font_8_ascii,
+                                     WHITE, BLACK);
+            drawUrlQR(STANDALONE_SHOP_URL, (int)shop_qr_x, (int)qr_y);
         }
         return;
     }
@@ -1058,8 +1168,9 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     const uint16_t top_qr_y = body_top + qr_pad_top_y;
     int left_qr_size = drawSensorQR(urban_robonomics_address, left_qr_x, top_qr_y);
     int right_qr_size = show_insight_qr ? drawSensorQR(insight_robonomics_address, right_qr_x, top_qr_y) : 0;
-    bool urban_online = (values.ip_address.length() > 0);
-    bool insight_online = (device_ip.length() > 0);
+    // Urban (left): Wi‑Fi up and we have Urban IP in telemetry. Insight (right): STA link only.
+    const bool urban_wifi_ok  = values.wifi_sta_link_ok && (values.ip_address.length() > 0);
+    const bool insight_wifi_ok = values.wifi_sta_link_ok;
     const int16_t left_wifi_nudge_x = -3;  // keep Urban side as-is
     const int16_t right_wifi_nudge_x = +1; // move ONLY Insight-side WiFi to the right
     uint16_t left_wifi_x = (uint16_t)((int32_t)left_qr_x + (left_qr_size > 0 ? (int32_t)left_qr_size + 8 : 43) + left_wifi_nudge_x);
@@ -1067,8 +1178,8 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     uint16_t right_wifi_x = (uint16_t)((int32_t)((right_qr_x > 36) ? (right_qr_x - 36) : content_left) + right_wifi_nudge_x);
     if (right_wifi_x < content_left) right_wifi_x = content_left;
     uint16_t wifi_y = top_qr_y + 6;
-    Paint_DrawImage(urban_online ? wifi_28x28 : wifi_x_28x28, left_wifi_x, wifi_y, 28, 28);
-    Paint_DrawImage(insight_online ? wifi_28x28 : wifi_x_28x28, right_wifi_x, wifi_y, 28, 28);
+    Paint_DrawImage(urban_wifi_ok ? wifi_28x28 : wifi_x_28x28, left_wifi_x, wifi_y, 28, 28);
+    Paint_DrawImage(insight_wifi_ok ? wifi_28x28 : wifi_x_28x28, right_wifi_x, wifi_y, 28, 28);
     const uint16_t source_icon_gap = 4;
     const uint16_t insight_icon_gap = 0; // as close as possible to its WiFi icon
     const uint16_t source_icon_size = 32;

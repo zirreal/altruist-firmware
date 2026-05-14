@@ -1115,7 +1115,15 @@ void setup(void) {
 		const bool sta_ok = connectWifi(webserver);
 #endif
 		if (!sta_ok) {
+#ifdef ALTRUIST_INSIDE
+			// Insight: wrong password / unreachable SSID must not leave the device "running" without
+			// a working STA — same as first-time setup, block in the captive portal until WiFi works
+			// (portal flow ends with sensor_restart() once association succeeds).
+			debug_outln_info(F("[WiFi] Insight: STA did not connect with saved credentials; starting config portal."));
+			wifiConfig(webserver);
+#else
 			debug_outln_info(F("[WiFi] Saved credentials but STA did not connect; skipping config AP (runtime reconnect)."));
+#endif
 		}
 	}
 
@@ -1284,9 +1292,6 @@ void setup(void) {
 	delay(10);
 	#endif
 	
-#ifdef ALTRUIST_INSIDE
-	displayManager.setScreen(ScreenPage::MAIN);
-#endif
 	debug_outln_info(F("Setup finished"));
 	#ifdef DEV
 	#if defined(ALTRUIST_INSIDE)

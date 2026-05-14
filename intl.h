@@ -119,6 +119,9 @@
 #ifndef INTL_DISP_PRESS_SHORT
 #define INTL_DISP_PRESS_SHORT "Press."
 #endif
+#ifndef INTL_STANDALONE_SHOP_PROMPT
+#define INTL_STANDALONE_SHOP_PROMPT "Add more measurements to your home!"
+#endif
 #ifndef INTL_DISP_NOISE_AVGMAX_SUFFIX
 #define INTL_DISP_NOISE_AVGMAX_SUFFIX "(avg/max)"
 #endif

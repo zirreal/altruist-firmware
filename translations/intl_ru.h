@@ -324,6 +324,8 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_LEVEL_LOW "ниже нормы"
 #define INTL_DISP_IS_TOO ""
 #define INTL_DISP_CHECK_MAP_FULL_DATA "Смотрите полные данные и аналитику на карте датчиков."
+/** Insight standalone: одна строка над QR магазина. */
+#define INTL_STANDALONE_SHOP_PROMPT "Больше измерений для вашего дома"
 #define INTL_DISP_DEW_POINT_U_PREFIX "Точка росы (U): "
 #define INTL_DISP_DEW_POINT_IS "Точка росы: "
 #define INTL_DISP_TEMP_SHORT "Темп."

@@ -324,6 +324,8 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_LEVEL_LOW "low"
 #define INTL_DISP_IS_TOO "is too"
 #define INTL_DISP_CHECK_MAP_FULL_DATA "Check out our sensor map for full data and analytics."
+/** Insight standalone footer: one line above shop QR (Font8). */
+#define INTL_STANDALONE_SHOP_PROMPT "Add more measurements to your home!"
 #define INTL_DISP_DEW_POINT_U_PREFIX "Dew Point (U): "
 #define INTL_DISP_DEW_POINT_IS "Dew Point is "
 #define INTL_DISP_TEMP_SHORT "Temp"

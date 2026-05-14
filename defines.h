@@ -5,11 +5,11 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIDE)
-#define SOFTWARE_VERSION_STR "R-INS_2026-04.4"
+#define SOFTWARE_VERSION_STR "R-INS_2026-05"
 #define PM_SENSOR_NAME "Altruist Insight"
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_STR "R-URB_2026-04.4"
+#define SOFTWARE_VERSION_STR "R-URB_2026-05"
 #define PM_SENSOR_NAME "Altruist Urban"
 #endif
 
