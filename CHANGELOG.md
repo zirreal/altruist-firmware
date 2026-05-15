@@ -28,7 +28,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Bug Fixes
 
-- **Insight LEDs: segment order aligned with main screen** — updated LED segment mapping to match the main screen metric order (Noise → PM → CO₂ → Temp → Hum → Pressure) after UI column/layout changes; reduced frequency of “forced white” fallback.
+- **Insight LEDs: segment order aligned with main screen** — updated LED segment mapping to match the main screen metric order (Noise → PM → CO₂ → Temp → Hum → Pressure) after UI column/layout changes. Reduced frequency of “forced white” fallback.
 
 ## [R_2026-04.4](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.4) — 2026-04-27
 
