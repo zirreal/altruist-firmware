@@ -2,6 +2,34 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
+## [R_2026-05](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05) — 2026-05-15
+
+### Features
+
+- **STANDALONE INSIGHT** - Insight can now operate as a fully standalone device, no Urban connection required.
+
+### Bug Fixes
+
+- **Wi-Fi recovery stability (Urban & Insight)** — improved STA reconnect behavior after router/Wi-Fi outages to prevent stuck reconnect states and unnecessary reboots.
+- **STA connection state detection** — fixed cases where Wi-Fi could be incorrectly treated as disconnected during network recovery.
+- **Web UI recovery after reconnect** — improved HTTP/Web UI listener restart after STA IP changes.
+- **Insight ↔ Urban communication recovery** — improved HTTP/mDNS reconnection flow after Wi-Fi interruptions and increased timeout tolerance for slow LAN networks.
+
+### Improvements
+
+- **Wi-Fi reconnect behavior (ESP32 STA)** — improved recovery handling and service refresh after reconnect or DHCP renewal.
+- **STA connection tuning** — optimized Wi-Fi join flow and reduced reconnect latency during device startup.
+- **Urban** - removed SDS011 publishing when PM values are -1.
+- **Insight** - Removed gas heater since the device do not use its measurements.
+- **Web UI header** — `/{lang}_s1.4?r=logo` serves **device-specific SVG** logos; **`/favicon.ico`** uses the **colored Robonomics PNG** for tab visibility. Web canvas `<h3>` uses **`PM_SENSOR_NAME`** (**“Altruist Insight”** / **“Altruist Urban”**). With **Insight standalone**, **Urban pairing** fields on the config GPS tab are hidden and the standalone hint is shown.
+- **Sleep Analytics** - default analytics time changed from 22:00–10:00 to 22:00–07:00 local time. Added support for custom hours and minutes (e.g. 07:15).
+
+## [R_2026-04.5](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.5) — 2026-04-27
+
+### Bug Fixes
+
+- **Insight LEDs: segment order aligned with main screen** — updated LED segment mapping to match the main screen metric order (Noise → PM → CO₂ → Temp → Hum → Pressure) after UI column/layout changes. Reduced frequency of “forced white” fallback.
+
 ## [R_2026-04.4](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.4) — 2026-04-27
 
 ### Bug Fixes

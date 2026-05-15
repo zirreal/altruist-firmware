@@ -23,7 +23,9 @@ public:
 
 private:
     void _fetch(JsonDocument &data) override;
-    unsigned long SDS_error_count;
+    void sdsUartRecover();
+    unsigned long SDS_error_count = 0;
+    uint8_t sds_bad_window_streak = 0;
     uint32_t sds_pm10_sum = 0;
     uint32_t sds_pm25_sum = 0;
     uint32_t sds_val_count = 0;
@@ -40,7 +42,6 @@ private:
     void rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3);
     bool cmd(PmSensorCmd cmd);
     String version_date();
-    bool first_fetch = true;
 };
 
 #endif // __SDS011_H__

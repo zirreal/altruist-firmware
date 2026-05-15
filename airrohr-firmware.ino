@@ -82,6 +82,7 @@
 #define ARDUINOJSON_DECODE_UNICODE 0
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
+#include <ESPmDNS.h>
 
 #include "./intl.h"
 
@@ -396,6 +397,12 @@ static void powerOnTestSensors() {
 	debug_outln_info(F("Current reg: "), cfg::current_reg);
 
 	for (int i = 0; i < sizeof(supported_sensor_names) / sizeof(supported_sensor_names[0]); i++) {
+#if defined(ALTRUIST_INSIDE)
+		if (cfg::standalone && supported_sensor_names[i] == HTTP_ALTRUIST_SENSOR_NAME) {
+			debug_outln_info(F("Skipping Urban HTTP sensor (standalone mode)"));
+			continue;
+		}
+#endif
 		Sensor* new_sensor = createSensor(supported_sensor_names[i], cfg::sending_intervall_ms);
 		if (new_sensor->begin()) {
 			activeSensors[activeSensorsCount] = new_sensor;
@@ -539,10 +546,6 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 
 	if (data.containsKey(urban_key)) {
 		JsonObjectConst urban = data[urban_key].as<JsonObjectConst>();
-		if (urban.containsKey("SDS_P1")) {
-			const float v = urban["SDS_P1"]["value"].as<float>();
-			if (validPM(v)) { values.pm10.current = v; values.pm10.has_current = true; }
-		}
 		if (urban.containsKey("SDS_P2")) {
 			const float v = urban["SDS_P2"]["value"].as<float>();
 			if (validPM(v)) { values.pm25.current = v; values.pm25.has_current = true; }
@@ -608,7 +611,88 @@ void sensorAndAPIWorker(void *pvParameters) {
 #if defined(ALTRUIST_INSIDE)
 	analytics_screen_values_t analytics_rollup_values;
 #endif
-	for (;;) {  // infinite loop
+	static bool prev_sta_connected = false;
+		for (;;) {  // infinite loop
+		if (wifiTakeUserPortalRequest()) {
+#ifdef ALTRUIST_INSIDE
+			displayManager.setScreen(ScreenPage::SETUP);
+			displayManager.process(btn_press);
+#endif
+#ifdef ALTRUIST_URBAN
+			leds_controller_urban.setMode(LedMode::PROVISIONING);
+			leds_controller_urban.process();
+#endif
+			wifiConfig(webserver);
+		}
+#if defined(ESP32)
+		// React to driver disconnect immediately (do not wait only for the 12s periodic timer).
+		if (wifiStaTakeDisconnectReconnectKick() && wifiHasSavedStationCredentials() && !wifiIsConfigPortalRunning()) {
+			debug_outln_info(F("[WiFi] STA disconnect event -> runtime STA recovery"));
+			wifiStaRuntimeRecovery(false);
+		}
+		// Every DHCP IPv4 assignment: re-attach HTTP listener + mDNS. Fixes "http://192.168.x.x/ dead until reboot"
+		// when the link looked continuously "ready" to our edge detector or lwIP replaced the STA netif under us.
+		if (wifiStaTakeStaGotIpWebRefreshKick() && wifiHasSavedStationCredentials() && !wifiIsConfigPortalRunning() &&
+		    WiFi.localIP()[0] != 0) {
+			debug_outln_info(F("[WiFi] STA_GOT_IP -> refresh mDNS + web listener"));
+			deviceStatus.ip_address = WiFi.localIP().toString();
+			MDNS.end();
+			if (MDNS.begin(cfg::local_hostname)) {
+				MDNS.addService("altruist", "tcp", 80);
+				MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
+				MDNS.addServiceTxt("altruist", "tcp", DEVICE_MODEL_MDNS_PROPERTY, DEVICE_MODEL);
+			}
+			webserver.notifyStaIpRestored();
+		}
+#endif
+		// Run STA recovery before fetch/API work: slow sensors or HTTP can block for a long time and
+		// would otherwise starve reconnect logic (LAN + webserver appeared "dead" until manual reboot).
+		{
+			static unsigned long last_periodic_wifi_recover_ms = 0;
+			static unsigned long sta_down_since_ms = 0;
+			if (!wifiStaLinkReady()) {
+				if (sta_down_since_ms == 0) {
+					sta_down_since_ms = millis();
+				}
+				const unsigned long now_ms = millis();
+				if (last_periodic_wifi_recover_ms == 0 ||
+				    msSince(last_periodic_wifi_recover_ms) >= WIFI_STA_PERIODIC_RECONNECT_MS) {
+					markCrashSection(CRASH_SECTION_WIFI_RECONNECT);
+					const bool want_deep = (msSince(sta_down_since_ms) >= WIFI_STA_DEEP_RECOVER_AFTER_MS);
+					if (wifiStaRuntimeRecovery(want_deep)) {
+						last_periodic_wifi_recover_ms = now_ms;
+					}
+					if (WIFI_STA_REBOOT_AFTER_MS != 0 && wifiHasSavedStationCredentials() &&
+					    msSince(sta_down_since_ms) >= WIFI_STA_REBOOT_AFTER_MS) {
+						debug_outln_info(F("[WiFi] STA link down too long; rebooting for recovery"));
+						delay(100);
+						esp_restart();
+					}
+					markCrashSection(CRASH_SECTION_IDLE);
+				}
+			} else {
+				last_periodic_wifi_recover_ms = 0;
+				sta_down_since_ms = 0;
+			}
+		}
+		// If STA comes back after an outage, re-advertise mDNS so .local URLs start working again.
+		// Without this, the webserver may be reachable by IP but appears "down" when using hostname.
+		{
+			const bool sta_connected_now = wifiStaLinkReady();
+			if (sta_connected_now && !prev_sta_connected) {
+				deviceStatus.ip_address = WiFi.localIP().toString();
+				MDNS.end();
+				if (MDNS.begin(cfg::local_hostname)) {
+					MDNS.addService("altruist", "tcp", 80);
+					MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
+					MDNS.addServiceTxt("altruist", "tcp", DEVICE_MODEL_MDNS_PROPERTY, DEVICE_MODEL);
+				}
+				webserver.notifyStaIpRestored();
+			} else if (!sta_connected_now && prev_sta_connected) {
+				MDNS.end();
+			}
+			prev_sta_connected = sta_connected_now;
+		}
 		// Mark that we're about to fetch sensor data
 		markCrashSection(CRASH_SECTION_FETCH_SENSORS);
 		const bool sensors_updated = fetchSensors();
@@ -632,22 +716,9 @@ void sensorAndAPIWorker(void *pvParameters) {
 			Serial.printf("[URBAN] WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
 			#endif
 			#endif
-			if (WiFi.status() != WL_CONNECTED) {
-				markCrashSection(CRASH_SECTION_WIFI_RECONNECT);
-				WiFi.reconnect();
-				reconnected++;
-				incrementWiFiReconnectError();
-				markCrashSection(CRASH_SECTION_IDLE);
-				if (WiFi.status() != WL_CONNECTED) {
-#ifdef DEV
-#if defined(ALTRUIST_INSIDE)
-					Serial.println(F("[INSIGHT] Skip API send: WiFi still disconnected after reconnect attempt"));
-#elif defined(ALTRUIST_URBAN)
-					Serial.println(F("[URBAN] Skip API send: WiFi still disconnected after reconnect attempt"));
-#endif
-#endif
-					continue;
-				}
+
+			if (!wifiStaLinkReady()) {
+    		continue;
 			}
 
 			// Mark based on which API we're sending to
@@ -677,7 +748,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 			if (manual_ota) {
 				deviceStatus.ota_update_requested = false;
 			}
-			if (WiFi.status() == WL_CONNECTED &&
+			if (wifiStaLinkReady() &&
 					(first_ota_check || manual_ota || msSince(deviceStatus.last_update_attempt) > PAUSE_BETWEEN_UPDATE_ATTEMPTS_MS)) {
 
 					first_ota_check = false;
@@ -734,6 +805,19 @@ void ledsWorker(void *pvParameters) {
 		vTaskDelay(10 / portTICK_PERIOD_MS);
 		markCrashSection(CRASH_SECTION_LED_UPDATE);
 #ifdef ALTRUIST_URBAN
+		{
+			const wifi_mode_t mode_now = WiFi.getMode();
+			// Same "LAN usable" test as WiFi recovery / mDNS: WL_CONNECTED alone can lie (no DHCP yet).
+			if (wifiStaLinkReady()) {
+				leds_controller_urban.setMode(LedMode::GREEN);
+			} else if (wifiIsConfigPortalRunning() || mode_now == WIFI_AP || mode_now == WIFI_AP_STA) {
+				leds_controller_urban.setMode(LedMode::PROVISIONING);
+			} else if (wifiHasSavedStationCredentials()) {
+				leds_controller_urban.setMode(LedMode::BLUE);
+			} else {
+				leds_controller_urban.setMode(LedMode::NONE);
+			}
+		}
 		leds_controller_urban.process();
 #endif
 #ifdef ALTRUIST_INSIDE
@@ -772,7 +856,7 @@ void buttonsWorker(void *pvParameters) {
 			} else if (!pressed_now && reset_pressed) {
 				// Release edge: if long-press was armed, execute reset on release.
 				if (reset_armed) {
-					debug_outln_info(F("[RESET] Confirmed by release, wiping WiFi + Web UI creds"));
+					debug_outln_info(F("[RESET] Confirmed by release, wiping WiFi + Web UI creds and opening Wi-Fi portal"));
 					leds_controller_urban.setMode(LedMode::RESETTING);
 					leds_controller_urban.process();
 					removeWiFiCredentials();
@@ -780,7 +864,7 @@ void buttonsWorker(void *pvParameters) {
 					delay(200);
 					WiFi.disconnect(true);
 					delay(200);
-					esp_restart();
+					requestWifiConfigPortal();
 				}
 				reset_pressed = false;
 				reset_armed = false;
@@ -802,12 +886,15 @@ void buttonsWorker(void *pvParameters) {
 			btn_press.pressed = true;
 #ifdef ALTRUIST_INSIDE
 			if (btn_press.double_long) {
-				debug_outln_info(F("Get double long press, reset wifi"));
+				debug_outln_info(F("[WiFi] Insight SET+DOWN long: wipe Wi-Fi, show cleared + restart, then setup AP"));
 				removeWiFiCredentials();
 				btn_press.pressed = false;
+				btn_press.double_long = false;
+				WiFi.disconnect(true);
 				displayManager.setScreen(ScreenPage::LOGO);
 				displayManager.process(btn_press);
-				delay(10000);
+				delay(2500);
+				set_restart_reason(RESTART_REASON_CONFIG);
 				esp_restart();
 			}
 #endif
@@ -870,6 +957,9 @@ void metricsWorker(void *pvParameters) {
 
 
 void setup(void) {
+#ifdef ALTRUIST_INSIDE
+	bool insight_sta_join_started_early = false;
+#endif
 	delay(300);
 	Serial.begin(115200);
 	delay(500);
@@ -924,6 +1014,9 @@ void setup(void) {
 	String esp_chipid = get_chipid();
 	cfg::initNonTrivials(esp_chipid.c_str());
 	WiFi.persistent(false);
+#if defined(ESP32)
+	wifiRegisterStaRecoveryEvents();
+#endif
 	
 	// Initialize metrics (load boot counter, etc.) - works for both Urban and Insight
 	#ifdef DEV
@@ -974,6 +1067,13 @@ void setup(void) {
 	init_config();
 	// Sync config language with actual compiled firmware language.
 	// Covers: USB reflash with different locale, failed OTA language switch.
+#ifdef ALTRUIST_INSIDE
+	if (wifiHasSavedStationCredentials()) {
+		debug_outln_info(F("[WiFi] Insight: early STA join (parallel with display / rest of setup)"));
+		wifiStaBeginStationJoin();
+		insight_sta_join_started_early = true;
+	}
+#endif
 	if (strcmp(cfg::current_lang, CURRENT_LANG) != 0) {
 		strcpy(cfg::current_lang, CURRENT_LANG);
 		writeConfig();
@@ -997,27 +1097,37 @@ void setup(void) {
 		NULL,                // task handle (optional)
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
-	if (strcmp(cfg::wlanssid, WLANSSID) == 0 || !connectWifi(webserver)) {
-#ifdef ALTRUIST_INSIDE
-		displayManager.setScreen(ScreenPage::SETUP);
-		displayManager.process(btn_press);
-#endif
+	if (!wifiHasSavedStationCredentials()) {
 #ifdef ALTRUIST_URBAN
 		leds_controller_urban.setMode(LedMode::PROVISIONING);
 		leds_controller_urban.process();
 #endif
+		// Insight: SETUP e-ink is drawn inside wifiConfig() after AP + captive portal are up (same idea as Urban: RF first).
 		wifiConfig(webserver);
+	} else {
+#ifdef ALTRUIST_INSIDE
+		const bool sta_ok = connectWifi(webserver, insight_sta_join_started_early);
+#else
+		const bool sta_ok = connectWifi(webserver);
+#endif
+		if (!sta_ok) {
+#ifdef ALTRUIST_INSIDE
+			// Insight: wrong password / unreachable SSID must not leave the device "running" without
+			// a working STA — same as first-time setup, block in the captive portal until WiFi works
+			// (portal flow ends with sensor_restart() once association succeeds).
+			debug_outln_info(F("[WiFi] Insight: STA did not connect with saved credentials; starting config portal."));
+			wifiConfig(webserver);
+#else
+			debug_outln_info(F("[WiFi] Saved credentials but STA did not connect; skipping config AP (runtime reconnect)."));
+#endif
+		}
 	}
 
 	// Configure SNTP time only after TCP/IP + WiFi are up.
 	// On ESP32-C6 we observed lwIP asserts when configTzTime() runs before WiFi is connected.
-	if (WiFi.status() == WL_CONNECTED) {
+	if (wifiStaLinkReady()) {
 		setupNetworkTime();
 	}
-#ifdef ALTRUIST_URBAN
-		leds_controller_urban.setMode(LedMode::GREEN);
-		leds_controller_urban.process();
-#endif
 	powerOnTestSensors();
 	webserver.setup();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
@@ -1096,8 +1206,27 @@ void setup(void) {
 	fetchSensors();
 	deviceStatus.ip_address = WiFi.localIP().toString();
 
+#ifdef ALTRUIST_INSIDE
+	// First MAIN + LEDs after a real sensor read (avoids empty metrics).
+	// Draw LEDs before the long e-paper MAIN refresh: process() holds the mutex for seconds, so LED
+	// would otherwise miss the 100 ms timeout and stay dark until scheduleNextLedRefresh.
+	if (wifiHasSavedStationCredentials()) {
+		displayManager.setScreen(ScreenPage::MAIN);
+		leds_controller_insight.process();
+		displayManager.process(btn_press);
+		leds_controller_insight.scheduleNextLedRefresh(4000);
+	}
+#endif
+
 #ifdef ALTRUIST_URBAN
-	leds_controller_urban.setMode(LedMode::NONE);
+	if (wifiStaLinkReady()) {
+		leds_controller_urban.setMode(LedMode::GREEN);
+	} else if (wifiHasSavedStationCredentials()) {
+		leds_controller_urban.setMode(LedMode::BLUE);
+	} else {
+		leds_controller_urban.setMode(LedMode::NONE);
+	}
+	leds_controller_urban.process();
 #endif
 
 	xTaskCreatePinnedToCore(
@@ -1159,9 +1288,6 @@ void setup(void) {
 	delay(10);
 	#endif
 	
-#ifdef ALTRUIST_INSIDE
-	displayManager.setScreen(ScreenPage::MAIN);
-#endif
 	debug_outln_info(F("Setup finished"));
 	#ifdef DEV
 	#if defined(ALTRUIST_INSIDE)
