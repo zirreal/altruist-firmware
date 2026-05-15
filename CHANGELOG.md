@@ -2,7 +2,7 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
-## [R_2026-05](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05) — 2026-05-11
+## [R_2026-05](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05) — 2026-05-15
 
 ### Features
 
@@ -10,20 +10,18 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Bug Fixes
 
-- **STA recovery after Wi‑Fi / router outages (Urban & Insight)** — runtime reconnect no longer calls `WiFi.disconnect(true, true)` (that path cleared STA NVS and powered STA off, fighting `WiFi.begin()` and often requiring a reboot). Recovery now uses a safe `disconnect(false, false)` + bounded delay, DHCP grace while `WL_CONNECTED` but IPv4 is not ready yet (avoids killing DHCP every reconnect interval), and deep `WIFI_OFF` pacing with a forced deep after repeated throttle stalls.
-- **`wifiStaLinkReady()` false negatives** — dropped the default-gateway requirement so a valid STA IPv4 is not treated as “down” when the gateway field lags at `0.0.0.0` (Insight skipped Urban HTTP, recovery spun, LAN looked dead).
-- **Periodic reconnect bookkeeping** — `wifiStaRuntimeRecovery()` returns whether a reconnect attempt actually ran; the sensor worker only advances the periodic timer when it did, so inner throttles do not “consume” reconnect slots without doing work.
-- **Web UI / HTTP listener after STA IP changes** — `notifyStaIpRestored()` explicitly stops the listener and calls `begin()` again after STA gets an address (helps browsers reach the device by IP after outages).
-- **Insight → Urban HTTP after Wi‑Fi drops** — Urban fetch path gates on `wifiStaLinkReady()` and clears the cached Urban bind when STA comes back so HTTP/mDNS rediscovery can run; HTTP client timeout increased for slow LAN.
+- **Wi-Fi recovery stability (Urban & Insight)** — improved STA reconnect behavior after router/Wi-Fi outages to prevent stuck reconnect states and unnecessary reboots.
+- **STA connection state detection** — fixed cases where Wi-Fi could be incorrectly treated as disconnected during network recovery.
+- **Web UI recovery after reconnect** — improved HTTP/Web UI listener restart after STA IP changes.
+- **Insight ↔ Urban communication recovery** — improved HTTP/mDNS reconnection flow after Wi-Fi interruptions and increased timeout tolerance for slow LAN networks.
 
 ### Improvements
 
-- **ESP32 STA events** — disconnect debounce triggers runtime recovery; `STA_GOT_IP` debounce refreshes mDNS + web listener when DHCP renews without a clean “link down” edge.
-- **STA join tuning** — `WiFi.setSleep(false)` during join; Insight can start STA early after config read so association overlaps slower init; `connectWifi(..., already_started)` avoids double `begin()`.
-- **Urban / Insight UX (related)** — Urban NeoPixel default pin/order options where applicable; Urban LED mode uses the same “LAN ready” test as Wi‑Fi recovery; Insight long reset shows cleared state then restarts into setup flow.
+- **Wi-Fi reconnect behavior (ESP32 STA)** — improved recovery handling and service refresh after reconnect or DHCP renewal.
+- **STA connection tuning** — optimized Wi-Fi join flow and reduced reconnect latency during device startup.
 - **Urban** - removed SDS011 publishing when PM values are -1.
 - **Insight** - Removed gas heater since the device do not use its measurements.
-- **Web UI header** — `/{lang}_s1.4?r=logo` serves **device-specific SVG** logos; **`/favicon.ico`** uses the **colored Robonomics PNG** again for tab visibility. Web canvas `<h3>` uses **`PM_SENSOR_NAME`** (**“Altruist Insight”** / **“Altruist Urban”**). With **Insight standalone**, **Urban pairing** fields on the config GPS tab are hidden and the standalone hint is shown.
+- **Web UI header** — `/{lang}_s1.4?r=logo` serves **device-specific SVG** logos; **`/favicon.ico`** uses the **colored Robonomics PNG** for tab visibility. Web canvas `<h3>` uses **`PM_SENSOR_NAME`** (**“Altruist Insight”** / **“Altruist Urban”**). With **Insight standalone**, **Urban pairing** fields on the config GPS tab are hidden and the standalone hint is shown.
 - **Sleep Analytics** - default analytics time changed from 22:00–10:00 to 22:00–07:00 local time. Added support for custom hours and minutes (e.g. 07:15).
 
 ## [R_2026-04.5](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-04.5) — 2026-04-27
