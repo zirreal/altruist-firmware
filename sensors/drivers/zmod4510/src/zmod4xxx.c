@@ -71,6 +71,7 @@ zmod4xxx_err zmod4xxx_read_sensor_info(zmod4xxx_dev_t *dev)
     uint16_t product_id;
     uint8_t cmd = 0;
     uint16_t i = 0;
+    const uint16_t sensor_info_wait_limit = 50; /* 50 * 200 ms = 10 s */
 
     api_ret = zmod4xxx_null_ptr_check(dev);
     if (api_ret) {
@@ -88,9 +89,9 @@ zmod4xxx_err zmod4xxx_read_sensor_info(zmod4xxx_dev_t *dev)
         }
         i++;
         dev->delay_ms(200);
-    } while ((0x00 != (status & 0x80)) && (i < 1000));
+    } while ((0x00 != (status & 0x80)) && (i < sensor_info_wait_limit));
 
-    if (1000 <= i) {
+    if (sensor_info_wait_limit <= i) {
         return ERROR_GAS_TIMEOUT;
     }
 
