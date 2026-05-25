@@ -2,6 +2,18 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
+## [R_2026-05.01](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05.01) — 2026-05-25
+
+### Improvements
+
+- **Limited ZMOD4510 sensor info wait time** — reduced ZMOD4510 read_sensor_info timeout from 200s to 10s to avoid blocking Urban boot when the sensor stays busy or does not respond.
+
+### Bug Fixes
+
+- **Renamed Robonomics datalog keys for CO and CO2** :
+  - co2 -> co2
+  - co -> co
+
 ## [R_2026-05](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05) — 2026-05-15
 
 ### Features
