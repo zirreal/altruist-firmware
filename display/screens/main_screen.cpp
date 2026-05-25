@@ -359,6 +359,7 @@ int co2DangerDirection(float co2) {
 // Extract main screen values directly from shared sensors data.
 // This avoids serialize->deserialize on every refresh.
 void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &values) {
+    values = main_screen_values_t{};
     values.wifi_sta_link_ok = wifiStaLinkReady();
     JsonObjectConst data = doc.as<JsonObjectConst>();
     String urban_key = ATRUIST_URBAN_SENSOR;

@@ -117,8 +117,8 @@ constexpr const unsigned long WIFI_STA_REBOOT_AFTER_MS = (30UL * 60UL * 1000UL);
 // ------------------------------------------------------------
 // Urban TTL constants (Insight only)
 // ------------------------------------------------------------
-constexpr const uint32_t URBAN_STALE_AFTER_MS   = 6UL * 60UL * 1000UL;   // ~1 fetch interval + buffer
-constexpr const uint32_t URBAN_OFFLINE_AFTER_MS = 10UL * 60UL * 1000UL;  // ~2 fetch intervals
+constexpr const uint32_t URBAN_STALE_AFTER_MS   = 10UL * 60UL * 1000UL;   // ~1 fetch interval + buffer
+constexpr const uint32_t URBAN_OFFLINE_AFTER_MS = 20UL * 60UL * 1000UL;  // ~2 fetch intervals
 /** Consecutive UI/LED evaluation cycles in the stale window before showing stale (reduces flicker). */
 constexpr const uint8_t URBAN_STALE_CONFIRMATIONS_REQUIRED = 3;
 constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL;

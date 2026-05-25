@@ -26,6 +26,7 @@ private:
     void sdsUartRecover();
     unsigned long SDS_error_count = 0;
     uint8_t sds_bad_window_streak = 0;
+    uint16_t sds_recovery_count = 0;
     uint32_t sds_pm10_sum = 0;
     uint32_t sds_pm25_sum = 0;
     uint32_t sds_val_count = 0;
@@ -39,7 +40,7 @@ private:
     bool is_SDS_running = false;
     String last_value_SDS_version;
     bool checksum_valid(const uint8_t (&data)[8]);
-    void rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3);
+    bool rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3);
     bool cmd(PmSensorCmd cmd);
     String version_date();
 };

@@ -12,7 +12,6 @@ enum {
 	SDS_REPLY_BODY = 8
 } SDS_waiting_for;
 
-/** Consecutive measurement windows with no valid samples → UART/protocol recover (issue #110). */
 static constexpr uint8_t kSdsRecoverAfterBadWindows = 3;
 
 SDS011Sensor::SDS011Sensor(unsigned long sending_timeout)
@@ -41,7 +40,9 @@ bool SDS011Sensor::begin() {
 }
 
 void SDS011Sensor::sdsUartRecover() {
+	sds_recovery_count++;
 	debug_outln_info(F("[SDS011] recover: drain UART, re-init, idle cycle"));
+	debug_outln_info(F("[SDS011] recovery count: "), String(sds_recovery_count));
 	while (serialSDS.available()) {
 		(void)serialSDS.read();
 	}
@@ -193,7 +194,7 @@ bool SDS011Sensor::checksum_valid(const uint8_t (&data)[8]) {
     return (data[7] == 0xAB && checksum_is == data[6]);
 }
 
-void SDS011Sensor::rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3) {
+bool SDS011Sensor::rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, const uint8_t cmd_head3) {
 	constexpr uint8_t cmd_len = 19;
 
 	uint8_t buf[cmd_len];
@@ -209,23 +210,29 @@ void SDS011Sensor::rawcmd(const uint8_t cmd_head1, const uint8_t cmd_head2, cons
 	buf[16] = 0xFF;
 	buf[17] = cmd_head1 + cmd_head2 + cmd_head3 - 2;
 	buf[18] = 0xAB;
-	serialSDS.write(buf, cmd_len);
+	const size_t written = serialSDS.write(buf, cmd_len);
+	if (written != cmd_len) {
+		debug_outln_error(F("[SDS011] command write failed"));
+		return false;
+	}
+	return true;
 }
 
 bool SDS011Sensor::cmd(PmSensorCmd cmd) {
+	bool write_ok = true;
 	switch (cmd) {
 	case PmSensorCmd::Start:
-		rawcmd(0x06, 0x01, 0x01);
+		write_ok = rawcmd(0x06, 0x01, 0x01);
 		break;
 	case PmSensorCmd::Stop:
-		rawcmd(0x06, 0x01, 0x00);
+		write_ok = rawcmd(0x06, 0x01, 0x00);
 		break;
 	case PmSensorCmd::ContinuousMode:
 		// TODO: Check mode first before (re-)setting it
-		rawcmd(0x08, 0x01, 0x00);
-		rawcmd(0x02, 0x01, 0x00);
+		write_ok = rawcmd(0x08, 0x01, 0x00);
+		write_ok = rawcmd(0x02, 0x01, 0x00) && write_ok;
 		break;
 	}
 
-	return cmd != PmSensorCmd::Stop;
+	return write_ok && cmd != PmSensorCmd::Stop;
 }

@@ -2,6 +2,23 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
+## [R_2026-05.01](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05.01) — 2026-05-25
+
+### Improvements
+
+- **Limited ZMOD4510 sensor info wait time** — reduced ZMOD4510 read_sensor_info timeout from 200s to 10s to avoid blocking Urban boot when the sensor stays busy or does not respond.
+- **Urban LED states** — simplified Urban LED behavior: steady green for normal operation, blue for configuration mode and active datalog sending, 3-second green/red result after datalog transmission, and steady red only after sustained Wi-Fi/API errors.
+
+### Bug Fixes
+
+- **Renamed Robonomics datalog keys for CO and CO2** :
+  - co2 -> co2
+  - co -> co
+- **SDS011: no placeholder PM values** — stopped publishing `P1`/`P2` with `-1` before the first valid SDS011 measurement; PM values are now written only after a valid averaging window.
+- **SDS011 runtime recovery** — added detection of consecutive empty SDS011 measurement windows and UART/protocol recovery without reboot (drain UART, reinitialize Serial1 on ESP32, reset parser state, and restart the measurement cycle).
+- **Urban SDS cache cleanup on Insight** — Insight now removes stale Urban `SDS_P1`/`SDS_P2` values from its local cache if Urban no longer includes them in `/data.json`, so UI and payloads do not keep outdated PM values.
+- **Telemetry payload safety** — API sends now use a JSON snapshot copied under mutex, and sensor JSON overflow is logged after fetches to help diagnose disappearing fields.
+
 ## [R_2026-05](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05) — 2026-05-15
 
 ### Features
