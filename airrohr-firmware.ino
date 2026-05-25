@@ -129,6 +129,10 @@ button_pressed_t btn_press;
 
 #if defined(ALTRUIST_URBAN)
 LedControllerUrban leds_controller_urban;
+static volatile bool urban_api_status_ok = true;
+static volatile bool urban_datalog_sending = false;
+static volatile int urban_datalog_result = 0;
+static volatile unsigned long urban_datalog_result_until_ms = 0;
 #endif
 #if defined(ALTRUIST_INSIDE)
 LedControllerInsight leds_controller_insight(sensors_data, mutex);
@@ -754,7 +758,25 @@ void sensorAndAPIWorker(void *pvParameters) {
 			if (!snapshot_ok) {
 				continue;
 			}
+#ifdef ALTRUIST_URBAN
+			const bool urban_is_datalog_send = (activeAPIs[i] == &robonomicsDatalogAPI);
+			if (urban_is_datalog_send) {
+				urban_datalog_result = 0;
+				urban_datalog_sending = true;
+				leds_controller_urban.setMode(LedMode::BLUE);
+				leds_controller_urban.process();
+			}
+#endif
 			activeAPIs[i]->send(api_snapshot);
+#ifdef ALTRUIST_URBAN
+			if (urban_is_datalog_send) {
+				urban_datalog_sending = false;
+				urban_datalog_result = activeAPIs[i]->lastSendWasOk() ? 1 : -1;
+				urban_datalog_result_until_ms = millis() + 3000UL;
+				leds_controller_urban.setMode(urban_datalog_result > 0 ? LedMode::GREEN : LedMode::RED);
+				leds_controller_urban.process();
+			}
+#endif
 			incrementTXCounter(); // Track successful telemetry send
 			activeAPIs[i]->updateDeviceStatus(deviceStatus);
 			
@@ -796,19 +818,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 				senders_ok = senders_ok && status.is_ok;
 			}
 #ifdef ALTRUIST_URBAN
-			// Urban LED policy:
-			// - Keep connection/status LED steady (handled elsewhere: GREEN/PROVISIONING/etc.)
-			// - Blink activity LED ONLY on errors, rate-limited.
-			{
-				static unsigned long last_error_blink_ms = 0;
-				const unsigned long ERROR_BLINK_MIN_INTERVAL_MS = 60UL * 1000UL;
-				if (!senders_ok) {
-					if (last_error_blink_ms == 0 || msSince(last_error_blink_ms) > ERROR_BLINK_MIN_INTERVAL_MS) {
-						last_error_blink_ms = millis();
-						leds_controller_urban.setMode(LedMode::BLINK_RED);
-					}
-				}
-			}
+			urban_api_status_ok = senders_ok;
 #endif
 			}
 		}
@@ -822,19 +832,36 @@ void ledsWorker(void *pvParameters) {
 		vTaskDelay(10 / portTICK_PERIOD_MS);
 		markCrashSection(CRASH_SECTION_LED_UPDATE);
 #ifdef ALTRUIST_URBAN
-		{
-			const wifi_mode_t mode_now = WiFi.getMode();
-			// Same "LAN usable" test as WiFi recovery / mDNS: WL_CONNECTED alone can lie (no DHCP yet).
-			if (wifiStaLinkReady()) {
-				leds_controller_urban.setMode(LedMode::GREEN);
-			} else if (wifiIsConfigPortalRunning() || mode_now == WIFI_AP || mode_now == WIFI_AP_STA) {
-				leds_controller_urban.setMode(LedMode::PROVISIONING);
-			} else if (wifiHasSavedStationCredentials()) {
-				leds_controller_urban.setMode(LedMode::BLUE);
-			} else {
-				leds_controller_urban.setMode(LedMode::NONE);
+		const bool urban_has_saved_wifi = wifiHasSavedStationCredentials();
+		const bool urban_config_mode = !urban_has_saved_wifi || wifiIsConfigPortalRunning();
+		const bool urban_error_now = urban_has_saved_wifi && (!wifiStaLinkReady() || !urban_api_status_ok);
+		const unsigned long urban_now_ms = millis();
+		const bool urban_datalog_result_active = urban_datalog_result != 0 &&
+			(long)(urban_datalog_result_until_ms - urban_now_ms) > 0;
+		static unsigned long urban_error_since_ms = 0;
+
+		LedMode urban_led_mode = LedMode::GREEN;
+		if (urban_datalog_sending) {
+			urban_led_mode = LedMode::BLUE;
+		} else if (urban_datalog_result_active) {
+			urban_led_mode = urban_datalog_result > 0 ? LedMode::GREEN : LedMode::RED;
+		} else if (urban_config_mode) {
+			urban_error_since_ms = 0;
+			urban_datalog_result = 0;
+			urban_led_mode = LedMode::PROVISIONING;
+		} else if (urban_error_now) {
+			if (urban_error_since_ms == 0) {
+				urban_error_since_ms = millis();
 			}
+			urban_datalog_result = 0;
+			urban_led_mode = msSince(urban_error_since_ms) > 10UL * 60UL * 1000UL ? LedMode::RED : LedMode::GREEN;
+		} else {
+			urban_error_since_ms = 0;
+			urban_datalog_result = 0;
+			urban_led_mode = LedMode::GREEN;
 		}
+
+		leds_controller_urban.setMode(urban_led_mode);
 		leds_controller_urban.process();
 #endif
 #ifdef ALTRUIST_INSIDE
@@ -1082,6 +1109,10 @@ void setup(void) {
 	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
 
 	init_config();
+#ifdef ALTRUIST_URBAN
+	leds_controller_urban.setMode(wifiHasSavedStationCredentials() ? LedMode::GREEN : LedMode::PROVISIONING);
+	leds_controller_urban.process();
+#endif
 	// Sync config language with actual compiled firmware language.
 	// Covers: USB reflash with different locale, failed OTA language switch.
 #ifdef ALTRUIST_INSIDE
@@ -1236,13 +1267,7 @@ void setup(void) {
 #endif
 
 #ifdef ALTRUIST_URBAN
-	if (wifiStaLinkReady()) {
-		leds_controller_urban.setMode(LedMode::GREEN);
-	} else if (wifiHasSavedStationCredentials()) {
-		leds_controller_urban.setMode(LedMode::BLUE);
-	} else {
-		leds_controller_urban.setMode(LedMode::NONE);
-	}
+	leds_controller_urban.setMode(LedMode::GREEN);
 	leds_controller_urban.process();
 #endif
 

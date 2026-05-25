@@ -7,6 +7,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 ### Improvements
 
 - **Limited ZMOD4510 sensor info wait time** — reduced ZMOD4510 read_sensor_info timeout from 200s to 10s to avoid blocking Urban boot when the sensor stays busy or does not respond.
+- **Urban LED states** — simplified Urban LED behavior: steady green for normal operation, blue for configuration mode and active datalog sending, 3-second green/red result after datalog transmission, and steady red only after sustained Wi-Fi/API errors.
 
 ### Bug Fixes
 
