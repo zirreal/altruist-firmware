@@ -240,6 +240,8 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
         debug_outln_verbose(F("HTTPAltruistSensor: sensordatavalues count "),
                          String(values.size()));
 
+        bool seen_sds_p1 = false;
+        bool seen_sds_p2 = false;
         for (JsonObject v : values) {
             String type  = v["value_type"];
             float  value = v["value"].as<float>();
@@ -248,9 +250,11 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             String units;
             String intl_name;
             if (type == "SDS_P1") {
+                seen_sds_p1 = true;
                 intl_name = "PM10";
                 units = F("µg/m³");
             } else if (type == "SDS_P2") {
+                seen_sds_p2 = true;
                 intl_name = "PM2.5";
                 units = F("µg/m³");
             } else if (type == "BME280_temperature") {
@@ -281,6 +285,12 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             measObj[F("value")]     = value;
             measObj[F("intl_name")] = intl_name;
             measObj[F("units")]     = units;
+        }
+        if (!seen_sds_p1) {
+            urbanRoot.remove("SDS_P1");
+        }
+        if (!seen_sds_p2) {
+            urbanRoot.remove("SDS_P2");
         }
         // Mark JSON as updated so SD card logger (and graph data) see Urban data
         _jsonUpdated = true;

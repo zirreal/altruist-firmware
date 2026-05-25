@@ -112,8 +112,9 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 // Needed for Arduino .ino auto-generated prototypes in non-INSIDE builds.
 struct analytics_screen_values_t;
 
+static constexpr size_t SENSORS_JSON_CAPACITY = 4096;
 SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
-DynamicJsonDocument sensors_data(2048);
+DynamicJsonDocument sensors_data(SENSORS_JSON_CAPACITY);
 device_status_t deviceStatus;
 #if defined(USE_SD_CARD)
 SDCard sdCardLogger;
@@ -592,6 +593,12 @@ bool fetchSensors() {
 					if (sensor_json_updated) {
 						any_sensor_json_updated = true;
 					}
+					if (sensors_data.overflowed()) {
+						debug_outln_error(F("[Sensors] JSON overflow after fetch"));
+						debug_outln_info(F("[Sensors] sensor: "), String(activeSensors[i]->sensor_name));
+						debug_outln_info(F("[Sensors] memory/capacity: "),
+						                 String(sensors_data.memoryUsage()) + "/" + String(sensors_data.capacity()));
+					}
 					xSemaphoreGive(mutex);
 				}
 #if defined(USE_SD_CARD)
@@ -731,13 +738,23 @@ void sensorAndAPIWorker(void *pvParameters) {
 				markCrashSection(CRASH_SECTION_CUSTOM_HTTP);
 			}
 			
-			// Only hold mutex briefly for the quick signal strength update
-			// Don't hold during send() - it does slow HTTP operations
+			DynamicJsonDocument api_snapshot(SENSORS_JSON_CAPACITY);
+			bool snapshot_ok = false;
 			if (xSemaphoreTake(mutex, portMAX_DELAY)) {
 				sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
+				api_snapshot.set(sensors_data.as<JsonVariantConst>());
+				snapshot_ok = !api_snapshot.overflowed();
+				if (!snapshot_ok) {
+					debug_outln_error(F("[API] JSON snapshot overflow; skipping send"));
+					debug_outln_info(F("[API] memory/capacity: "),
+					                 String(api_snapshot.memoryUsage()) + "/" + String(api_snapshot.capacity()));
+				}
 				xSemaphoreGive(mutex);
 			}
-			activeAPIs[i]->send(sensors_data);
+			if (!snapshot_ok) {
+				continue;
+			}
+			activeAPIs[i]->send(api_snapshot);
 			incrementTXCounter(); // Track successful telemetry send
 			activeAPIs[i]->updateDeviceStatus(deviceStatus);
 			
