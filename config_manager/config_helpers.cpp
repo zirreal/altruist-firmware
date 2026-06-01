@@ -135,6 +135,11 @@ bool writeConfig() {
 		};
 	}
 
+	if (json.overflowed()) {
+		debug_outln_error(F("Config JSON overflow while saving; increase JSON_BUFFER_SIZE"));
+		return false;
+	}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored  "-Wdeprecated-declarations"
 

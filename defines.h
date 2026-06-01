@@ -34,6 +34,22 @@
 #define DEVICE_MODEL DEVICE_MODEL_URBAN
 #endif
 
+/** ESP32-C6 Urban: NeoPixel ring + reset button. Not defined on ESP32-C3 Urban (no LED/button HW). */
+#if defined(ALTRUIST_URBAN) && defined(ALTRUIST_URBAN_HW_UI)
+#define ALTRUIST_URBAN_HAS_LED_BTN 1
+#endif
+
+/** ESP32-C3 Urban: smaller flash image (lite web UI, core sensors only). Set in platformio env. */
+#if defined(ALTRUIST_URBAN_C3_LITE)
+#define ALTRUIST_URBAN_MINIMAL_SENSORS 1
+#endif
+/** C3 Urban: no mDNS library — open device by IP. */
+#if defined(ALTRUIST_URBAN_C3_NO_MDNS)
+#define ALTRUIST_USE_MDNS 0
+#else
+#define ALTRUIST_USE_MDNS 1
+#endif
+
 
 #define SSID_BASENAME "Altruist-"
 #define HOSTNAME_BASE "Altruist-"

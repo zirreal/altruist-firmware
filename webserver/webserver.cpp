@@ -2,11 +2,18 @@
 #include "pages/pages.h"
 #include "html-content.h"
 #include <WiFi.h>
+#if defined(ALTRUIST_URBAN_C3_LITE)
+#include "script-js-lite.h"
+#else
 #include "script-js.h"
+#endif
 #include "utils.h"
 #include "../config_manager/config_helpers.h"
+#include "../wifi_manager.h"
 #include "web-header-logo-select.h"
+#if !defined(ALTRUIST_URBAN_C3_LITE)
 #include "robonomics-logo-common.h"
+#endif
 
 #ifdef ALTRUIST_INSIDE
 #include <ESPmDNS.h>
@@ -121,11 +128,13 @@ void SensorWebServer::_webserver_static() {
 }
 
 void SensorWebServer::_webserver_favicon() {
-	// Keep the colored Robonomics PNG favicon (visible on light tab backgrounds); header logo stays device SVG.
 	server.sendHeader(F("Cache-Control"), F("max-age=86400, public"));
-
+#if defined(ALTRUIST_URBAN_C3_LITE)
+	server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_HEADER_LOGO_SVG, WEB_HEADER_LOGO_SIZE);
+#else
 	server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG,
 		ROBONOMICS_INFO_LOGO_PNG, ROBONOMICS_INFO_LOGO_PNG_SIZE);
+#endif
 }
 
 void SensorWebServer::_webserver_restart() {
@@ -243,40 +252,46 @@ void SensorWebServer::_webserver_guest() {
 
 			server.sendContent(page_content);
 
-			if (WiFi.status() != WL_CONNECTED) {
-				if (cfg::wlannopwd) {
-					debug_outln_info(F("No password"));
-					WiFi.begin(cfg::wlanssid);
-				} else {
-					WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
-				}
+#if defined(ESP32) || defined(ESP8266)
+			WiFi.mode(WIFI_AP_STA);
+#endif
+			WiFi.disconnect(false, false);
+			if (cfg::wlannopwd) {
+				debug_outln_info(F("No password"));
+				WiFi.begin(cfg::wlanssid);
+			} else {
+				WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
 			}
 
 			int counter = 0;
-			while (WiFi.status() != WL_CONNECTED) {
+			while (!wifiGuestPortalStaReady()) {
 				// Fail-fast: don't keep user stuck on "Connecting..." for too long.
-				// 20 * 500ms = ~10s.
-				if (counter > 20) {
+				// 40 * 500ms = ~20s.
+				if (counter > 40) {
 					break;
 				}
 				delay(500);
 				counter++;
 			}
 
-			if (WiFi.status() == WL_CONNECTED) {
+			if (wifiGuestPortalStaReady()) {
 				String address = WiFi.localIP().toString();
 				debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
+				debug_outln_info(F("STA IP: "), address);
 				page_content = "<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>";
 				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_GUEST_CONNECTED "</h2></div>\n";
 				page_content += "<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS " <span class='ip-address'>" + address + "</span> <button class='copy-btn' onclick='copyText()'></button></div>";
-#ifdef ALTRUIST_INSIDE
 				page_content += "<p class='guest__reboot' style='margin-top:10px;'>" INTL_GUEST_OPEN_IP_HINT "</p>";
-#endif
 				page_content += "<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>";
 				server.sendContent(page_content);
 
 #ifdef ALTRUIST_INSIDE
-				writeConfig();
+				if (!writeConfig()) {
+					page_content = F("<p class='guest__reboot error'>Failed to save configuration.</p>");
+					server.sendContent(page_content);
+					server.sendContent(emptyString);
+					return;
+				}
 
 				page_content = F(
 					"<div style='margin:20px auto;max-width:480px;padding:20px;'>"
@@ -294,11 +309,17 @@ void SensorWebServer::_webserver_guest() {
 				page_content += F(INTL_SETUP_CONTINUE);
 				page_content += F("</button></form></div>");
 				server.sendContent(page_content);
+				server.sendContent(emptyString);
 				return;
 #else
-				// Urban flow: we already showed IP + hint above.
-				// Don't send the same instruction twice.
-				delay(5000);
+				page_content = F("<p class='guest__reboot' style='margin-top:10px;'>" INTL_DEVICE_RESTARTING "</p>");
+				server.sendContent(page_content);
+				server.sendContent(emptyString);
+				if (!wifiFinishCaptivePortalSaveAndRestart()) {
+					// Response already ended; next request will show error if portal still up.
+					debug_outln_error(F("[WiFi] Captive portal: save/restart failed after success UI"));
+				}
+				return;
 #endif
 			} else {
 				page_content = F("<h2 class='guest__connect-subtitle error'>Connection Failed</h2>"
@@ -307,22 +328,18 @@ void SensorWebServer::_webserver_guest() {
 				page_content += F("</p>");
 #ifdef ALTRUIST_INSIDE
 				page_content += F("<p class='guest__reboot'>Rebooting to WiFi setup… You can close this page and try again.</p>");
+#else
+				page_content += F("<p class='guest__reboot'>Check SSID and password, then try again.</p>");
 #endif
 				server.sendContent(page_content);
-
 #ifdef ALTRUIST_INSIDE
-				// For Insight: reboot back into WiFi setup quickly so user can retry.
 				if (writeConfig()) {
 					set_restart_reason(RESTART_REASON_CONFIG);
 					sensor_restart();
 				}
-				return;
 #endif
-			}
-
-			if (writeConfig()) {
-				set_restart_reason(RESTART_REASON_CONFIG);
-				sensor_restart();
+				server.sendContent(emptyString);
+				return;
 			}
 		}
     // end_html_page(page_content);

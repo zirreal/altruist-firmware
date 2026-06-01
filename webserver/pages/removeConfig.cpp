@@ -34,7 +34,7 @@ void webserver_removeConfig(String &page_content, bool is_HTTP_GET, bool remove_
 		} else {
 			debug_outln_info(F("Removig WiFi credentials"));
 			removeWiFiCredentials();
-			page_content += F("<h3> WiFi Credentials were deleted.</h3>");
+			page_content += F("<h3> WiFi Credentials were deleted. You can close this page now.</h3>");
 		}
 	}
 }
