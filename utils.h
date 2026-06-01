@@ -32,7 +32,6 @@
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <HardwareSerial.h>
-#include "sha/sha_parallel_engine.h"
 #include <freertos/queue.h>
 
 const char DBG_TXT_TEMPERATURE[] PROGMEM = "Temperature (°C): ";

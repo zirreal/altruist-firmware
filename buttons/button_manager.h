@@ -30,8 +30,10 @@ private:
 #ifdef ALTRUIST_INSIDE
     ButtonController up_button;
     ButtonController down_button;
-#endif
     ButtonController set_button;
+#elif defined(ALTRUIST_URBAN_HW_UI)
+    ButtonController set_button;
+#endif
 
 };
 

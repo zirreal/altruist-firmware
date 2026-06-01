@@ -1,6 +1,10 @@
 #include "wifi_manager.h"
+#include "config_manager/config_helpers.h"
+#include "utils.h"
 #include <WiFi.h>
+#if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 #include <ESPmDNS.h>
+#endif
 #include <DNSServer.h>
 #include "defines.h"
 #include "utils.h"
@@ -16,6 +20,8 @@ extern button_pressed_t btn_press;
 bool wificonfig_loop;
 struct struct_wifiInfo *wifiInfo = nullptr;
 uint8_t count_wifiInfo;
+
+static volatile bool s_portal_exit_requested = false;
 
 static volatile bool s_user_portal_request = false;
 
@@ -187,6 +193,41 @@ bool wifiStaLinkReady(void) {
 #endif
 }
 
+bool wifiGuestPortalStaReady(void) {
+	if (!wifiStaLinkReady()) {
+		return false;
+	}
+	const IPAddress ip = WiFi.localIP();
+	// Captive portal AP is 192.168.4.0/24 — do not treat the AP address as home WiFi success.
+	if (ip[0] == 192 && ip[1] == 168 && ip[2] == 4) {
+		return false;
+	}
+	return true;
+}
+
+void wifiRequestPortalExit(void) {
+	s_portal_exit_requested = true;
+}
+
+bool wifiFinishCaptivePortalSaveAndRestart(void) {
+	if (!writeConfig()) {
+		debug_outln_error(F("[WiFi] Captive portal: failed to save config.json"));
+		return false;
+	}
+	wifiRequestPortalExit();
+	set_restart_reason(RESTART_REASON_CONFIG);
+	debug_outln_info(F("[WiFi] Config saved; stopping setup AP and restarting"));
+#if defined(ESP32) || defined(ESP8266)
+	WiFi.softAPdisconnect(true);
+	WiFi.mode(WIFI_STA);
+#endif
+	wificonfig_loop = false;
+	Serial.flush();
+	delay(400);
+	esp_restart();
+	return false;
+}
+
 static int selectChannelForAp() {
 	std::array<int, 14> channels_rssi;
 	std::fill(channels_rssi.begin(), channels_rssi.end(), -100);
@@ -216,6 +257,7 @@ void wifiConfig(SensorWebServer &webserver) {
 
 	// Track portal state in the wifi module too (used by LED policy).
 	wificonfig_loop = true;
+	s_portal_exit_requested = false;
 	webserver.setWifiConfigLoop(true);
 
 	WiFi.disconnect(true);
@@ -250,7 +292,7 @@ void wifiConfig(SensorWebServer &webserver) {
 
     webserver.setWifiInfo(wifiInfo, count_wifiInfo);
 
-	WiFi.mode(WIFI_AP);
+	WiFi.mode(WIFI_AP_STA);
 	const IPAddress apIP(192, 168, 4, 1);
 	WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
 	WiFi.softAP(cfg::fs_ssid, cfg::fs_pwd, selectChannelForAp());
@@ -285,6 +327,10 @@ void wifiConfig(SensorWebServer &webserver) {
 		if (millis() - start_setup_time > 15 * 60 * 1000) {
 			debug_outln_error(F("WiFi config timeout, restarting..."));
 			esp_restart();
+		}
+		if (s_portal_exit_requested) {
+			debug_outln_info(F("WiFi config portal: credentials saved, leaving portal"));
+			break;
 		}
 #if defined(ESP8266)
 		wdt_reset(); // nodemcu is alive
@@ -418,11 +464,13 @@ bool connectWifi(SensorWebServer &webserver, bool station_join_already_started) 
 	}
 	debug_outln_info(F("WiFi connected, IP is: "), WiFi.localIP().toString());
 
+#if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 	if (MDNS.begin(cfg::local_hostname)) {
 		MDNS.addService("altruist", "tcp", 80);
 		MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
 		MDNS.addServiceTxt("altruist", "tcp", DEVICE_MODEL_MDNS_PROPERTY, DEVICE_MODEL);
 	}
+#endif
 	return true;
 }
 

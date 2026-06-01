@@ -82,7 +82,9 @@
 #define ARDUINOJSON_DECODE_UNICODE 0
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
+#if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 #include <ESPmDNS.h>
+#endif
 
 #include "./intl.h"
 
@@ -97,13 +99,17 @@
 #include "wifi_manager.h"
 #include "webserver/webserver.h"
 #include "OTA_Update.h"
+#if defined(USE_SD_CARD)
 #include "sd_card/sd_card.h"
+#endif
+#if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
 #include "buttons/button_manager.h"
+#endif
 #if defined(ALTRUIST_INSIDE)
 #include "display/display_manager.h"
 #include "leds/leds_controller_insight.h"
 #endif
-#if defined(ALTRUIST_URBAN)
+#if defined(ALTRUIST_URBAN_HW_UI)
 #include "leds/leds_controller_urban.h"
 #endif
 
@@ -112,7 +118,11 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 // Needed for Arduino .ino auto-generated prototypes in non-INSIDE builds.
 struct analytics_screen_values_t;
 
+#if defined(ALTRUIST_URBAN_C3_LITE)
+static constexpr size_t SENSORS_JSON_CAPACITY = 3072;
+#else
 static constexpr size_t SENSORS_JSON_CAPACITY = 4096;
+#endif
 SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
 DynamicJsonDocument sensors_data(SENSORS_JSON_CAPACITY);
 device_status_t deviceStatus;
@@ -123,11 +133,12 @@ SDCard sdCardLogger;
 #if defined(ALTRUIST_INSIDE)
 DisplayManager displayManager(sensors_data, deviceStatus, mutex);
 #endif
+#if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
 ButtonManager button_manager;
-
 button_pressed_t btn_press;
+#endif
 
-#if defined(ALTRUIST_URBAN)
+#if defined(ALTRUIST_URBAN_HW_UI)
 LedControllerUrban leds_controller_urban;
 static volatile bool urban_api_status_ok = true;
 static volatile bool urban_datalog_sending = false;
@@ -137,6 +148,13 @@ static volatile unsigned long urban_datalog_result_until_ms = 0;
 #if defined(ALTRUIST_INSIDE)
 LedControllerInsight leds_controller_insight(sensors_data, mutex);
 #endif
+
+/** Non-zero while sensor worker is inside Robonomics on-chain datalog send. */
+static volatile unsigned long datalog_send_started_ms = 0;
+/** Non-zero from start until end of one sensorAndAPIWorker iteration. */
+static volatile unsigned long sensor_worker_loop_started_ms = 0;
+/** Updated at end of each loop() iteration (web + Insight display). */
+static volatile unsigned long main_loop_last_ms = 0;
 
 SensorWebServer webserver(sensors_data, deviceStatus, mutex);
 
@@ -215,6 +233,65 @@ CrashContextData loadCrashContext() {
 	prefs2.end();
 	
 	return ctx;
+}
+
+static void markMainLoopAlive() {
+	main_loop_last_ms = millis();
+}
+
+static void datalogSendWatchdogBegin() {
+	datalog_send_started_ms = millis();
+}
+
+static void datalogSendWatchdogEnd() {
+	datalog_send_started_ms = 0;
+}
+
+static void watchdogReboot(const __FlashStringHelper* reason, uint8_t crash_section) {
+	debug_outln_error(reason);
+	markCrashSection(crash_section);
+	saveCrashContext();
+	delay(100);
+	esp_restart();
+}
+
+static void checkSystemWatchdogs() {
+	if (wifiIsConfigPortalRunning()) {
+		return;
+	}
+	if (deviceStatus.ota_in_progress) {
+		return;
+	}
+	if (datalog_send_started_ms != 0 &&
+	    msSince(datalog_send_started_ms) > DATALOG_SEND_WATCHDOG_MS) {
+		watchdogReboot(F("[Watchdog] Datalog send timeout; rebooting"),
+		               CRASH_SECTION_ROBONOMICS_DATALOG);
+	}
+	if (sensor_worker_loop_started_ms != 0 &&
+	    msSince(sensor_worker_loop_started_ms) > SENSOR_WORKER_LOOP_WATCHDOG_MS) {
+		watchdogReboot(F("[Watchdog] Sensor worker loop timeout; rebooting"),
+		               crash_last_section != CRASH_SECTION_IDLE ? crash_last_section
+		                                                        : CRASH_SECTION_FETCH_SENSORS);
+	}
+	if (main_loop_last_ms != 0 &&
+	    msSince(main_loop_last_ms) > MAIN_LOOP_STALL_WATCHDOG_MS) {
+#if defined(ALTRUIST_INSIDE)
+		watchdogReboot(F("[Watchdog] Main loop stall; rebooting"),
+		               CRASH_SECTION_DISPLAY_UPDATE);
+#else
+		watchdogReboot(F("[Watchdog] Main loop stall; rebooting"),
+		               CRASH_SECTION_IDLE);
+#endif
+	}
+}
+
+/** Runs above sensor/LED tasks so watchdog fires even when other workers block. */
+void watchdogWorker(void *pvParameters) {
+	(void)pvParameters;
+	for (;;) {
+		vTaskDelay(500 / portTICK_PERIOD_MS);
+		checkSystemWatchdogs();
+	}
 }
 
 #if defined(USE_SD_CARD) && defined(ALTRUIST_INSIDE)
@@ -624,12 +701,13 @@ void sensorAndAPIWorker(void *pvParameters) {
 #endif
 	static bool prev_sta_connected = false;
 		for (;;) {  // infinite loop
+		sensor_worker_loop_started_ms = millis();
 		if (wifiTakeUserPortalRequest()) {
 #ifdef ALTRUIST_INSIDE
 			displayManager.setScreen(ScreenPage::SETUP);
 			displayManager.process(btn_press);
 #endif
-#ifdef ALTRUIST_URBAN
+#ifdef ALTRUIST_URBAN_HW_UI
 			leds_controller_urban.setMode(LedMode::PROVISIONING);
 			leds_controller_urban.process();
 #endif
@@ -645,14 +723,16 @@ void sensorAndAPIWorker(void *pvParameters) {
 		// when the link looked continuously "ready" to our edge detector or lwIP replaced the STA netif under us.
 		if (wifiStaTakeStaGotIpWebRefreshKick() && wifiHasSavedStationCredentials() && !wifiIsConfigPortalRunning() &&
 		    WiFi.localIP()[0] != 0) {
-			debug_outln_info(F("[WiFi] STA_GOT_IP -> refresh mDNS + web listener"));
+			debug_outln_info(F("[WiFi] STA_GOT_IP -> refresh web listener"));
 			deviceStatus.ip_address = WiFi.localIP().toString();
+#if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 			MDNS.end();
 			if (MDNS.begin(cfg::local_hostname)) {
 				MDNS.addService("altruist", "tcp", 80);
 				MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
 				MDNS.addServiceTxt("altruist", "tcp", DEVICE_MODEL_MDNS_PROPERTY, DEVICE_MODEL);
 			}
+#endif
 			webserver.notifyStaIpRestored();
 		}
 #endif
@@ -692,15 +772,19 @@ void sensorAndAPIWorker(void *pvParameters) {
 			const bool sta_connected_now = wifiStaLinkReady();
 			if (sta_connected_now && !prev_sta_connected) {
 				deviceStatus.ip_address = WiFi.localIP().toString();
+#if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 				MDNS.end();
 				if (MDNS.begin(cfg::local_hostname)) {
 					MDNS.addService("altruist", "tcp", 80);
 					MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
 					MDNS.addServiceTxt("altruist", "tcp", DEVICE_MODEL_MDNS_PROPERTY, DEVICE_MODEL);
 				}
+#endif
 				webserver.notifyStaIpRestored();
 			} else if (!sta_connected_now && prev_sta_connected) {
+#if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 				MDNS.end();
+#endif
 			}
 			prev_sta_connected = sta_connected_now;
 		}
@@ -758,25 +842,27 @@ void sensorAndAPIWorker(void *pvParameters) {
 			if (!snapshot_ok) {
 				continue;
 			}
-#ifdef ALTRUIST_URBAN
-			const bool urban_is_datalog_send = (activeAPIs[i] == &robonomicsDatalogAPI);
-			if (urban_is_datalog_send) {
+			const bool is_datalog_send = (activeAPIs[i] == &robonomicsDatalogAPI);
+			if (is_datalog_send) {
+				datalogSendWatchdogBegin();
+#ifdef ALTRUIST_URBAN_HW_UI
 				urban_datalog_result = 0;
 				urban_datalog_sending = true;
 				leds_controller_urban.setMode(LedMode::BLUE);
 				leds_controller_urban.process();
-			}
 #endif
+			}
 			activeAPIs[i]->send(api_snapshot);
-#ifdef ALTRUIST_URBAN
-			if (urban_is_datalog_send) {
+			if (is_datalog_send) {
+				datalogSendWatchdogEnd();
+#ifdef ALTRUIST_URBAN_HW_UI
 				urban_datalog_sending = false;
 				urban_datalog_result = activeAPIs[i]->lastSendWasOk() ? 1 : -1;
 				urban_datalog_result_until_ms = millis() + 3000UL;
 				leds_controller_urban.setMode(urban_datalog_result > 0 ? LedMode::GREEN : LedMode::RED);
 				leds_controller_urban.process();
-			}
 #endif
+			}
 			incrementTXCounter(); // Track successful telemetry send
 			activeAPIs[i]->updateDeviceStatus(deviceStatus);
 			
@@ -817,12 +903,13 @@ void sensorAndAPIWorker(void *pvParameters) {
 				#endif
 				senders_ok = senders_ok && status.is_ok;
 			}
-#ifdef ALTRUIST_URBAN
+#ifdef ALTRUIST_URBAN_HW_UI
 			urban_api_status_ok = senders_ok;
 #endif
 			}
 		}
 
+		sensor_worker_loop_started_ms = 0;
 		vTaskDelay(100 / portTICK_PERIOD_MS);  // yield to other tasks, run ~10x/sec
 	}
 }
@@ -831,7 +918,7 @@ void ledsWorker(void *pvParameters) {
 	for (;;) {
 		vTaskDelay(10 / portTICK_PERIOD_MS);
 		markCrashSection(CRASH_SECTION_LED_UPDATE);
-#ifdef ALTRUIST_URBAN
+#ifdef ALTRUIST_URBAN_HW_UI
 		const bool urban_has_saved_wifi = wifiHasSavedStationCredentials();
 		const bool urban_config_mode = !urban_has_saved_wifi || wifiIsConfigPortalRunning();
 		const bool urban_error_now = urban_has_saved_wifi && (!wifiStaLinkReady() || !urban_api_status_ok);
@@ -871,8 +958,9 @@ void ledsWorker(void *pvParameters) {
 	}
 }
 
+#if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
 void buttonsWorker(void *pvParameters) {
-#ifdef ALTRUIST_URBAN
+#ifdef ALTRUIST_URBAN_HW_UI
 	static bool reset_pressed = false;
 	static bool reset_armed = false;
 	static unsigned long reset_press_start_ms = 0;
@@ -881,7 +969,7 @@ void buttonsWorker(void *pvParameters) {
 	for (;;) {
 		button_pressed_t res = button_manager.process();
 		vTaskDelay(10 / portTICK_PERIOD_MS);
-#ifdef ALTRUIST_URBAN
+#ifdef ALTRUIST_URBAN_HW_UI
 		// Dedicated Urban reset button on GPIO7.
 		// We treat "pressed" as a change from idle level so it works for both:
 		// - active-low wiring (button -> GND, INPUT_PULLUP)
@@ -945,6 +1033,7 @@ void buttonsWorker(void *pvParameters) {
 		}
 	}
 }
+#endif // ALTRUIST_INSIDE || ALTRUIST_URBAN_HW_UI
 
 #ifdef DEV
 void metricsWorker(void *pvParameters) {
@@ -1017,8 +1106,9 @@ void setup(void) {
 	#endif
 	delay(200);
 
-	// If SET button pressed while turn on, reset the configuration
-#ifdef ALTRUIST_URBAN
+	// If button(s) pressed while turning on, reset the configuration (Insight / Urban C6 with HW).
+#if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
+#ifdef ALTRUIST_URBAN_HW_UI
 	leds_controller_urban.init();
 	if (URBAN_RESET_BTN_PIN != -1) {
 		pinMode(URBAN_RESET_BTN_PIN, INPUT_PULLUP);
@@ -1031,7 +1121,7 @@ void setup(void) {
 	bool reset_needed = true;
 	for (int i=0; i<5; i++) {
 		button_manager.process();
-#ifdef ALTRUIST_URBAN
+#ifdef ALTRUIST_URBAN_HW_UI
 		reset_needed = reset_needed && (button_manager.get_button_state(ButtonNum::SET) == PRESSED_STATE);
 #endif
 #ifdef ALTRUIST_INSIDE
@@ -1047,6 +1137,7 @@ void setup(void) {
 		delay(2000);
 		// esp_restart();
 	}
+#endif
 
 #ifdef ALTRUIST_INSIDE
 	DEV_Module_Init();
@@ -1109,7 +1200,7 @@ void setup(void) {
 	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
 
 	init_config();
-#ifdef ALTRUIST_URBAN
+#ifdef ALTRUIST_URBAN_HW_UI
 	leds_controller_urban.setMode(wifiHasSavedStationCredentials() ? LedMode::GREEN : LedMode::PROVISIONING);
 	leds_controller_urban.process();
 #endif
@@ -1135,6 +1226,7 @@ void setup(void) {
 		displayManager.process(btn_press);
 	}
 #endif
+#if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
 	// Create button worker task BEFORE wifiConfig so buttons work during WiFi setup
 	xTaskCreatePinnedToCore(
 		buttonsWorker,  // task function
@@ -1145,8 +1237,9 @@ void setup(void) {
 		NULL,                // task handle (optional)
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
+#endif
 	if (!wifiHasSavedStationCredentials()) {
-#ifdef ALTRUIST_URBAN
+#ifdef ALTRUIST_URBAN_HW_UI
 		leds_controller_urban.setMode(LedMode::PROVISIONING);
 		leds_controller_urban.process();
 #endif
@@ -1164,6 +1257,9 @@ void setup(void) {
 			// a working STA — same as first-time setup, block in the captive portal until WiFi works
 			// (portal flow ends with sensor_restart() once association succeeds).
 			debug_outln_info(F("[WiFi] Insight: STA did not connect with saved credentials; starting config portal."));
+			wifiConfig(webserver);
+#elif defined(ALTRUIST_URBAN_C3_LITE)
+			debug_outln_info(F("[WiFi] C3 Urban: STA did not connect with saved credentials; starting config portal."));
 			wifiConfig(webserver);
 #else
 			debug_outln_info(F("[WiFi] Saved credentials but STA did not connect; skipping config AP (runtime reconnect)."));
@@ -1266,7 +1362,7 @@ void setup(void) {
 	}
 #endif
 
-#ifdef ALTRUIST_URBAN
+#ifdef ALTRUIST_URBAN_HW_UI
 	leds_controller_urban.setMode(LedMode::GREEN);
 	leds_controller_urban.process();
 #endif
@@ -1281,6 +1377,15 @@ void setup(void) {
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
 	// Note: buttonsWorker task is created earlier (before wifiConfig) so buttons work during WiFi setup
+	xTaskCreatePinnedToCore(
+		watchdogWorker,
+		"WatchdogWorker",
+		2048,
+		NULL,
+		4,
+		NULL,
+		0
+	);
 	xTaskCreatePinnedToCore(
 		ledsWorker,  // task function
 		"LedsWorker",   // name
@@ -1330,6 +1435,7 @@ void setup(void) {
 	delay(10);
 	#endif
 	
+	markMainLoopAlive();
 	debug_outln_info(F("Setup finished"));
 	#ifdef DEV
 	#if defined(ALTRUIST_INSIDE)
@@ -1358,5 +1464,6 @@ void loop(void) {
 	displayManager.process(btn_press);
 	markCrashSection(CRASH_SECTION_IDLE);
 #endif
+	markMainLoopAlive();
 	yield();
 }

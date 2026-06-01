@@ -263,6 +263,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 				"</script>");
 	}
 
+#if !defined(ALTRUIST_URBAN_C3_LITE)
 	// Robonomics Map (connectivity) custom hosts.
 	{
 		String pinned = String(cfg::robonomics_connectivity_host);
@@ -361,6 +362,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 			"})();"
 			"</script>");
 	}
+#endif
 
 	page_content += F("<h3 class='panel-subtitle' style='margin-top:16px;'>" INTL_PANEL_TITLE_DATA_SHARING "</h3>");
 	page_content += F("<p style='font-size:0.9em;color:#555;margin-bottom:12px;'>"
@@ -396,7 +398,11 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 
 	// GPS Settings (tab 1)
 
+#if defined(ALTRUIST_URBAN_C3_LITE)
+	page_content += F("<div class='panel-container'>");
+#else
 	page_content += F("<div class='panel-container panel-container--with-map'>");
+#endif
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_GPS "</h3>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
@@ -421,8 +427,10 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		page_content += F("</p>");
 	}
 #endif
+#if !defined(ALTRUIST_URBAN_C3_LITE)
 	page_content += F("<div class='map-container'><div id='map'></div>");
 	page_content += F("</div><span class='map-text'> <em>The marker on the map shows approximate location to make sure you have the right hemisphere</em></span>");
+#endif
 	page_content += F("</div>");
 
 	server.sendContent(page_content);

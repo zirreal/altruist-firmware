@@ -23,6 +23,18 @@ bool wifiHasSavedStationCredentials();
  */
 bool wifiStaLinkReady(void);
 
+/** True when STA has joined the home AP during captive portal (not AP-only / 192.168.4.x). */
+bool wifiGuestPortalStaReady(void);
+
+/** Leave captive portal loop after successful POST (before restart). */
+void wifiRequestPortalExit(void);
+
+/**
+ * Save config, turn off setup AP, restart immediately (must be called from captive portal POST).
+ * Does not return on success.
+ */
+bool wifiFinishCaptivePortalSaveAndRestart(void);
+
 #if defined(ESP32)
 /** Register WiFi event hooks (STA disconnect → fast reconnect kick). Call once after WiFi.persistent(). */
 void wifiRegisterStaRecoveryEvents(void);

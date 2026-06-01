@@ -29,7 +29,7 @@ ButtonManager::ButtonManager()
       down_button(BTN_DOWN_PIN),
       set_button(BTN_SET_PIN) {}
 #endif
-#ifdef ALTRUIST_URBAN
+#if defined(ALTRUIST_URBAN) && defined(ALTRUIST_URBAN_HW_UI)
 ButtonManager::ButtonManager()
     : set_button(BTN_SET_PIN) {}
 #endif
@@ -38,8 +38,10 @@ void ButtonManager::init() {
 #ifdef ALTRUIST_INSIDE
     up_button.init();
     down_button.init();
-#endif
     set_button.init();
+#elif defined(ALTRUIST_URBAN_HW_UI)
+    set_button.init();
+#endif
 }
 
 button_pressed_t ButtonManager::process() {
@@ -59,12 +61,14 @@ button_pressed_t ButtonManager::process() {
         res.press_type = down_press;
     }
 #endif
+#ifdef ALTRUIST_INSIDE
     PressType set_press = set_button.process();
     if (set_press != PressType::NONE) {
         res.pressed = true;
         res.button_num = ButtonNum::SET;
         res.press_type = set_press;
     }
+#endif
 #ifdef ALTRUIST_INSIDE
     if (res.press_type == PressType::LONG) {
         if (res.button_num == ButtonNum::DOWN) {
@@ -88,9 +92,11 @@ button_pressed_t ButtonManager::process() {
 }
 
 uint8_t ButtonManager::get_button_state(ButtonNum button_num) {
+#if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
     if (button_num == ButtonNum::SET) {
         return set_button.get_last_state();
     }
+#endif
 #ifdef ALTRUIST_INSIDE
     if (button_num == ButtonNum::UP) {
         return up_button.get_last_state();

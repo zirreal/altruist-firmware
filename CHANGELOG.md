@@ -2,6 +2,26 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
+## [R_2026-05.02](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05.02) — 2026-06-01
+
+### Features
+
+- **ESP32-C3 Urban firmware profile** — release build targeting a `firmware.bin` limit: lite web assets (`css-styles-c3.h`, `script-js-lite.h`), dedicated partition table, and compile-time exclusions (display, ZMOD4510/AGS/GPS drivers, DHT, SD card, Urban HW LED/button). **Kept on C3:** BME, SDS011, I2S noise, SCD4x (CO₂), RadSens, Robonomics datalog + HTTP map, config **APIs** tab (Custom / Influx / CSV), and **`/debug`**.
+- **ESP32-C3 Urban: no mDNS** — open the device by **LAN IP** after setup (saves flash; `.local` hostname is not advertised on C3).
+
+### Improvements
+
+- **Watchdog for stuck Robonomics datalog** — reboots after ~90–120 s if on-chain datalog blocks the sensor worker, so Urban/Insight recover without a manual power cycle (web, map, and UI).
+- **Wi-Fi captive portal (all builds using setup AP)** — setup AP runs in **AP+STA** mode; success requires a real home-network STA address (not `192.168.4.x`); after saving credentials the setup AP is stopped and the device **restarts quickly** (~0.4 s) instead of blocking inside the HTTP handler. Urban success page reminds users to **leave the Altruist hotspot** and open the shown IP on the home Wi‑Fi.
+- **Config save robustness** — unified `JSON_BUFFER_SIZE` (2800) and overflow check when writing `config.json` (helps C3 guest setup and full config saves).
+
+### ESP32-C3 Urban — intentional limitations
+
+- No interactive GPS map on config/guest (manual coordinates only).
+- No Robonomics **connectivity pool** UI on config tab 1 (built-in auto pool when fields are empty).
+- Shorter web footer;
+- No ZMOD4510 / AGS / GPS hardware support in this build.
+
 ## [R_2026-05.01](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05.01) — 2026-05-25
 
 ### Improvements

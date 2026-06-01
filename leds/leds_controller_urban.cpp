@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_URBAN
+#ifdef ALTRUIST_URBAN_HW_UI
 
 #include "leds_controller_urban.h"
 #include "../defines.h"
