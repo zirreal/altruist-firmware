@@ -138,6 +138,13 @@ static volatile unsigned long urban_datalog_result_until_ms = 0;
 LedControllerInsight leds_controller_insight(sensors_data, mutex);
 #endif
 
+/** Non-zero while sensor worker is inside Robonomics on-chain datalog send. */
+static volatile unsigned long datalog_send_started_ms = 0;
+/** Non-zero from start until end of one sensorAndAPIWorker iteration. */
+static volatile unsigned long sensor_worker_loop_started_ms = 0;
+/** Updated at end of each loop() iteration (web + Insight display). */
+static volatile unsigned long main_loop_last_ms = 0;
+
 SensorWebServer webserver(sensors_data, deviceStatus, mutex);
 
 /*****************************************************************
@@ -215,6 +222,65 @@ CrashContextData loadCrashContext() {
 	prefs2.end();
 	
 	return ctx;
+}
+
+static void markMainLoopAlive() {
+	main_loop_last_ms = millis();
+}
+
+static void datalogSendWatchdogBegin() {
+	datalog_send_started_ms = millis();
+}
+
+static void datalogSendWatchdogEnd() {
+	datalog_send_started_ms = 0;
+}
+
+static void watchdogReboot(const __FlashStringHelper* reason, uint8_t crash_section) {
+	debug_outln_error(reason);
+	markCrashSection(crash_section);
+	saveCrashContext();
+	delay(100);
+	esp_restart();
+}
+
+static void checkSystemWatchdogs() {
+	if (wifiIsConfigPortalRunning()) {
+		return;
+	}
+	if (deviceStatus.ota_in_progress) {
+		return;
+	}
+	if (datalog_send_started_ms != 0 &&
+	    msSince(datalog_send_started_ms) > DATALOG_SEND_WATCHDOG_MS) {
+		watchdogReboot(F("[Watchdog] Datalog send timeout; rebooting"),
+		               CRASH_SECTION_ROBONOMICS_DATALOG);
+	}
+	if (sensor_worker_loop_started_ms != 0 &&
+	    msSince(sensor_worker_loop_started_ms) > SENSOR_WORKER_LOOP_WATCHDOG_MS) {
+		watchdogReboot(F("[Watchdog] Sensor worker loop timeout; rebooting"),
+		               crash_last_section != CRASH_SECTION_IDLE ? crash_last_section
+		                                                        : CRASH_SECTION_FETCH_SENSORS);
+	}
+	if (main_loop_last_ms != 0 &&
+	    msSince(main_loop_last_ms) > MAIN_LOOP_STALL_WATCHDOG_MS) {
+#if defined(ALTRUIST_INSIDE)
+		watchdogReboot(F("[Watchdog] Main loop stall; rebooting"),
+		               CRASH_SECTION_DISPLAY_UPDATE);
+#else
+		watchdogReboot(F("[Watchdog] Main loop stall; rebooting"),
+		               CRASH_SECTION_IDLE);
+#endif
+	}
+}
+
+/** Runs above sensor/LED tasks so watchdog fires even when other workers block. */
+void watchdogWorker(void *pvParameters) {
+	(void)pvParameters;
+	for (;;) {
+		vTaskDelay(500 / portTICK_PERIOD_MS);
+		checkSystemWatchdogs();
+	}
 }
 
 #if defined(USE_SD_CARD) && defined(ALTRUIST_INSIDE)
@@ -624,6 +690,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 #endif
 	static bool prev_sta_connected = false;
 		for (;;) {  // infinite loop
+		sensor_worker_loop_started_ms = millis();
 		if (wifiTakeUserPortalRequest()) {
 #ifdef ALTRUIST_INSIDE
 			displayManager.setScreen(ScreenPage::SETUP);
@@ -758,25 +825,27 @@ void sensorAndAPIWorker(void *pvParameters) {
 			if (!snapshot_ok) {
 				continue;
 			}
+			const bool is_datalog_send = (activeAPIs[i] == &robonomicsDatalogAPI);
+			if (is_datalog_send) {
+				datalogSendWatchdogBegin();
 #ifdef ALTRUIST_URBAN
-			const bool urban_is_datalog_send = (activeAPIs[i] == &robonomicsDatalogAPI);
-			if (urban_is_datalog_send) {
 				urban_datalog_result = 0;
 				urban_datalog_sending = true;
 				leds_controller_urban.setMode(LedMode::BLUE);
 				leds_controller_urban.process();
-			}
 #endif
+			}
 			activeAPIs[i]->send(api_snapshot);
+			if (is_datalog_send) {
+				datalogSendWatchdogEnd();
 #ifdef ALTRUIST_URBAN
-			if (urban_is_datalog_send) {
 				urban_datalog_sending = false;
 				urban_datalog_result = activeAPIs[i]->lastSendWasOk() ? 1 : -1;
 				urban_datalog_result_until_ms = millis() + 3000UL;
 				leds_controller_urban.setMode(urban_datalog_result > 0 ? LedMode::GREEN : LedMode::RED);
 				leds_controller_urban.process();
-			}
 #endif
+			}
 			incrementTXCounter(); // Track successful telemetry send
 			activeAPIs[i]->updateDeviceStatus(deviceStatus);
 			
@@ -823,6 +892,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 			}
 		}
 
+		sensor_worker_loop_started_ms = 0;
 		vTaskDelay(100 / portTICK_PERIOD_MS);  // yield to other tasks, run ~10x/sec
 	}
 }
@@ -1282,6 +1352,15 @@ void setup(void) {
 	);
 	// Note: buttonsWorker task is created earlier (before wifiConfig) so buttons work during WiFi setup
 	xTaskCreatePinnedToCore(
+		watchdogWorker,
+		"WatchdogWorker",
+		2048,
+		NULL,
+		4,
+		NULL,
+		0
+	);
+	xTaskCreatePinnedToCore(
 		ledsWorker,  // task function
 		"LedsWorker",   // name
 		2048,                // stack size
@@ -1330,6 +1409,7 @@ void setup(void) {
 	delay(10);
 	#endif
 	
+	markMainLoopAlive();
 	debug_outln_info(F("Setup finished"));
 	#ifdef DEV
 	#if defined(ALTRUIST_INSIDE)
@@ -1358,5 +1438,6 @@ void loop(void) {
 	displayManager.process(btn_press);
 	markCrashSection(CRASH_SECTION_IDLE);
 #endif
+	markMainLoopAlive();
 	yield();
 }

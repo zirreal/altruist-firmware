@@ -5,11 +5,11 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIDE)
-#define SOFTWARE_VERSION_STR "R-INS_2026-05"
+#define SOFTWARE_VERSION_STR "R-INS_2026-05.2"
 #define PM_SENSOR_NAME "Altruist Insight"
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_STR "R-URB_2026-05"
+#define SOFTWARE_VERSION_STR "R-URB_2026-05.2"
 #define PM_SENSOR_NAME "Altruist Urban"
 #endif
 
@@ -113,6 +113,16 @@ constexpr const uint8_t WIFI_STA_DEEP_FORCE_AFTER_THROTTLED_SKIPS = 5;
  * 0 = never reboot on STA loss (soft recovery only). 30 min = long failsafe without the old ~10 min surprise reboot.
  */
 constexpr const unsigned long WIFI_STA_REBOOT_AFTER_MS = (30UL * 60UL * 1000UL);
+
+/** On-chain datalog send must finish within this window; otherwise reboot (stuck Robonomics client). */
+constexpr const unsigned long DATALOG_SEND_WATCHDOG_MS = 90UL * 1000UL;
+/** loop() must complete within this window (web + Insight display); otherwise reboot. */
+constexpr const unsigned long MAIN_LOOP_STALL_WATCHDOG_MS = 90UL * 1000UL;
+/**
+ * sensorAndAPIWorker must finish one full iteration within this window (fetch + APIs + OTA check).
+ * Catches Map HTTP / fetch / datalog hangs even when loop() still runs (Insight frozen UI).
+ */
+constexpr const unsigned long SENSOR_WORKER_LOOP_WATCHDOG_MS = 120UL * 1000UL;
 
 // ------------------------------------------------------------
 // Urban TTL constants (Insight only)
