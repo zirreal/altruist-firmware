@@ -113,6 +113,10 @@ constexpr const unsigned long DURATION_BEFORE_FORCED_RESTART_MS = ONE_DAY_IN_MS 
 
 // STA recovery when home Wi‑Fi is configured but link drops (Urban/Insight).
 constexpr const unsigned long WIFI_STA_PERIODIC_RECONNECT_MS = 18000UL;
+/**
+ * After we initiate a reconnect attempt, give the stack time to associate / run DHCP.
+ */
+constexpr const unsigned long WIFI_STA_RECOVERY_GRACE_MS = 45000UL;
 /** After association, STA can report WL_CONNECTED before IPv4; do not tear down the link during this window. */
 constexpr const unsigned long WIFI_STA_DHCP_GRACE_MS = 40000UL;
 /** After this long without a usable STA link, use radio off/on (WIFI_OFF) before re-begin — stronger than disconnect() alone, no MCU reboot. */

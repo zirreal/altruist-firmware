@@ -714,16 +714,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 			wifiConfig(webserver);
 		}
 #if defined(ESP32)
-		// React to driver disconnect immediately (do not wait only for the 12s periodic timer).
-		if (wifiStaTakeDisconnectReconnectKick() && wifiHasSavedStationCredentials() && !wifiIsConfigPortalRunning()) {
-			debug_outln_info(F("[WiFi] STA disconnect event -> runtime STA recovery"));
-			wifiStaRuntimeRecovery(false);
-		}
-		// Every DHCP IPv4 assignment: re-attach HTTP listener + mDNS. Fixes "http://192.168.x.x/ dead until reboot"
-		// when the link looked continuously "ready" to our edge detector or lwIP replaced the STA netif under us.
-		if (wifiStaTakeStaGotIpWebRefreshKick() && wifiHasSavedStationCredentials() && !wifiIsConfigPortalRunning() &&
-		    WiFi.localIP()[0] != 0) {
-			debug_outln_info(F("[WiFi] STA_GOT_IP -> refresh web listener"));
+		auto refresh_web_and_mdns = [&]() {
 			deviceStatus.ip_address = WiFi.localIP().toString();
 #if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 			MDNS.end();
@@ -734,6 +725,19 @@ void sensorAndAPIWorker(void *pvParameters) {
 			}
 #endif
 			webserver.notifyStaIpRestored();
+		};
+
+		// React to driver disconnect immediately (do not wait only for the 12s periodic timer).
+		if (wifiStaTakeDisconnectReconnectKick() && wifiHasSavedStationCredentials() && !wifiIsConfigPortalRunning()) {
+			debug_outln_info(F("[WiFi] STA disconnect event -> runtime STA recovery"));
+			wifiStaRuntimeRecovery(false);
+		}
+		// Every DHCP IPv4 assignment: re-attach HTTP listener + mDNS. Fixes "http://192.168.x.x/ dead until reboot"
+		// when the link looked continuously "ready" to our edge detector or lwIP replaced the STA netif under us.
+		if (wifiStaTakeStaGotIpWebRefreshKick() && wifiHasSavedStationCredentials() && !wifiIsConfigPortalRunning() &&
+		    WiFi.localIP()[0] != 0) {
+			debug_outln_info(F("[WiFi] STA_GOT_IP -> refresh web listener"));
+			refresh_web_and_mdns();
 		}
 #endif
 		// Run STA recovery before fetch/API work: slow sensors or HTTP can block for a long time and
@@ -771,16 +775,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 		{
 			const bool sta_connected_now = wifiStaLinkReady();
 			if (sta_connected_now && !prev_sta_connected) {
-				deviceStatus.ip_address = WiFi.localIP().toString();
-#if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
-				MDNS.end();
-				if (MDNS.begin(cfg::local_hostname)) {
-					MDNS.addService("altruist", "tcp", 80);
-					MDNS.addServiceTxt("altruist", "tcp", "PATH", "/config");
-					MDNS.addServiceTxt("altruist", "tcp", DEVICE_MODEL_MDNS_PROPERTY, DEVICE_MODEL);
-				}
-#endif
-				webserver.notifyStaIpRestored();
+				refresh_web_and_mdns();
 			} else if (!sta_connected_now && prev_sta_connected) {
 #if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 				MDNS.end();
@@ -890,6 +885,10 @@ void sensorAndAPIWorker(void *pvParameters) {
 			#endif
 			#endif
 			bool senders_ok = true;
+#ifdef ALTRUIST_URBAN_HW_UI
+			bool datalog_present = false;
+			bool datalog_ok = true;
+#endif
 			for (const auto& [api_name, status] : deviceStatus.apis_status) {
 				#ifdef DEV
 				Serial.print(F("API Name: "));
@@ -902,9 +901,17 @@ void sensorAndAPIWorker(void *pvParameters) {
 				Serial.println(status.is_ok ? F("Yes") : F("No"));
 				#endif
 				senders_ok = senders_ok && status.is_ok;
+#ifdef ALTRUIST_URBAN_HW_UI
+				// Urban LED should reflect Robonomics datalog health.
+				// Map/Websocket timeouts are common and should not latch RED.
+				if (api_name == "Robonomics Datalog") {
+					datalog_present = true;
+					datalog_ok = datalog_ok && status.is_ok;
+				}
+#endif
 			}
 #ifdef ALTRUIST_URBAN_HW_UI
-			urban_api_status_ok = senders_ok;
+			urban_api_status_ok = datalog_present ? datalog_ok : senders_ok;
 #endif
 			}
 		}
@@ -988,15 +995,14 @@ void buttonsWorker(void *pvParameters) {
 			} else if (!pressed_now && reset_pressed) {
 				// Release edge: if long-press was armed, execute reset on release.
 				if (reset_armed) {
-					debug_outln_info(F("[RESET] Confirmed by release, wiping WiFi + Web UI creds and opening Wi-Fi portal"));
+					debug_outln_info(F("[RESET] Confirmed by release, wiping WiFi + Web UI creds and restarting into Wi-Fi portal"));
 					leds_controller_urban.setMode(LedMode::RESETTING);
 					leds_controller_urban.process();
 					removeWiFiCredentials();
 					removeWebUiCredentials();
-					delay(200);
-					WiFi.disconnect(true);
-					delay(200);
-					requestWifiConfigPortal();
+					delay(250);
+					set_restart_reason(RESTART_REASON_CONFIG);
+					esp_restart();
 				}
 				reset_pressed = false;
 				reset_armed = false;
@@ -1458,7 +1464,11 @@ void setup(void) {
 }
 
 void loop(void) {
-	webserver.handleClient();
+	// During captive portal setup we run a dedicated HTTP loop inside wifiConfig().
+	// Avoid calling WebServer from multiple tasks (can crash in NetworkClient).
+	if (!wifiIsConfigPortalRunning()) {
+		webserver.handleClient();
+	}
 #if defined(ALTRUIST_INSIDE)
 	markCrashSection(CRASH_SECTION_DISPLAY_UPDATE);
 	displayManager.process(btn_press);

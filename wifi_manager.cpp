@@ -86,7 +86,8 @@ bool wifiStaRuntimeRecovery(bool deep_radio_off) {
 		return false;
 	}
 	static unsigned long s_last_recover_ms = 0;
-	if (s_last_recover_ms != 0 && msSince(s_last_recover_ms) < 6000UL) {
+	// avoid fighting an ongoing association/DHCP attempt.
+	if (s_last_recover_ms != 0 && msSince(s_last_recover_ms) < WIFI_STA_RECOVERY_GRACE_MS) {
 		return false;
 	}
 
@@ -119,8 +120,9 @@ bool wifiStaRuntimeRecovery(bool deep_radio_off) {
 			s_deep_throttle_stalls = 0;
 			debug_outln_info(F("[WiFi] Deep STA recovery forced (radio-off was throttled too long)"));
 		} else {
-			do_deep = false;
 			debug_outln_info(F("[WiFi] Deep STA recovery skipped (radio-off throttled)"));
+			s_last_recover_ms = millis();
+			return false;
 		}
 	} else if (do_deep) {
 		s_deep_throttle_stalls = 0;
@@ -131,23 +133,28 @@ bool wifiStaRuntimeRecovery(bool deep_radio_off) {
 	} else {
 		debug_outln_info(F("[WiFi] Periodic STA recovery (link not ready)"));
 	}
-
-	// Never use disconnect(true, true): wifioff disables STA and eraseap clears driver NVS — fights with begin(),
-	// causes "sta is connecting" / clear config errors, and can prevent recovery without reboot.
-	WiFi.disconnect(false, false);
-	delay(650);
+	debug_outln_info(F("[WiFi] status="), String((int)WiFi.status()) + F(" ip=") + WiFi.localIP().toString());
 
 	if (do_deep) {
+		// Deep recovery: force a clean wifi state transition, then re-issue begin().
+		WiFi.disconnect(false, false);
+		delay(650);
 		WiFi.mode(WIFI_OFF);
 		delay(1200);
-	}
-	WiFi.mode(WIFI_STA);
-	WiFi.setSleep(false);
+		WiFi.mode(WIFI_STA);
+		WiFi.setSleep(false);
 
-	if (cfg::wlannopwd) {
-		WiFi.begin(cfg::wlanssid);
+		if (cfg::wlannopwd) {
+			WiFi.begin(cfg::wlanssid);
+		} else {
+			WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+		}
 	} else {
-		WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+		// Soft recovery: avoid WiFi.begin() while STA may still be connecting (can trigger ESP_ERR_WIFI_STATE).
+		// Rely on Arduino-ESP32 auto reconnect + reconnect() kick.
+		WiFi.mode(WIFI_STA);
+		WiFi.setSleep(false);
+		WiFi.reconnect();
 	}
 	s_last_recover_ms = millis();
 	return true;

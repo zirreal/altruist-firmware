@@ -14,6 +14,8 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Watchdog for stuck Robonomics datalog** — reboots after ~90–120 s if on-chain datalog blocks the sensor worker, so Urban/Insight recover without a manual power cycle (web, map, and UI).
 - **Wi-Fi captive portal (all builds using setup AP)** — setup AP runs in **AP+STA** mode; success requires a real home-network STA address (not `192.168.4.x`); after saving credentials the setup AP is stopped and the device **restarts quickly** (~0.4 s) instead of blocking inside the HTTP handler. Urban success page reminds users to **leave the Altruist hotspot** and open the shown IP on the home Wi‑Fi.
 - **Config save robustness** — unified `JSON_BUFFER_SIZE` (2800) and overflow check when writing `config.json` (helps C3 guest setup and full config saves).
+- **ESP32 STA recovery stability** — added a configurable recovery grace period (`WIFI_STA_RECOVERY_GRACE_MS`), avoided calling `WiFi.begin()` during soft recovery (use `WiFi.reconnect()` + auto-reconnect), and prevented deep-recovery throttling from falling back into soft recovery (reduces `ESP_ERR_WIFI_STATE` during “sta is connecting”). Web/mDNS refresh on IP changes was deduplicated.
+- **Urban HW reset (ESP32-C6)** — Wi‑Fi/Web UI credential wipe now triggers a clean reboot into the captive portal (same flow as Insight) to avoid webserver races during live HTTP handling.
 
 ### ESP32-C3 Urban — intentional limitations
 
@@ -21,6 +23,10 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - No Robonomics **connectivity pool** UI on config tab 1 (built-in auto pool when fields are empty).
 - Shorter web footer;
 - No ZMOD4510 / AGS / GPS hardware support in this build.
+
+### Bug Fixes
+
+- **ESP32-C6 Urban: crash after hardware Wi‑Fi reset** — fixed occasional `Load access fault` in `WebServer::handleClient()` after wiping credentials and starting captive portal. WebServer handling is now single-owner during the portal, and server rebind operations are serialized.
 
 ## [R_2026-05.01](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05.01) — 2026-05-25
 
