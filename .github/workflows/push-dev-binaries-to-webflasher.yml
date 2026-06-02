@@ -3,7 +3,7 @@ name: Deploy dev binaries to Webflasher
 on:
   push:
     branches:
-      - main
+      - esp32
   workflow_dispatch: {}
 
 jobs:
