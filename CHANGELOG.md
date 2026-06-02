@@ -21,7 +21,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 - No interactive GPS map on config/guest (manual coordinates only).
 - No Robonomics **connectivity pool** UI on config tab 1 (built-in auto pool when fields are empty).
-- Shorter web footer;
+- Shorter web footer.
 - No ZMOD4510 / AGS / GPS hardware support in this build.
 
 ### Bug Fixes
