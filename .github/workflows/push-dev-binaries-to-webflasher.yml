@@ -1,11 +1,13 @@
-name: Deploy release binaries to Webflasher
+name: Deploy dev binaries to Webflasher
 
 on:
-  release:
-    types: [created]
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
 
 jobs:
-  deploy:
+  deploy-dev:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout altruist-firmware
@@ -19,10 +21,10 @@ jobs:
       - name: Install PlatformIO
         run: pip install platformio
 
-      - name: Build release firmware (no _dev)
+      - name: Build dev firmware (_dev)
         run: |
           set -euo pipefail
-          pio run -e esp32c6_urban_en -e esp32c6_urban_ru -e esp32c6_inside_en -e esp32c6_inside_ru -e esp32c3_urban_en -e esp32c3_urban_ru
+          pio run -e esp32c6_urban_en_dev -e esp32c6_urban_ru_dev -e esp32c6_inside_en_dev -e esp32c6_inside_ru_dev
 
       - name: Checkout webflasher repo
         uses: actions/checkout@v4
@@ -31,9 +33,9 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           path: webflasher
 
-      - name: Update webflasher (release files only)
+      - name: Update webflasher (dev files only)
         env:
-          TAG: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           cd webflasher
@@ -41,14 +43,12 @@ jobs:
           git config user.name "Altruist Actions"
           git config user.email "ci-automation@example.com"
 
-          # Replace only non-dev binaries + md5, keep *_dev intact
-          for f in ../builds/*.bin ../builds/*.md5; do
-            case "$f" in
-              *_dev.bin|*_dev.bin.md5|*_dev.md5) continue ;;
-            esac
-            cp "$f" firmware/Altruist/
-          done
+          # Replace only *_dev binaries + md5, keep release files intact
+          rm -f firmware/Altruist/*_dev.bin firmware/Altruist/*_dev.bin.md5 firmware/Altruist/*_dev.md5 || true
+          cp ../builds/*_dev.bin* firmware/Altruist/
+          cp ../builds/*_dev.md5 firmware/Altruist/ 2>/dev/null || true
 
           git add firmware/Altruist
-          git commit -m "Altruist release $TAG" || exit 0
+          git commit -m "Altruist dev build ${SHA:0:8}" || exit 0
           git push origin HEAD:main
+

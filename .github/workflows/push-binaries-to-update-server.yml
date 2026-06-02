@@ -20,7 +20,10 @@ jobs:
         run: pip install platformio
 
       - name: Build firmware
-        run: pio run
+        run: |
+          set -euo pipefail
+          # Upload only release binaries to the update server (no *_dev)
+          pio run -e esp32c6_urban_en -e esp32c6_urban_ru -e esp32c6_inside_en -e esp32c6_inside_ru -e esp32c3_urban_en -e esp32c3_urban_ru
 
       - name: Upload to FTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2.6
@@ -28,6 +31,6 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local_path: ./builds/*
+          local_path: ./builds/*.bin*
           remote_path: /home/updsens/web/upd.sensors.robonomics.network/public_html/pre_release/
           port: 22

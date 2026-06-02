@@ -14,7 +14,8 @@ public:
     /** After STA gets a usable IP again (post-outage); re-open listen socket — some lwIP stacks keep a dead listener. */
     void notifyStaIpRestored();
     void setWifiConfigLoop(bool loop) { wificonfig_loop = loop; };
-    void handleClient() { server.handleClient(); };
+    /** Single-threaded wrapper around WebServer::handleClient(). */
+    void handleClient();
     void setWifiInfo(struct_wifiInfo* info, uint8_t count);
     void setRobonomicsAddress(const String& address) { robonomics_address = address; };
 

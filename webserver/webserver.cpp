@@ -19,6 +19,33 @@
 #include <ESPmDNS.h>
 #endif
 
+static SemaphoreHandle_t s_webserver_mutex = nullptr;
+
+static bool webserverLock(uint32_t timeout_ms = 250) {
+	if (!s_webserver_mutex) {
+		s_webserver_mutex = xSemaphoreCreateMutex();
+	}
+	if (!s_webserver_mutex) {
+		return false;
+	}
+	return xSemaphoreTake(s_webserver_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
+}
+
+static void webserverUnlock() {
+	if (s_webserver_mutex) {
+		xSemaphoreGive(s_webserver_mutex);
+	}
+}
+
+void SensorWebServer::handleClient() {
+	// Guard against races between loop() and the captive portal worker.
+	if (!webserverLock()) {
+		return;
+	}
+	server.handleClient();
+	webserverUnlock();
+}
+
 
 void SensorWebServer::setup() {
     www_username = cfg::www_username;
@@ -57,10 +84,15 @@ void SensorWebServer::notifyStaIpRestored() {
 	// WebServer::begin() calls close() internally, but after a netif/IP change an explicit stop + short yield
 	// avoids a stuck listen socket so phones/browsers can reach the device again on the LAN IP.
 	debug_outln_info(F("Webserver: rebind after STA IP "), WiFi.localIP().toString());
+	if (!webserverLock(2000)) {
+		debug_outln_error(F("[WiFi] Webserver rebind skipped: mutex busy"));
+		return;
+	}
 	server.stop();
 	yield();
 	delay(30);
 	server.begin();
+	webserverUnlock();
 #endif
 }
 

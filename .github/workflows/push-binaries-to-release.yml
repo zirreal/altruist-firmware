@@ -22,7 +22,10 @@ jobs:
         run: pip install platformio
 
       - name: Build firmware
-        run: pio run
+        run: |
+          set -euo pipefail
+          # Build only release binaries (no *_dev)
+          pio run -e esp32c6_urban_en -e esp32c6_urban_ru -e esp32c6_inside_en -e esp32c6_inside_ru -e esp32c3_urban_en -e esp32c3_urban_ru
 
       - name: Upload binaries from build folder
         uses: softprops/action-gh-release@v1
