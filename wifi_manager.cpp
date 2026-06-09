@@ -212,6 +212,40 @@ bool wifiGuestPortalStaReady(void) {
 	return true;
 }
 
+void wifiGuestPortalPrepareStaJoin(void) {
+#if defined(ESP32) || defined(ESP8266)
+	debug_outln_info(F("[WiFi] Guest portal: preparing STA join"));
+	WiFi.disconnect(true, false);
+	const unsigned long deadline = millis() + 3000UL;
+	while (millis() < deadline) {
+		yield();
+		delay(50);
+		if (WiFi.status() == WL_DISCONNECTED) {
+			break;
+		}
+	}
+	delay(150);
+	if (WiFi.getMode() != WIFI_AP_STA) {
+		WiFi.mode(WIFI_AP_STA);
+	}
+	delay(50);
+#endif
+}
+
+void wifiCaptivePortalRestartAfterSuccess(void) {
+	wifiRequestPortalExit();
+	set_restart_reason(RESTART_REASON_CONFIG);
+	debug_outln_info(F("[WiFi] Captive portal: restart after success page"));
+#if defined(ESP32) || defined(ESP8266)
+	WiFi.softAPdisconnect(true);
+	WiFi.mode(WIFI_STA);
+#endif
+	wificonfig_loop = false;
+	Serial.flush();
+	delay(400);
+	esp_restart();
+}
+
 void wifiRequestPortalExit(void) {
 	s_portal_exit_requested = true;
 }

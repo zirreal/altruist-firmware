@@ -88,6 +88,14 @@ void DisplayManager::setup() {
     }
 }
 
+void DisplayManager::clearUrbanCache() {
+    cached_urban_address = "";
+    if (SPIFFS.begin(true)) {
+        SPIFFS.remove("/urban_ss58.cache");
+    }
+    refresh_now = true;
+}
+
 void DisplayManager::setScreen(ScreenPage pageID) {
     // If we are leaving analytics 4-circle overview, force a full refresh on the next screen
     // to clean residual ghosting from dense black arc rendering.
@@ -421,13 +429,16 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             if (!service.isNull() && service.containsKey("urban_robonomics_address")) {
                 String urban_addr = service["urban_robonomics_address"].as<String>();
                 if (urban_addr.length() > 0 && cached_urban_address != urban_addr) {
-                    bool was_empty = cached_urban_address.length() == 0;
                     cached_urban_address = urban_addr;
                     need_spiffs_save = true;
-                    if (currentScreenID == ScreenPage::SENSOR_MAP || was_empty) {
-                        refresh_now = true; // force first render after boot/flash
-                    }
+                    refresh_now = true;
                 }
+            } else if (cached_urban_address.length() > 0) {
+                cached_urban_address = "";
+                if (SPIFFS.begin(true)) {
+                    SPIFFS.remove("/urban_ss58.cache");
+                }
+                refresh_now = true;
             }
         }
         xSemaphoreGive(mutex);

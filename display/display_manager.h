@@ -39,6 +39,8 @@ public:
     void process(button_pressed_t &btn_press);
     void setScreen(ScreenPage pageID);
     void setRobonomicsAddress(const char *address) { robonomics_address = String(address);};
+    /** Forget SPIFFS + RAM Urban SS58 used for MAIN/SENSOR_MAP QR. */
+    void clearUrbanCache();
 private:
     device_status_t &deviceStatus;
     JsonDocument &sensors_data;

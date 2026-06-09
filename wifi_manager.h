@@ -26,6 +26,12 @@ bool wifiStaLinkReady(void);
 /** True when STA has joined the home AP during captive portal (not AP-only / 192.168.4.x). */
 bool wifiGuestPortalStaReady(void);
 
+/** Abort any in-flight STA join before captive-portal WiFi.begin() (avoids ESP_ERR_WIFI_STATE on retry). */
+void wifiGuestPortalPrepareStaJoin(void);
+
+/** Restart after Urban guest success (config must already be saved). Does not return. */
+void wifiCaptivePortalRestartAfterSuccess(void);
+
 /** Leave captive portal loop after successful POST (before restart). */
 void wifiRequestPortalExit(void);
 

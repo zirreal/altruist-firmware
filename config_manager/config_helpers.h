@@ -2,6 +2,7 @@
 #define __CONFIG_HELPERS_H__
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include "airrohr-cfg.h"
 #include "defines.h"
 
@@ -17,5 +18,10 @@ unsigned int getConfigUintValue(const char* key);
 void removeWiFiCredentials();
 void removeWebUiCredentials();
 bool config_set_string_by_key(const char* key, const char* value);
+
+#if defined(ALTRUIST_INSIDE)
+/** Drop cached Urban SS58 / HTTP telemetry when pairing target changes. */
+void clearUrbanPairingTelemetry(JsonDocument &data);
+#endif
 
 #endif // __CONFIG_HELPERS_H__

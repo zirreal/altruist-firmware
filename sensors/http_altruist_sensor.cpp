@@ -14,6 +14,42 @@
 // We will try to find Urban up to this many times, spaced 5 minutes apart.
 static const uint8_t URBAN_MAX_DISCOVERY_ATTEMPTS = 3;
 
+/** True when config has a manual or previously chosen Urban STA address. */
+static bool httpUrbanHasConfiguredAddress() {
+    if (cfg::use_custom_urban && strlen(cfg::custom_altruist_urban) > 0) {
+        return true;
+    }
+    return strlen(cfg::chosen_altruist_urban) > 0;
+}
+
+/** Bind chosen_address from config (custom IP takes precedence). Returns true if non-empty. */
+static String http_urban_last_sta_ip;
+
+static void httpUrbanClearStaleIdentity(JsonDocument &data) {
+    if (!data["service_data"].isNull()) {
+        JsonObject service = data["service_data"].as<JsonObject>();
+        if (!service.isNull()) {
+            service.remove("urban_robonomics_address");
+        }
+    }
+    data.remove(ATRUIST_URBAN_SENSOR);
+}
+
+static bool httpUrbanApplyConfiguredAddress(String &chosen_address) {
+    if (cfg::use_custom_urban && strlen(cfg::custom_altruist_urban) > 0) {
+        chosen_address = String(cfg::custom_altruist_urban);
+        debug_outln_verbose(F("HTTPAltruistSensor: using custom_altruist_urban "), chosen_address);
+        return true;
+    }
+    if (strlen(cfg::chosen_altruist_urban) > 0) {
+        chosen_address = String(cfg::chosen_altruist_urban);
+        debug_outln_verbose(F("HTTPAltruistSensor: using chosen_altruist_urban "), chosen_address);
+        return true;
+    }
+    chosen_address = "";
+    return false;
+}
+
 HTTPAltruistSensor::HTTPAltruistSensor(unsigned long sending_timeout)
     : Sensor(sending_timeout) {
     if (sending_timeout > HTTP_ALTRUIST_SENSOR_MIN_TIMEOUT) {
@@ -28,7 +64,7 @@ bool HTTPAltruistSensor::_discoverSensors() {
     // Bookkeeping for discovery attempts when we don't yet know an Urban IP.
     // We only increment the attempts counter if neither a discovered address
     // nor a configured chosen address is available.
-    if (sensor_addresses.empty() && strlen(cfg::chosen_altruist_urban) == 0) {
+    if (sensor_addresses.empty() && !httpUrbanHasConfiguredAddress()) {
         if (discovery_attempts < URBAN_MAX_DISCOVERY_ATTEMPTS) {
             discovery_attempts++;
         }
@@ -44,8 +80,11 @@ bool HTTPAltruistSensor::_discoverSensors() {
     int nrOfServices = MDNS.queryService("altruist", "tcp");
    
     if (nrOfServices == 0) {
-        debug_outln_info(F("No services were found."));
-        chosen_address = "";
+        debug_outln_info(F("No mDNS Urban services found."));
+        if (httpUrbanApplyConfiguredAddress(chosen_address)) {
+            last_fetch_time = millis() - timeout;
+            return true;
+        }
         return false;
     }
     debug_outln_verbose(F("Number of services found: "), String(nrOfServices));
@@ -76,12 +115,14 @@ bool HTTPAltruistSensor::_discoverSensors() {
     }
     if (!cfg::use_custom_urban && sensor_addresses.empty()) {
         debug_outln_info(F("HTTPAltruistSensor: mDNS had no Urban device entries"));
-        chosen_address = "";
+        if (httpUrbanApplyConfiguredAddress(chosen_address)) {
+            last_fetch_time = millis() - timeout;
+            return true;
+        }
         return false;
     }
     if (cfg::use_custom_urban) {
-        chosen_address = String(cfg::custom_altruist_urban);
-        debug_outln_verbose(F("Use custom altruist urban address "), chosen_address);
+        httpUrbanApplyConfiguredAddress(chosen_address);
     } else {
         if (!found_chosen && !sensor_addresses.empty()) {
             config_set_string_by_key("chosen_altruist_urban", sensor_addresses[0].c_str());
@@ -97,18 +138,22 @@ bool HTTPAltruistSensor::_discoverSensors() {
 
 bool HTTPAltruistSensor::begin() {
     debug_outln_info(F("Begin HTTPAltruistSensor"));
-    if(mdns_init()!= ESP_OK){
-        debug_outln_info(F("mDNS failed to start"));
-        return false;
+    if (mdns_init() != ESP_OK) {
+        if (!httpUrbanHasConfiguredAddress()) {
+            debug_outln_info(F("mDNS failed to start"));
+            return false;
+        }
+        debug_outln_info(F("mDNS failed to start; will use configured Urban IP"));
+    } else {
+        debug_outln_info(F("mDNS init finished"));
     }
-    debug_outln_info(F("mDNS init finished"));
 
-    bool ok = _discoverSensors();
-    if (ok) {
-        // Reset success / failure counters on fresh start
-        last_success_time    = 0;
-        consecutive_failures = 0;
+    if (!_discoverSensors()) {
+        httpUrbanApplyConfiguredAddress(chosen_address);
     }
+    // Reset success / failure counters on fresh start
+    last_success_time    = 0;
+    consecutive_failures = 0;
     return true;
 }
 
@@ -147,13 +192,9 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
     // or fall back to the last configured IP before attempting an HTTP
     // request. This avoids calling HTTP with an empty host and makes sure we give Urban multiple chances to appear.
     if (chosen_address.length() == 0) {
-        // 1) If a chosen Urban IP is already stored in config (from a previous successful run), use it directly even if mDNS hasn't found it yet.
-        if (strlen(cfg::chosen_altruist_urban) != 0) {
-            chosen_address = String(cfg::chosen_altruist_urban);
-            debug_outln_verbose(F("HTTPAltruistSensor: using configured chosen_altruist_urban IP "),
-                             chosen_address);
-        } else {
-            // 2) No configured IP at all: drive mDNS rediscovery up to a limited number of attempts, spaced in time.
+        // 1) Configured custom or chosen IP (works without mDNS, e.g. ESP32-C3 Urban).
+        if (!httpUrbanApplyConfiguredAddress(chosen_address)) {
+            // 2) No configured IP: drive mDNS rediscovery up to a limited number of attempts, spaced in time.
             if (discovery_attempts < URBAN_MAX_DISCOVERY_ATTEMPTS) {
                 bool first_attempt     = (discovery_attempts == 0);
                 bool interval_elapsed = (last_discovery_attempt_time == 0) ||
@@ -163,8 +204,9 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
                     debug_outln_verbose(F("HTTPAltruistSensor: proactive rediscovery from _fetch, attempt "),
                                      String(discovery_attempts + 1));
                     if (_discoverSensors()) {
-                        // After rediscovery, chosen_address may now be populated
                         consecutive_failures = 0;
+                    } else {
+                        httpUrbanApplyConfiguredAddress(chosen_address);
                     }
                 }
             }
@@ -174,6 +216,12 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
     // If we still don't have a target Urban address, skip this cycle.
     if (chosen_address.length() == 0) {
         return;
+    }
+
+    if (chosen_address != http_urban_last_sta_ip) {
+        debug_outln_info(F("HTTPAltruistSensor: Urban target IP changed to "), chosen_address);
+        httpUrbanClearStaleIdentity(data);
+        http_urban_last_sta_ip = chosen_address;
     }
 
     _fetch_one_sensor(data, http, chosen_address);
@@ -347,7 +395,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
         debug_outln_info(F("Request to Altruist Urban failed, code: "), httpCode);
         consecutive_failures++;
         bool never_succeeded = (last_success_time == 0);
-        bool have_any_address = !sensor_addresses.empty() || strlen(cfg::chosen_altruist_urban) != 0;
+        bool have_any_address = !sensor_addresses.empty() || httpUrbanHasConfiguredAddress();
 
         if (never_succeeded && !have_any_address) {
             // Limited discovery sequence while Urban is "possibly not present".

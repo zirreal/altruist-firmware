@@ -7,7 +7,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 ### Features
 
 - **ESP32-C3 Urban firmware profile** — release build targeting a `firmware.bin` limit: lite web assets (`css-styles-c3.h`, `script-js-lite.h`), dedicated partition table, and compile-time exclusions (display, ZMOD4510/AGS/GPS drivers, DHT, SD card, Urban HW LED/button). **Kept on C3:** BME, SDS011, I2S noise, SCD4x (CO₂), RadSens, Robonomics datalog + HTTP map, config **APIs** tab (Custom / Influx / CSV), and **`/debug`**.
-- **ESP32-C3 Urban: no mDNS** — open the device by **LAN IP** after setup (saves flash; `.local` hostname is not advertised on C3).
+- **ESP32-C3 Urban: no mDNS** — open the device by **LAN IP** after setup (saves flash; `.local` hostname is not advertised on C3). Insight pairs via **custom Urban IP**.
 
 ### Improvements
 
@@ -27,6 +27,9 @@ All notable changes to the Altruist Firmware project will be documented in this 
 ### Bug Fixes
 
 - **ESP32-C6 Urban: crash after hardware Wi‑Fi reset** — fixed occasional `Load access fault` in `WebServer::handleClient()` after wiping credentials and starting captive portal. WebServer handling is now single-owner during the portal, and server rebind operations are serialized.
+- **Insight + Urban custom IP** — `HTTPAltruistSensor` no longer ignores `custom_altruist_urban` when mDNS finds zero services (e.g. ESP32-C3 Urban without mDNS). Configured IP is used for HTTP polling even if Search returns empty.
+- **Urban guest success page** — after Wi-Fi connects, show STA IP for 15 s (setup AP stays up) before restart so it can be possible to copy the address.
+- **Insight Urban QR after pairing change** — changing custom/chosen Urban IP clears SPIFFS SS58 cache and stale `urban_robonomics_address`; MAIN QR updates when the new Urban is fetched.
 
 ## [R_2026-05.01](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05.01) — 2026-05-25
 
