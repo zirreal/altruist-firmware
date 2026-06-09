@@ -166,7 +166,10 @@
 #define INTL_GUEST_IP_ADDRESS "IP Address:"
 #endif
 #ifndef INTL_GUEST_OPEN_IP_HINT
-#define INTL_GUEST_OPEN_IP_HINT "Copy the IP address and open it in your browser. You can close this page now."
+#define INTL_GUEST_OPEN_IP_HINT "Copy the IP address and open it in your browser."
+#endif
+#ifndef INTL_GUEST_RESTART_PAUSE_HINT
+#define INTL_GUEST_RESTART_PAUSE_HINT "The device will restart in a few seconds — copy the IP now."
 #endif
 #ifndef INTL_GUEST_KEEP_OPEN_HINT
 #define INTL_GUEST_KEEP_OPEN_HINT "Keep this page open and select your Urban device below."

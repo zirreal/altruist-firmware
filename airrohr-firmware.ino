@@ -144,6 +144,8 @@ static volatile bool urban_api_status_ok = true;
 static volatile bool urban_datalog_sending = false;
 static volatile int urban_datalog_result = 0;
 static volatile unsigned long urban_datalog_result_until_ms = 0;
+/** After power-on hard-reset hold: ignore GPIO7 until the button is released. */
+static bool urban_reset_suppress_runtime_until_release = false;
 #endif
 #if defined(ALTRUIST_INSIDE)
 LedControllerInsight leds_controller_insight(sensors_data, mutex);
@@ -983,35 +985,46 @@ void buttonsWorker(void *pvParameters) {
 		// - active-high wiring (button -> 3V3, external pulldown)
 		if (URBAN_RESET_BTN_PIN != -1) {
 			int level = digitalRead(URBAN_RESET_BTN_PIN);
-			if (reset_idle_level == -1) {
+			if (urban_reset_suppress_runtime_until_release) {
+				// Power-on hard-reset hold: wait for release before Wi-Fi reset logic runs.
+				if (level == HIGH) {
+					urban_reset_suppress_runtime_until_release = false;
+					reset_idle_level = level;
+					reset_pressed = false;
+					reset_armed = false;
+					debug_outln_info(F("[RESET] Boot hold consumed; runtime Wi-Fi reset enabled"));
+				}
+			} else if (reset_idle_level == -1) {
 				reset_idle_level = level;
 				debug_outln_info(F("[RESET] GPIO idle level: "), String(reset_idle_level));
 			}
-			bool pressed_now = (level != reset_idle_level);
-			if (pressed_now && !reset_pressed) {
-				reset_pressed = true;
-				reset_armed = false;
-				reset_press_start_ms = millis();
-			} else if (!pressed_now && reset_pressed) {
-				// Release edge: if long-press was armed, execute reset on release.
-				if (reset_armed) {
-					debug_outln_info(F("[RESET] Confirmed by release, wiping WiFi + Web UI creds and restarting into Wi-Fi portal"));
-					leds_controller_urban.setMode(LedMode::RESETTING);
-					leds_controller_urban.process();
-					removeWiFiCredentials();
-					removeWebUiCredentials();
-					delay(250);
-					set_restart_reason(RESTART_REASON_CONFIG);
-					esp_restart();
+			if (!urban_reset_suppress_runtime_until_release) {
+				bool pressed_now = (level != reset_idle_level);
+				if (pressed_now && !reset_pressed) {
+					reset_pressed = true;
+					reset_armed = false;
+					reset_press_start_ms = millis();
+				} else if (!pressed_now && reset_pressed) {
+					// Release edge: if long-press was armed, execute reset on release.
+					if (reset_armed) {
+						debug_outln_info(F("[RESET] Confirmed by release, wiping WiFi + Web UI creds and restarting into Wi-Fi portal"));
+						leds_controller_urban.setMode(LedMode::RESETTING);
+						leds_controller_urban.process();
+						removeWiFiCredentials();
+						removeWebUiCredentials();
+						delay(250);
+						set_restart_reason(RESTART_REASON_CONFIG);
+						esp_restart();
+					}
+					reset_pressed = false;
+					reset_armed = false;
 				}
-				reset_pressed = false;
-				reset_armed = false;
-			}
-			if (reset_pressed && !reset_armed) {
-				if (msSince(reset_press_start_ms) > 5000) {
-					// Arm reset, require release to confirm (prevents stuck-low pin wipe).
-					reset_armed = true;
-					debug_outln_info(F("[RESET] Armed (hold >5s). Release to confirm."));
+				if (reset_pressed && !reset_armed) {
+					if (msSince(reset_press_start_ms) > 5000) {
+						// Arm reset, require release to confirm (prevents stuck-low pin wipe).
+						reset_armed = true;
+						debug_outln_info(F("[RESET] Armed (hold >5s). Release to confirm."));
+					}
 				}
 			}
 		}
@@ -1112,29 +1125,47 @@ void setup(void) {
 	#endif
 	delay(200);
 
-	// If button(s) pressed while turning on, reset the configuration (Insight / Urban C6 with HW).
+	// If button(s) pressed while turning on, factory-reset configuration (Insight / Urban C6 HW).
 #if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
 #ifdef ALTRUIST_URBAN_HW_UI
 	leds_controller_urban.init();
-	if (URBAN_RESET_BTN_PIN != -1) {
-		pinMode(URBAN_RESET_BTN_PIN, INPUT_PULLUP);
-	}
 #endif
 #ifdef ALTRUIST_INSIDE
 	leds_controller_insight.init();
 #endif
-	button_manager.init();
-	bool reset_needed = true;
-	for (int i=0; i<5; i++) {
-		button_manager.process();
+	bool reset_needed = false;
 #ifdef ALTRUIST_URBAN_HW_UI
-		reset_needed = reset_needed && (button_manager.get_button_state(ButtonNum::SET) == PRESSED_STATE);
+	if (URBAN_RESET_BTN_PIN != -1) {
+		pinMode(URBAN_RESET_BTN_PIN, INPUT_PULLUP);
+		delay(10);
+		bool held_at_boot = true;
+		for (int i = 0; i < 5; i++) {
+			if (digitalRead(URBAN_RESET_BTN_PIN) != LOW) {
+				held_at_boot = false;
+				break;
+			}
+			delay(10);
+		}
+		if (held_at_boot) {
+			reset_needed = true;
+			urban_reset_suppress_runtime_until_release = true;
+			debug_outln_info(F("[RESET] GPIO7 held at power-on — factory reset"));
+		}
+	}
 #endif
 #ifdef ALTRUIST_INSIDE
-		reset_needed = reset_needed && button_manager.get_button_state(ButtonNum::SET) == PRESSED_STATE && button_manager.get_button_state(ButtonNum::DOWN) == PRESSED_STATE;
-#endif
+	button_manager.init();
+	reset_needed = true;
+	for (int i = 0; i < 5; i++) {
+		button_manager.process();
+		reset_needed = reset_needed && button_manager.get_button_state(ButtonNum::SET) == PRESSED_STATE
+			&& button_manager.get_button_state(ButtonNum::DOWN) == PRESSED_STATE;
 		delay(10);
 	}
+#endif
+#if defined(ALTRUIST_URBAN_HW_UI) && !defined(ALTRUIST_INSIDE)
+	button_manager.init();
+#endif
 	if (reset_needed) {
 		debug_outln_info(F("Delete configuration and restart"));
 		init_config();

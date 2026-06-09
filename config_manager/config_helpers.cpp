@@ -3,6 +3,24 @@
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 
+#if defined(ALTRUIST_INSIDE)
+#include "../sensors/sensor_names.h"
+
+void clearUrbanPairingTelemetry(JsonDocument &data) {
+	if (SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
+		SPIFFS.remove(F("/urban_ss58.cache"));
+	}
+	if (!data.isNull() && data.containsKey("service_data")) {
+		JsonObject service = data["service_data"].as<JsonObject>();
+		if (!service.isNull()) {
+			service.remove("urban_robonomics_address");
+			service.remove("urban_last_ok_ms");
+		}
+	}
+	data.remove(ATRUIST_URBAN_SENSOR);
+	debug_outln_info(F("[Urban] Cleared pairing cache and stale telemetry"));
+}
+#endif
 
 String getConfigStringValue(const char* key) {
     for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {

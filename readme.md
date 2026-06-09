@@ -31,7 +31,7 @@ Hardware reset (GPIO7) clears WiFi credentials and password but preserves the Ro
 
 ### Altruist Urban
 
-Outdoor station (ESP32-C6). Provides environmental and air quality measurements. Discovered by Insight devices via mDNS (`altruist._tcp`).
+Outdoor station (ESP32-C6 or ESP32-C3). Provides environmental and air quality measurements. **ESP32-C6:** discovered by Insight via mDNS (`altruist._tcp`). **ESP32-C3:** no mDNS (flash budget) — pair Insight with **custom Urban IP** in config; open the device by LAN IP in a browser.
 
 ### Altruist Insight
 
@@ -39,16 +39,16 @@ Indoor station (ESP32-C6) with display and QR code support. Can aggregate data f
 
 ## Supported Sensors
 
-| Sensor | Measurement |
-|--------|-------------|
-| SDS011 | PM2.5, PM10 |
-| BMx280 (BMP/BME 280) | Temperature, humidity, pressure |
-| BME680 | Temperature, humidity, pressure, gas resistance |
-| SCD4x (SCD40/SCD41) | CO2, temperature, humidity |
-| RadSens | Radiation (counts per minute) |
-| I2S microphone | Noise level (dBA) |
-| GPS (Neo-6M) | Latitude, longitude |
-| HTTP Altruist sensor | Data from linked Urban devices |
+| Sensor               | Measurement                                     |
+| -------------------- | ----------------------------------------------- |
+| SDS011               | PM2.5, PM10                                     |
+| BMx280 (BMP/BME 280) | Temperature, humidity, pressure                 |
+| BME680               | Temperature, humidity, pressure, gas resistance |
+| SCD4x (SCD40/SCD41)  | CO2, temperature, humidity                      |
+| RadSens              | Radiation (counts per minute)                   |
+| I2S microphone       | Noise level (dBA)                               |
+| GPS (Neo-6M)         | Latitude, longitude                             |
+| HTTP Altruist sensor | Data from linked Urban devices                  |
 
 ## Building and Flashing
 
@@ -91,10 +91,28 @@ After configuration, the device restarts and connects to the specified WiFi netw
 - `SET` + `DOWN` long press (4s) - reset WiFi configuration
 - `SET` + `DOWN` pressed while powering on - reset all configuration
 
-### Urban
+### Urban (ESP32-C6 with hardware UI)
 
-- `SET` long press (4s) -- reset WiFi configuration
-- `SET` pressed while powering on -- reset all configuration
+**Reset button (GPIO7)**
+
+- **While powering on** (hold before/at power-on) — factory reset: deletes the full `config.json` including the Robonomics identity (same as Insight `SET` + `DOWN` at boot).
+- **While running** — hold for more than 10 seconds, then release: clears Wi‑Fi credentials and the web UI password only; Robonomics identity is preserved and the device reboots into the setup captive portal. Boot-time and runtime actions do not overlap — a power-on hold is consumed as factory reset only.
+- LEDs turn blue briefly while the runtime Wi‑Fi reset is applied.
+
+**Status LEDs** (NeoPixel ring on ESP32-C6 Urban; both pixels show the same color)
+
+| Color            | Meaning                                                                         |
+| ---------------- | ------------------------------------------------------------------------------- |
+| **Green**        | Normal operation — Wi‑Fi connected and on-chain Robonomics datalog is healthy.  |
+| **Blue**         | Setup mode — no saved Wi‑Fi yet, or the captive configuration portal is active. |
+| **Blue**         | Also shown while an on-chain datalog transmission is in progress.               |
+| **Green** (~3 s) | Last datalog send succeeded (brief flash after transmission).                   |
+| **Red** (~3 s)   | Last datalog send failed (brief flash after transmission).                      |
+| **Red** (steady) | Wi‑Fi disconnected or datalog unhealthy for more than 10 minutes.               |
+
+Map/connectivity HTTP errors do not drive the steady red state — LED status reflects **Robonomics datalog** health, not the sensors map POST.
+
+LED indication can be disabled in the web configuration.
 
 ## Contributing
 

@@ -9,6 +9,7 @@
 #endif
 #include "utils.h"
 #include "../config_manager/config_helpers.h"
+#include "../defines.h"
 #include "../wifi_manager.h"
 #include "web-header-logo-select.h"
 #if !defined(ALTRUIST_URBAN_C3_LITE)
@@ -17,6 +18,8 @@
 
 #ifdef ALTRUIST_INSIDE
 #include <ESPmDNS.h>
+#include "display/display_manager.h"
+extern DisplayManager displayManager;
 #endif
 
 static SemaphoreHandle_t s_webserver_mutex = nullptr;
@@ -285,9 +288,8 @@ void SensorWebServer::_webserver_guest() {
 			server.sendContent(page_content);
 
 #if defined(ESP32) || defined(ESP8266)
-			WiFi.mode(WIFI_AP_STA);
+			wifiGuestPortalPrepareStaJoin();
 #endif
-			WiFi.disconnect(false, false);
 			if (cfg::wlannopwd) {
 				debug_outln_info(F("No password"));
 				WiFi.begin(cfg::wlanssid);
@@ -344,13 +346,26 @@ void SensorWebServer::_webserver_guest() {
 				server.sendContent(emptyString);
 				return;
 #else
-				page_content = F("<p class='guest__reboot' style='margin-top:10px;'>" INTL_DEVICE_RESTARTING "</p>");
+				if (!writeConfig()) {
+					page_content = F("<p class='guest__reboot error'>Failed to save configuration.</p>");
+					server.sendContent(page_content);
+					server.sendContent(emptyString);
+					return;
+				}
+				page_content = F("<p class='guest__reboot' style='margin-top:14px;line-height:1.45;'>");
+				page_content += F("</p><p class='guest__reboot' id='guest-restart-hint' style='margin-top:8px;color:#666;'>");
+				page_content += FPSTR(INTL_GUEST_RESTART_PAUSE_HINT);
+				page_content += F("</p><script>(function(){var s=");
+				page_content += String((unsigned)(GUEST_SUCCESS_PAGE_DELAY_MS / 1000UL));
+				page_content += F(",el=document.getElementById('guest-restart-hint'),base=");
+				page_content += F("'");
+				page_content += FPSTR(INTL_GUEST_RESTART_PAUSE_HINT);
+				page_content += F("';function tick(){if(!el)return;if(s>0){el.textContent=base+' ('+s+'s)';s--;}else{clearInterval(iv);}}tick();var iv=setInterval(tick,1000);})();</script>");
 				server.sendContent(page_content);
 				server.sendContent(emptyString);
-				if (!wifiFinishCaptivePortalSaveAndRestart()) {
-					// Response already ended; next request will show error if portal still up.
-					debug_outln_error(F("[WiFi] Captive portal: save/restart failed after success UI"));
-				}
+				Serial.flush();
+				delay(GUEST_SUCCESS_PAGE_DELAY_MS);
+				wifiCaptivePortalRestartAfterSuccess();
 				return;
 #endif
 			} else {
@@ -560,6 +575,12 @@ void SensorWebServer::_webserver_select_urban() {
 		"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
 	end_html_page(page_content);
 
+	if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
+		clearUrbanPairingTelemetry(sensors_data);
+		xSemaphoreGive(mutex);
+	}
+	displayManager.clearUrbanCache();
+
 	if (writeConfig()) {
 		set_restart_reason(RESTART_REASON_CONFIG);
 		sensor_restart();
@@ -678,7 +699,23 @@ void SensorWebServer::_webserver_config() {
 		if (server.method() == HTTP_GET) {
 			webserver_config_send_body_get(server, page_content, wificonfig_loop, sensors_data);
 		} else {
+#ifdef ALTRUIST_INSIDE
+			const bool prev_use_custom_urban = cfg::use_custom_urban;
+			const String prev_custom_urban_ip = String(cfg::custom_altruist_urban);
+			const String prev_chosen_urban_ip = String(cfg::chosen_altruist_urban);
+#endif
 			webserver_config_send_body_post(server);
+#ifdef ALTRUIST_INSIDE
+			if (prev_use_custom_urban != cfg::use_custom_urban ||
+			    prev_custom_urban_ip != String(cfg::custom_altruist_urban) ||
+			    prev_chosen_urban_ip != String(cfg::chosen_altruist_urban)) {
+				if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
+					clearUrbanPairingTelemetry(sensors_data);
+					xSemaphoreGive(mutex);
+				}
+				displayManager.clearUrbanCache();
+			}
+#endif
 			page_content += FPSTR(INTL_SENSOR_IS_REBOOTING);
 			server.sendContent(page_content);
 			page_content = emptyString;

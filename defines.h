@@ -5,12 +5,17 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIDE)
-#define SOFTWARE_VERSION_STR "R-INS_2026-05.2.1" 
+#define SOFTWARE_VERSION_BASE "R-INS_2026-05.2"
 #define PM_SENSOR_NAME "Altruist Insight"
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_STR "R-URB_2026-05.2.1"
+#define SOFTWARE_VERSION_BASE "R-URB_2026-05.2"
 #define PM_SENSOR_NAME "Altruist Urban"
+#endif
+#if defined(ALTRUIST_FIRMWARE_DEV)
+#define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE "_dev"
+#else
+#define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE
 #endif
 
 #if defined(ESP8266)
@@ -117,6 +122,8 @@ constexpr const unsigned long WIFI_STA_PERIODIC_RECONNECT_MS = 18000UL;
  * After we initiate a reconnect attempt, give the stack time to associate / run DHCP.
  */
 constexpr const unsigned long WIFI_STA_RECOVERY_GRACE_MS = 45000UL;
+/** Urban captive portal: keep setup AP up after success so the phone can read/copy STA IP. */
+constexpr const unsigned long GUEST_SUCCESS_PAGE_DELAY_MS = 15000UL;
 /** After association, STA can report WL_CONNECTED before IPv4; do not tear down the link during this window. */
 constexpr const unsigned long WIFI_STA_DHCP_GRACE_MS = 40000UL;
 /** After this long without a usable STA link, use radio off/on (WIFI_OFF) before re-begin — stronger than disconnect() alone, no MCU reboot. */
