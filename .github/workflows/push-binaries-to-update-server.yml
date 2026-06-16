@@ -1,7 +1,6 @@
 name: Upload Binaries to Update Server
 on:
-  release:
-    types: [created]
+  workflow_dispatch: {}
 
 jobs:
   build:
