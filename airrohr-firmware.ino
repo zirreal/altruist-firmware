@@ -957,7 +957,13 @@ void ledsWorker(void *pvParameters) {
 			urban_led_mode = LedMode::GREEN;
 		}
 
-		leds_controller_urban.setMode(urban_led_mode);
+		// When LEDs are disabled, avoid mode churn/log spam; process() will also
+		// clear the strip once on disable.
+		if (cfg::leds_on) {
+			leds_controller_urban.setMode(urban_led_mode);
+		} else {
+			leds_controller_urban.setMode(LedMode::NONE);
+		}
 		leds_controller_urban.process();
 #endif
 #ifdef ALTRUIST_INSIDE

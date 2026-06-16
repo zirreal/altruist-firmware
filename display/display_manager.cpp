@@ -260,19 +260,20 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             }
             else if (currentScreenID == ScreenPage::GRAPHS) {
                 // On graphs page:
-                // - If graphs are not available: always navigate to next/prev screen
-                // - If graphs are available:
+                // - If graphs cannot be shown yet (no SD / no CSV data): navigate screens on any press
+                // - If graphs are ready:
                 //   - SHORT UP/SET: cycle graph values (or switch screen if at last graph)
                 //   - LONG  UP/SET: change screens (prev/next)
-                // IMPORTANT: don't use areGraphsAvailable() here.
-                // It may touch SD/file scanning and can transiently fail due to SD mutex contention
-                // while graphs are reading CSVs, which causes wrong navigation (screen switch instead of graph switch).
-                bool graphs_storage_ok = false;
+                // Use graphsNavigationCanCycle() (cached on last draw), not areGraphsAvailable() here,
+                // to avoid SD mutex contention during CSV reads on button press.
+                bool graphs_can_cycle = false;
 #if defined(USE_SD_CARD)
-                graphs_storage_ok = deviceStatus.sd_card_connected && sdCardLogger.checkInserted();
+                const bool graphs_storage_ok =
+                    deviceStatus.sd_card_connected && sdCardLogger.checkInserted();
+                graphs_can_cycle = graphs_storage_ok && graphsNavigationCanCycle();
 #endif
-                if (!graphs_storage_ok) {
-                    // No graphs available - navigate to next/prev screen on any button press
+                if (!graphs_can_cycle) {
+                    // No graph data yet - navigate to next/prev screen on any button press
                     if (btn_press.button_num == ButtonNum::UP) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);

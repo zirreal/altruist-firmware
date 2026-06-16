@@ -16,8 +16,10 @@ void LedControllerUrban::init() {
         pixels.clear();
         pixels.setBrightness(brightness);
         pixels.show();
+        pixels_initialized = true;
         debug_outln_info(F("Setup leds on pin "), LED_PIN);
     } else {
+        pixels_initialized = false;
         debug_outln_info(F("Will not setup leds on pin "), LED_PIN);
     }
     if (_hasBoardRgbLed()) {
@@ -25,11 +27,20 @@ void LedControllerUrban::init() {
         board_pixels.clear();
         board_pixels.setBrightness(brightness);
         board_pixels.show();
+        board_initialized = true;
         debug_outln_info(F("Setup board RGB led on pin "), String(URBAN_BOARD_RGB_LED_PIN));
+    } else {
+        board_initialized = false;
     }
 }
 
 void LedControllerUrban::setMode(LedMode mode) {
+    // If LEDs are disabled in config, do not spam mode logs
+    if (!cfg::leds_on || LED_PIN == -1) {
+        current_mode = LedMode::NONE;
+        mode_changed = false;
+        return;
+    }
     if (current_mode == mode && !mode_changed) {
         return;
     }
@@ -40,6 +51,19 @@ void LedControllerUrban::setMode(LedMode mode) {
 
 void LedControllerUrban::process() {
     if (LED_PIN == -1 || !cfg::leds_on) {
+        // If LEDs were previously initialized, turn them off once on disable.
+        if (pixels_initialized) {
+            pixels.clear();
+            pixels.show();
+            pixels_initialized = false;
+        }
+        if (board_initialized) {
+            board_pixels.clear();
+            board_pixels.show();
+            board_initialized = false;
+        }
+        mode_changed = false;
+        current_mode = LedMode::NONE;
         return;
     }
     mode_changed = false;

@@ -16,7 +16,6 @@ void RobonomicsDatalogAPI::setup() {
 		robonomics->setPrivateKey(private_key.c_str());
 	}
     robonomics->setup(robonomics_public_node);
-	debug_outln_info(F("Robonomics private key: "), String(robonomics->getPrivateKey()));
     debug_outln_info(F("Robonomics datalog API is ready with sending interval (sec): "), String(timeout/1000));
 }
 

@@ -217,7 +217,17 @@ void readConfig(bool oldconfig) {
 	DeserializationError err = deserializeJson(json, configFile.readString());
 	configFile.close();
 #ifdef DEV
-	serializeJson(json, Serial);
+	{
+		String saved_private_key;
+		if (json.containsKey("private_key")) {
+			saved_private_key = json["private_key"].as<const char*>();
+			json["private_key"] = "[redacted]";
+		}
+		serializeJson(json, Serial);
+		if (saved_private_key.length() > 0) {
+			json["private_key"] = saved_private_key;
+		}
+	}
 #endif
 #pragma GCC diagnostic pop
 

@@ -33,6 +33,8 @@ class LedControllerUrban {
     private:
         LedMode current_mode = LedMode::NONE;
         bool mode_changed = false;
+        bool pixels_initialized = false;
+        bool board_initialized = false;
         Adafruit_NeoPixel pixels;
         Adafruit_NeoPixel board_pixels;
 

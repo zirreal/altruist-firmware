@@ -37,5 +37,8 @@ bool setPrevGraphValue();
 // Returns true if graphs can be displayed, false otherwise
 bool areGraphsAvailable();
 
+// Cached during drawGraphScreen(); safe to read from button handler (no SD I/O).
+bool graphsNavigationCanCycle();
+
 #endif
 #endif
