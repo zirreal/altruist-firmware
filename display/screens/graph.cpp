@@ -34,6 +34,7 @@ static GraphValue current_graph_value = GraphValue::INSIGHT_TEMP;
 constexpr uint8_t kGraphValueCount = static_cast<uint8_t>(GraphValue::URBAN_PRESSURE) + 1;
 static bool g_graph_had_data[kGraphValueCount] = {false};
 static uint8_t g_graph_no_data_streak[kGraphValueCount] = {0};
+static bool g_graphs_navigation_can_cycle = false;
 
 static uint8_t graphValueIndex(GraphValue value) {
     return static_cast<uint8_t>(value);
@@ -757,7 +758,12 @@ bool areGraphsAvailable() {
 #endif
 }
 
+bool graphsNavigationCanCycle() {
+    return g_graphs_navigation_can_cycle;
+}
+
 void drawGraphScreen() {
+    g_graphs_navigation_can_cycle = areGraphsAvailable();
     // Clear screen first to prevent glitching
     Paint_Clear(WHITE);
 

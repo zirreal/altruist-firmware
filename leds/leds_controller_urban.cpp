@@ -10,26 +10,39 @@ LedControllerUrban::LedControllerUrban():
     board_pixels(URBAN_BOARD_RGB_LED_COUNT, URBAN_BOARD_RGB_LED_PIN, NEO_GRB + NEO_KHZ800) {}
 
 void LedControllerUrban::init() {
-    uint8_t brightness = cfg::leds_brightness * 255 / 100;
-    if (LED_PIN != -1 && cfg::leds_on) {
-        pixels.begin();
-        pixels.clear();
-        pixels.setBrightness(brightness);
-        pixels.show();
-        debug_outln_info(F("Setup leds on pin "), LED_PIN);
-    } else {
-        debug_outln_info(F("Will not setup leds on pin "), LED_PIN);
+    if (LED_PIN == -1 || !cfg::leds_on) {
+        pixels_initialized = false;
+        board_initialized = false;
+        _forceOff();
+        debug_outln_info(F("LEDs disabled; strip forced off"));
+        return;
     }
-    if (_hasBoardRgbLed()) {
+    uint8_t brightness = cfg::leds_brightness * 255 / 100;
+    pixels.begin();
+    pixels.clear();
+    pixels.setBrightness(brightness);
+    pixels.show();
+    pixels_initialized = true;
+    debug_outln_info(F("Setup leds on pin "), LED_PIN);
+    if (_hasBoardRgbHardware()) {
         board_pixels.begin();
         board_pixels.clear();
         board_pixels.setBrightness(brightness);
         board_pixels.show();
+        board_initialized = true;
         debug_outln_info(F("Setup board RGB led on pin "), String(URBAN_BOARD_RGB_LED_PIN));
+    } else {
+        board_initialized = false;
     }
 }
 
 void LedControllerUrban::setMode(LedMode mode) {
+    // If LEDs are disabled in config, do not spam mode logs
+    if (!cfg::leds_on || LED_PIN == -1) {
+        current_mode = LedMode::NONE;
+        mode_changed = false;
+        return;
+    }
     if (current_mode == mode && !mode_changed) {
         return;
     }
@@ -40,6 +53,7 @@ void LedControllerUrban::setMode(LedMode mode) {
 
 void LedControllerUrban::process() {
     if (LED_PIN == -1 || !cfg::leds_on) {
+        _forceOff();
         return;
     }
     mode_changed = false;
@@ -68,8 +82,33 @@ void LedControllerUrban::process() {
     }
 }
 
+bool LedControllerUrban::_hasBoardRgbHardware() {
+    return URBAN_BOARD_RGB_LED_PIN != -1 && URBAN_BOARD_RGB_LED_PIN != LED_PIN;
+}
+
 bool LedControllerUrban::_hasBoardRgbLed() {
-    return cfg::leds_on && URBAN_BOARD_RGB_LED_PIN != -1 && URBAN_BOARD_RGB_LED_PIN != LED_PIN;
+    return cfg::leds_on && _hasBoardRgbHardware();
+}
+
+void LedControllerUrban::_forceOff() {
+    if (LED_PIN != -1) {
+        if (!pixels_initialized) {
+            pixels.begin();
+            pixels_initialized = true;
+        }
+        pixels.clear();
+        pixels.show();
+    }
+    if (_hasBoardRgbHardware()) {
+        if (!board_initialized) {
+            board_pixels.begin();
+            board_initialized = true;
+        }
+        board_pixels.clear();
+        board_pixels.show();
+    }
+    mode_changed = false;
+    current_mode = LedMode::NONE;
 }
 
 String LedControllerUrban::_modeName(LedMode mode) {

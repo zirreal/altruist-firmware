@@ -33,11 +33,15 @@ class LedControllerUrban {
     private:
         LedMode current_mode = LedMode::NONE;
         bool mode_changed = false;
+        bool pixels_initialized = false;
+        bool board_initialized = false;
         Adafruit_NeoPixel pixels;
         Adafruit_NeoPixel board_pixels;
 
+        bool _hasBoardRgbHardware();
         bool _hasBoardRgbLed();
         String _modeName(LedMode mode);
+        void _forceOff();
         void _setSolidColor(uint8_t red, uint8_t green, uint8_t blue);
         void _setAllPixels(uint32_t color);
 };

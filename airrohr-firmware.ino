@@ -710,8 +710,10 @@ void sensorAndAPIWorker(void *pvParameters) {
 			displayManager.process(btn_press);
 #endif
 #ifdef ALTRUIST_URBAN_HW_UI
-			leds_controller_urban.setMode(LedMode::PROVISIONING);
-			leds_controller_urban.process();
+			if (cfg::leds_on) {
+				leds_controller_urban.setMode(LedMode::PROVISIONING);
+				leds_controller_urban.process();
+			}
 #endif
 			wifiConfig(webserver);
 		}
@@ -845,8 +847,10 @@ void sensorAndAPIWorker(void *pvParameters) {
 #ifdef ALTRUIST_URBAN_HW_UI
 				urban_datalog_result = 0;
 				urban_datalog_sending = true;
-				leds_controller_urban.setMode(LedMode::BLUE);
-				leds_controller_urban.process();
+				if (cfg::leds_on) {
+					leds_controller_urban.setMode(LedMode::BLUE);
+					leds_controller_urban.process();
+				}
 #endif
 			}
 			activeAPIs[i]->send(api_snapshot);
@@ -856,8 +860,10 @@ void sensorAndAPIWorker(void *pvParameters) {
 				urban_datalog_sending = false;
 				urban_datalog_result = activeAPIs[i]->lastSendWasOk() ? 1 : -1;
 				urban_datalog_result_until_ms = millis() + 3000UL;
-				leds_controller_urban.setMode(urban_datalog_result > 0 ? LedMode::GREEN : LedMode::RED);
-				leds_controller_urban.process();
+				if (cfg::leds_on) {
+					leds_controller_urban.setMode(urban_datalog_result > 0 ? LedMode::GREEN : LedMode::RED);
+					leds_controller_urban.process();
+				}
 #endif
 			}
 			incrementTXCounter(); // Track successful telemetry send
@@ -957,7 +963,11 @@ void ledsWorker(void *pvParameters) {
 			urban_led_mode = LedMode::GREEN;
 		}
 
-		leds_controller_urban.setMode(urban_led_mode);
+		// When LEDs are disabled, avoid mode churn/log spam; process() will also
+		// clear the strip once on disable.
+		if (cfg::leds_on) {
+			leds_controller_urban.setMode(urban_led_mode);
+		}
 		leds_controller_urban.process();
 #endif
 #ifdef ALTRUIST_INSIDE
