@@ -38,8 +38,10 @@ class LedControllerUrban {
         Adafruit_NeoPixel pixels;
         Adafruit_NeoPixel board_pixels;
 
+        bool _hasBoardRgbHardware();
         bool _hasBoardRgbLed();
         String _modeName(LedMode mode);
+        void _forceOff();
         void _setSolidColor(uint8_t red, uint8_t green, uint8_t blue);
         void _setAllPixels(uint32_t color);
 };

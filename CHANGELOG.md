@@ -30,6 +30,8 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Insight + Urban custom IP** — `HTTPAltruistSensor` no longer ignores `custom_altruist_urban` when mDNS finds zero services (e.g. ESP32-C3 Urban without mDNS). Configured IP is used for HTTP polling even if Search returns empty.
 - **Urban guest success page** — after Wi-Fi connects, show STA IP for 15 s (setup AP stays up) before restart so it can be possible to copy the address.
 - **Insight Urban QR after pairing change** — changing custom/chosen Urban IP clears SPIFFS SS58 cache and stale `urban_robonomics_address`; MAIN QR updates when the new Urban is fetched.
+- **Graphs screen (Insight): empty/new SD card navigation** — Graphs navigation no longer cycles through non-existent graphs when the SD is connected but has no valid graph data yet.
+- **Urban LEDs: respect `leds_on=false`** — LED mode changes are suppressed and both the addressable strip and the board RGB LED are forced off when LEDs are disabled (prevents stray blinking near the reset button).
 
 ## [R_2026-05.01](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05.01) — 2026-05-25
 
