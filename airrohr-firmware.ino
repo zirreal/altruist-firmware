@@ -97,6 +97,7 @@
 #include "apis/apis.h"
 #include "config_manager/config_helpers.h"
 #include "wifi_manager.h"
+#include "improv/improv_serial.h"
 #include "webserver/webserver.h"
 #include "OTA_Update.h"
 #if defined(USE_SD_CARD)
@@ -1135,6 +1136,20 @@ void setup(void) {
 	#endif
 	delay(200);
 
+	improv_serial_setup();
+	improv_set_wifi_callback(wifiApplyImprovCredentials);
+	improv_set_rws_owner_callback([](const String& owner) {
+		owner.toCharArray(cfg::rws_owner, LEN_RWS_OWNER);
+		writeConfig();
+		debug_outln_info(F("[IMPROV] rws_owner saved: "), owner);
+	});
+
+	// Give Improv Serial time to receive and respond to initial queries from webflasher.
+	for (int i = 0; i < 30; i++) {
+		improv_serial_loop();
+		delay(100);
+	}
+
 	// If button(s) pressed while turning on, factory-reset configuration (Insight / Urban C6 HW).
 #if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
 #ifdef ALTRUIST_URBAN_HW_UI
@@ -1510,6 +1525,7 @@ void loop(void) {
 	if (!wifiIsConfigPortalRunning()) {
 		webserver.handleClient();
 	}
+	improv_serial_loop();
 #if defined(ALTRUIST_INSIDE)
 	markCrashSection(CRASH_SECTION_DISPLAY_UPDATE);
 	displayManager.process(btn_press);

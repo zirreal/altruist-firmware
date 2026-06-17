@@ -1,5 +1,6 @@
 #include "wifi_manager.h"
 #include "config_manager/config_helpers.h"
+#include "improv/improv_serial.h"
 #include "utils.h"
 #include <WiFi.h>
 #if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
@@ -361,6 +362,7 @@ void wifiConfig(SensorWebServer &webserver) {
 	while (true) {
 		dnsServer.processNextRequest();
 		webserver.handleClient();
+		improv_serial_loop();
 #ifdef ALTRUIST_INSIDE
 		// Process display manager to handle button presses (e.g., sleep mode) even during WiFi config
 		displayManager.process(btn_press);
@@ -412,6 +414,7 @@ void wifiConfig(SensorWebServer &webserver) {
 static void waitForWifiToConnect(unsigned maxDelays, unsigned long interval_ms) {
 	unsigned delays_done = 0;
 	for (;;) {
+		improv_serial_loop();
 		if (wifiStaLinkReady()) {
 			return;
 		}
@@ -513,5 +516,37 @@ bool connectWifi(SensorWebServer &webserver, bool station_join_already_started) 
 	}
 #endif
 	return true;
+}
+
+bool wifiApplyImprovCredentials(const String& ssid, const String& password) {
+	if (ssid.length() == 0 || ssid.length() >= LEN_WLANSSID) {
+		return false;
+	}
+	if (password.length() >= LEN_CFG_PASSWORD) {
+		return false;
+	}
+	ssid.toCharArray(cfg::wlanssid, LEN_WLANSSID);
+	password.toCharArray(cfg::wlanpwd, LEN_CFG_PASSWORD);
+	cfg::wlannopwd = (password.length() == 0);
+	writeConfig();
+
+	debug_outln_info(F("[IMPROV] Connecting to SSID: "), ssid);
+
+	WiFi.mode(WIFI_STA);
+	WiFi.setSleep(false);
+	if (cfg::wlannopwd) {
+		WiFi.begin(cfg::wlanssid);
+	} else {
+		WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+	}
+
+	waitForWifiToConnect(75, 200);
+	bool connected = wifiStaLinkReady();
+	if (connected) {
+		debug_outln_info(F("[IMPROV] Connected, IP: "), WiFi.localIP().toString());
+	} else {
+		debug_outln_error(F("[IMPROV] Failed to connect"));
+	}
+	return connected;
 }
 

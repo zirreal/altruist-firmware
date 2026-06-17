@@ -41,6 +41,13 @@ void wifiRequestPortalExit(void);
  */
 bool wifiFinishCaptivePortalSaveAndRestart(void);
 
+/**
+ * Apply Wi-Fi credentials received via Improv Serial.
+ * Copies SSID/password to config, saves to SPIFFS, and attempts connection.
+ * Returns true if STA successfully connected with the new credentials.
+ */
+bool wifiApplyImprovCredentials(const String& ssid, const String& password);
+
 #if defined(ESP32)
 /** Register WiFi event hooks (STA disconnect → fast reconnect kick). Call once after WiFi.persistent(). */
 void wifiRegisterStaRecoveryEvents(void);
