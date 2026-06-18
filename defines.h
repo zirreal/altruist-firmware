@@ -450,8 +450,8 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 
 // automatic firmware updates
 // Production builds: auto-update on
-// DEV builds: auto-update off
-#ifdef DEV
+// Debug firmware (*_dev): auto-update off
+#if defined(DEBUG)
 	#define AUTO_UPDATE 0
 #else
 	#define AUTO_UPDATE 1
@@ -487,9 +487,13 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // Show device info on displays
 #define DISPLAY_DEVICE_INFO 1
 
-// Set debug level for serial output
-#ifndef DEBUG
-#define DEBUG 3
+// Default runtime log level (cfg::debug). Dev builds pass -DDEBUG=4 via PlatformIO.
+#ifndef DEFAULT_DEBUG_LEVEL
+#if defined(DEBUG)
+#define DEFAULT_DEBUG_LEVEL DEBUG
+#else
+#define DEFAULT_DEBUG_LEVEL 3
+#endif
 #endif
 
 // Insight standalone main: 1 = force all four footer warnings (Hum/Temp/Press/CO2) for layout preview.

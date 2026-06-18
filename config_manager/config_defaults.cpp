@@ -2,7 +2,7 @@
 #include "config_defaults.h"
 
 namespace cfg {
-	unsigned debug = DEBUG;
+	unsigned debug = DEFAULT_DEBUG_LEVEL;
 
 	unsigned time_for_wifi_config = 600000;
 	unsigned sending_intervall_ms = 30000;

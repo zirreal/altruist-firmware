@@ -144,7 +144,7 @@ returns  :  true if display is ready, false if timed out
 ******************************************************************************/
 bool EPD_4IN2_V2_ReadBusy(void)
 {
-#ifdef DEV
+#if defined(DEBUG)
     Serial.println(F("[EPD] busy..."));
     Serial.flush();
 #endif
@@ -163,7 +163,7 @@ bool EPD_4IN2_V2_ReadBusy(void)
             return false; // Timed out - display stuck
         }
         
-#ifdef DEV
+#if defined(DEBUG)
         // Log progress every 5 seconds so we know it's still waiting
         if (now - last_log > 5000) {
             Serial.print(F("[EPD] still busy... "));
@@ -178,7 +178,7 @@ bool EPD_4IN2_V2_ReadBusy(void)
         DEV_Delay_ms(10);
     }
     
-#ifdef DEV
+#if defined(DEBUG)
     Serial.println(F("[EPD] busy release"));
     Serial.flush();
 #endif

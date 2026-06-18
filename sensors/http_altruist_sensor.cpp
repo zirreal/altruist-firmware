@@ -255,7 +255,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             urbanRoot = data.createNestedObject(ATRUIST_URBAN_SENSOR);
             if (urbanRoot.isNull()) {
                 debug_outln_info(F("HTTPAltruistSensor: FAILED to create altruist_urban (JSON memory issue)"));
-#ifdef DEV
+#if defined(DEBUG)
                 serializeJson(data, Serial);
 #endif
                 http.end();
@@ -381,7 +381,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             }
             http2.end();
         }
-        #ifdef DEV
+        #if defined(DEBUG)
         serializeJson(data, Serial);
         #endif
 

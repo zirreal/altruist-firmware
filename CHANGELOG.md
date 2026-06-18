@@ -2,6 +2,12 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
+## [Unreleased]
+
+### Improvements
+
+- **Debug firmware flag unified (`DEV` → `DEBUG`)** — `*_dev` builds now use a single compile-time flag (`-DDEBUG=4` in PlatformIO) instead of separate `DEV` and `DEBUG` macros. `#if defined(DEBUG)` gates dev-only code (extra diagnostics, SD runtime log worker, crash context on the status page, auto-update off). Release builds do not define `DEBUG`; default serial log level remains `DEFAULT_DEBUG_LEVEL` (3). Raising `debug` in `config.json` on a release build increases runtime verbosity only and does not enable dev-only compile-time features.
+
 ## [R_2026-05.02](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05.02) — 2026-06-02
 
 ### Features

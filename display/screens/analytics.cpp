@@ -11,7 +11,7 @@
 #include "../../intl.h"
 #include "../../config_manager/config_helpers.h"
 #include <qrcode.h>
-#if defined(USE_SD_CARD) && defined(DEV)
+#if defined(USE_SD_CARD) && defined(DEBUG)
 #include "../../sd_card/sd_card.h"
 extern SDCard sdCardLogger;
 #endif
@@ -61,12 +61,12 @@ uint32_t g_hist_first_save_ts = 0;
 uint32_t g_hist_last_save_ts = 0;
 uint32_t g_hist_save_count = 0;
 bool g_hist_last_save_forced = false;
-#if defined(USE_SD_CARD) && defined(DEV)
+#if defined(USE_SD_CARD) && defined(DEBUG)
 uint32_t g_dev_sd_last_dump_hour_key = 0;
 uint32_t g_dev_last_ingest_hour_key = 0;
 static void dumpAnalyticsToSdDev(uint32_t now_ts, bool forced_save);
 #endif
-#if defined(DEV)
+#if defined(DEBUG)
 uint32_t g_dev_last_status_log_ms = 0;
 #endif
 static uint32_t currentLocalHourKey(time_t now);
@@ -134,14 +134,14 @@ static void saveRollingHistoryIfNeeded(bool force) {
     }
 
     if (!persisted) return;
-#if defined(USE_SD_CARD) && defined(DEV)
+#if defined(USE_SD_CARD) && defined(DEBUG)
     dumpAnalyticsToSdDev(now_ts, force);
 #endif
     g_hist_dirty = false;
     g_hist_last_save_ms = now_ms;
     g_hist_save_count++;
     g_hist_last_save_forced = force;
-#if defined(DEV)
+#if defined(DEBUG)
     const uint32_t saved_hour_key = currentLocalHourKey((time_t)now_ts);
     char saved_hour_buf[24];
     formatHourKey(saved_hour_buf, sizeof(saved_hour_buf), saved_hour_key);
@@ -289,7 +289,7 @@ static void formatHourKey(char *out, size_t out_sz, uint32_t hour_key) {
     snprintf(out, out_sz, "%04d-%02u-%02u %02u:00", y, m, d, hour);
 }
 
-#if defined(USE_SD_CARD) && defined(DEV)
+#if defined(USE_SD_CARD) && defined(DEBUG)
 static bool ensureAnalyticsDevSdDir() {
     if (!sdCardLock(1500)) return false;
     bool ok = true;
@@ -780,7 +780,7 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
             g_hist_last_day_key = day_key;
             const bool hour_persist_due = shouldPersistForCurrentHour(now, hour_key);
             saveRollingHistoryIfNeeded(day_changed || hour_persist_due);
-#if defined(DEV)
+#if defined(DEBUG)
             if (g_dev_last_ingest_hour_key != hour_key) {
                 char ingest_hour_buf[24];
                 formatHourKey(ingest_hour_buf, sizeof(ingest_hour_buf), hour_key);
@@ -798,7 +798,7 @@ void analyticsIngestHourSample(const analytics_screen_values_t &values) {
 }
 
 void analyticsDevLogStatus15m() {
-#if defined(DEV)
+#if defined(DEBUG)
     const uint32_t now_ms = millis();
     if ((now_ms - g_dev_last_status_log_ms) < (15UL * 60UL * 1000UL)) return;
     g_dev_last_status_log_ms = now_ms;
