@@ -6,6 +6,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Improvements
 
+- **Insight Wi‑Fi captive portal: clearer setup flow** — after home Wi‑Fi connects, the success screen is **step 2 of 2** (step **1 of 2** on the initial credential form) with the step label and title on separate lines. Users are prompted to press **Continue** to finish setup and restart; if they leave the page, setup auto-completes in standalone mode after ~45 s (browser auto-submit plus server-side fallback in the portal loop). Removed trailing **!** from related UI strings (e.g. “Connected”, “Settings saved”).
 - **Debug firmware flag unified (`DEV` → `DEBUG`)** — `*_dev` builds now use a single compile-time flag (`-DDEBUG=4` in PlatformIO) instead of separate `DEV` and `DEBUG` macros. `#if defined(DEBUG)` gates dev-only code (extra diagnostics, SD runtime log worker, crash context on the status page, auto-update off). Release builds do not define `DEBUG`; default serial log level remains `DEFAULT_DEBUG_LEVEL` (3). Raising `debug` in `config.json` on a release build increases runtime verbosity only and does not enable dev-only compile-time features.
 
 ## [R_2026-05.02](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05.02) — 2026-06-02

@@ -51,22 +51,29 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без св�
 #define INTL_SELECT_URBAN_DESC "Выберите устройство Urban, с которого этот Insight будет получать данные уличных датчиков."
 #define INTL_NO_URBANS_FOUND "Устройства Altruist Urban не найдены в этой сети. Убедитесь, что Urban включён и подключён к той же сети WiFi. Укажите IP вручную ниже и сохраните; Urban можно настроить позже в Настройках."
 #define INTL_USE_CUSTOM_IP "Указать IP-адрес вручную:"
-#define INTL_SETUP_INSIGHT_MODE_HINT "Если у вас есть Altruist Urban (уличный блок), отметьте галочку и нажмите «Дальше», чтобы найти его в сети и выбрать. Если Urban нет — оставьте галочку снятой: устройство перезагрузится сразу в режиме только Insight."
+#define INTL_SETUP_INSIGHT_MODE_HINT "Есть Altruist Urban (уличный блок)? Отметьте галочку ниже, чтобы найти его в сети и связать. Без галочки — автономный режим только Insight."
 #define INTL_SETUP_PAIR_WITH_URBAN "Настроить связь с Altruist Urban сейчас"
 #define INTL_SETUP_CONTINUE "Дальше"
 #define INTL_SKIP_URBAN_SELECTION "Пропустить &mdash; настроить позже в Настройках"
 #define INTL_SETUP_COMPLETE "Настройка завершена"
-#define INTL_SETTINGS_SAVED "Настройки сохранены!"
+#define INTL_SETTINGS_SAVED "Настройки сохранены"
 #define INTL_DEVICE_RESTARTING "Перезапуск устройства..."
-#define INTL_GUEST_CONNECTED "Подключено!"
+#define INTL_GUEST_CONNECTED "Подключено"
+#define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi подключён"
+#define INTL_GUEST_SETUP_STEP_1_LABEL "Шаг 1 из 2"
+#define INTL_GUEST_SETUP_STEP_2_LABEL "Шаг 2 из 2"
+#define INTL_GUEST_SETUP_STEP_1_TITLE "Подключение к Wi-Fi"
+#define INTL_GUEST_INSIGHT_FINISH_HINT "Нажмите «Дальше», чтобы завершить настройку и перезагрузить устройство."
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_HINT "Если закрыть эту страницу, настройка завершится автоматически через"
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "с (автономный режим)."
 #define INTL_GUEST_IP_ADDRESS "IP адрес:"
 #define INTL_GUEST_OPEN_IP_HINT "Скопируйте IP-адрес и откройте его в браузере."
 #define INTL_GUEST_RESTART_PAUSE_HINT "Устройство перезапустится через несколько секунд — скопируйте IP сейчас."
-#define INTL_GUEST_KEEP_OPEN_HINT "Не закрывайте страницу и выберите устройство Urban ниже."
-#define INTL_DISP_MAP_PROMO_TITLE "Больше аналитики прямо в смартфоне!"
+#define INTL_GUEST_KEEP_OPEN_HINT "Не закрывайте эту страницу, пока не нажмёте «Дальше»."
+#define INTL_DISP_MAP_PROMO_TITLE "Больше аналитики прямо в смартфоне"
 #define INTL_DISP_MAP_PROMO_LINE1 "Заходите на нашу веб-карту: AQI, история данных,"
 #define INTL_DISP_MAP_PROMO_LINE2 "цветные графики, удобный шэринг и"
-#define INTL_DISP_MAP_PROMO_LINE3 "много других фич уже скоро!"
+#define INTL_DISP_MAP_PROMO_LINE3 "много других фич уже скоро"
 #define INTL_DISP_MAP_DOMAIN "SENSORS.SOCIAL"
 #define INTL_SCAN_BTN "Поиск"
 #define INTL_SCAN_SCANNING "Поиск..."
@@ -142,7 +149,7 @@ const char INTL_PATH[] PROGMEM = "Путь";
 const char INTL_PORT[] PROGMEM = "Порт";
 const char INTL_USER[] PROGMEM = "Пользователь";
 const char INTL_PASSWORD[] PROGMEM = "Пароль";
-const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Локальный домен (Измените его, если у вас больше одного альтруиста в одной сети!)";
+const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Локальный домен (Измените его, если у вас больше одного альтруиста в одной сети)";
 const char INTL_MEASUREMENT[] PROGMEM = "Measurement";
 const char INTL_SEND_TO[] PROGMEM = "Отправлять в {v}";
 const char INTL_READ_FROM[] PROGMEM = "Считывать с {v}";
@@ -161,10 +168,10 @@ const char INTL_CURRENT_DATA[] PROGMEM = "Текущие значения";
 const char INTL_DEVICE_STATUS[] PROGMEM = "Состояние устройства";
 #define INTL_ACTIVE_SENSORS_MAP "Карта активных датчиков (внешняя ссылка)"
 #define INTL_CONFIGURATION_DELETE "Удалить конфигурацию"
-#define INTL_CONFIGURATION_REALLY_DELETE "Подтвердите удаление конфигурации!"
+#define INTL_CONFIGURATION_REALLY_DELETE "Подтвердите удаление конфигурации"
 #define INTL_DELETE "Удалить"
 #define INTL_CANCEL "Отменить"
-#define INTL_REALLY_RESTART_SENSOR "Подтвердите перезапуск устройства!"
+#define INTL_REALLY_RESTART_SENSOR "Подтвердите перезапуск устройства"
 #define INTL_RESTART "Перезапустить"
 const char INTL_SAVE_AND_RESTART[] PROGMEM = "Сохранить и перезапустить";
 #define INTL_FIRMWARE "Прошивка:"
@@ -264,7 +271,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_OTA_DO_NOT_DISCONNECT "Не отключайте питание"
 #define INTL_DISP_OTA_FAILED "Ошибка обновления"
 #define INTL_DISP_OTA_WILL_RETRY "Повтор позже"
-#define INTL_DISP_OTA_SUCCESS "Прошивка обновлена!"
+#define INTL_DISP_OTA_SUCCESS "Прошивка обновлена"
 #define INTL_DISP_OTA_RESTARTING "Перезагрузка..."
 #define INTL_DISP_WAITING_URBAN_ID "Ожидание Urban ID..."
 #define INTL_DISP_URBAN_IP "IP Urban:"

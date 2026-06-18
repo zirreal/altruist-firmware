@@ -120,7 +120,7 @@
 #define INTL_DISP_PRESS_SHORT "Press."
 #endif
 #ifndef INTL_STANDALONE_SHOP_PROMPT
-#define INTL_STANDALONE_SHOP_PROMPT "Add more measurements to your home!"
+#define INTL_STANDALONE_SHOP_PROMPT "Add more measurements to your home"
 #endif
 #ifndef INTL_STANDALONE_INSIGHT_FOOTER_PROMPT
 #define INTL_STANDALONE_INSIGHT_FOOTER_PROMPT \
@@ -160,7 +160,28 @@
 #define INTL_DISP_MAP_COMPARE_CONDITIONS "Compare with others nearby."
 #endif
 #ifndef INTL_GUEST_CONNECTED
-#define INTL_GUEST_CONNECTED "Connected!"
+#define INTL_GUEST_CONNECTED "Connected"
+#endif
+#ifndef INTL_GUEST_WIFI_STEP_TITLE
+#define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi connected"
+#endif
+#ifndef INTL_GUEST_SETUP_STEP_1_LABEL
+#define INTL_GUEST_SETUP_STEP_1_LABEL "Step 1 of 2"
+#endif
+#ifndef INTL_GUEST_SETUP_STEP_2_LABEL
+#define INTL_GUEST_SETUP_STEP_2_LABEL "Step 2 of 2"
+#endif
+#ifndef INTL_GUEST_SETUP_STEP_1_TITLE
+#define INTL_GUEST_SETUP_STEP_1_TITLE "Connect to Wi-Fi"
+#endif
+#ifndef INTL_GUEST_INSIGHT_FINISH_HINT
+#define INTL_GUEST_INSIGHT_FINISH_HINT "Press Continue to finish setup and restart the device."
+#endif
+#ifndef INTL_GUEST_INSIGHT_AUTO_FINISH_HINT
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_HINT "If you close this page, setup will finish automatically in"
+#endif
+#ifndef INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "seconds (standalone mode)."
 #endif
 #ifndef INTL_GUEST_IP_ADDRESS
 #define INTL_GUEST_IP_ADDRESS "IP Address:"
@@ -172,7 +193,7 @@
 #define INTL_GUEST_RESTART_PAUSE_HINT "The device will restart in a few seconds — copy the IP now."
 #endif
 #ifndef INTL_GUEST_KEEP_OPEN_HINT
-#define INTL_GUEST_KEEP_OPEN_HINT "Keep this page open and select your Urban device below."
+#define INTL_GUEST_KEEP_OPEN_HINT "Do not close this page until you press Continue."
 #endif
 #ifndef INTL_SETUP_INSIGHT_MODE_HINT
 #define INTL_SETUP_INSIGHT_MODE_HINT "If you have an Altruist Urban (outdoor unit), check the box and press Continue to search the network and pick it. Leave the box unchecked to use this Insight on its own — the device will restart right away."
@@ -184,7 +205,7 @@
 #define INTL_SETUP_CONTINUE "Continue"
 #endif
 #ifndef INTL_DISP_MAP_PROMO_TITLE
-#define INTL_DISP_MAP_PROMO_TITLE "Better analytics on your smartphone!"
+#define INTL_DISP_MAP_PROMO_TITLE "Better analytics on your smartphone"
 #endif
 #ifndef INTL_DISP_MAP_PROMO_LINE1
 #define INTL_DISP_MAP_PROMO_LINE1 "Just go to our web map: AQI, data history,"
@@ -193,7 +214,7 @@
 #define INTL_DISP_MAP_PROMO_LINE2 "color-coded charts, easy sharing, and"
 #endif
 #ifndef INTL_DISP_MAP_PROMO_LINE3
-#define INTL_DISP_MAP_PROMO_LINE3 "more features coming soon!"
+#define INTL_DISP_MAP_PROMO_LINE3 "more features coming soon"
 #endif
 #ifndef INTL_DISP_MAP_DOMAIN
 #define INTL_DISP_MAP_DOMAIN "SENSORS.SOCIAL"

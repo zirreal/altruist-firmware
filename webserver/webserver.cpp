@@ -20,6 +20,42 @@
 #include <ESPmDNS.h>
 #include "display/display_manager.h"
 extern DisplayManager displayManager;
+
+static unsigned long s_insight_guest_finish_deadline_ms = 0;
+
+static void insightGuestApplyStandaloneAndRestart() {
+	cfg::standalone = true;
+	cfg::use_custom_urban = false;
+	cfg::chosen_altruist_urban[0] = '\0';
+	cfg::custom_altruist_urban[0] = '\0';
+	if (writeConfig()) {
+		set_restart_reason(RESTART_REASON_CONFIG);
+		sensor_restart();
+	}
+}
+
+void insightGuestMarkFinishPending(void) {
+	s_insight_guest_finish_deadline_ms = millis() + INSIGHT_GUEST_AUTO_FINISH_MS;
+}
+
+void insightGuestClearFinishPending(void) {
+	s_insight_guest_finish_deadline_ms = 0;
+}
+
+void insightGuestProcessPendingFinish(void) {
+	if (s_insight_guest_finish_deadline_ms == 0) {
+		return;
+	}
+	if ((long)(millis() - s_insight_guest_finish_deadline_ms) < 0) {
+		return;
+	}
+	if (!wifiGuestPortalStaReady()) {
+		return;
+	}
+	s_insight_guest_finish_deadline_ms = 0;
+	debug_outln_info(F("Insight guest setup: auto-finish (standalone)"));
+	insightGuestApplyStandaloneAndRestart();
+}
 #endif
 
 static SemaphoreHandle_t s_webserver_mutex = nullptr;
@@ -313,39 +349,64 @@ void SensorWebServer::_webserver_guest() {
 				debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
 				debug_outln_info(F("STA IP: "), address);
 				page_content = "<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>";
-				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_GUEST_CONNECTED "</h2></div>\n";
-				page_content += "<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS " <span class='ip-address'>" + address + "</span> <button class='copy-btn' onclick='copyText()'></button></div>";
-				page_content += "<p class='guest__reboot' style='margin-top:10px;'>" INTL_GUEST_OPEN_IP_HINT "</p>";
-				page_content += "<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>";
-				server.sendContent(page_content);
-
 #ifdef ALTRUIST_INSIDE
+				const unsigned insightAutoSec = (unsigned)(INSIGHT_GUEST_AUTO_FINISH_MS / 1000UL);
+				page_content += F("<div class='guest__setup-finish' style='margin:16px auto;max-width:480px;'>");
+				page_content += F("<div class='guest__setup-header'>"
+					"<span class='guest__step-label'>" INTL_GUEST_SETUP_STEP_2_LABEL "</span>"
+					"<h2 class='guest__step-title'>" INTL_GUEST_WIFI_STEP_TITLE "</h2>"
+					"</div>");
+				page_content += F("<p style='background:#fff8e6;border:1px solid #f0c040;border-radius:8px;padding:14px 16px;"
+					"font-size:15px;line-height:1.45;margin:0 0 16px;color:#333;'>" INTL_GUEST_INSIGHT_FINISH_HINT "</p>");
+				page_content += F("<p style='margin:0 0 8px;font-size:14px;color:#555;'>" INTL_GUEST_KEEP_OPEN_HINT "</p>");
+				page_content += F("<div class='guest__reboot guest__reboot--ip' style='margin:0 0 12px;'>" INTL_GUEST_IP_ADDRESS
+					" <span class='ip-address'>");
+				page_content += address;
+				page_content += F("</span> <button class='copy-btn' onclick='copyText()'></button></div>");
+				page_content += F("<p id='insight-auto-finish-hint' style='color:#666;font-size:14px;line-height:1.4;margin:0 0 18px;'>"
+					INTL_GUEST_INSIGHT_AUTO_FINISH_HINT " <strong id='insight-auto-sec'>");
+				page_content += String(insightAutoSec);
+				page_content += F("</strong> " INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "</p>");
+				page_content += F("<script>function copyText(){const e=document.querySelector('.ip-address').innerText;"
+					"if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')}))"
+					".catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');"
+					"o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),"
+					"alert('Copied to clipboard (fallback)')}}</script>");
+
 				if (!writeConfig()) {
-					page_content = F("<p class='guest__reboot error'>Failed to save configuration.</p>");
+					page_content += F("<p class='guest__reboot error'>Failed to save configuration.</p></div>");
 					server.sendContent(page_content);
 					server.sendContent(emptyString);
 					return;
 				}
+				insightGuestMarkFinishPending();
 
-				page_content = F(
-					"<div style='margin:20px auto;max-width:480px;padding:20px;'>"
-					"<p style='color:#444;font-size:15px;line-height:1.45;margin-bottom:18px;'>"
-					INTL_SETUP_INSIGHT_MODE_HINT
-					"</p>"
-					"<form method='POST' action='/select_urban'>"
+				page_content += F("<p style='color:#444;font-size:14px;line-height:1.45;margin-bottom:14px;'>"
+					INTL_SETUP_INSIGHT_MODE_HINT "</p>");
+				page_content += F("<form id='insight-finish-form' method='POST' action='/select_urban'>"
 					"<label style='display:flex;align-items:flex-start;gap:12px;padding:14px 16px;"
 					"border:1px solid #ddd;border-radius:8px;background:#fafafa;cursor:pointer;font-size:15px;line-height:1.35;'>"
 					"<input type='checkbox' name='pair_with_urban' value='1' style='margin-top:3px;flex-shrink:0;'>"
 					"<span>" INTL_SETUP_PAIR_WITH_URBAN "</span>"
 					"</label>"
-					"<button type='submit' class='submit-btn' style='margin-top:22px;width:100%;padding:14px;font-size:16px;'>"
-					);
+					"<button type='submit' class='submit-btn' style='margin-top:22px;width:100%;padding:14px;font-size:16px;'>");
 				page_content += F(INTL_SETUP_CONTINUE);
 				page_content += F("</button></form></div>");
+				page_content += F("<script>(function(){var s=");
+				page_content += String(insightAutoSec);
+				page_content += F(",el=document.getElementById('insight-auto-sec'),form=document.getElementById('insight-finish-form');"
+					"function tick(){if(s>0){if(el)el.textContent=String(s);s--;}else if(form)form.submit();}"
+					"setInterval(tick,1000);})();</script>");
 				server.sendContent(page_content);
 				server.sendContent(emptyString);
 				return;
 #else
+				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_GUEST_CONNECTED "</h2></div>\n";
+				page_content += "<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS " <span class='ip-address'>" + address + "</span> <button class='copy-btn' onclick='copyText()'></button></div>";
+				page_content += "<p class='guest__reboot' style='margin-top:10px;'>" INTL_GUEST_OPEN_IP_HINT "</p>";
+				page_content += "<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>";
+				server.sendContent(page_content);
+
 				if (!writeConfig()) {
 					page_content = F("<p class='guest__reboot error'>Failed to save configuration.</p>");
 					server.sendContent(page_content);
@@ -495,6 +556,9 @@ void SensorWebServer::_webserver_select_urban() {
 		sendHttpRedirectGuest();
 		return;
 	}
+#ifdef ALTRUIST_INSIDE
+	insightGuestClearFinishPending();
+#endif
 
 	// Step 1: checkbox form from guest WiFi success (no chosen_altruist_urban field).
 	if (!server.hasArg(F("chosen_altruist_urban"))) {
@@ -520,7 +584,7 @@ void SensorWebServer::_webserver_select_urban() {
 		page_content += F("</span></strong> <button class='copy-btn' onclick='copyText()'></button></p>"
 			"<p>" INTL_GUEST_OPEN_IP_HINT "</p>"
 			"</div>"
-			"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
+			"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
 		end_html_page(page_content);
 
 		if (writeConfig()) {
@@ -572,7 +636,7 @@ void SensorWebServer::_webserver_select_urban() {
 	page_content += F("</span></strong> <button class='copy-btn' onclick='copyText()'></button></p>"
 		"<p>" INTL_GUEST_OPEN_IP_HINT "</p>"
 		"</div>"
-		"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard!')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
+		"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
 	end_html_page(page_content);
 
 	if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {

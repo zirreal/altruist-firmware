@@ -51,22 +51,29 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 #define INTL_SELECT_URBAN_DESC "Choose which Urban device this Insight should read outdoor sensor data from."
 #define INTL_NO_URBANS_FOUND "No Altruist Urban devices found on this network. Make sure your Urban device is powered on and connected to the same WiFi network. You can enter a custom IP address below, then save. You can add or change Urban later in Settings."
 #define INTL_USE_CUSTOM_IP "Use custom IP address:"
-#define INTL_SETUP_INSIGHT_MODE_HINT "If you have an Altruist Urban (outdoor unit), check the box and press Continue to search the network and pick it. Leave the box unchecked to use this Insight on its own — the device will restart right away."
+#define INTL_SETUP_INSIGHT_MODE_HINT "Have an Altruist Urban (outdoor unit)? Check the box below to search the network and link it. Leave unchecked for standalone mode."
 #define INTL_SETUP_PAIR_WITH_URBAN "Set up link to an Altruist Urban now"
 #define INTL_SETUP_CONTINUE "Continue"
 #define INTL_SKIP_URBAN_SELECTION "Skip &mdash; configure later from Settings page"
 #define INTL_SETUP_COMPLETE "Setup Complete"
-#define INTL_SETTINGS_SAVED "Settings Saved!"
+#define INTL_SETTINGS_SAVED "Settings saved"
 #define INTL_DEVICE_RESTARTING "Restarting device..."
-#define INTL_GUEST_CONNECTED "Connected!"
+#define INTL_GUEST_CONNECTED "Connected"
+#define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi connected"
+#define INTL_GUEST_SETUP_STEP_1_LABEL "Step 1 of 2"
+#define INTL_GUEST_SETUP_STEP_2_LABEL "Step 2 of 2"
+#define INTL_GUEST_SETUP_STEP_1_TITLE "Connect to Wi-Fi"
+#define INTL_GUEST_INSIGHT_FINISH_HINT "Press Continue to finish setup and restart the device."
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_HINT "If you close this page, setup will finish automatically in"
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "seconds (standalone mode)."
 #define INTL_GUEST_IP_ADDRESS "IP Address:"
 #define INTL_GUEST_OPEN_IP_HINT "Copy the IP address and open it in your browser."
 #define INTL_GUEST_RESTART_PAUSE_HINT "The device will restart in a few seconds — copy the IP now."
-#define INTL_GUEST_KEEP_OPEN_HINT "Keep this page open and select your Urban device below."
-#define INTL_DISP_MAP_PROMO_TITLE "Better analytics on your smartphone!"
+#define INTL_GUEST_KEEP_OPEN_HINT "Do not close this page until you press Continue."
+#define INTL_DISP_MAP_PROMO_TITLE "Better analytics on your smartphone"
 #define INTL_DISP_MAP_PROMO_LINE1 "Just go to our web map: AQI, data history,"
 #define INTL_DISP_MAP_PROMO_LINE2 "color-coded charts, easy sharing, and"
-#define INTL_DISP_MAP_PROMO_LINE3 "more features coming soon!"
+#define INTL_DISP_MAP_PROMO_LINE3 "more features coming soon"
 #define INTL_DISP_MAP_DOMAIN "SENSORS.SOCIAL"
 #define INTL_SCAN_BTN "Scan"
 #define INTL_SCAN_SCANNING "Scanning..."
@@ -142,7 +149,7 @@ const char INTL_PATH[] PROGMEM = "Path";
 const char INTL_PORT[] PROGMEM = "Port";
 const char INTL_USER[] PROGMEM = "User";
 const char INTL_PASSWORD[] PROGMEM = "Password";
-const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Local Hostname (Change it if you have more then one Altruist in the same network!)";
+const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Local Hostname (Change it if you have more then one Altruist in the same network)";
 const char INTL_MEASUREMENT[] PROGMEM = "Measurement";
 const char INTL_SEND_TO[] PROGMEM = "Send to {v}";
 const char INTL_READ_FROM[] PROGMEM = "Read from {v}";
@@ -264,7 +271,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_OTA_DO_NOT_DISCONNECT "Do not disconnect power"
 #define INTL_DISP_OTA_FAILED "Update failed"
 #define INTL_DISP_OTA_WILL_RETRY "Will retry later"
-#define INTL_DISP_OTA_SUCCESS "Firmware updated!"
+#define INTL_DISP_OTA_SUCCESS "Firmware updated"
 #define INTL_DISP_OTA_RESTARTING "Restarting..."
 #define INTL_DISP_WAITING_URBAN_ID "Waiting for Urban ID..."
 #define INTL_DISP_URBAN_IP "Urban IP:"
@@ -326,7 +333,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_IS_TOO "is too"
 #define INTL_DISP_CHECK_MAP_FULL_DATA "Check out our sensor map for full data and analytics."
 /** Legacy short shop line (unused in two-row footer; kept for intl parity). */
-#define INTL_STANDALONE_SHOP_PROMPT "Add more measurements to your home!"
+#define INTL_STANDALONE_SHOP_PROMPT "Add more measurements to your home"
 /** Insight standalone: second footer row beside shop QR (Font8, wraps). */
 #define INTL_STANDALONE_INSIGHT_FOOTER_PROMPT \
     "Add noise, air dust and outdoor atmospheric measurements to your Insight."
