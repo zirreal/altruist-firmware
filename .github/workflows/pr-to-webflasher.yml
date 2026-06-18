@@ -1,8 +1,10 @@
 name: Deploy release binaries to Webflasher
 
 on:
-  release:
-    types: [created]
+  push:
+    branches:
+      - esp32
+  workflow_dispatch: {}
 
 jobs:
   deploy:
@@ -33,7 +35,8 @@ jobs:
 
       - name: Update webflasher (release files only)
         env:
-          TAG: ${{ github.ref_name }}
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           cd webflasher
@@ -50,5 +53,5 @@ jobs:
           done
 
           git add firmware/Altruist
-          git commit -m "Altruist release $TAG" || exit 0
+          git commit -m "Altruist release ${BRANCH} ${SHA:0:8}" || exit 0
           git push origin HEAD:main
