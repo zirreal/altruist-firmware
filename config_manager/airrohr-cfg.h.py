@@ -12,6 +12,11 @@ Password		fs_pwd
 Bool		www_basicauth_enabled
 String		rws_owner
 String      robonomics_public_node
+String		robonomics_connectivity_host
+String		robonomics_connectivity_hosts
+Bool		rws_auto_register
+String		rws_devices_extra
+String		rws_devices_registered_hash
 String		private_key
 String		coords_gps
 Bool		send2robonomics

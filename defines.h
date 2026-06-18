@@ -5,11 +5,11 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIDE)
-#define SOFTWARE_VERSION_BASE "R-INS_2026-05.2"
+#define SOFTWARE_VERSION_BASE "R-INS_2026-06.1"
 #define PM_SENSOR_NAME "Altruist Insight"
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_BASE "R-URB_2026-05.2"
+#define SOFTWARE_VERSION_BASE "R-URB_2026-06.1"
 #define PM_SENSOR_NAME "Altruist Urban"
 #endif
 #if defined(ALTRUIST_FIRMWARE_DEV)
@@ -69,6 +69,8 @@
 #define LEN_FS_SSID 33				// credentials for sensor access point mode
 
 #define LEN_RWS_OWNER 70
+#define LEN_RWS_DEVICES_EXTRA 512
+#define LEN_RWS_DEVICES_REGISTERED_HASH 128
 #define LEN_ROBONOMICS_PUBLIC_NODE 70
 #define LEN_PRIVATE_KEY 65
 #define LEN_GPS_LAT 10

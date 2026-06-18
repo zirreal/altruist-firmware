@@ -30,6 +30,9 @@ namespace cfg {
 	char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE] = ROBONOMICS_PUBLIC_NODE;
 	char robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST] = "";
 	char robonomics_connectivity_hosts[LEN_ROBONOMICS_CONNECTIVITY_HOSTS] = "";
+	bool rws_auto_register = true;
+	char rws_devices_extra[LEN_RWS_DEVICES_EXTRA] = "";
+	char rws_devices_registered_hash[LEN_RWS_DEVICES_REGISTERED_HASH] = "";
 	char private_key[LEN_PRIVATE_KEY] = "Not Set";
 	char coords_gps[LEN_GPS_COORDS] = GPS_COORDS;
 

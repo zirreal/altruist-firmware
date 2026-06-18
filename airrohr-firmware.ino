@@ -95,6 +95,7 @@
 #include <Robonomics.h>
 #include "sensors/sensor_factory.h"
 #include "apis/apis.h"
+#include "apis/rws_devices_registry.h"
 #include "config_manager/config_helpers.h"
 #include "wifi_manager.h"
 #include "webserver/webserver.h"
@@ -799,6 +800,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 		}
 		analyticsDevLogStatus15m();
 #endif
+		ensureRwsDevicesRegistered(&robonomics);
 		markCrashSection(CRASH_SECTION_IDLE);
 
 		for (int i = 0; i < ActiveAPIsCount; i++) {
@@ -1068,19 +1070,17 @@ void buttonsWorker(void *pvParameters) {
 void metricsWorker(void *pvParameters) {
 	// Wait a bit for system to stabilize
 	vTaskDelay(2000 / portTICK_PERIOD_MS);
-	
-	// Log first metrics immediately and save initial crash context
-	logMetrics();
+
 	saveCrashContext();
-	
-	// Track when we last saved crash context
-	static unsigned long last_crash_save_ms = 0;
+
+	unsigned long last_crash_save_ms = millis();
 	const unsigned long CRASH_SAVE_INTERVAL_MS = 30UL * 1000UL; // save every 30s
-	
-	// Then log every 3 seconds
+
 	for (;;) {
-		vTaskDelay(3000 / portTICK_PERIOD_MS);  // Wait 3 seconds
-		
+		vTaskDelay(5000 / portTICK_PERIOD_MS);
+
+		updateMetrics();
+
 		// Periodic memory telemetry: log remaining heap so we can see trends
 		// and potential leaks over hours/days in the SD runtime log.
 #if defined(ESP32)
@@ -1107,8 +1107,6 @@ void metricsWorker(void *pvParameters) {
 		}
 #endif
 
-		logMetrics();
-		
 		if (msSince(last_crash_save_ms) > CRASH_SAVE_INTERVAL_MS) {
 			last_crash_save_ms = millis();
 			saveCrashContext();
@@ -1247,6 +1245,7 @@ void setup(void) {
 	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
 
 	init_config();
+	repairInconsistentRwsRegistrationState();
 #ifdef ALTRUIST_URBAN_HW_UI
 	leds_controller_urban.setMode(wifiHasSavedStationCredentials() ? LedMode::GREEN : LedMode::PROVISIONING);
 	leds_controller_urban.process();
@@ -1484,22 +1483,6 @@ void setup(void) {
 	
 	markMainLoopAlive();
 	debug_outln_info(F("Setup finished"));
-	#if defined(DEBUG)
-	#if defined(ALTRUIST_INSIDE)
-	Serial.print(F("[INSIGHT][Setup] All tasks created, testing logMetrics()...\r\n"));
-	#elif defined(ALTRUIST_URBAN)
-	Serial.print(F("[URBAN][Setup] All tasks created, testing logMetrics()...\r\n"));
-	#endif
-	Serial.flush();
-	delay(10);
-	logMetrics();
-	#if defined(ALTRUIST_INSIDE)
-	Serial.print(F("[INSIGHT][Setup] Metrics test complete\r\n"));
-	#elif defined(ALTRUIST_URBAN)
-	Serial.print(F("[URBAN][Setup] Metrics test complete\r\n"));
-	#endif
-	Serial.flush();
-	#endif
 	
 	// button_controller.init();
 }
