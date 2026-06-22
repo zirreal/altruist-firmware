@@ -211,6 +211,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<div class='panel-container'>");
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_ROBONOMICS "</h3>");
 	// page_content += form_checkbox(Config_send2robonomics, FPSTR(WEB_ROBONOMICS), false);
+	page_content += F("<p style='font-size:12px;margin:0 0 8px 0;'><a href='/group'>");
+	page_content += FPSTR(INTL_GROUP_MENU);
+	page_content += F("</a></p>");
 	add_form_input(page_content, Config_rws_owner, FPSTR(INTL_RWS_OWNER), LEN_RWS_OWNER-1);
 	add_form_input(page_content, Config_datalog_sending_intervall_ms, FPSTR(INTL_DATALOG_SENDING_INTERVAL), 5);
 	{

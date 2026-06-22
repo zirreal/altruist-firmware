@@ -15,6 +15,8 @@ String      robonomics_public_node
 String		robonomics_connectivity_host
 String		robonomics_connectivity_hosts
 Bool		rws_auto_register
+UInt		rws_group_mode
+String		rws_group_id
 String		rws_devices_extra
 String		rws_devices_registered_hash
 String		private_key

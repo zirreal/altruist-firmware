@@ -9,12 +9,16 @@
 #endif
 #include "utils.h"
 #include "../config_manager/config_helpers.h"
+#include "../apis/rws_group.h"
 #include "../defines.h"
 #include "../wifi_manager.h"
+#include <Robonomics.h>
 #include "web-header-logo-select.h"
 #if !defined(ALTRUIST_URBAN_C3_LITE)
 #include "robonomics-logo-common.h"
 #endif
+
+extern Robonomics robonomics;
 
 #ifdef ALTRUIST_INSIDE
 #include <ESPmDNS.h>
@@ -108,6 +112,7 @@ void SensorWebServer::setup() {
 	server.on(F("/favicon.ico"), std::bind(&SensorWebServer::_webserver_favicon, this)); // x
 	server.on(F(STATIC_PREFIX), std::bind(&SensorWebServer::_webserver_static, this)); // x
 	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
+	server.on(F("/group"), std::bind(&SensorWebServer::_webserver_group, this));
 #ifdef ALTRUIST_INSIDE
 	server.on(F("/select_urban"), std::bind(&SensorWebServer::_webserver_select_urban, this));
 	server.on(F("/scan_urbans"), std::bind(&SensorWebServer::_webserver_scan_urbans, this));
@@ -266,6 +271,30 @@ void SensorWebServer::_webserver_debug_level() {
 	start_html_page(page_content, FPSTR(INTL_DEBUG_LEVEL));
     webserver_debug_level(server, page_content);
     end_html_page(page_content);;
+}
+
+void SensorWebServer::_webserver_group() {
+	if (WiFi.status() != WL_CONNECTED) {
+		sendHttpRedirectGuest();
+		return;
+	}
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	RESERVE_STRING(page_content, LARGE_STR);
+	start_html_page(page_content, FPSTR(INTL_GROUP_MENU));
+
+	const String self_ss58 = String(robonomics.getSs58Address());
+	setRobonomicsAddress(self_ss58);
+	rwsSyncGroupModeFromOwner(self_ss58);
+
+	if (server.method() == HTTP_POST) {
+		webserver_group_post(server, self_ss58);
+	}
+
+	webserver_group_page(page_content, self_ss58, &robonomics);
+	end_html_page(page_content);
 }
 
 void SensorWebServer::_webserver_values() {
@@ -769,6 +798,7 @@ void SensorWebServer::_webserver_config() {
 			const String prev_chosen_urban_ip = String(cfg::chosen_altruist_urban);
 #endif
 			webserver_config_send_body_post(server);
+			rwsOnConfigOwnerUpdated(robonomics_address);
 #ifdef ALTRUIST_INSIDE
 			if (prev_use_custom_urban != cfg::use_custom_urban ||
 			    prev_custom_urban_ip != String(cfg::custom_altruist_urban) ||

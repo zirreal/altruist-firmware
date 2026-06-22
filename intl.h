@@ -234,4 +234,86 @@
 #define INTL_DISP_GRAPHS_HINT_LINE3 ""
 #endif
 
+#ifndef INTL_GROUP_MENU
+#define INTL_GROUP_MENU "Device group (RWS)"
+#endif
+#ifndef INTL_GROUP_INTRO
+#define INTL_GROUP_INTRO "Choose how this device participates in Robonomics Web Services."
+#endif
+#ifndef INTL_GROUP_MODE_TITLE
+#define INTL_GROUP_MODE_TITLE "Operating mode"
+#endif
+#ifndef INTL_GROUP_MODE_STANDALONE
+#define INTL_GROUP_MODE_STANDALONE "Standalone"
+#endif
+#ifndef INTL_GROUP_MODE_MASTER
+#define INTL_GROUP_MODE_MASTER "Create group"
+#endif
+#ifndef INTL_GROUP_MODE_FOLLOWER
+#define INTL_GROUP_MODE_FOLLOWER "Join group"
+#endif
+#ifndef INTL_GROUP_MODE_MANUAL
+#define INTL_GROUP_MODE_MANUAL "Manual owner"
+#endif
+#ifndef INTL_GROUP_SELF_ADDRESS
+#define INTL_GROUP_SELF_ADDRESS "This device Robonomics address"
+#endif
+#ifndef INTL_GROUP_MASTER_PANEL
+#define INTL_GROUP_MASTER_PANEL "Group master"
+#endif
+#ifndef INTL_GROUP_FOLLOWER_PANEL
+#define INTL_GROUP_FOLLOWER_PANEL "Join group"
+#endif
+#ifndef INTL_GROUP_MANUAL_PANEL
+#define INTL_GROUP_MANUAL_PANEL "Manual owner"
+#endif
+#ifndef INTL_GROUP_ID_LABEL
+#define INTL_GROUP_ID_LABEL "Group ID"
+#endif
+#ifndef INTL_GROUP_MASTER_ADDRESS
+#define INTL_GROUP_MASTER_ADDRESS "Master Robonomics address"
+#endif
+#ifndef INTL_GROUP_KNOWN_DEVICES
+#define INTL_GROUP_KNOWN_DEVICES "Group devices (SS58)"
+#endif
+#ifndef INTL_GROUP_KNOWN_DEVICES_HINT
+#define INTL_GROUP_KNOWN_DEVICES_HINT "Add follower addresses, then Save."
+#endif
+#ifndef INTL_GROUP_FOLLOWER_HINT
+#define INTL_GROUP_FOLLOWER_HINT "Copy your address to the master list, enter master address here."
+#endif
+#ifndef INTL_GROUP_MANUAL_HINT
+#define INTL_GROUP_MANUAL_HINT "Datalog uses this owner."
+#endif
+#ifndef INTL_GROUP_STATUS_GROUP_CREATING
+#define INTL_GROUP_STATUS_GROUP_CREATING "Group created — syncing on-chain"
+#endif
+#ifndef INTL_GROUP_STATUS_LIST_UPDATED
+#define INTL_GROUP_STATUS_LIST_UPDATED "Device list updated — syncing on-chain"
+#endif
+#ifndef INTL_GROUP_STATUS_LIST_SYNCED
+#define INTL_GROUP_STATUS_LIST_SYNCED "Device list synced on-chain"
+#endif
+#ifndef INTL_GROUP_STATUS_CREATED
+#define INTL_GROUP_STATUS_CREATED "Group created, devices synced"
+#endif
+#ifndef INTL_GROUP_CURRENT_DEVICES
+#define INTL_GROUP_CURRENT_DEVICES "Current devices list"
+#endif
+#ifndef INTL_GROUP_STATUS_LABEL
+#define INTL_GROUP_STATUS_LABEL "Status"
+#endif
+#ifndef INTL_GROUP_STATUS_PENDING
+#define INTL_GROUP_STATUS_PENDING "Pending sync"
+#endif
+#ifndef INTL_GROUP_STATUS_DEVICES_SYNCED
+#define INTL_GROUP_STATUS_DEVICES_SYNCED "Devices synced on-chain"
+#endif
+#ifndef INTL_GROUP_STATUS_JOINED
+#define INTL_GROUP_STATUS_JOINED "Joined group"
+#endif
+#ifndef INTL_GROUP_STATUS_MANUAL
+#define INTL_GROUP_STATUS_MANUAL "Manual owner configured"
+#endif
+
 #endif

@@ -2,11 +2,14 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
-## [Unreleased]
+## [R_2026-06.01](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-06.01) — 2026-06-22
+
+### Features
+
+- **Local Robonomics groups (`/group`)** — New **Device group (RWS)** page in the web menu with four onboarding modes: **Standalone** (`owner = self`, `set_devices([self])`); **Create group** (device is master: generates local `group_id`, sets `owner = self`, stores follower SS58s in `rws_devices_extra`, calls full `set_devices` on Save and whenever the list changes); **Join group** (follower: `owner = master`, no `set_devices` — master adds the follower address manually); **Manual owner** (owner only, no automatic `set_devices`). Config: `rws_group_mode`, `rws_group_id`. Master UI shows group ID, master Robonomics address, and current on-chain device list with sync status. Follower UI shows this device’s address (to copy to the master) and the configured master address. Legacy configs with an external `rws_owner` migrate to Manual instead of being overwritten by Standalone. Urban and Insight builds; Insight can create a group and act as master.
 
 ### Improvements
 
-- **RWS `set_devices` (stage 1)** — Device register their on-chain device list via `sendRWSSetDevices` after Wi‑Fi and SNTP are ready (`apis/rws_devices_registry`). Urban: `[self SS58] + rws_devices_extra`; bundle Insight skips (Urban registers later). Legacy external `rws_owner`: datalog only, no `set_devices`. Self-owner: `rws_owner` and `rws_devices_registered_hash` saved together after success; boot repair clears stale hash when owner was never persisted. Datalog falls back to device SS58 when owner is unset. Config: `rws_auto_register`, `rws_devices_extra`, `rws_devices_registered_hash`. Dev-only: optional `ALTRUIST_RWS_RESET_REGISTRATION` in `platformio.ini` forces hash clear. Requires `esp-robonomics-client` `5a54329` (pinned in `platformio.ini`).
 - **Insight Wi‑Fi captive portal: clearer setup flow** — after home Wi‑Fi connects, the success screen is **step 2 of 2** (step **1 of 2** on the initial credential form) with the step label and title on separate lines. Users are prompted to press **Continue** to finish setup and restart; if they leave the page, setup auto-completes in standalone mode after ~45 s (browser auto-submit plus server-side fallback in the portal loop). Removed trailing **!** from related UI strings (e.g. “Connected”, “Settings saved”).
 - **Debug firmware flag unified (`DEV` → `DEBUG`)** — `*_dev` builds now use a single compile-time flag (`-DDEBUG=4` in PlatformIO) instead of separate `DEV` and `DEBUG` macros. `#if defined(DEBUG)` gates dev-only code (extra diagnostics, SD runtime log worker, crash context on the status page, auto-update off). Release builds do not define `DEBUG`; default serial log level remains `DEFAULT_DEBUG_LEVEL` (3). Raising `debug` in `config.json` on a release build increases runtime verbosity only and does not enable dev-only compile-time features.
 

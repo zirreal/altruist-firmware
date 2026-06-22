@@ -1,5 +1,6 @@
 #include "config_helpers.h"
 #include "utils.h"
+#include "../apis/rws_group.h"
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 
@@ -269,6 +270,9 @@ void readConfig(bool oldconfig) {
 		if (strcmp_P(cfg::host_influx, PSTR("api.luftdaten.info")) == 0) {
 			cfg::host_influx[0] = '\0';
 			cfg::send2influx = false;
+			rewriteConfig = true;
+		}
+		if (rwsMigrateLegacyOwnerAtConfigLoad(!json["rws_group_mode"].isNull())) {
 			rewriteConfig = true;
 		}
 	} else {

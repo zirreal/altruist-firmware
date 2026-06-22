@@ -1,10 +1,14 @@
 #include "rws_devices_registry.h"
+#include "rws_group.h"
 #include "../config_manager/config_helpers.h"
 #include "../config_manager/config_defaults.h"
+#include "../defines.h"
 #include "../utils.h"
 #include "../wifi_manager.h"
 #include <Robonomics.h>
 #include <vector>
+
+static volatile bool s_set_devices_submit_requested = false;
 
 namespace {
 
@@ -38,7 +42,7 @@ bool rwsOwnerIsUnset(const char* owner) {
 }
 
 void appendUnique(std::vector<std::string>& devices, const String& address) {
-	if (!isSs58Like(address)) {
+	if (!rwsDeviceAddressLike(address)) {
 		return;
 	}
 	const std::string normalized = address.c_str();
@@ -90,9 +94,18 @@ String buildDeviceListFingerprint(const std::vector<std::string>& devices) {
 	return fingerprint;
 }
 
+String normalizeFingerprint(String value) {
+	value.trim();
+	value.replace("\r\n", "\n");
+	while (value.indexOf("\n\n") >= 0) {
+		value.replace("\n\n", "\n");
+	}
+	return value;
+}
+
 bool shouldRegisterDevices() {
 #if defined(ALTRUIST_INSIDE)
-	if (!cfg::standalone) {
+	if (!cfg::standalone && cfg::rws_group_mode != RWS_GROUP_MASTER) {
 		return false;
 	}
 #endif
@@ -106,36 +119,41 @@ bool buildDeviceList(Robonomics* robonomics, std::vector<std::string>& devices) 
 	}
 
 	const String self_address = String(robonomics->getSs58Address());
-	if (!isSs58Like(self_address)) {
+	if (!rwsDeviceAddressLike(self_address)) {
 		return false;
 	}
 	appendUnique(devices, self_address);
 
-#if defined(ALTRUIST_URBAN)
-	appendExtrasFromConfig(devices);
-#endif
+	if (cfg::rws_group_mode == RWS_GROUP_MASTER) {
+		appendExtrasFromConfig(devices);
+	}
 
 	return !devices.empty();
 }
 
 bool isLegacyExternalOwner(Robonomics* robonomics) {
-	if (rwsOwnerIsUnset(cfg::rws_owner)) {
+	if (cfg::rws_group_mode == RWS_GROUP_FOLLOWER) {
 		return false;
 	}
-	const String self_address = String(robonomics->getSs58Address());
-	const String owner = String(cfg::rws_owner);
-	return isSs58Like(owner) &&
-	       isSs58Like(self_address) &&
-	       owner != self_address;
+	const String self_address =
+	    robonomics != nullptr ? String(robonomics->getSs58Address()) : String();
+	return rwsOwnerIsExternal(self_address);
 }
 
 /** Update cfg::rws_owner in RAM; returns true if value changed. */
-bool updateRwsOwnerInCfg(const char* owner_value) {
+bool updateRwsOwnerInCfg(const char* owner_value, Robonomics* robonomics) {
 	if (owner_value == nullptr || owner_value[0] == '\0') {
 		return false;
 	}
 	if (!isSs58Like(String(owner_value))) {
 		return false;
+	}
+	if (robonomics != nullptr) {
+		const String self_address = String(robonomics->getSs58Address());
+		if (rwsOwnerIsExternal(self_address) &&
+		    strcmp(owner_value, self_address.c_str()) == 0) {
+			return false;
+		}
 	}
 	if (strcmp(cfg::rws_owner, owner_value) == 0) {
 		return false;
@@ -145,8 +163,8 @@ bool updateRwsOwnerInCfg(const char* owner_value) {
 	return true;
 }
 
-bool persistRwsOwnerValue(const char* owner_value) {
-	if (!updateRwsOwnerInCfg(owner_value)) {
+bool persistRwsOwnerValue(const char* owner_value, Robonomics* robonomics) {
+	if (!updateRwsOwnerInCfg(owner_value, robonomics)) {
 		return false;
 	}
 	if (!writeConfig()) {
@@ -158,15 +176,20 @@ bool persistRwsOwnerValue(const char* owner_value) {
 }
 
 bool trySyncOwnerFromDevices(Robonomics* robonomics, const std::vector<std::string>* devices) {
+	const String self_address =
+	    robonomics != nullptr ? String(robonomics->getSs58Address()) : String();
+	if (rwsOwnerIsExternal(self_address)) {
+		return false;
+	}
 	if (isLegacyExternalOwner(robonomics)) {
 		return false;
 	}
 	if (devices != nullptr && !devices->empty()) {
-		if (persistRwsOwnerValue(devices->front().c_str())) {
+		if (persistRwsOwnerValue(devices->front().c_str(), robonomics)) {
 			return true;
 		}
 	}
-	if (robonomics != nullptr && persistRwsOwnerValue(robonomics->getSs58Address())) {
+	if (robonomics != nullptr && persistRwsOwnerValue(robonomics->getSs58Address(), robonomics)) {
 		return true;
 	}
 	String hash = String(cfg::rws_devices_registered_hash);
@@ -177,7 +200,7 @@ bool trySyncOwnerFromDevices(Robonomics* robonomics, const std::vector<std::stri
 	const int newline = hash.indexOf('\n');
 	String first_device = (newline >= 0) ? hash.substring(0, newline) : hash;
 	first_device.trim();
-	return persistRwsOwnerValue(first_device.c_str());
+	return persistRwsOwnerValue(first_device.c_str(), robonomics);
 }
 
 enum class SetDevicesSkipReason : uint8_t {
@@ -189,10 +212,12 @@ enum class SetDevicesSkipReason : uint8_t {
 	AlreadyRegistered,
 	LegacyExternalOwner,
 	BundleInsight,
+	FollowerMode,
+	ManualOwnerMode,
 };
 
 void logSetDevicesSkipOnce(SetDevicesSkipReason reason) {
-	static bool logged[8] = {};
+	static bool logged[11] = {};
 	const uint8_t idx = static_cast<uint8_t>(reason);
 	if (idx >= sizeof(logged) / sizeof(logged[0]) || logged[idx]) {
 		return;
@@ -224,6 +249,12 @@ void logSetDevicesSkipOnce(SetDevicesSkipReason reason) {
 		break;
 	case SetDevicesSkipReason::BundleInsight:
 		message = F("bundle Insight (Urban registers)");
+		break;
+	case SetDevicesSkipReason::FollowerMode:
+		message = F("follower (master registers group)");
+		break;
+	case SetDevicesSkipReason::ManualOwnerMode:
+		message = F("manual owner mode");
 		break;
 	}
 	debug_outln_info(String(F("[RWS] set_devices skipped: ")) + String(message));
@@ -257,12 +288,15 @@ bool extrinsicAccepted(Robonomics* robonomics, const char* result) {
 
 void saveRwsRegistrationSuccess(Robonomics* robonomics, const String& fingerprint) {
 	bool owner_changed = false;
-	if (robonomics != nullptr) {
-		owner_changed = updateRwsOwnerInCfg(robonomics->getSs58Address());
+	if (robonomics != nullptr &&
+	    (cfg::rws_group_mode == RWS_GROUP_STANDALONE ||
+	     cfg::rws_group_mode == RWS_GROUP_MASTER)) {
+		owner_changed = updateRwsOwnerInCfg(robonomics->getSs58Address(), robonomics);
 	}
 	bool hash_changed = false;
-	if (strcmp(cfg::rws_devices_registered_hash, fingerprint.c_str()) != 0) {
-		strncpy(cfg::rws_devices_registered_hash, fingerprint.c_str(), LEN_RWS_DEVICES_REGISTERED_HASH - 1);
+	const String normalized_fingerprint = normalizeFingerprint(fingerprint);
+	if (strcmp(cfg::rws_devices_registered_hash, normalized_fingerprint.c_str()) != 0) {
+		strncpy(cfg::rws_devices_registered_hash, normalized_fingerprint.c_str(), LEN_RWS_DEVICES_REGISTERED_HASH - 1);
 		cfg::rws_devices_registered_hash[LEN_RWS_DEVICES_REGISTERED_HASH - 1] = '\0';
 		hash_changed = true;
 	}
@@ -286,7 +320,14 @@ void handleAlreadyRegistered(Robonomics* robonomics, const std::vector<std::stri
 }
 
 void syncOwnerIfNeeded(Robonomics* robonomics) {
+	if (robonomics != nullptr) {
+		rwsSyncGroupModeFromOwner(String(robonomics->getSs58Address()));
+	}
 	if (!shouldRegisterDevices() || robonomics == nullptr) {
+		return;
+	}
+	if (cfg::rws_group_mode == RWS_GROUP_FOLLOWER ||
+	    cfg::rws_group_mode == RWS_GROUP_MANUAL) {
 		return;
 	}
 	if (isLegacyExternalOwner(robonomics)) {
@@ -309,11 +350,30 @@ void syncOwnerIfNeeded(Robonomics* robonomics) {
 void runEnsureRwsDevicesRegistered(Robonomics* robonomics) {
 	static unsigned long last_attempt_ms = 0;
 	static String throttled_fingerprint;
+	const bool submit_requested = s_set_devices_submit_requested;
+	if (submit_requested) {
+		s_set_devices_submit_requested = false;
+	}
+
+	if (robonomics != nullptr) {
+		rwsSyncGroupModeFromOwner(String(robonomics->getSs58Address()));
+	}
 
 	syncOwnerIfNeeded(robonomics);
 
 	if (!shouldRegisterDevices()) {
 		logSetDevicesSkipOnce(SetDevicesSkipReason::BundleInsight);
+		return;
+	}
+	if (cfg::rws_group_mode == RWS_GROUP_FOLLOWER) {
+		logSetDevicesSkipOnce(SetDevicesSkipReason::FollowerMode);
+		return;
+	}
+	if (cfg::rws_group_mode == RWS_GROUP_MANUAL) {
+		if (isLegacyExternalOwner(robonomics)) {
+			logLegacyOwnerModeOnce(robonomics);
+		}
+		logSetDevicesSkipOnce(SetDevicesSkipReason::ManualOwnerMode);
 		return;
 	}
 	if (!cfg::send2robonomics) {
@@ -355,7 +415,8 @@ void runEnsureRwsDevicesRegistered(Robonomics* robonomics) {
 	}
 
 	const unsigned long now_ms = millis();
-	if (last_attempt_ms != 0 &&
+	if (!submit_requested &&
+	    last_attempt_ms != 0 &&
 	    msSince(last_attempt_ms) < kRetryIntervalMs &&
 	    fingerprint == throttled_fingerprint) {
 		return;
@@ -385,6 +446,84 @@ void runEnsureRwsDevicesRegistered(Robonomics* robonomics) {
 	}
 }
 
+String buildExpectedFingerprint(const String& self_address) {
+	String self = self_address;
+	self.trim();
+	if (!rwsDeviceAddressLike(self) && cfg::rws_devices_registered_hash[0] != '\0') {
+		String hash = String(cfg::rws_devices_registered_hash);
+		const int newline = hash.indexOf('\n');
+		self = (newline >= 0) ? hash.substring(0, newline) : hash;
+		self.trim();
+	}
+	if (!rwsDeviceAddressLike(self)) {
+		return String();
+	}
+
+	std::vector<std::string> devices;
+	appendUnique(devices, self);
+	if (cfg::rws_group_mode == RWS_GROUP_MASTER) {
+		appendExtrasFromConfig(devices);
+	}
+	return buildDeviceListFingerprint(devices);
+}
+
+String buildExpectedFingerprintFromRobonomics(Robonomics* robonomics) {
+	if (robonomics == nullptr) {
+		return String();
+	}
+	std::vector<std::string> devices;
+	if (!buildDeviceList(robonomics, devices)) {
+		return String();
+	}
+	return buildDeviceListFingerprint(devices);
+}
+
+bool deviceListMatchesHashRobonomics(Robonomics* robonomics) {
+	if (robonomics == nullptr) {
+		return false;
+	}
+	if (cfg::rws_group_mode == RWS_GROUP_FOLLOWER ||
+	    cfg::rws_group_mode == RWS_GROUP_MANUAL) {
+		return rwsDeviceAddressLike(String(cfg::rws_owner));
+	}
+	const String hash = normalizeFingerprint(String(cfg::rws_devices_registered_hash));
+	if (hash.length() == 0) {
+		return false;
+	}
+	std::vector<std::string> devices;
+	if (!buildDeviceList(robonomics, devices)) {
+		return false;
+	}
+	const String expected = normalizeFingerprint(buildDeviceListFingerprint(devices));
+	if (expected.length() == 0) {
+		return false;
+	}
+#if defined(DEBUG)
+	if (hash != expected) {
+		debug_outln_verbose(F("[RWS] registration hash mismatch"));
+		debug_outln_verbose(F("[RWS] expected: "), expected);
+		debug_outln_verbose(F("[RWS] stored: "), hash);
+	}
+#endif
+	return hash == expected;
+}
+
+bool deviceListMatchesHash(const String& self_address) {
+	if (cfg::rws_group_mode == RWS_GROUP_FOLLOWER ||
+	    cfg::rws_group_mode == RWS_GROUP_MANUAL) {
+		return rwsDeviceAddressLike(String(cfg::rws_owner));
+	}
+	String hash = normalizeFingerprint(String(cfg::rws_devices_registered_hash));
+	if (hash.length() == 0) {
+		return false;
+	}
+	const String expected = normalizeFingerprint(buildExpectedFingerprint(self_address));
+	if (expected.length() == 0) {
+		return false;
+	}
+	return hash == expected;
+}
+
 }  // namespace
 
 void repairInconsistentRwsRegistrationState() {
@@ -396,6 +535,10 @@ void repairInconsistentRwsRegistrationState() {
 	}
 	return;
 #endif
+
+	if (rwsMigrateLegacyOwnerAtConfigLoad(true)) {
+		writeConfig();
+	}
 
 	if (cfg::rws_devices_registered_hash[0] == '\0') {
 		return;
@@ -412,4 +555,32 @@ void repairInconsistentRwsRegistrationState() {
 
 void ensureRwsDevicesRegistered(Robonomics* robonomics) {
 	runEnsureRwsDevicesRegistered(robonomics);
+}
+
+void rwsClearRegistrationHash() {
+	if (cfg::rws_devices_registered_hash[0] != '\0') {
+		cfg::rws_devices_registered_hash[0] = '\0';
+	}
+}
+
+void rwsRequestSetDevicesSubmit() {
+	rwsClearRegistrationHash();
+	s_set_devices_submit_requested = true;
+	debug_outln_info(F("[RWS] set_devices queued (group save)"));
+}
+
+String rwsBuildExpectedDeviceFingerprint(const String& self_address) {
+	return buildExpectedFingerprint(self_address);
+}
+
+String rwsBuildExpectedDeviceFingerprint(Robonomics* robonomics) {
+	return buildExpectedFingerprintFromRobonomics(robonomics);
+}
+
+bool rwsDeviceListMatchesRegistrationHash(Robonomics* robonomics) {
+	return deviceListMatchesHashRobonomics(robonomics);
+}
+
+bool rwsDeviceListMatchesRegistrationHash(const String& self_address) {
+	return deviceListMatchesHash(self_address);
 }
