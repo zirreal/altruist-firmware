@@ -179,7 +179,7 @@ bool rwsGroupDevicesSynced(Robonomics* robonomics, const String& self_ss58) {
 	return rwsDeviceListMatchesRegistrationHash(self_ss58);
 }
 
-bool rwsApplyGroupSettings(
+RwsGroupApplyResult rwsApplyGroupSettings(
     unsigned mode,
     const String& self_ss58,
     const String& master_owner,
@@ -187,7 +187,24 @@ bool rwsApplyGroupSettings(
     const String& manual_owner,
     const String& group_id_seed) {
 	if (mode > RWS_GROUP_MANUAL) {
-		return false;
+		return RwsGroupApply_InvalidMode;
+	}
+
+	switch (mode) {
+	case RWS_GROUP_FOLLOWER:
+		if (!ownerLooksLikeAddress(master_owner)) {
+			debug_outln_error(F("[RWS] follower: invalid master SS58"));
+			return RwsGroupApply_InvalidFollowerMaster;
+		}
+		break;
+	case RWS_GROUP_MANUAL:
+		if (!ownerLooksLikeAddress(manual_owner)) {
+			debug_outln_error(F("[RWS] manual: invalid owner SS58"));
+			return RwsGroupApply_InvalidManualOwner;
+		}
+		break;
+	default:
+		break;
 	}
 
 	const unsigned old_mode = cfg::rws_group_mode;
@@ -227,29 +244,21 @@ bool rwsApplyGroupSettings(
 		cfg::rws_group_id[0] = '\0';
 		cfg::rws_auto_register = false;
 		setKnownDevicesText("");
-		if (!ownerLooksLikeAddress(master_owner)) {
-			debug_outln_error(F("[RWS] follower: invalid master SS58"));
-			return false;
-		}
 		setOwnerInRam(master_owner);
 		break;
 	case RWS_GROUP_MANUAL:
 		cfg::rws_group_id[0] = '\0';
 		cfg::rws_auto_register = false;
 		setKnownDevicesText("");
-		if (!ownerLooksLikeAddress(manual_owner)) {
-			debug_outln_error(F("[RWS] manual: invalid owner SS58"));
-			return false;
-		}
 		setOwnerInRam(manual_owner);
 		break;
 	default:
-		return false;
+		return RwsGroupApply_InvalidMode;
 	}
 
 	if (!writeConfig()) {
 		debug_outln_error(F("[RWS] failed to save group settings"));
-		return false;
+		return RwsGroupApply_ConfigWriteFailed;
 	}
 
 	if (mode == RWS_GROUP_STANDALONE || mode == RWS_GROUP_MASTER) {
@@ -262,5 +271,5 @@ bool rwsApplyGroupSettings(
 	if (mode_changed) {
 		debug_outln_info(String(F("[RWS] group mode set to ")) + String(mode));
 	}
-	return true;
+	return RwsGroupApply_Ok;
 }
