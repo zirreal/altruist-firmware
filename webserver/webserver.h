@@ -61,6 +61,8 @@ private:
     void _webserver_not_found();
     void _webserver_ota();
 
+    void _webserver_group();
+
 #ifdef ALTRUIST_INSIDE
     void _webserver_select_urban();
     void _webserver_scan_urbans();

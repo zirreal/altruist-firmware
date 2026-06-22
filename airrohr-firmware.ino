@@ -95,6 +95,7 @@
 #include <Robonomics.h>
 #include "sensors/sensor_factory.h"
 #include "apis/apis.h"
+#include "apis/rws_devices_registry.h"
 #include "config_manager/config_helpers.h"
 #include "wifi_manager.h"
 #include "webserver/webserver.h"
@@ -369,7 +370,7 @@ void writeBootFile() {
 	}
 }
 
-#if defined(DEV)
+#if defined(DEBUG)
 // Background worker that continuously drains Debug logs to SD card so we
 // can inspect them later even without a serial connection.
 // Only active in dev builds to avoid unnecessary SD card wear in production.
@@ -428,7 +429,7 @@ static void exceptionsLogWorker(void *pvParameters) {
 		}
 	}
 }
-#endif // DEV
+#endif // DEBUG
 
 // Periodic retention worker:
 // - keep recent sensor CSV files for graph pages
@@ -799,11 +800,12 @@ void sensorAndAPIWorker(void *pvParameters) {
 		}
 		analyticsDevLogStatus15m();
 #endif
+		ensureRwsDevicesRegistered(&robonomics);
 		markCrashSection(CRASH_SECTION_IDLE);
 
 		for (int i = 0; i < ActiveAPIsCount; i++) {
 			if (activeAPIs[i]->isTimeToSend()) {
-			#ifdef DEV
+			#if defined(DEBUG)
 			#if defined(ALTRUIST_INSIDE)
 			Serial.printf("[INSIGHT] WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
 			#elif defined(ALTRUIST_URBAN)
@@ -885,7 +887,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 			}
 
 
-			#ifdef DEV
+			#if defined(DEBUG)
 			#if defined(ALTRUIST_INSIDE)
 			Serial.println(F("[INSIGHT] Device Status:"));
 			#elif defined(ALTRUIST_URBAN)
@@ -898,7 +900,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 			bool datalog_ok = true;
 #endif
 			for (const auto& [api_name, status] : deviceStatus.apis_status) {
-				#ifdef DEV
+				#if defined(DEBUG)
 				Serial.print(F("API Name: "));
 				Serial.println(api_name.c_str());
 				Serial.print(F("  Count Sends: "));
@@ -1064,23 +1066,21 @@ void buttonsWorker(void *pvParameters) {
 }
 #endif // ALTRUIST_INSIDE || ALTRUIST_URBAN_HW_UI
 
-#ifdef DEV
+#if defined(DEBUG)
 void metricsWorker(void *pvParameters) {
 	// Wait a bit for system to stabilize
 	vTaskDelay(2000 / portTICK_PERIOD_MS);
-	
-	// Log first metrics immediately and save initial crash context
-	logMetrics();
+
 	saveCrashContext();
-	
-	// Track when we last saved crash context
-	static unsigned long last_crash_save_ms = 0;
+
+	unsigned long last_crash_save_ms = millis();
 	const unsigned long CRASH_SAVE_INTERVAL_MS = 30UL * 1000UL; // save every 30s
-	
-	// Then log every 3 seconds
+
 	for (;;) {
-		vTaskDelay(3000 / portTICK_PERIOD_MS);  // Wait 3 seconds
-		
+		vTaskDelay(5000 / portTICK_PERIOD_MS);
+
+		updateMetrics();
+
 		// Periodic memory telemetry: log remaining heap so we can see trends
 		// and potential leaks over hours/days in the SD runtime log.
 #if defined(ESP32)
@@ -1107,8 +1107,6 @@ void metricsWorker(void *pvParameters) {
 		}
 #endif
 
-		logMetrics();
-		
 		if (msSince(last_crash_save_ms) > CRASH_SAVE_INTERVAL_MS) {
 			last_crash_save_ms = millis();
 			saveCrashContext();
@@ -1125,7 +1123,7 @@ void setup(void) {
 	delay(300);
 	Serial.begin(115200);
 	delay(500);
-	#ifdef DEV
+	#if defined(DEBUG)
 	#if defined(ALTRUIST_INSIDE)
 	Serial.println(F("[INSIGHT] Start setup"));
 	#elif defined(ALTRUIST_URBAN)
@@ -1201,7 +1199,7 @@ void setup(void) {
 #endif
 	
 	// Initialize metrics (load boot counter, etc.) - works for both Urban and Insight
-	#ifdef DEV
+	#if defined(DEBUG)
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] Initializing metrics system...\r\n"));
 	#elif defined(ALTRUIST_URBAN)
@@ -1211,7 +1209,7 @@ void setup(void) {
 	Serial.flush();
 	delay(10);
 	initMetrics();
-	#ifdef DEV
+	#if defined(DEBUG)
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] Metrics initialized. Boot counter: "));
 	#elif defined(ALTRUIST_URBAN)
@@ -1224,7 +1222,7 @@ void setup(void) {
 	delay(10);
 	
 	// Initialize ESP32-C6 temperature sensor
-	#ifdef DEV
+	#if defined(DEBUG)
 	#if defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] Initializing ESP temperature sensor...\r\n"));
 	#elif defined(ALTRUIST_INSIDE)
@@ -1234,7 +1232,7 @@ void setup(void) {
 	#endif
 	delay(10);
 	initESPTemperatureSensor();
-	#ifdef DEV
+	#if defined(DEBUG)
 	#if defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] ESP temperature sensor initialized\r\n"));
 	#elif defined(ALTRUIST_INSIDE)
@@ -1247,6 +1245,7 @@ void setup(void) {
 	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
 
 	init_config();
+	repairInconsistentRwsRegistrationState();
 #ifdef ALTRUIST_URBAN_HW_UI
 	leds_controller_urban.setMode(wifiHasSavedStationCredentials() ? LedMode::GREEN : LedMode::PROVISIONING);
 	leds_controller_urban.process();
@@ -1340,7 +1339,7 @@ void setup(void) {
 
 	debug_outln_info(F("Active Sensors count: "), activeSensorsCount);
 
-	#ifdef DEV
+	#if defined(DEBUG)
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT] Sensors: "));
 	#elif defined(ALTRUIST_URBAN)
@@ -1379,7 +1378,7 @@ void setup(void) {
 		0
 	);
 	
-#if defined(DEV)
+#if defined(DEBUG)
 	// Background logger: keep a rolling runtime log on SD so we have context
 	// leading up to random panics/resets (panic backtrace itself is not SD-safe).
 	// Only active in dev builds to avoid unnecessary SD card wear in production.
@@ -1392,7 +1391,7 @@ void setup(void) {
 		NULL,
 		0
 	);
-#endif // DEV
+#endif // DEBUG
 #endif // USE_SD_CARD && ALTRUIST_INSIDE
 	fetchSensors();
 	deviceStatus.ip_address = WiFi.localIP().toString();
@@ -1443,8 +1442,8 @@ void setup(void) {
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
 	
-	// Create metrics worker task only for DEV builds
-	#ifdef DEV
+	// Create metrics worker task only in debug firmware builds
+	#if defined(DEBUG)
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] Creating metrics worker task...\r\n"));
 	#elif defined(ALTRUIST_URBAN)
@@ -1484,22 +1483,6 @@ void setup(void) {
 	
 	markMainLoopAlive();
 	debug_outln_info(F("Setup finished"));
-	#ifdef DEV
-	#if defined(ALTRUIST_INSIDE)
-	Serial.print(F("[INSIGHT][Setup] All tasks created, testing logMetrics()...\r\n"));
-	#elif defined(ALTRUIST_URBAN)
-	Serial.print(F("[URBAN][Setup] All tasks created, testing logMetrics()...\r\n"));
-	#endif
-	Serial.flush();
-	delay(10);
-	logMetrics();
-	#if defined(ALTRUIST_INSIDE)
-	Serial.print(F("[INSIGHT][Setup] Metrics test complete\r\n"));
-	#elif defined(ALTRUIST_URBAN)
-	Serial.print(F("[URBAN][Setup] Metrics test complete\r\n"));
-	#endif
-	Serial.flush();
-	#endif
 	
 	// button_controller.init();
 }

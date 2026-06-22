@@ -31,6 +31,11 @@ namespace cfg {
 	extern char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE];
 	extern char robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST];
 	extern char robonomics_connectivity_hosts[LEN_ROBONOMICS_CONNECTIVITY_HOSTS];
+	extern bool rws_auto_register;
+	extern unsigned rws_group_mode;
+	extern char rws_group_id[LEN_RWS_GROUP_ID];
+	extern char rws_devices_extra[LEN_RWS_DEVICES_EXTRA];
+	extern char rws_devices_registered_hash[LEN_RWS_DEVICES_REGISTERED_HASH];
 	extern char private_key[LEN_PRIVATE_KEY];
 	extern char coords_gps[LEN_GPS_COORDS];
 

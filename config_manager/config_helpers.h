@@ -6,7 +6,7 @@
 #include "airrohr-cfg.h"
 #include "defines.h"
 
-#define JSON_BUFFER_SIZE 2800
+#define JSON_BUFFER_SIZE 8192
 #define FORMAT_SPIFFS_IF_FAILED true
 
 String getConfigStringValue(const char* key);

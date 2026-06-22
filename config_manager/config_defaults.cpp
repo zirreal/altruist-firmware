@@ -2,7 +2,7 @@
 #include "config_defaults.h"
 
 namespace cfg {
-	unsigned debug = DEBUG;
+	unsigned debug = DEFAULT_DEBUG_LEVEL;
 
 	unsigned time_for_wifi_config = 600000;
 	unsigned sending_intervall_ms = 30000;
@@ -30,6 +30,11 @@ namespace cfg {
 	char robonomics_public_node[LEN_ROBONOMICS_PUBLIC_NODE] = ROBONOMICS_PUBLIC_NODE;
 	char robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST] = "";
 	char robonomics_connectivity_hosts[LEN_ROBONOMICS_CONNECTIVITY_HOSTS] = "";
+	bool rws_auto_register = true;
+	unsigned rws_group_mode = RWS_GROUP_STANDALONE;
+	char rws_group_id[LEN_RWS_GROUP_ID] = "";
+	char rws_devices_extra[LEN_RWS_DEVICES_EXTRA] = "";
+	char rws_devices_registered_hash[LEN_RWS_DEVICES_REGISTERED_HASH] = "";
 	char private_key[LEN_PRIVATE_KEY] = "Not Set";
 	char coords_gps[LEN_GPS_COORDS] = GPS_COORDS;
 

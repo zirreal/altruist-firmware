@@ -362,6 +362,7 @@ void wifiConfig(SensorWebServer &webserver) {
 		dnsServer.processNextRequest();
 		webserver.handleClient();
 #ifdef ALTRUIST_INSIDE
+		insightGuestProcessPendingFinish();
 		// Process display manager to handle button presses (e.g., sleep mode) even during WiFi config
 		displayManager.process(btn_press);
 #endif

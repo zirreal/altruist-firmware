@@ -5,11 +5,11 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIDE)
-#define SOFTWARE_VERSION_BASE "R-INS_2026-05.2"
+#define SOFTWARE_VERSION_BASE "R-INS_2026-06.1"
 #define PM_SENSOR_NAME "Altruist Insight"
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_BASE "R-URB_2026-05.2"
+#define SOFTWARE_VERSION_BASE "R-URB_2026-06.1"
 #define PM_SENSOR_NAME "Altruist Urban"
 #endif
 #if defined(ALTRUIST_FIRMWARE_DEV)
@@ -69,6 +69,14 @@
 #define LEN_FS_SSID 33				// credentials for sensor access point mode
 
 #define LEN_RWS_OWNER 70
+#define LEN_RWS_DEVICES_EXTRA 512
+#define LEN_RWS_DEVICES_REGISTERED_HASH 512
+#define LEN_RWS_GROUP_ID 24
+
+#define RWS_GROUP_STANDALONE 0u
+#define RWS_GROUP_MASTER 1u
+#define RWS_GROUP_FOLLOWER 2u
+#define RWS_GROUP_MANUAL 3u
 #define LEN_ROBONOMICS_PUBLIC_NODE 70
 #define LEN_PRIVATE_KEY 65
 #define LEN_GPS_LAT 10
@@ -124,6 +132,8 @@ constexpr const unsigned long WIFI_STA_PERIODIC_RECONNECT_MS = 18000UL;
 constexpr const unsigned long WIFI_STA_RECOVERY_GRACE_MS = 45000UL;
 /** Urban captive portal: keep setup AP up after success so the phone can read/copy STA IP. */
 constexpr const unsigned long GUEST_SUCCESS_PAGE_DELAY_MS = 15000UL;
+/** Insight captive portal: auto-finish setup (standalone) if user leaves before Continue. */
+constexpr const unsigned long INSIGHT_GUEST_AUTO_FINISH_MS = 45000UL;
 /** After association, STA can report WL_CONNECTED before IPv4; do not tear down the link during this window. */
 constexpr const unsigned long WIFI_STA_DHCP_GRACE_MS = 40000UL;
 /** After this long without a usable STA link, use radio off/on (WIFI_OFF) before re-begin — stronger than disconnect() alone, no MCU reboot. */
@@ -450,8 +460,8 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 
 // automatic firmware updates
 // Production builds: auto-update on
-// DEV builds: auto-update off
-#ifdef DEV
+// Debug firmware (*_dev): auto-update off
+#if defined(DEBUG)
 	#define AUTO_UPDATE 0
 #else
 	#define AUTO_UPDATE 1
@@ -487,9 +497,13 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // Show device info on displays
 #define DISPLAY_DEVICE_INFO 1
 
-// Set debug level for serial output
-#ifndef DEBUG
-#define DEBUG 3
+// Default runtime log level (cfg::debug). Dev builds pass -DDEBUG=4 via PlatformIO.
+#ifndef DEFAULT_DEBUG_LEVEL
+#if defined(DEBUG)
+#define DEFAULT_DEBUG_LEVEL DEBUG
+#else
+#define DEFAULT_DEBUG_LEVEL 3
+#endif
 #endif
 
 // Insight standalone main: 1 = force all four footer warnings (Hum/Temp/Press/CO2) for layout preview.

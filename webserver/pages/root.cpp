@@ -9,6 +9,7 @@ void webserver_root(String &page_content, const String &robonomics_address) {
     page_content.replace(F("{t}"), FPSTR(INTL_CURRENT_DATA));
     page_content.replace(F("{s}"), FPSTR(INTL_DEVICE_STATUS));
     page_content.replace(F("{conf}"), FPSTR(INTL_CONFIGURATION));
+    page_content.replace(F("{group}"), FPSTR(INTL_GROUP_MENU));
     page_content.replace(F("{restart}"), FPSTR(INTL_RESTART_SENSOR));
     page_content.replace(F("{debug}"), FPSTR(INTL_DEBUG_LEVEL));
 

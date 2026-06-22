@@ -244,7 +244,7 @@ void epdSleep() {
 // a proper mode-specific initialization before any display operation.
 void epdRecoverFromStuck() {
 #ifdef DISPLAY_4IN2
-#ifdef DEV
+#if defined(DEBUG)
     Serial.println(F("[EPD] Attempting display recovery (hardware reset)..."));
 #endif
     
@@ -258,7 +258,7 @@ void epdRecoverFromStuck() {
         period_position_per_screen[i] = 0;
     }
     
-#ifdef DEV
+#if defined(DEBUG)
     Serial.println(F("[EPD] Hardware reset complete, awaiting re-init"));
 #endif
 #endif

@@ -42,6 +42,11 @@ enum ConfigShapeId {
 	Config_robonomics_public_node,
 	Config_robonomics_connectivity_host,
 	Config_robonomics_connectivity_hosts,
+	Config_rws_auto_register,
+	Config_rws_group_mode,
+	Config_rws_group_id,
+	Config_rws_devices_extra,
+	Config_rws_devices_registered_hash,
 	Config_private_key,
 	Config_coords_gps,
 	Config_send2robonomics,
@@ -113,6 +118,11 @@ static constexpr char CFG_KEY_RWS_OWNER[] PROGMEM = "rws_owner";
 static constexpr char CFG_KEY_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "robonomics_public_node";
 static constexpr char CFG_KEY_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "robonomics_connectivity_host";
 static constexpr char CFG_KEY_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "robonomics_connectivity_hosts";
+static constexpr char CFG_KEY_RWS_AUTO_REGISTER[] PROGMEM = "rws_auto_register";
+static constexpr char CFG_KEY_RWS_GROUP_MODE[] PROGMEM = "rws_group_mode";
+static constexpr char CFG_KEY_RWS_GROUP_ID[] PROGMEM = "rws_group_id";
+static constexpr char CFG_KEY_RWS_DEVICES_EXTRA[] PROGMEM = "rws_devices_extra";
+static constexpr char CFG_KEY_RWS_DEVICES_REGISTERED_HASH[] PROGMEM = "rws_devices_registered_hash";
 static constexpr char CFG_KEY_PRIVATE_KEY[] PROGMEM = "private_key";
 static constexpr char CFG_KEY_COORDS_GPS[] PROGMEM = "coords_gps";
 static constexpr char CFG_KEY_SEND2ROBONOMICS[] PROGMEM = "send2robonomics";
@@ -184,6 +194,11 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::robonomics_public_node)-1, CFG_KEY_ROBONOMICS_PUBLIC_NODE, cfg::robonomics_public_node },
 	{ Config_Type_String, sizeof(cfg::robonomics_connectivity_host)-1, CFG_KEY_ROBONOMICS_CONNECTIVITY_HOST, cfg::robonomics_connectivity_host },
 	{ Config_Type_String, sizeof(cfg::robonomics_connectivity_hosts)-1, CFG_KEY_ROBONOMICS_CONNECTIVITY_HOSTS, cfg::robonomics_connectivity_hosts },
+	{ Config_Type_Bool, 0, CFG_KEY_RWS_AUTO_REGISTER, &cfg::rws_auto_register },
+	{ Config_Type_UInt, 0, CFG_KEY_RWS_GROUP_MODE, &cfg::rws_group_mode },
+	{ Config_Type_String, sizeof(cfg::rws_group_id)-1, CFG_KEY_RWS_GROUP_ID, cfg::rws_group_id },
+	{ Config_Type_String, sizeof(cfg::rws_devices_extra)-1, CFG_KEY_RWS_DEVICES_EXTRA, cfg::rws_devices_extra },
+	{ Config_Type_String, sizeof(cfg::rws_devices_registered_hash)-1, CFG_KEY_RWS_DEVICES_REGISTERED_HASH, cfg::rws_devices_registered_hash },
 	{ Config_Type_String, sizeof(cfg::private_key)-1, CFG_KEY_PRIVATE_KEY, cfg::private_key },
 	{ Config_Type_String, sizeof(cfg::coords_gps)-1, CFG_KEY_COORDS_GPS, cfg::coords_gps },
 	{ Config_Type_Bool, 0, CFG_KEY_SEND2ROBONOMICS, &cfg::send2robonomics },
