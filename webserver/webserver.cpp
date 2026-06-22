@@ -114,6 +114,7 @@ void SensorWebServer::setup() {
 	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
 	server.on(F("/group"), std::bind(&SensorWebServer::_webserver_group, this));
 #ifdef ALTRUIST_INSIDE
+	server.on(F("/screen"), std::bind(&SensorWebServer::_webserver_screen, this));
 	server.on(F("/select_urban"), std::bind(&SensorWebServer::_webserver_select_urban, this));
 	server.on(F("/scan_urbans"), std::bind(&SensorWebServer::_webserver_scan_urbans, this));
 #endif
@@ -297,6 +298,29 @@ void SensorWebServer::_webserver_group() {
 	webserver_group_page(page_content, self_ss58, &robonomics, save_result);
 	end_html_page(page_content);
 }
+
+#ifdef ALTRUIST_INSIDE
+void SensorWebServer::_webserver_screen() {
+	if (WiFi.status() != WL_CONNECTED) {
+		sendHttpRedirectGuest();
+		return;
+	}
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	RESERVE_STRING(page_content, LARGE_STR);
+	start_html_page(page_content, FPSTR(INTL_SCREEN_MENU));
+
+	ScreenSaveResult save_result = ScreenSave_None;
+	if (server.method() == HTTP_POST) {
+		save_result = webserver_screen_post(server);
+	}
+
+	webserver_screen_page(page_content, save_result);
+	end_html_page(page_content);
+}
+#endif
 
 void SensorWebServer::_webserver_values() {
     if (WiFi.status() != WL_CONNECTED) {

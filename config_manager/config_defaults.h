@@ -78,6 +78,8 @@ namespace cfg {
 	extern bool use_custom_urban;
 	/** When true (Insight), do not register the HTTP Urban client sensor. */
 	extern bool standalone;
+	/** Insight e-paper: 0 = safe full refresh only, 1 = experimental partial refresh. */
+	extern unsigned epd_refresh_mode;
 	/** Paired mode: add Urban PM2.5 & noise to sleep analytics hourly history (default off = Insight PM2.5 only). */
 	extern bool analytics_sleep_add_urban;
 

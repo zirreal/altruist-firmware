@@ -96,6 +96,12 @@ void DisplayManager::clearUrbanCache() {
     refresh_now = true;
 }
 
+void DisplayManager::requestEpdFullRefresh() {
+    force_full_refresh = true;
+    refresh_now = true;
+    epdResetPeriodPosition();
+}
+
 void DisplayManager::setScreen(ScreenPage pageID) {
     // If we are leaving analytics 4-circle overview, force a full refresh on the next screen
     // to clean residual ghosting from dense black arc rendering.
@@ -665,7 +671,8 @@ draw_complete:
 
         if (deviceStatus.ota_in_progress || deviceStatus.ota_failed || deviceStatus.ota_success) {
             ota_display_refresh_count++;
-            bool ota_do_full = (ota_display_refresh_count % OTA_FULL_REFRESH_EVERY_N == 0);
+            const bool ota_do_full = !epdPartialRefreshEnabled() ||
+                (ota_display_refresh_count % OTA_FULL_REFRESH_EVERY_N == 0);
             epdDisplay(ota_do_full ? DisplayMode::FULL : DisplayMode::PARTIAL, BlackImage);
         } else {
             ota_display_refresh_count = 0;  // reset for next OTA session
@@ -699,16 +706,23 @@ draw_complete:
             epdDisplay(DisplayMode::FULL, BlackImage);
         } else if (currentScreenID == ScreenPage::ANALYTICS &&
                    !deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
-            // Analytics-only cadence: 10 partial updates, then 1 full refresh.
-            analytics_refresh_cycle_pos++;
-            if (analytics_refresh_cycle_pos >= 11) {
-                debug_outln_verbose(F("[EPD] Analytics cadence: FULL (after 10 partials)"));
+            if (!epdPartialRefreshEnabled()) {
+                debug_outln_verbose(F("[EPD] Analytics: FULL (safe screen mode)"));
                 epdResetPeriodPosition();
                 epdDisplay(DisplayMode::FULL, BlackImage);
                 analytics_refresh_cycle_pos = 0;
             } else {
-                debug_outln_verbose(F("[EPD] Analytics cadence: PARTIAL"));
-                epdDisplay(DisplayMode::PARTIAL, BlackImage);
+                // Analytics-only cadence: 10 partial updates, then 1 full refresh.
+                analytics_refresh_cycle_pos++;
+                if (analytics_refresh_cycle_pos >= 11) {
+                    debug_outln_verbose(F("[EPD] Analytics cadence: FULL (after 10 partials)"));
+                    epdResetPeriodPosition();
+                    epdDisplay(DisplayMode::FULL, BlackImage);
+                    analytics_refresh_cycle_pos = 0;
+                } else {
+                    debug_outln_verbose(F("[EPD] Analytics cadence: PARTIAL"));
+                    epdDisplay(DisplayMode::PARTIAL, BlackImage);
+                }
             }
         } else if (!deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
             // Pass current screen to showImageFast for adaptive update logic:
