@@ -289,11 +289,12 @@ void SensorWebServer::_webserver_group() {
 	setRobonomicsAddress(self_ss58);
 	rwsSyncGroupModeFromOwner(self_ss58);
 
+	RwsGroupApplyResult save_result = RwsGroupApply_None;
 	if (server.method() == HTTP_POST) {
-		webserver_group_post(server, self_ss58);
+		save_result = webserver_group_post(server, self_ss58);
 	}
 
-	webserver_group_page(page_content, self_ss58, &robonomics);
+	webserver_group_page(page_content, self_ss58, &robonomics, save_result);
 	end_html_page(page_content);
 }
 

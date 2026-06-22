@@ -315,5 +315,20 @@
 #ifndef INTL_GROUP_STATUS_MANUAL
 #define INTL_GROUP_STATUS_MANUAL "Manual owner configured"
 #endif
+#ifndef INTL_GROUP_SAVE_OK
+#define INTL_GROUP_SAVE_OK "Group settings saved."
+#endif
+#ifndef INTL_GROUP_SAVE_FAILED
+#define INTL_GROUP_SAVE_FAILED "Could not save group settings."
+#endif
+#ifndef INTL_GROUP_SAVE_CONFIG_FAILED
+#define INTL_GROUP_SAVE_CONFIG_FAILED "Could not write configuration to storage."
+#endif
+#ifndef INTL_GROUP_ERROR_INVALID_MASTER
+#define INTL_GROUP_ERROR_INVALID_MASTER "Enter a valid master Robonomics address."
+#endif
+#ifndef INTL_GROUP_ERROR_INVALID_MANUAL_OWNER
+#define INTL_GROUP_ERROR_INVALID_MANUAL_OWNER "Enter a valid owner Robonomics address."
+#endif
 
 #endif

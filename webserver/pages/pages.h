@@ -3,6 +3,7 @@
 
 #include <ArduinoJson.h>
 #include <WebServer.h>
+#include "../../apis/rws_group.h"
 #include "../../wifi_info.h"
 #include "../../utils.h"
 
@@ -20,7 +21,8 @@ void webserver_removeConfig(String &page_content, bool is_HTTP_GET, bool remove_
 void webserver_data_json(JsonDocument &data, const String &esp_chipid, String &json_content);
 void webserver_status_part1(String &page_content, device_status_t &deviceStatus);
 void webserver_status_part2(String &page_content, device_status_t &deviceStatus);
-void webserver_group_page(String& page_content, const String& self_ss58, Robonomics* robonomics);
-void webserver_group_post(WebServer& server, const String& self_ss58);
+void webserver_group_page(String& page_content, const String& self_ss58, Robonomics* robonomics,
+                          RwsGroupApplyResult save_result);
+RwsGroupApplyResult webserver_group_post(WebServer& server, const String& self_ss58);
 
 #endif // __PAGES_H__

@@ -5,6 +5,15 @@
 
 class Robonomics;
 
+enum RwsGroupApplyResult : uint8_t {
+	RwsGroupApply_None = 0,
+	RwsGroupApply_Ok,
+	RwsGroupApply_InvalidMode,
+	RwsGroupApply_InvalidFollowerMaster,
+	RwsGroupApply_InvalidManualOwner,
+	RwsGroupApply_ConfigWriteFailed,
+};
+
 String rwsGenerateGroupId();
 bool rwsSs58Like(const String& address);
 
@@ -36,9 +45,9 @@ bool rwsGroupDevicesSynced(Robonomics* robonomics, const String& self_ss58);
 
 /**
  * Apply group mode from /group form.
- * Returns true when config was written successfully.
+ * Returns result code (Ok when config was written successfully).
  */
-bool rwsApplyGroupSettings(
+RwsGroupApplyResult rwsApplyGroupSettings(
     unsigned mode,
     const String& self_ss58,
     const String& master_owner,

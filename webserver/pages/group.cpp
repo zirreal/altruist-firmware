@@ -67,6 +67,37 @@ static void appendModeRadio(String& page, unsigned mode, const __FlashStringHelp
 	page += F("</label>");
 }
 
+static void appendSaveFeedback(String& page_content, RwsGroupApplyResult save_result) {
+	if (save_result == RwsGroupApply_None) {
+		return;
+	}
+	if (save_result == RwsGroupApply_Ok) {
+		page_content += F("<div style='margin:12px 0;padding:12px;background:#eef6ee;border:1px solid #c8e6c9;"
+			"border-radius:6px;color:#2e7d32;'><strong>");
+		page_content += FPSTR(INTL_GROUP_SAVE_OK);
+		page_content += F("</strong></div>");
+		return;
+	}
+	const __FlashStringHelper* message = FPSTR(INTL_GROUP_SAVE_FAILED);
+	switch (save_result) {
+	case RwsGroupApply_InvalidFollowerMaster:
+		message = FPSTR(INTL_GROUP_ERROR_INVALID_MASTER);
+		break;
+	case RwsGroupApply_InvalidManualOwner:
+		message = FPSTR(INTL_GROUP_ERROR_INVALID_MANUAL_OWNER);
+		break;
+	case RwsGroupApply_ConfigWriteFailed:
+		message = FPSTR(INTL_GROUP_SAVE_CONFIG_FAILED);
+		break;
+	default:
+		break;
+	}
+	page_content += F("<div style='margin:12px 0;padding:12px;background:#ffebee;border:1px solid #ef9a9a;"
+		"border-radius:6px;color:#c62828;'><strong>");
+	page_content += message;
+	page_content += F("</strong></div>");
+}
+
 static const __FlashStringHelper* groupStatusText(Robonomics* robonomics, const String& self_ss58) {
 	if (cfg::rws_group_mode == RWS_GROUP_FOLLOWER) {
 		return rwsGroupDevicesSynced(robonomics, self_ss58) ? FPSTR(INTL_GROUP_STATUS_JOINED)
@@ -89,7 +120,8 @@ static const __FlashStringHelper* groupStatusText(Robonomics* robonomics, const 
 	                                                    : FPSTR(INTL_GROUP_STATUS_PENDING);
 }
 
-void webserver_group_page(String& page_content, const String& self_ss58, Robonomics* robonomics) {
+void webserver_group_page(String& page_content, const String& self_ss58, Robonomics* robonomics,
+                          RwsGroupApplyResult save_result) {
 	const unsigned mode = cfg::rws_group_mode;
 	const String self_display =
 	    (self_ss58.length() > 0 && self_ss58 != F("Not Set")) ? self_ss58 : String(F("-"));
@@ -111,6 +143,8 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 	page_content += F("<p style='font-size:13px;color:#666;'>");
 	page_content += FPSTR(INTL_GROUP_INTRO);
 	page_content += F("</p>");
+
+	appendSaveFeedback(page_content, save_result);
 
 	page_content += F("<p><strong>");
 	page_content += FPSTR(INTL_GROUP_STATUS_LABEL);
@@ -257,9 +291,9 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 		"</script>");
 }
 
-void webserver_group_post(WebServer& server, const String& self_ss58) {
+RwsGroupApplyResult webserver_group_post(WebServer& server, const String& self_ss58) {
 	if (!server.hasArg(F("save_group"))) {
-		return;
+		return RwsGroupApply_None;
 	}
 	unsigned mode = cfg::rws_group_mode;
 	if (server.hasArg(F("rws_group_mode"))) {
@@ -270,9 +304,12 @@ void webserver_group_post(WebServer& server, const String& self_ss58) {
 	const String known_devices = server.hasArg(F("rws_devices_extra")) ? server.arg(F("rws_devices_extra")) : String();
 	const String group_id_seed = server.hasArg(F("rws_group_id_seed")) ? server.arg(F("rws_group_id_seed")) : String();
 
-	if (rwsApplyGroupSettings(mode, self_ss58, master_owner, known_devices, manual_owner, group_id_seed)) {
+	const RwsGroupApplyResult result =
+	    rwsApplyGroupSettings(mode, self_ss58, master_owner, known_devices, manual_owner, group_id_seed);
+	if (result == RwsGroupApply_Ok) {
 		debug_outln_info(F("[RWS] group settings saved from /group"));
-	} else {
+	} else if (result != RwsGroupApply_None) {
 		debug_outln_error(F("[RWS] group settings save failed"));
 	}
+	return result;
 }
