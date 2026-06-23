@@ -34,6 +34,7 @@
 #define DEVICE_MODEL_URBAN "urban"
 #if defined(ALTRUIST_INSIDE)
 #define DEVICE_MODEL DEVICE_MODEL_INSIGHT
+void firmwareBlockingYieldHook(void);
 #endif
 #if defined(ALTRUIST_URBAN)
 #define DEVICE_MODEL DEVICE_MODEL_URBAN

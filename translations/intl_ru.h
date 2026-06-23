@@ -355,6 +355,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "Качество";
 #define INTL_DISP_NO_DATA_AVAILABLE "Нет данных"
 #define INTL_DISP_NOT_ENOUGH_DATA_YET "Пока недостаточно данных"
 #define INTL_DISP_COLLECTING_DATA "Сбор данных..."
+#define INTL_DISP_LOADING "Загрузка..."
 #define INTL_DISP_ANALYTICS_C_LEGEND "C=Консервативная"
 #define INTL_DISP_ANALYTICS_B_LEGEND "B=Биохакинг"
 #define INTL_DISP_ANALYTICS_GRADE "Оценка"

@@ -1,6 +1,7 @@
 #include "pages.h"
 #include "../../intl.h"
 #include "../html-content.h"
+#include "../../config_manager/config_helpers.h"
 
 void webserver_root(String &page_content, const String &robonomics_address) {
 
@@ -19,10 +20,7 @@ void webserver_root(String &page_content, const String &robonomics_address) {
     page_content.replace(F("{restart}"), FPSTR(INTL_RESTART_SENSOR));
     page_content.replace(F("{debug}"), FPSTR(INTL_DEBUG_LEVEL));
 
-    String map_url = F("https://sensors.social/");
-    if (robonomics_address.length() > 0 && robonomics_address != F("Not Set")) {
-        map_url += F("?sensor=");
-        map_url += robonomics_address;
-    }
+    const char* sensor_ss58 = (robonomics_address.length() > 0) ? robonomics_address.c_str() : nullptr;
+    const String map_url = buildSensorsSocialMapUrl(sensor_ss58);
     page_content.replace(F("https://sensors.social/"), map_url);
 }

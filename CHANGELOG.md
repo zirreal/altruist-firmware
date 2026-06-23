@@ -11,6 +11,13 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Improvements
 
+- **Insight graphs screen (e-paper)** — SD readiness probe is cached (card presence still rechecked). CSV reads for charts use the file tail for the 12 h window and cooperative SD locking (short lock timeout, yield to HTTP). While SD is busy: **Loading…** on screen, exponential backoff between auto-retries (stops after several attempts instead of hammering the card every ~2 s). Graph content area is cleared before redraw to avoid text overlap.
+- **Standalone Insight** — Switching to standalone (guest setup, `/group`, or config load) automatically disables **Urban night analytics** (`analytics_sleep_add_urban`) and clears stored Urban PM₂.₅/noise night history. Leaving standalone re-enables Urban night analytics by default; the **Add Urban data to sleep analytics** checkbox stays visible (disabled in standalone).
+- **Insight paired mode: sleep analytics (PM₂.₅ & noise)** — Urban PM/noise ingestion runs every sensor loop (not only when local sensors update). Night analytics screen shows live Urban PM/noise when night history is not ready yet.
+- **Insight sleep analytics (e-paper)** — QR on the night report screen links to the [Sleep Analytics guide](https://sensors.social/blog/insight-sleeping-analytics) on sensors.social (replacing the per-sensor map link).
+- **Insight Urban QR (main screen)** — SPIFFS SS58 cache is no longer cleared while Urban is still connecting; faster HTTP polling (1 min) until the first successful Urban fetch, then 5 min.
+- **Active sensors map link** — Web UI and Insight sensor-map QR use the updated sensors.social URL (`type`, `date`, `provider`, `lat`/`lng`, `zoom`, `owner`, `sensor`).
+
 - **`/group` save feedback** — Success and error messages shown in the web UI after Save (invalid master/owner address, config write failure).
 
 - **Insight Wi‑Fi captive portal: clearer setup flow** — after home Wi‑Fi connects, the success screen is **step 2 of 2** (step **1 of 2** on the initial credential form) with the step label and title on separate lines. Users are prompted to press **Continue** to finish setup and restart; if they leave the page, setup auto-completes in standalone mode after ~45 s (browser auto-submit plus server-side fallback in the portal loop). Removed trailing **!** from related UI strings (e.g. “Connected”, “Settings saved”).
@@ -19,6 +26,8 @@ All notable changes to the Altruist Firmware project will be documented in this 
 ### Bug Fixes
 
 - **`/group` failed Save no longer corrupts RAM** — Follower/Manual address validation runs before `cfg::` is modified; a rejected Save leaves the previous group mode and owner unchanged.
+- **Insight graphs: false “Not enough data yet”** — Fixed regression after CSV read optimization; chart data probe tries SCD4x then BME680 and judges span from raw samples, not only hourly buckets.
+- **Insight graphs: freezes and visual glitches** — Removed mid-draw e-paper “Loading shell” (double partial updates caused Loading text to ghost over charts). SD lock waits use a short timeout with backoff instead of a tight retry loop blocking `loop()` for tens of seconds.
 
 ## [R_2026-05.02](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-05.02) — 2026-06-02
 

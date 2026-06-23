@@ -629,7 +629,7 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 		}
 	}
 
-	if (data.containsKey(urban_key)) {
+	if (!cfg::standalone && data.containsKey(urban_key)) {
 		JsonObjectConst urban = data[urban_key].as<JsonObjectConst>();
 		if (urban.containsKey("SDS_P2")) {
 			const float v = urban["SDS_P2"]["value"].as<float>();
@@ -793,11 +793,12 @@ void sensorAndAPIWorker(void *pvParameters) {
 		const bool sensors_updated = fetchSensors();
 #if defined(ALTRUIST_INSIDE)
 		// Keep analytics history collection independent from Analytics screen rendering.
-		if (sensors_updated && xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
+		if (xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
 			extractAnalyticsRollupValuesFromSensors(sensors_data, analytics_rollup_values);
 			analyticsIngestHourSample(analytics_rollup_values);
 			xSemaphoreGive(mutex);
 		}
+		(void)sensors_updated;
 		analyticsDevLogStatus15m();
 #endif
 		ensureRwsDevicesRegistered(&robonomics);
@@ -1398,7 +1399,7 @@ void setup(void) {
 
 #ifdef ALTRUIST_INSIDE
 	// First MAIN + LEDs after a real sensor read (avoids empty metrics).
-	// Draw LEDs before the long e-paper MAIN refresh: process() holds the mutex for seconds, so LED
+	// Draw LEDs before the long e-paper MAIN refresh: EPD update blocks loop() for seconds.
 	// would otherwise miss the 100 ms timeout and stay dark until scheduleNextLedRefresh.
 	if (wifiHasSavedStationCredentials()) {
 		displayManager.setScreen(ScreenPage::MAIN);
@@ -1486,6 +1487,16 @@ void setup(void) {
 	
 	// button_controller.init();
 }
+
+#if defined(ALTRUIST_INSIDE)
+void firmwareBlockingYieldHook(void) {
+	// EPD updates block loop() for seconds; service HTTP while the panel is busy.
+	if (!wifiIsConfigPortalRunning()) {
+		webserver.handleClient();
+	}
+	yield();
+}
+#endif
 
 void loop(void) {
 	// During captive portal setup we run a dedicated HTTP loop inside wifiConfig().
