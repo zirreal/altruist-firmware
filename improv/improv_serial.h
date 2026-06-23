@@ -15,3 +15,4 @@ void improv_set_rws_owner_callback(ImprovRwsOwnerCallback cb);
 void improv_set_state(uint8_t state);
 void improv_set_error(uint8_t error);
 void improv_send_response(const std::vector<String>& datum);
+void improv_start_announce(uint8_t count);

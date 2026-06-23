@@ -532,6 +532,8 @@ bool wifiApplyImprovCredentials(const String& ssid, const String& password) {
 
 	debug_outln_info(F("[IMPROV] Connecting to SSID: "), ssid);
 
+	WiFi.disconnect(true, false);
+	delay(150);
 	WiFi.mode(WIFI_STA);
 	WiFi.setSleep(false);
 	if (cfg::wlannopwd) {

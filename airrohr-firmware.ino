@@ -1145,10 +1145,12 @@ void setup(void) {
 	});
 
 	// Give Improv Serial time to receive and respond to initial queries from webflasher.
+	// Announce AUTHORIZED state periodically so webflasher detects the device even on late connect.
 	for (int i = 0; i < 30; i++) {
 		improv_serial_loop();
 		delay(100);
 	}
+	improv_start_announce(20);
 
 	// If button(s) pressed while turning on, factory-reset configuration (Insight / Urban C6 HW).
 #if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)

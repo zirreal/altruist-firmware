@@ -40,6 +40,9 @@ static ImprovRwsOwnerCallback s_rws_owner_cb = nullptr;
 static uint8_t s_improv_buf[256];
 static size_t s_improv_pos = 0;
 static uint8_t s_improv_state = IMPROV_STATE_STOPPED;
+static uint8_t s_improv_announce_remaining = 0;
+static unsigned long s_improv_last_announce_ms = 0;
+static constexpr unsigned long IMPROV_ANNOUNCE_INTERVAL_MS = 500;
 
 static void improv_send_error(uint8_t error);
 
@@ -62,6 +65,10 @@ static void improv_send_state(uint8_t state) {
 void improv_set_state(uint8_t state) {
     s_improv_state = state;
     improv_send_state(state);
+}
+
+void improv_start_announce(uint8_t count) {
+    s_improv_announce_remaining = count;
 }
 
 void improv_set_error(uint8_t error) {
@@ -225,8 +232,19 @@ void improv_serial_setup() {
 }
 
 void improv_serial_loop() {
+    if (s_improv_announce_remaining > 0 && s_improv_state != IMPROV_STATE_STOPPED) {
+        unsigned long now = millis();
+        if (now - s_improv_last_announce_ms >= IMPROV_ANNOUNCE_INTERVAL_MS) {
+            improv_send_state(s_improv_state);
+            s_improv_announce_remaining--;
+            s_improv_last_announce_ms = now;
+        }
+    }
     while (Serial.available()) {
         uint8_t byte = Serial.read();
+        if (s_improv_pos == 0 && byte == 'I') {
+            s_improv_announce_remaining = 0;
+        }
         if (s_improv_pos == 0 && byte != 'I') continue;
         if (s_improv_pos == 1 && byte != 'M') { s_improv_pos = 0; continue; }
         if (s_improv_pos == 2 && byte != 'P') { s_improv_pos = 0; continue; }
