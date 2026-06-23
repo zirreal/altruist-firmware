@@ -9,6 +9,13 @@
 
 class Robonomics;
 
+enum ScreenSaveResult : uint8_t {
+	ScreenSave_None = 0,
+	ScreenSave_Ok,
+	ScreenSave_InvalidMode,
+	ScreenSave_ConfigFailed,
+};
+
 void webserver_values(JsonDocument &data, String &page_content);
 void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig_loop, device_status_t &deviceStatus);
 void webserver_guest_create_body_get_part2(String& page_content, bool wificonfig_loop);
@@ -24,5 +31,9 @@ void webserver_status_part2(String &page_content, device_status_t &deviceStatus)
 void webserver_group_page(String& page_content, const String& self_ss58, Robonomics* robonomics,
                           RwsGroupApplyResult save_result);
 RwsGroupApplyResult webserver_group_post(WebServer& server, const String& self_ss58);
+#ifdef ALTRUIST_INSIDE
+void webserver_screen_page(String& page_content, ScreenSaveResult save_result);
+ScreenSaveResult webserver_screen_post(WebServer& server);
+#endif
 
 #endif // __PAGES_H__

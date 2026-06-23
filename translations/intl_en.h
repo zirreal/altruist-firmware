@@ -117,6 +117,16 @@ const char INTL_GROUP_SAVE_FAILED[] PROGMEM = "Could not save group settings.";
 const char INTL_GROUP_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configuration to storage.";
 const char INTL_GROUP_ERROR_INVALID_MASTER[] PROGMEM = "Enter a valid master Robonomics address.";
 const char INTL_GROUP_ERROR_INVALID_MANUAL_OWNER[] PROGMEM = "Enter a valid owner Robonomics address.";
+const char INTL_SCREEN_MENU[] PROGMEM = "Screen mode";
+const char INTL_SCREEN_INTRO[] PROGMEM = "Choose how the e-paper display is refreshed. Different display batches behave differently with partial updates.";
+const char INTL_SCREEN_MODE_SAFE[] PROGMEM = "Safe";
+const char INTL_SCREEN_MODE_SAFE_HINT[] PROGMEM = "Uses full-screen clean refreshes only. Recommended for all devices. Prevents display artifacts.";
+const char INTL_SCREEN_MODE_EXPERIMENTAL[] PROGMEM = "Experimental partial refresh";
+const char INTL_SCREEN_MODE_EXPERIMENTAL_HINT[] PROGMEM = "Uses faster partial screen updates. May reduce flicker, but can cause ghosting or broken image artifacts on some panels.";
+const char INTL_SCREEN_SAVE_OK[] PROGMEM = "Screen mode saved.";
+const char INTL_SCREEN_SAVE_FAILED[] PROGMEM = "Could not save screen mode.";
+const char INTL_SCREEN_SAVE_INVALID_MODE[] PROGMEM = "Invalid screen mode selected.";
+const char INTL_SCREEN_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configuration to storage.";
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Robonomics Public Node";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "Robonomics Map Host (connectivity)";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "Robonomics Map Hosts pool (one per line)";
@@ -345,6 +355,7 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_NO_DATA_AVAILABLE "No data available"
 #define INTL_DISP_NOT_ENOUGH_DATA_YET "Not enough data yet"
 #define INTL_DISP_COLLECTING_DATA "Collecting data..."
+#define INTL_DISP_LOADING "Loading..."
 #define INTL_DISP_ANALYTICS_C_LEGEND "C=Conservative"
 #define INTL_DISP_ANALYTICS_B_LEGEND "B=Biohacking"
 #define INTL_DISP_ANALYTICS_GRADE "Grade"

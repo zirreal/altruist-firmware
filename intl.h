@@ -330,5 +330,35 @@
 #ifndef INTL_GROUP_ERROR_INVALID_MANUAL_OWNER
 #define INTL_GROUP_ERROR_INVALID_MANUAL_OWNER "Enter a valid owner Robonomics address."
 #endif
+#ifndef INTL_SCREEN_MENU
+#define INTL_SCREEN_MENU "Screen mode"
+#endif
+#ifndef INTL_SCREEN_INTRO
+#define INTL_SCREEN_INTRO "Choose how the e-paper display is refreshed."
+#endif
+#ifndef INTL_SCREEN_MODE_SAFE
+#define INTL_SCREEN_MODE_SAFE "Safe"
+#endif
+#ifndef INTL_SCREEN_MODE_SAFE_HINT
+#define INTL_SCREEN_MODE_SAFE_HINT "Full-screen clean refreshes only. Recommended."
+#endif
+#ifndef INTL_SCREEN_MODE_EXPERIMENTAL
+#define INTL_SCREEN_MODE_EXPERIMENTAL "Experimental partial refresh"
+#endif
+#ifndef INTL_SCREEN_MODE_EXPERIMENTAL_HINT
+#define INTL_SCREEN_MODE_EXPERIMENTAL_HINT "Faster partial updates; may cause ghosting on some panels."
+#endif
+#ifndef INTL_SCREEN_SAVE_OK
+#define INTL_SCREEN_SAVE_OK "Screen mode saved."
+#endif
+#ifndef INTL_SCREEN_SAVE_FAILED
+#define INTL_SCREEN_SAVE_FAILED "Could not save screen mode."
+#endif
+#ifndef INTL_SCREEN_SAVE_INVALID_MODE
+#define INTL_SCREEN_SAVE_INVALID_MODE "Invalid screen mode."
+#endif
+#ifndef INTL_SCREEN_SAVE_CONFIG_FAILED
+#define INTL_SCREEN_SAVE_CONFIG_FAILED "Could not write configuration."
+#endif
 
 #endif

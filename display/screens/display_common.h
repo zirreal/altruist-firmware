@@ -49,6 +49,9 @@ void epdSetInitialized(bool initialized, DisplayMode mode);
 // Attempt to recover from a stuck display (hardware reset + reinit)
 void epdRecoverFromStuck();
 
+/** True when cfg allows partial e-paper updates (experimental mode). */
+bool epdPartialRefreshEnabled();
+
 // Draw rounded rectangle (for sensors map etc.)
 void Paint_DrawRoundedRectangle(UWORD xStart, UWORD yStart, UWORD xEnd, UWORD yEnd,
                                 UWORD color, UWORD radius, DOT_PIXEL line_width, DRAW_FILL draw_fill);

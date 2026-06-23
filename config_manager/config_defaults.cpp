@@ -76,6 +76,7 @@ namespace cfg {
 	char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	bool use_custom_urban = false;
 	bool standalone = false;
+	unsigned epd_refresh_mode = EPD_REFRESH_SAFE;
 	bool analytics_sleep_add_urban = false;
 
 	unsigned leds_brightness = 100; // Default 100% = 30% actual brightness (scaled down)

@@ -63,6 +63,7 @@ UInt        analytics_night_end_hour
 String      custom_altruist_urban
 Bool		use_custom_urban
 Bool		standalone
+UInt		epd_refresh_mode
 Bool		analytics_sleep_add_urban
 Bool		share_temperature
 Bool		share_humidity

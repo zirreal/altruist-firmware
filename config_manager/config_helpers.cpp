@@ -3,9 +3,27 @@
 #include "../apis/rws_group.h"
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
+#include <strings.h>
+#include <time.h>
 
 #if defined(ALTRUIST_INSIDE)
 #include "../sensors/sensor_names.h"
+#include "../display/screens/analytics.h"
+
+void cfgApplyStandaloneModeEnabled() {
+	if (cfg::analytics_sleep_add_urban) {
+		cfg::analytics_sleep_add_urban = false;
+		debug_outln_info(F("Standalone: disabled Urban night analytics"));
+	}
+	analyticsClearUrbanNightHistory();
+}
+
+void cfgOnStandaloneModeDisabled() {
+	if (!cfg::analytics_sleep_add_urban) {
+		cfg::analytics_sleep_add_urban = true;
+		debug_outln_info(F("Paired mode: enabled Urban night analytics"));
+	}
+}
 
 void clearUrbanPairingTelemetry(JsonDocument &data) {
 	if (SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
@@ -132,6 +150,11 @@ bool config_set_string_by_key(const char* key, const char* value) {
  *****************************************************************/
 
 bool writeConfig() {
+#if defined(ALTRUIST_INSIDE)
+	if (cfg::standalone) {
+		cfg::analytics_sleep_add_urban = false;
+	}
+#endif
 	DynamicJsonDocument json(JSON_BUFFER_SIZE);
 	debug_outln_info(F("Saving config..."));
 	json["SOFTWARE_VERSION"] = SOFTWARE_VERSION_STR;
@@ -275,6 +298,12 @@ void readConfig(bool oldconfig) {
 		if (rwsMigrateLegacyOwnerAtConfigLoad(!json["rws_group_mode"].isNull())) {
 			rewriteConfig = true;
 		}
+#if defined(ALTRUIST_INSIDE)
+		if (cfg::standalone && cfg::analytics_sleep_add_urban) {
+			cfgApplyStandaloneModeEnabled();
+			rewriteConfig = true;
+		}
+#endif
 	} else {
 		debug_outln_error(F("failed to load json config"));
 
@@ -308,4 +337,42 @@ void init_config() {
 		return;
 	}
 	readConfig();
+}
+
+String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type) {
+	if (!map_type || map_type[0] == '\0') {
+		map_type = "pm10";
+	}
+	if (!sensor_ss58 || sensor_ss58[0] == '\0' || strcasecmp(sensor_ss58, "Not Set") == 0) {
+		return String(F("https://sensors.social/"));
+	}
+
+	char lat[32] = "0.0";
+	char lon[32] = "0.0";
+	bool coords_ok = false;
+	if (strlen(cfg::coords_gps) > 0) {
+		if (sscanf(cfg::coords_gps, "%31[^,],%31s", lat, lon) == 2) {
+			const double la = atof(lat);
+			const double lo = atof(lon);
+			coords_ok = !(la == 0.0 && lo == 0.0);
+		}
+	}
+	const int zoom = coords_ok ? 18 : 3;
+
+	char date[11] = "1970-01-01";
+	struct tm timeinfo;
+	if (getLocalTime(&timeinfo)) {
+		strftime(date, sizeof(date), "%Y-%m-%d", &timeinfo);
+	}
+
+	const char* owner = sensor_ss58;
+	if (cfg::rws_owner[0] != '\0' && strcasecmp(cfg::rws_owner, "Not Set") != 0) {
+		owner = cfg::rws_owner;
+	}
+
+	char buf[512];
+	snprintf(buf, sizeof(buf),
+		"https://sensors.social/?type=%s&date=%s&provider=remote&lat=%s&lng=%s&zoom=%d&owner=%s&sensor=%s",
+		map_type, date, lat, lon, zoom, owner, sensor_ss58);
+	return String(buf);
 }

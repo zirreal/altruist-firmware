@@ -34,6 +34,7 @@
 #define DEVICE_MODEL_URBAN "urban"
 #if defined(ALTRUIST_INSIDE)
 #define DEVICE_MODEL DEVICE_MODEL_INSIGHT
+void firmwareBlockingYieldHook(void);
 #endif
 #if defined(ALTRUIST_URBAN)
 #define DEVICE_MODEL DEVICE_MODEL_URBAN
@@ -77,6 +78,10 @@
 #define RWS_GROUP_MASTER 1u
 #define RWS_GROUP_FOLLOWER 2u
 #define RWS_GROUP_MANUAL 3u
+
+#define EPD_REFRESH_SAFE 0u
+#define EPD_REFRESH_EXPERIMENTAL_PARTIAL 1u
+
 #define LEN_ROBONOMICS_PUBLIC_NODE 70
 #define LEN_PRIVATE_KEY 65
 #define LEN_GPS_LAT 10

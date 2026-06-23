@@ -32,6 +32,7 @@ static void insightGuestApplyStandaloneAndRestart() {
 	cfg::use_custom_urban = false;
 	cfg::chosen_altruist_urban[0] = '\0';
 	cfg::custom_altruist_urban[0] = '\0';
+	cfgApplyStandaloneModeEnabled();
 	if (writeConfig()) {
 		set_restart_reason(RESTART_REASON_CONFIG);
 		sensor_restart();
@@ -114,6 +115,7 @@ void SensorWebServer::setup() {
 	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
 	server.on(F("/group"), std::bind(&SensorWebServer::_webserver_group, this));
 #ifdef ALTRUIST_INSIDE
+	server.on(F("/screen"), std::bind(&SensorWebServer::_webserver_screen, this));
 	server.on(F("/select_urban"), std::bind(&SensorWebServer::_webserver_select_urban, this));
 	server.on(F("/scan_urbans"), std::bind(&SensorWebServer::_webserver_scan_urbans, this));
 #endif
@@ -297,6 +299,29 @@ void SensorWebServer::_webserver_group() {
 	webserver_group_page(page_content, self_ss58, &robonomics, save_result);
 	end_html_page(page_content);
 }
+
+#ifdef ALTRUIST_INSIDE
+void SensorWebServer::_webserver_screen() {
+	if (WiFi.status() != WL_CONNECTED) {
+		sendHttpRedirectGuest();
+		return;
+	}
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	RESERVE_STRING(page_content, LARGE_STR);
+	start_html_page(page_content, FPSTR(INTL_SCREEN_MENU));
+
+	ScreenSaveResult save_result = ScreenSave_None;
+	if (server.method() == HTTP_POST) {
+		save_result = webserver_screen_post(server);
+	}
+
+	webserver_screen_page(page_content, save_result);
+	end_html_page(page_content);
+}
+#endif
 
 void SensorWebServer::_webserver_values() {
     if (WiFi.status() != WL_CONNECTED) {
@@ -599,6 +624,7 @@ void SensorWebServer::_webserver_select_urban() {
 			cfg::use_custom_urban = false;
 			cfg::chosen_altruist_urban[0] = '\0';
 			cfg::custom_altruist_urban[0] = '\0';
+			cfgApplyStandaloneModeEnabled();
 		} else {
 			_send_urban_pairing_form_html();
 			return;
@@ -633,6 +659,7 @@ void SensorWebServer::_webserver_select_urban() {
 		cfg::use_custom_urban = false;
 		cfg::chosen_altruist_urban[0] = '\0';
 		cfg::custom_altruist_urban[0] = '\0';
+		cfgApplyStandaloneModeEnabled();
 	} else if (chosen == "__custom__") {
 		String custom_ip = server.arg("custom_ip");
 		if (custom_ip.length() > 0) {
@@ -640,6 +667,7 @@ void SensorWebServer::_webserver_select_urban() {
 			cfg::custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS - 1] = '\0';
 			cfg::use_custom_urban = true;
 			cfg::standalone = false;
+			cfgOnStandaloneModeDisabled();
 			debug_outln_info(F("Custom Urban IP set: "), custom_ip);
 		} else {
 			cfg::standalone = true;
@@ -647,12 +675,14 @@ void SensorWebServer::_webserver_select_urban() {
 			cfg::chosen_altruist_urban[0] = '\0';
 			cfg::custom_altruist_urban[0] = '\0';
 			debug_outln_info(F("Custom Urban IP empty; standalone mode"));
+			cfgApplyStandaloneModeEnabled();
 		}
 	} else if (chosen.length() > 0) {
 		strncpy(cfg::chosen_altruist_urban, chosen.c_str(), LEN_CHOSEN_ALTRUIS_ADDRESS - 1);
 		cfg::chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS - 1] = '\0';
 		cfg::use_custom_urban = false;
 		cfg::standalone = false;
+		cfgOnStandaloneModeDisabled();
 		debug_outln_info(F("Chosen Urban IP: "), chosen);
 	}
 
@@ -797,10 +827,16 @@ void SensorWebServer::_webserver_config() {
 			const bool prev_use_custom_urban = cfg::use_custom_urban;
 			const String prev_custom_urban_ip = String(cfg::custom_altruist_urban);
 			const String prev_chosen_urban_ip = String(cfg::chosen_altruist_urban);
+			const bool prev_standalone = cfg::standalone;
 #endif
 			webserver_config_send_body_post(server);
 			rwsOnConfigOwnerUpdated(robonomics_address);
 #ifdef ALTRUIST_INSIDE
+			if (!prev_standalone && cfg::standalone) {
+				cfgApplyStandaloneModeEnabled();
+			} else if (prev_standalone && !cfg::standalone) {
+				cfgOnStandaloneModeDisabled();
+			}
 			if (prev_use_custom_urban != cfg::use_custom_urban ||
 			    prev_custom_urban_ip != String(cfg::custom_altruist_urban) ||
 			    prev_chosen_urban_ip != String(cfg::chosen_altruist_urban)) {

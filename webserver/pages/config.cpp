@@ -480,9 +480,12 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 				"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='07:00' value='");
 			page_content += end_v;
 			page_content += F("'/></div><p style='font-size:12px;color:#666;margin:4px 0 0;'>End is exclusive for hourly buckets (e.g. 07:00 uses hours through 06:xx).</p>");
-			if (!cfg::standalone) {
-				add_form_checkbox(Config_analytics_sleep_add_urban,
-				                  F("Add Urban data to sleep analytics (PM2.5 & noise)"), true);
+			add_form_checkbox(Config_analytics_sleep_add_urban,
+			                  F("Add Urban data to sleep analytics (PM2.5 & noise)"),
+			                  !cfg::standalone);
+			if (cfg::standalone) {
+				page_content += F("<p style='font-size:12px;color:#666;margin:4px 0 8px;'>"
+				                  "Uncheck Insight standalone above to pair with Urban and use outdoor PM2.5/noise in sleep analytics.</p>");
 			}
 		}
 		page_content += F("<script>"
