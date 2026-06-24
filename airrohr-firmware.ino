@@ -371,10 +371,10 @@ void writeBootFile() {
 	}
 }
 
-#if defined(DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG)
 // Background worker that continuously drains Debug logs to SD card so we
 // can inspect them later even without a serial connection.
-// Only active in dev builds to avoid unnecessary SD card wear in production.
+// Only active in debug builds to avoid unnecessary SD card wear in production.
 static void exceptionsLogWorker(void *pvParameters) {
 	(void)pvParameters;
 	const String logPath  = String(EXCEPTIONS_FOLDER) + "/runtime.log";
@@ -430,7 +430,7 @@ static void exceptionsLogWorker(void *pvParameters) {
 		}
 	}
 }
-#endif // DEBUG
+#endif // ALTRUIST_BUILD_DEBUG
 
 // Periodic retention worker:
 // - keep recent sensor CSV files for graph pages
@@ -807,7 +807,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 
 		for (int i = 0; i < ActiveAPIsCount; i++) {
 			if (activeAPIs[i]->isTimeToSend()) {
-			#if defined(DEBUG)
+			#if defined(ALTRUIST_BUILD_DEBUG)
 			#if defined(ALTRUIST_INSIDE)
 			Serial.printf("[INSIGHT] WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
 			#elif defined(ALTRUIST_URBAN)
@@ -889,7 +889,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 			}
 
 
-			#if defined(DEBUG)
+			#if defined(ALTRUIST_BUILD_DEBUG)
 			#if defined(ALTRUIST_INSIDE)
 			Serial.println(F("[INSIGHT] Device Status:"));
 			#elif defined(ALTRUIST_URBAN)
@@ -902,7 +902,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 			bool datalog_ok = true;
 #endif
 			for (const auto& [api_name, status] : deviceStatus.apis_status) {
-				#if defined(DEBUG)
+				#if defined(ALTRUIST_BUILD_DEBUG)
 				Serial.print(F("API Name: "));
 				Serial.println(api_name.c_str());
 				Serial.print(F("  Count Sends: "));
@@ -1068,7 +1068,7 @@ void buttonsWorker(void *pvParameters) {
 }
 #endif // ALTRUIST_INSIDE || ALTRUIST_URBAN_HW_UI
 
-#if defined(DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG)
 void metricsWorker(void *pvParameters) {
 	// Wait a bit for system to stabilize
 	vTaskDelay(2000 / portTICK_PERIOD_MS);
@@ -1125,7 +1125,7 @@ void setup(void) {
 	delay(300);
 	Serial.begin(115200);
 	delay(500);
-	#if defined(DEBUG)
+	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_INSIDE)
 	Serial.println(F("[INSIGHT] Start setup"));
 	#elif defined(ALTRUIST_URBAN)
@@ -1217,7 +1217,7 @@ void setup(void) {
 #endif
 	
 	// Initialize metrics (load boot counter, etc.) - works for both Urban and Insight
-	#if defined(DEBUG)
+	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] Initializing metrics system...\r\n"));
 	#elif defined(ALTRUIST_URBAN)
@@ -1227,7 +1227,7 @@ void setup(void) {
 	Serial.flush();
 	delay(10);
 	initMetrics();
-	#if defined(DEBUG)
+	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] Metrics initialized. Boot counter: "));
 	#elif defined(ALTRUIST_URBAN)
@@ -1240,7 +1240,7 @@ void setup(void) {
 	delay(10);
 	
 	// Initialize ESP32-C6 temperature sensor
-	#if defined(DEBUG)
+	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] Initializing ESP temperature sensor...\r\n"));
 	#elif defined(ALTRUIST_INSIDE)
@@ -1250,7 +1250,7 @@ void setup(void) {
 	#endif
 	delay(10);
 	initESPTemperatureSensor();
-	#if defined(DEBUG)
+	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] ESP temperature sensor initialized\r\n"));
 	#elif defined(ALTRUIST_INSIDE)
@@ -1357,7 +1357,7 @@ void setup(void) {
 
 	debug_outln_info(F("Active Sensors count: "), activeSensorsCount);
 
-	#if defined(DEBUG)
+	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT] Sensors: "));
 	#elif defined(ALTRUIST_URBAN)
@@ -1396,10 +1396,10 @@ void setup(void) {
 		0
 	);
 	
-#if defined(DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG)
 	// Background logger: keep a rolling runtime log on SD so we have context
 	// leading up to random panics/resets (panic backtrace itself is not SD-safe).
-	// Only active in dev builds to avoid unnecessary SD card wear in production.
+	// Only active in debug builds to avoid unnecessary SD card wear in production.
 	xTaskCreatePinnedToCore(
 		exceptionsLogWorker,
 		"ExceptionsLogWorker",
@@ -1409,7 +1409,7 @@ void setup(void) {
 		NULL,
 		0
 	);
-#endif // DEBUG
+#endif // ALTRUIST_BUILD_DEBUG
 #endif // USE_SD_CARD && ALTRUIST_INSIDE
 	fetchSensors();
 	deviceStatus.ip_address = WiFi.localIP().toString();
@@ -1461,7 +1461,7 @@ void setup(void) {
 	);
 	
 	// Create metrics worker task only in debug firmware builds
-	#if defined(DEBUG)
+	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] Creating metrics worker task...\r\n"));
 	#elif defined(ALTRUIST_URBAN)

@@ -98,7 +98,7 @@ const char* get_reset_reason_text() {
         case ESP_RST_EXT:       cached = "External reset"; break;
         case ESP_RST_SW:        cached = "Software reset"; break;
         case ESP_RST_PANIC:
-#if defined(DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG)
             cached = "Panic (unhandled exception)";
 #else
             cached = "Unexpected restart (recovered)";
@@ -457,7 +457,7 @@ void incrementTXCounter() {
 
 // Log metrics to UART in the specified format
 void logMetrics() {
-#if defined(DEBUG)
+#if defined(ALTRUIST_HEALTH_TELEMETRY)
 	updateMetrics();
 	
 	const char* status = system_metrics.has_error ? "ERROR" : "ALIVE";

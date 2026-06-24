@@ -12,7 +12,7 @@ All `_dev` environments (`esp32c6_inside_en_dev`, `esp32c6_inside_ru_dev`, `esp3
 
 | Feature                                        | What it does                                                           |
 | ---------------------------------------------- | ---------------------------------------------------------------------- |
-| **Verbose logging** (`-DDEBUG=4`)              | Shows all `[DEBUG]`, `[INFO]`, and `[ERROR]` messages in serial output |
+| **Verbose logging** (`ALTRUIST_DEFAULT_LOG_LEVEL=4`) | Shows all `[DEBUG]`, `[INFO]`, and `[ERROR]` messages in serial output |
 | **Debug symbols** (`-g -Og`)                   | Enables breakpoints and variable inspection                            |
 | **Built-in JTAG** (`debug_tool = esp-builtin`) | No external hardware needed — ESP32-C6 has USB JTAG built in           |
 | **ESP-IDF logs** (`-DDEBUG_ESP_PORT=Serial`)   | Shows internal ESP framework debug messages                            |
@@ -249,7 +249,8 @@ Build flags for debugging:
 - `-g -Og -fno-inline` — Include debug symbols, optimize for debugging
 - `-DUSING_JTAG_DEBUGGER_PINS=1` — Reserve JTAG pins
 - `-DDEBUG_ESP_PORT=Serial` — Enable ESP-IDF internal debug logs
-- `-DDEBUG=4` — Enable verbose app-level `[DEBUG]` log messages
+- `-DALTRUIST_BUILD_DEBUG` — Enable heavyweight development diagnostics
+- `-DALTRUIST_DEFAULT_LOG_LEVEL=4` — Enable verbose app-level `[DEBUG]` log messages by default
 
 #### 6.2. Starting a debug session
 
@@ -418,7 +419,7 @@ pio run -e esp32c6_inside_en_dev -t clean
 
 | Функция                                          | Описание                                                          |
 | ------------------------------------------------ | ----------------------------------------------------------------- |
-| **Подробное логирование** (`-DDEBUG=4`)          | Показывает все сообщения `[DEBUG]`, `[INFO]` и `[ERROR]` в serial |
+| **Подробное логирование** (`ALTRUIST_DEFAULT_LOG_LEVEL=4`) | Показывает все сообщения `[DEBUG]`, `[INFO]` и `[ERROR]` в serial |
 | **Символы отладки** (`-g -Og`)                   | Позволяют ставить точки останова и инспектировать переменные      |
 | **Встроенный JTAG** (`debug_tool = esp-builtin`) | Внешнее оборудование не нужно — в ESP32‑C6 USB JTAG встроен       |
 | **Логи ESP-IDF** (`-DDEBUG_ESP_PORT=Serial`)     | Показывает внутренние отладочные сообщения фреймворка ESP         |
@@ -655,7 +656,8 @@ debug_init_break = tbreak setup ; Остановиться на setup() при �
 - `-g -Og -fno-inline` — символы отладки, оптимизация для отладки
 - `-DUSING_JTAG_DEBUGGER_PINS=1` — резервирование пинов JTAG
 - `-DDEBUG_ESP_PORT=Serial` — внутренние отладочные логи ESP-IDF
-- `-DDEBUG=4` — подробные `[DEBUG]` сообщения приложения
+- `-DALTRUIST_BUILD_DEBUG` — тяжёлая диагностическая функциональность
+- `-DALTRUIST_DEFAULT_LOG_LEVEL=4` — подробные `[DEBUG]` сообщения приложения по умолчанию
 
 #### 6.2. Запуск сеанса отладки
 

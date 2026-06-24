@@ -292,7 +292,7 @@ void readConfig(bool oldconfig) {
 	DynamicJsonDocument json(JSON_BUFFER_SIZE);
 	DeserializationError err = deserializeJson(json, configFile.readString());
 	configFile.close();
-#if defined(DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG)
 	{
 		String saved_private_key;
 		if (json.containsKey("private_key")) {

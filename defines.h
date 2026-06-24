@@ -12,8 +12,8 @@
 #define SOFTWARE_VERSION_BASE "R-URB_2026-06.1"
 #define PM_SENSOR_NAME "Altruist Urban"
 #endif
-#if defined(ALTRUIST_FIRMWARE_DEV)
-#define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE "_dev"
+#if defined(ALTRUIST_CHANNEL_TESTING)
+#define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE "_testing"
 #else
 #define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE
 #endif
@@ -111,6 +111,14 @@ void firmwareBlockingYieldHook(void);
 #define DEBUG_MIN_INFO 3
 #define DEBUG_MED_INFO 4
 #define DEBUG_MAX_INFO 5
+
+/*
+ * Build configuration flags are intentionally independent:
+ * - ALTRUIST_BUILD_DEBUG enables heavyweight development diagnostics.
+ * - ALTRUIST_CHANNEL_TESTING identifies testing-channel firmware.
+ * - ALTRUIST_HEALTH_TELEMETRY enables UART health telemetry.
+ * - ALTRUIST_DEFAULT_LOG_LEVEL sets the initial cfg::debug value.
+ */
 
 /******************************************************************
  * Constants                                                      *
@@ -463,10 +471,9 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // MHZ19 CO2 sensor
 #define MHZ19_READ 0
 
-// automatic firmware updates
-// Production builds: auto-update on
-// Debug firmware (*_dev): auto-update off
-#if defined(DEBUG)
+// Keep testing firmware on its explicitly selected channel until channel-aware
+// OTA artifact selection is implemented.
+#if defined(ALTRUIST_CHANNEL_TESTING)
 	#define AUTO_UPDATE 0
 #else
 	#define AUTO_UPDATE 1
@@ -502,13 +509,9 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // Show device info on displays
 #define DISPLAY_DEVICE_INFO 1
 
-// Default runtime log level (cfg::debug). Dev builds pass -DDEBUG=4 via PlatformIO.
-#ifndef DEFAULT_DEBUG_LEVEL
-#if defined(DEBUG)
-#define DEFAULT_DEBUG_LEVEL DEBUG
-#else
-#define DEFAULT_DEBUG_LEVEL 3
-#endif
+// Default runtime log level (cfg::debug), independent from the build profile.
+#ifndef ALTRUIST_DEFAULT_LOG_LEVEL
+#define ALTRUIST_DEFAULT_LOG_LEVEL DEBUG_MIN_INFO
 #endif
 
 // Insight standalone main: 1 = force all four footer warnings (Hum/Temp/Press/CO2) for layout preview.

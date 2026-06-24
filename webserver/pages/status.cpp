@@ -87,7 +87,7 @@ void webserver_status_part1(String &page_content, device_status_t &deviceStatus)
 	}
 	add_table_row_from_value(page_content, FPSTR(INTL_UPTIME), delayToString(millis() - deviceStatus.time_point_device_start_ms));
 	add_table_row_from_value(page_content, FPSTR(INTL_RESET_REASON), get_reset_reason_text());
-#if defined(DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG)
 	add_table_row_from_value(page_content, "Reset reason code", String((int)esp_reset_reason()));
 
 	CrashContextStatus crash_ctx = loadCrashContextStatus();
