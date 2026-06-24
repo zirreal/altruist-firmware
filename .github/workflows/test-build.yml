@@ -23,11 +23,22 @@ jobs:
         run: pip install platformio
 
       - name: Build firmware
-        run: pio run
+        env:
+          ALTRUIST_CHANNEL_TESTING: ${{ github.ref_name == 'esp32' && '0' || '1' }}
+          ALTRUIST_HEALTH_TELEMETRY: '1'
+          ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          pio run \
+            -e esp32c3_urban_en \
+            -e esp32c3_urban_ru \
+            -e esp32c6_urban_en \
+            -e esp32c6_urban_ru \
+            -e esp32c6_inside_en \
+            -e esp32c6_inside_ru
 
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
         with:
           name: altruist-firmware
           path: builds/latest*.bin*
-
