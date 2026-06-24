@@ -116,8 +116,7 @@ namespace cfg {
 		strcpy_P(donated_by, DONATED_BY);
 
 		if (!*fs_ssid) {
-			strcpy(fs_ssid, SSID_BASENAME);
-			strcat(fs_ssid, id);
+			snprintf(fs_ssid, sizeof(fs_ssid), "Altruist-%s-%s", DEVICE_MODEL, id);
 		}
 	}
 }

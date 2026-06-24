@@ -17,6 +17,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Insight sleep analytics (e-paper)** — QR on the night report screen links to the [Sleep Analytics guide](https://sensors.social/blog/insight-sleeping-analytics) on sensors.social (replacing the per-sensor map link).
 - **Insight Urban QR (main screen)** — SPIFFS SS58 cache is no longer cleared while Urban is still connecting; faster HTTP polling (1 min) until the first successful Urban fetch, then 5 min.
 - **Active sensors map link** — Web UI and Insight sensor-map QR use the updated sensors.social URL (`type`, `date`, `provider`, `lat`/`lng`, `zoom`, `owner`, `sensor`).
+- **Default WiFi device name** — new devices use `Altruist-insight-<MAC>` or `Altruist-urban-<MAC>` (`fs_ssid` / router hostname) instead of `Altruist-<MAC>`. After OTA, legacy auto names (`esp32-*`, `Altruist-<MAC>`, empty `fs_ssid`) migrate on config load; user-chosen names are kept.
 
 - **`/group` save feedback** — Success and error messages shown in the web UI after Save (invalid master/owner address, config write failure).
 

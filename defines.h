@@ -57,7 +57,7 @@ void firmwareBlockingYieldHook(void);
 #endif
 
 
-#define SSID_BASENAME "Altruist-"
+#define SSID_BASENAME "Altruist-"  // legacy; default fs_ssid is Altruist-<DEVICE_MODEL>-<chipid>
 #define HOSTNAME_BASE "Altruist-"
 
 #define LEN_CFG_STRING 65
