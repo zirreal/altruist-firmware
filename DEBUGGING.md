@@ -108,6 +108,15 @@ All debug output goes through the standard logging helpers (for example `debug_o
 
 Each line also contains a millisecond timestamp in square brackets (time since boot). See the Quick Start section above for example output.
 
+Testing firmware also emits a stable UART health snapshot once per minute:
+
+```text
+[HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0
+```
+
+The line is controlled by `ALTRUIST_HEALTH_TELEMETRY` and remains independent
+from heavyweight debug diagnostics and the runtime log level.
+
 To view these logs live:
 
 1. Connect the board over USB.
@@ -514,6 +523,15 @@ pio run -e esp32c6_urban_ru_dev -t upload
 - `[DEBUG]` – подробная информация (только в `_dev` сборках)
 
 Каждая строка содержит метку времени в миллисекундах (с момента загрузки). Пример вывода см. в разделе «Быстрый старт» выше.
+
+Testing-прошивка также раз в минуту выводит стабильную строку состояния в UART:
+
+```text
+[HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0
+```
+
+Вывод управляется флагом `ALTRUIST_HEALTH_TELEMETRY` и не зависит от тяжёлой
+debug-диагностики или runtime-уровня логирования.
 
 Для просмотра логов в реальном времени:
 

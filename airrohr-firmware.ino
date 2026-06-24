@@ -1068,7 +1068,7 @@ void buttonsWorker(void *pvParameters) {
 }
 #endif // ALTRUIST_INSIDE || ALTRUIST_URBAN_HW_UI
 
-#if defined(ALTRUIST_BUILD_DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG) || defined(ALTRUIST_HEALTH_TELEMETRY)
 void metricsWorker(void *pvParameters) {
 	// Wait a bit for system to stabilize
 	vTaskDelay(2000 / portTICK_PERIOD_MS);
@@ -1077,12 +1077,24 @@ void metricsWorker(void *pvParameters) {
 
 	unsigned long last_crash_save_ms = millis();
 	const unsigned long CRASH_SAVE_INTERVAL_MS = 30UL * 1000UL; // save every 30s
+#if defined(ALTRUIST_HEALTH_TELEMETRY)
+	unsigned long last_health_log_ms = millis();
+	const unsigned long HEALTH_LOG_INTERVAL_MS = 60UL * 1000UL;
+#endif
 
 	for (;;) {
 		vTaskDelay(5000 / portTICK_PERIOD_MS);
 
 		updateMetrics();
 
+#if defined(ALTRUIST_HEALTH_TELEMETRY)
+		if (msSince(last_health_log_ms) >= HEALTH_LOG_INTERVAL_MS) {
+			last_health_log_ms = millis();
+			logMetrics();
+		}
+#endif
+
+#if defined(ALTRUIST_BUILD_DEBUG)
 		// Periodic memory telemetry: log remaining heap so we can see trends
 		// and potential leaks over hours/days in the SD runtime log.
 #if defined(ESP32)
@@ -1106,7 +1118,8 @@ void metricsWorker(void *pvParameters) {
 			prev_sd_fail = sd_fail;
 			prev_sd_busy = sd_busy;
 #endif
-		}
+			}
+#endif
 #endif
 
 		if (msSince(last_crash_save_ms) > CRASH_SAVE_INTERVAL_MS) {
@@ -1460,7 +1473,8 @@ void setup(void) {
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
 	
-	// Create metrics worker task only in debug firmware builds
+	// Keep health telemetry independent from heavyweight debug diagnostics.
+	#if defined(ALTRUIST_BUILD_DEBUG) || defined(ALTRUIST_HEALTH_TELEMETRY)
 	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_INSIDE)
 	Serial.print(F("[INSIGHT][Setup] Creating metrics worker task...\r\n"));
@@ -1469,6 +1483,7 @@ void setup(void) {
 	#endif
 	Serial.flush();
 	delay(10);
+	#endif
 	TaskHandle_t metricsTaskHandle = NULL;
 	BaseType_t metricsTaskResult = xTaskCreatePinnedToCore(
 		metricsWorker,  // task function
@@ -1480,14 +1495,12 @@ void setup(void) {
 		0                    // core 0
 	);
 	if (metricsTaskResult != pdPASS) {
-		#if defined(ALTRUIST_INSIDE)
-		Serial.print(F("[INSIGHT][ERROR] Failed to create metrics worker task! Result: "));
-		#elif defined(ALTRUIST_URBAN)
-		Serial.print(F("[URBAN][ERROR] Failed to create metrics worker task! Result: "));
-		#endif
+		Serial.print(F("[HEALTH][ERROR] Failed to create metrics worker: "));
 		Serial.println(metricsTaskResult);
 		Serial.flush();
-	} else {
+	}
+	#if defined(ALTRUIST_BUILD_DEBUG)
+	else {
 		#if defined(ALTRUIST_INSIDE)
 		Serial.print(F("[INSIGHT][Setup] Metrics worker task created successfully! Handle: 0x"));
 		#elif defined(ALTRUIST_URBAN)
@@ -1496,6 +1509,7 @@ void setup(void) {
 		Serial.println((uint32_t)metricsTaskHandle, HEX);
 		Serial.flush();
 	}
+	#endif
 	delay(10);
 	#endif
 	
