@@ -22,13 +22,13 @@ def after_build(source, target, env):
 
     configName = b64decode(ARGUMENTS.get("PIOENV")).decode('utf-8')
     sectionName = 'env:' + configName
+    build_type = config.get(sectionName, "build_type", fallback="release")
+    if build_type == "debug":
+        print("Debug program has been built; publishable artifacts are disabled:", sectionName)
+        return
+
     lang = config.get(sectionName, "lang")
     target_name = lang.lower()
-
-    # Проверяем build_type в platformio.ini для текущего окружения
-    is_dev = config.get(sectionName, "build_type", fallback="release") == "debug"
-    dev_postfix = "_dev" if is_dev else ""
-    # --------------------------------------
 
     if "esp32c3" in sectionName:
         print("Program has been built!", sectionName)
@@ -42,8 +42,7 @@ def after_build(source, target, env):
     else:
         firmaware_prefix_name = "latest"
 
-    # Формируем финальное имя файла с учетом dev_postfix
-    final_file_name = f"{firmaware_prefix_name}_{target_name}{dev_postfix}.bin"
+    final_file_name = f"{firmaware_prefix_name}_{target_name}.bin"
     
     # Запись MD5
     with open(f"builds/{final_file_name}.md5", "w") as md5:
@@ -54,7 +53,7 @@ def after_build(source, target, env):
 
     # Обработка специального случая для 'en' -> 'beta'
     if target_name == "en":
-        beta_name = f"{firmaware_prefix_name}_beta{dev_postfix}.bin"
+        beta_name = f"{firmaware_prefix_name}_beta.bin"
         with open(f"builds/{beta_name}.md5", "w") as md5:
             print(_file_md5_hexdigest(target[0].path), file = md5)
         shutil.copy(target[0].path, f"builds/{beta_name}")

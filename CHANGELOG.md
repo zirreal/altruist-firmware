@@ -22,8 +22,9 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **`/group` save feedback** — Success and error messages shown in the web UI after Save (invalid master/owner address, config write failure).
 
 - **Insight Wi‑Fi captive portal: clearer setup flow** — after home Wi‑Fi connects, the success screen is **step 2 of 2** (step **1 of 2** on the initial credential form) with the step label and title on separate lines. Users are prompted to press **Continue** to finish setup and restart; if they leave the page, setup auto-completes in standalone mode after ~45 s (browser auto-submit plus server-side fallback in the portal loop). Removed trailing **!** from related UI strings (e.g. “Connected”, “Settings saved”).
-- **Build flags separated by responsibility** — Compile-time configuration now distinguishes the debug profile (`ALTRUIST_BUILD_DEBUG`), testing channel (`ALTRUIST_CHANNEL_TESTING`), UART health telemetry (`ALTRUIST_HEALTH_TELEMETRY`), and initial runtime log level (`ALTRUIST_DEFAULT_LOG_LEVEL`). The existing `*_dev` environments temporarily combine these flags for compatibility while channel and debug environments are migrated separately.
+- **Build flags separated by responsibility** — Compile-time configuration now distinguishes the debug profile (`ALTRUIST_BUILD_DEBUG`), testing channel (`ALTRUIST_CHANNEL_TESTING`), UART health telemetry (`ALTRUIST_HEALTH_TELEMETRY`), and initial runtime log level (`ALTRUIST_DEFAULT_LOG_LEVEL`).
 - **Stable UART health telemetry** — Testing firmware now emits a compact `[HEALTH]` snapshot every 60 seconds with uptime, boot counter, free heap, RSSI, successful transmissions, and accumulated errors.
+- **Dedicated debug environments** — Technical ESP32-C6 Urban and Insight debug builds now use explicit `*_debug` environments with JTAG, debug symbols, and elevated runtime logging, without Testing-channel flags or publishable webflasher artifacts.
 
 ### Bug Fixes
 
@@ -260,7 +261,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Build & Infrastructure
 
-- Build configurations for all ESP32-C6 variants: Urban EN/RU, Insight EN/RU (plus dev builds)
+- Build configurations for all ESP32-C6 variants: Urban EN/RU, Insight EN/RU (plus debug builds)
 - Updated pin mappings for Insight boards
 - DEV postfix added to development firmware filenames
 

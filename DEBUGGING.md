@@ -6,9 +6,9 @@ This document describes how to build and debug the **Insight** and **Urban** fir
 
 ## Quick Start
 
-### What `_dev` builds give you
+### What `_debug` builds give you
 
-All `_dev` environments (`esp32c6_inside_en_dev`, `esp32c6_inside_ru_dev`, `esp32c6_urban_en_dev`, `esp32c6_urban_ru_dev`) include:
+All `_debug` environments (`esp32c6_inside_en_debug`, `esp32c6_inside_ru_debug`, `esp32c6_urban_en_debug`, `esp32c6_urban_ru_debug`) include:
 
 | Feature                                        | What it does                                                           |
 | ---------------------------------------------- | ---------------------------------------------------------------------- |
@@ -19,10 +19,10 @@ All `_dev` environments (`esp32c6_inside_en_dev`, `esp32c6_inside_ru_dev`, `esp3
 
 ### 3-step debugging
 
-**Step 1: Flash a `_dev` build**
+**Step 1: Flash a `_debug` build**
 
 ```bash
-pio run -e esp32c6_inside_en_dev -t upload
+pio run -e esp32c6_inside_en_debug -t upload
 ```
 
 **Step 2: Watch verbose logs**
@@ -58,16 +58,17 @@ The main PlatformIO environments relevant for Insight/Urban are:
 - **Urban (ESP32‑C6)**
   - `env:esp32c6_urban_en` – production EN
   - `env:esp32c6_urban_ru` – production RU
-  - `env:esp32c6_urban_en_dev` – **debug/dev EN**
-  - `env:esp32c6_urban_ru_dev` – **debug/dev RU**
+  - `env:esp32c6_urban_en_debug` – **technical debug EN**
+  - `env:esp32c6_urban_ru_debug` – **technical debug RU**
 
 - **Insight (ESP32‑C6, “inside”)**
   - `env:esp32c6_inside_en` – production EN
   - `env:esp32c6_inside_ru` – production RU
-  - `env:esp32c6_inside_en_dev` – **debug/dev EN** (extra debug flags enabled)
-  - `env:esp32c6_inside_ru_dev` – **debug/dev RU** (extra debug flags enabled)
+  - `env:esp32c6_inside_en_debug` – **technical debug EN**
+  - `env:esp32c6_inside_ru_debug` – **technical debug RU**
 
-Use the `_dev` environments when you need more verbose logs or want to attach a debugger.
+Use the `_debug` environments for local diagnostics or an attached debugger.
+They are not Testing-channel firmware and are not published to webflasher.
 
 ### 2. Building and uploading with PlatformIO
 
@@ -76,7 +77,7 @@ You can build and upload any environment either from the **VS Code** UI or from 
 #### 2.1. From the IDE
 
 - Open the project folder in VS Code.
-- In the PlatformIO panel, select the environment you want (for example `esp32c6_inside_en_dev`).
+- In the PlatformIO panel, select the environment you want (for example `esp32c6_inside_en_debug`).
 - Use **Build** to compile and **Upload** to flash the firmware to your board.
 
 #### 2.2. From the command line
@@ -84,18 +85,18 @@ You can build and upload any environment either from the **VS Code** UI or from 
 From the project root:
 
 ```bash
-# Build Insight EN dev
-pio run -e esp32c6_inside_en_dev
+# Build Insight EN debug
+pio run -e esp32c6_inside_en_debug
 
-# Build & upload Insight EN dev
-pio run -e esp32c6_inside_en_dev -t upload
+# Build & upload Insight EN debug
+pio run -e esp32c6_inside_en_debug -t upload
 
-# Build & upload Insight RU dev
-pio run -e esp32c6_inside_ru_dev -t upload
+# Build & upload Insight RU debug
+pio run -e esp32c6_inside_ru_debug -t upload
 
-# Similarly for Urban EN/RU dev
-pio run -e esp32c6_urban_en_dev -t upload
-pio run -e esp32c6_urban_ru_dev -t upload
+# Similarly for Urban EN/RU debug
+pio run -e esp32c6_urban_en_debug -t upload
+pio run -e esp32c6_urban_ru_debug -t upload
 ```
 
 ### 3. Serial logging
@@ -241,11 +242,11 @@ This tells you:
 
 ### 6. PlatformIO debugging (JTAG)
 
-The ESP32‑C6 has a **built‑in USB JTAG debugger** — no external probe needed. The `_dev` environments are pre‑configured to use it.
+The ESP32‑C6 has a **built‑in USB JTAG debugger** — no external probe needed. The `_debug` environments are pre‑configured to use it.
 
 #### 6.1. Debug configuration in platformio.ini
 
-The `_dev` environments include these debugging options (from [PlatformIO Debugging docs](https://docs.platformio.org/en/latest/plus/debugging.html)):
+The `_debug` environments include these debugging options (from [PlatformIO Debugging docs](https://docs.platformio.org/en/latest/plus/debugging.html)):
 
 ```ini
 build_type = debug
@@ -265,7 +266,7 @@ Build flags for debugging:
 
 **From VS Code:**
 
-1. Select the `_dev` environment in the PlatformIO sidebar (for example `esp32c6_inside_en_dev`).
+1. Select the `_debug` environment in the PlatformIO sidebar (for example `esp32c6_inside_en_debug`).
 2. Click the **Debug** icon in the sidebar, or press `F5`, or choose **Run** → **Start Debugging**.
 3. PlatformIO will build, flash, and launch GDB automatically.
 
@@ -273,11 +274,11 @@ Build flags for debugging:
 
 ```bash
 # Start debugging
-pio debug -e esp32c6_inside_en_dev
+pio debug -e esp32c6_inside_en_debug
 
 # Or build first, then debug
-pio run -e esp32c6_inside_en_dev
-pio debug -e esp32c6_inside_en_dev --interface=gdb
+pio run -e esp32c6_inside_en_debug
+pio debug -e esp32c6_inside_en_debug --interface=gdb
 ```
 
 #### 6.3. Debug features available
@@ -308,14 +309,14 @@ See [PlatformIO ESP-Prog docs](https://docs.platformio.org/en/latest/plus/debug-
 #### 6.5. Troubleshooting debugging
 
 - **"No debug adapter found"** — Ensure the USB cable supports data (not charge-only). Try a different USB port.
-- **Breakpoints not hitting** — Make sure you're using a `_dev` environment with `build_type = debug`.
+- **Breakpoints not hitting** — Make sure you're using a `_debug` environment with `build_type = debug`.
 - **Debugging is slow** — Set `debug_speed = 5000` in platformio.ini to increase JTAG clock speed.
 
 ### 7. Typical debugging workflows
 
 #### 7.1. Investigating screen freezes on Insight
 
-1. Flash a `_dev` Insight build (for example `esp32c6_inside_en_dev`).
+1. Flash a `_debug` Insight build (for example `esp32c6_inside_en_debug`).
 2. Let the device run as usual, with an SD card inserted.
 3. When you observe a screen freeze:
    - Do **not** power‑cycle immediately if possible; first note if LEDs / network are still active.
@@ -329,7 +330,7 @@ See [PlatformIO ESP-Prog docs](https://docs.platformio.org/en/latest/plus/debug-
 
 #### 7.2. Investigating Urban missing data or discovery issues
 
-1. Use a `_dev` Urban or Insight build.
+1. Use a `_debug` Urban or Insight build.
 2. Watch for lines mentioning `HTTPAltruistSensor` in serial or SD logs:
    - Rediscovery attempts.
    - Maximum discovery attempts reached.
@@ -338,7 +339,7 @@ See [PlatformIO ESP-Prog docs](https://docs.platformio.org/en/latest/plus/debug-
 
 #### 7.3. Watching for memory leaks or fragmentation
 
-1. Run a `_dev` Insight build with SD logging enabled.
+1. Run a `_debug` Insight build with SD logging enabled.
 2. Let the device run for several days.
 3. Periodically review `/exceptions/runtime.log`:
    - Check the `[MEM] Free heap bytes` series over time.
@@ -351,7 +352,7 @@ If you run into a bug, the most useful artifacts to collect are:
 
 - The latest `/exceptions/runtime.log` (and `.1`, `.2` if present).
 - The latest one or two `/exceptions/boot_*.txt` files.
-- The exact firmware environment name used (for example `esp32c6_inside_en_dev`).
+- The exact firmware environment name used (for example `esp32c6_inside_en_debug`).
 
 Attach those to an issue or share them when asking for help, and you can usually pinpoint the problem quickly.
 
@@ -362,11 +363,11 @@ Attach those to an issue or share them when asking for help, and you can usually
 ### Essential Commands
 
 ```bash
-# Build dev firmware
-pio run -e esp32c6_inside_en_dev
+# Build debug firmware
+pio run -e esp32c6_inside_en_debug
 
 # Build and flash
-pio run -e esp32c6_inside_en_dev -t upload
+pio run -e esp32c6_inside_en_debug -t upload
 
 # Watch serial logs (115200 baud)
 pio device monitor
@@ -378,10 +379,10 @@ pio device monitor | tee "debug_$(date +%Y%m%d_%H%M%S).log"
 while true; do pio device monitor | tee -a "debug_$(date +%Y%m%d).log"; sleep 2; done
 
 # Start JTAG debugger from CLI
-pio debug -e esp32c6_inside_en_dev
+pio debug -e esp32c6_inside_en_debug
 
 # Clean build (if things are weird)
-pio run -e esp32c6_inside_en_dev -t clean
+pio run -e esp32c6_inside_en_debug -t clean
 ```
 
 ### VS Code Shortcuts
@@ -402,7 +403,7 @@ pio run -e esp32c6_inside_en_dev -t clean
 | --------- | -------------------------- | ---------------------------------------- |
 | `[ERROR]` | `debug_outln_error(...)`   | Failures, exceptions                     |
 | `[INFO]`  | `debug_outln_info(...)`    | Normal operation events                  |
-| `[DEBUG]` | `debug_outln_verbose(...)` | Detailed tracing (only in `_dev` builds) |
+| `[DEBUG]` | `debug_outln_verbose(...)` | Detailed tracing (only in `_debug` builds) |
 
 ### SD Card Log Files
 
@@ -422,9 +423,9 @@ pio run -e esp32c6_inside_en_dev -t clean
 
 ## Быстрый старт
 
-### Что дают сборки `_dev`
+### Что дают сборки `_debug`
 
-Все `_dev`‑окружения (`esp32c6_inside_en_dev`, `esp32c6_inside_ru_dev`, `esp32c6_urban_en_dev`, `esp32c6_urban_ru_dev`) включают:
+Все `_debug`‑окружения (`esp32c6_inside_en_debug`, `esp32c6_inside_ru_debug`, `esp32c6_urban_en_debug`, `esp32c6_urban_ru_debug`) включают:
 
 | Функция                                          | Описание                                                          |
 | ------------------------------------------------ | ----------------------------------------------------------------- |
@@ -435,10 +436,10 @@ pio run -e esp32c6_inside_en_dev -t clean
 
 ### Отладка в 3 шага
 
-**Шаг 1: Прошить `_dev` сборку**
+**Шаг 1: Прошить `_debug` сборку**
 
 ```bash
-pio run -e esp32c6_inside_en_dev -t upload
+pio run -e esp32c6_inside_en_debug -t upload
 ```
 
 **Шаг 2: Смотреть логи**
@@ -474,16 +475,17 @@ pio device monitor
 - **Urban (ESP32‑C6)**
   - `env:esp32c6_urban_en` – продакшн EN
   - `env:esp32c6_urban_ru` – продакшн RU
-  - `env:esp32c6_urban_en_dev` – **отладка/dev EN**
-  - `env:esp32c6_urban_ru_dev` – **отладка/dev RU**
+  - `env:esp32c6_urban_en_debug` – **техническая отладка EN**
+  - `env:esp32c6_urban_ru_debug` – **техническая отладка RU**
 
 - **Insight (ESP32‑C6, "inside")**
   - `env:esp32c6_inside_en` – продакшн EN
   - `env:esp32c6_inside_ru` – продакшн RU
-  - `env:esp32c6_inside_en_dev` – **отладка/dev EN**
-  - `env:esp32c6_inside_ru_dev` – **отладка/dev RU**
+  - `env:esp32c6_inside_en_debug` – **техническая отладка EN**
+  - `env:esp32c6_inside_ru_debug` – **техническая отладка RU**
 
-Используйте `_dev`‑окружения, когда нужны подробные логи или отладчик.
+Используйте `_debug`‑окружения для локальной диагностики или подключения
+отладчика. Они не относятся к Testing-каналу и не публикуются в webflasher.
 
 ### 2. Сборка и загрузка через PlatformIO
 
@@ -492,7 +494,7 @@ pio device monitor
 #### 2.1. Из IDE
 
 - Откройте папку проекта в VS Code.
-- В панели PlatformIO выберите нужное окружение (например `esp32c6_inside_en_dev`).
+- В панели PlatformIO выберите нужное окружение (например `esp32c6_inside_en_debug`).
 - Нажмите **Build** для компиляции и **Upload** для прошивки.
 
 #### 2.2. Из командной строки
@@ -500,18 +502,18 @@ pio device monitor
 Из корня проекта:
 
 ```bash
-# Собрать Insight EN dev
-pio run -e esp32c6_inside_en_dev
+# Собрать Insight EN debug
+pio run -e esp32c6_inside_en_debug
 
-# Собрать и прошить Insight EN dev
-pio run -e esp32c6_inside_en_dev -t upload
+# Собрать и прошить Insight EN debug
+pio run -e esp32c6_inside_en_debug -t upload
 
-# Собрать и прошить Insight RU dev
-pio run -e esp32c6_inside_ru_dev -t upload
+# Собрать и прошить Insight RU debug
+pio run -e esp32c6_inside_ru_debug -t upload
 
-# Аналогично для Urban EN/RU dev
-pio run -e esp32c6_urban_en_dev -t upload
-pio run -e esp32c6_urban_ru_dev -t upload
+# Аналогично для Urban EN/RU debug
+pio run -e esp32c6_urban_en_debug -t upload
+pio run -e esp32c6_urban_ru_debug -t upload
 ```
 
 ### 3. Логирование через serial
@@ -520,7 +522,7 @@ pio run -e esp32c6_urban_ru_dev -t upload
 
 - `[INFO]` – общая информация
 - `[ERROR]` – ошибки и сбои
-- `[DEBUG]` – подробная информация (только в `_dev` сборках)
+- `[DEBUG]` – подробная информация (только в `_debug` сборках)
 
 Каждая строка содержит метку времени в миллисекундах (с момента загрузки). Пример вывода см. в разделе «Быстрый старт» выше.
 
@@ -657,11 +659,11 @@ rssi: -65
 
 ### 6. Отладка через PlatformIO (JTAG)
 
-ESP32‑C6 имеет **встроенный USB JTAG отладчик** — внешний адаптер не нужен. `_dev`‑окружения уже настроены для его использования.
+ESP32‑C6 имеет **встроенный USB JTAG отладчик** — внешний адаптер не нужен. `_debug`‑окружения уже настроены для его использования.
 
 #### 6.1. Конфигурация отладки в platformio.ini
 
-`_dev`‑окружения включают следующие опции ([документация PlatformIO Debugging](https://docs.platformio.org/en/latest/plus/debugging.html)):
+`_debug`‑окружения включают следующие опции ([документация PlatformIO Debugging](https://docs.platformio.org/en/latest/plus/debugging.html)):
 
 ```ini
 build_type = debug
@@ -681,7 +683,7 @@ debug_init_break = tbreak setup ; Остановиться на setup() при �
 
 **Из VS Code:**
 
-1. Выберите `_dev`‑окружение в боковой панели PlatformIO (например `esp32c6_inside_en_dev`).
+1. Выберите `_debug`‑окружение в боковой панели PlatformIO (например `esp32c6_inside_en_debug`).
 2. Нажмите иконку **Debug** на боковой панели, или **F5**, или **Run** → **Start Debugging**.
 3. PlatformIO автоматически соберёт, прошьёт и запустит GDB.
 
@@ -689,11 +691,11 @@ debug_init_break = tbreak setup ; Остановиться на setup() при �
 
 ```bash
 # Запустить отладку
-pio debug -e esp32c6_inside_en_dev
+pio debug -e esp32c6_inside_en_debug
 
 # Или сначала собрать, потом отлаживать
-pio run -e esp32c6_inside_en_dev
-pio debug -e esp32c6_inside_en_dev --interface=gdb
+pio run -e esp32c6_inside_en_debug
+pio debug -e esp32c6_inside_en_debug --interface=gdb
 ```
 
 #### 6.3. Доступные функции отладки
@@ -724,14 +726,14 @@ upload_protocol = esp-prog
 #### 6.5. Решение проблем с отладкой
 
 - **«No debug adapter found»** — убедитесь, что USB‑кабель поддерживает передачу данных (не только зарядка). Попробуйте другой USB‑порт.
-- **Точки останова не срабатывают** — убедитесь, что используете `_dev`‑окружение с `build_type = debug`.
+- **Точки останова не срабатывают** — убедитесь, что используете `_debug`‑окружение с `build_type = debug`.
 - **Отладка медленная** — добавьте `debug_speed = 5000` в platformio.ini для увеличения скорости JTAG.
 
 ### 7. Типичные сценарии отладки
 
 #### 7.1. Расследование зависаний экрана на Insight
 
-1. Прошейте `_dev` сборку Insight (например `esp32c6_inside_en_dev`).
+1. Прошейте `_debug` сборку Insight (например `esp32c6_inside_en_debug`).
 2. Дайте устройству поработать как обычно, с вставленной SD‑картой.
 3. Когда заметите зависание экрана:
    - По возможности **не** отключайте питание сразу; сначала проверьте, работают ли светодиоды / сеть.
@@ -745,7 +747,7 @@ upload_protocol = esp-prog
 
 #### 7.2. Расследование отсутствия данных Urban или проблем обнаружения
 
-1. Используйте `_dev` сборку Urban или Insight.
+1. Используйте `_debug` сборку Urban или Insight.
 2. Ищите строки с `HTTPAltruistSensor` в serial или SD логах:
    - Попытки переоткрытия.
    - Достижение максимума попыток обнаружения.
@@ -754,7 +756,7 @@ upload_protocol = esp-prog
 
 #### 7.3. Отслеживание утечек памяти или фрагментации
 
-1. Запустите `_dev` сборку Insight с включённым SD логированием.
+1. Запустите `_debug` сборку Insight с включённым SD логированием.
 2. Дайте устройству поработать несколько дней.
 3. Периодически проверяйте `/exceptions/runtime.log`:
    - Следите за серией `[MEM] Free heap bytes` во времени.
@@ -767,7 +769,7 @@ upload_protocol = esp-prog
 
 - Последний `/exceptions/runtime.log` (и `.1`, `.2` если есть).
 - Последние один‑два файла `/exceptions/boot_*.txt`.
-- Точное название окружения прошивки (например `esp32c6_inside_en_dev`).
+- Точное название окружения прошивки (например `esp32c6_inside_en_debug`).
 
 Приложите их к issue или поделитесь при обращении за помощью — обычно этого достаточно для быстрой диагностики.
 
@@ -778,11 +780,11 @@ upload_protocol = esp-prog
 ### Основные команды
 
 ```bash
-# Собрать dev‑прошивку
-pio run -e esp32c6_inside_en_dev
+# Собрать debug‑прошивку
+pio run -e esp32c6_inside_en_debug
 
 # Собрать и прошить
-pio run -e esp32c6_inside_en_dev -t upload
+pio run -e esp32c6_inside_en_debug -t upload
 
 # Смотреть serial‑логи (115200 бод)
 pio device monitor
@@ -794,10 +796,10 @@ pio device monitor | tee "debug_$(date +%Y%m%d_%H%M%S).log"
 while true; do pio device monitor | tee -a "debug_$(date +%Y%m%d).log"; sleep 2; done
 
 # Запустить JTAG‑отладчик из CLI
-pio debug -e esp32c6_inside_en_dev
+pio debug -e esp32c6_inside_en_debug
 
 # Очистить сборку (если что-то странное)
-pio run -e esp32c6_inside_en_dev -t clean
+pio run -e esp32c6_inside_en_debug -t clean
 ```
 
 ### Горячие клавиши VS Code
@@ -818,7 +820,7 @@ pio run -e esp32c6_inside_en_dev -t clean
 | --------- | -------------------------- | ----------------------------------------------- |
 | `[ERROR]` | `debug_outln_error(...)`   | Сбои, исключения                                |
 | `[INFO]`  | `debug_outln_info(...)`    | Обычные события                                 |
-| `[DEBUG]` | `debug_outln_verbose(...)` | Подробная трассировка (только в `_dev` сборках) |
+| `[DEBUG]` | `debug_outln_verbose(...)` | Подробная трассировка (только в `_debug` сборках) |
 
 ### Файлы логов на SD‑карте
 
