@@ -261,6 +261,7 @@ Build flags for debugging:
 - `-DDEBUG_ESP_PORT=Serial` — Enable ESP-IDF internal debug logs
 - `-DALTRUIST_BUILD_DEBUG` — Enable heavyweight development diagnostics
 - `-DALTRUIST_DEFAULT_LOG_LEVEL=4` — Enable verbose app-level `[DEBUG]` log messages by default
+- `NDEBUG` is intentionally omitted so assertions and debug-only library paths remain available
 
 #### 6.2. Starting a debug session
 
@@ -678,6 +679,7 @@ debug_init_break = tbreak setup ; Остановиться на setup() при �
 - `-DDEBUG_ESP_PORT=Serial` — внутренние отладочные логи ESP-IDF
 - `-DALTRUIST_BUILD_DEBUG` — тяжёлая диагностическая функциональность
 - `-DALTRUIST_DEFAULT_LOG_LEVEL=4` — подробные `[DEBUG]` сообщения приложения по умолчанию
+- `NDEBUG` намеренно не задаётся, чтобы сохранялись проверки `assert` и отладочные пути библиотек
 
 #### 6.2. Запуск сеанса отладки
 
