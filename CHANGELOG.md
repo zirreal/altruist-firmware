@@ -27,6 +27,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Dedicated debug environments** — Technical ESP32-C6 Urban and Insight debug builds now use explicit `*_debug` environments with JTAG, debug symbols, and elevated runtime logging, without Testing-channel flags or publishable webflasher artifacts.
 - **Build profile inheritance** — PlatformIO environments now inherit shared platform, hardware, model, language, and debug settings; `NDEBUG` is applied only to release builds and is absent from technical debug builds.
 - **Explicit CI channel selection** — CI now injects the Testing channel, UART health telemetry, and source commit into normal release environments instead of encoding the channel in PlatformIO environment names.
+- **Channel-aware firmware artifacts** — Build outputs now use explicit environment metadata and generate distinct Stable and Testing filenames, with temporary `_dev` and `_beta` compatibility aliases where required.
 
 ### Bug Fixes
 

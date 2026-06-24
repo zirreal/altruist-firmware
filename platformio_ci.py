@@ -19,8 +19,10 @@ def _read_boolean_env(name):
 
 
 defines = []
+testing_channel = _read_boolean_env("ALTRUIST_CHANNEL_TESTING")
+env["ALTRUIST_ARTIFACT_CHANNEL"] = "testing" if testing_channel else "stable"
 
-if _read_boolean_env("ALTRUIST_CHANNEL_TESTING"):
+if testing_channel:
     defines.append("ALTRUIST_CHANNEL_TESTING")
 
 if _read_boolean_env("ALTRUIST_HEALTH_TELEMETRY"):

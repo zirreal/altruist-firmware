@@ -67,7 +67,9 @@ Flash:
 pio run -e esp32c6_urban_en --target upload
 ```
 
-Available environments: `esp32c6_urban_en`, `esp32c6_urban_ru`, `esp32c6_inside_en`, `esp32c6_inside_ru` (plus `_dev` variants with debug output).
+Available release environments: `esp32c3_urban_en`, `esp32c3_urban_ru`, `esp32c6_urban_en`, `esp32c6_urban_ru`, `esp32c6_inside_en`, and `esp32c6_inside_ru`. ESP32-C6 technical debug environments use the `_debug` suffix and do not produce publishable firmware artifacts.
+
+Release builds produce channel-aware files in `builds/`: Stable uses names such as `latest32c6urb_en.bin`, while Testing uses `latest32c6urb_en_testing.bin`. During the webflasher transition, Testing builds also produce matching `_dev.bin` aliases. English builds retain the legacy `_beta.bin` alias until channel-aware OTA replaces it.
 
 ## Configuration
 
