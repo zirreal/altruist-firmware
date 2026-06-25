@@ -104,7 +104,7 @@ String normalizeFingerprint(String value) {
 }
 
 bool shouldRegisterDevices() {
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 	if (!cfg::standalone && cfg::rws_group_mode != RWS_GROUP_MASTER) {
 		return false;
 	}

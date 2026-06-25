@@ -20,7 +20,7 @@
 
 extern Robonomics robonomics;
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #include <ESPmDNS.h>
 #include "display/display_manager.h"
 extern DisplayManager displayManager;
@@ -114,7 +114,7 @@ void SensorWebServer::setup() {
 	server.on(F(STATIC_PREFIX), std::bind(&SensorWebServer::_webserver_static, this)); // x
 	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
 	server.on(F("/group"), std::bind(&SensorWebServer::_webserver_group, this));
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	server.on(F("/screen"), std::bind(&SensorWebServer::_webserver_screen, this));
 	server.on(F("/select_urban"), std::bind(&SensorWebServer::_webserver_select_urban, this));
 	server.on(F("/scan_urbans"), std::bind(&SensorWebServer::_webserver_scan_urbans, this));
@@ -300,7 +300,7 @@ void SensorWebServer::_webserver_group() {
 	end_html_page(page_content);
 }
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 void SensorWebServer::_webserver_screen() {
 	if (WiFi.status() != WL_CONNECTED) {
 		sendHttpRedirectGuest();
@@ -404,7 +404,7 @@ void SensorWebServer::_webserver_guest() {
 				debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
 				debug_outln_info(F("STA IP: "), address);
 				page_content = "<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>";
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 				const unsigned insightAutoSec = (unsigned)(INSIGHT_GUEST_AUTO_FINISH_MS / 1000UL);
 				page_content += F("<div class='guest__setup-finish' style='margin:16px auto;max-width:480px;'>");
 				page_content += F("<div class='guest__setup-header'>"
@@ -489,13 +489,13 @@ void SensorWebServer::_webserver_guest() {
 								"<p class='guest__reboot'>Failed to connect to: ");
 				page_content += cfg::wlanssid;
 				page_content += F("</p>");
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 				page_content += F("<p class='guest__reboot'>Rebooting to WiFi setup… You can close this page and try again.</p>");
 #else
 				page_content += F("<p class='guest__reboot'>Check SSID and password, then try again.</p>");
 #endif
 				server.sendContent(page_content);
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 				if (writeConfig()) {
 					set_restart_reason(RESTART_REASON_CONFIG);
 					sensor_restart();
@@ -513,7 +513,7 @@ void SensorWebServer::setWifiInfo(struct_wifiInfo* info, uint8_t count) {
     wifiInfoCount = count;
 }
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 void SensorWebServer::_webserver_scan_urbans() {
 	debug_outln_info(F("ws: scan_urbans ..."));
 	String json = "[";
@@ -611,7 +611,7 @@ void SensorWebServer::_webserver_select_urban() {
 		sendHttpRedirectGuest();
 		return;
 	}
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	insightGuestClearFinishPending();
 #endif
 
@@ -824,7 +824,7 @@ void SensorWebServer::_webserver_config() {
 		if (server.method() == HTTP_GET) {
 			webserver_config_send_body_get(server, page_content, wificonfig_loop, sensors_data);
 		} else {
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 			const bool prev_use_custom_urban = cfg::use_custom_urban;
 			const String prev_custom_urban_ip = String(cfg::custom_altruist_urban);
 			const String prev_chosen_urban_ip = String(cfg::chosen_altruist_urban);
@@ -832,7 +832,7 @@ void SensorWebServer::_webserver_config() {
 #endif
 			webserver_config_send_body_post(server);
 			rwsOnConfigOwnerUpdated(robonomics_address);
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 			if (!prev_standalone && cfg::standalone) {
 				cfgApplyStandaloneModeEnabled();
 			} else if (prev_standalone && !cfg::standalone) {

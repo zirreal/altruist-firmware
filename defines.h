@@ -3,12 +3,20 @@
 
 #include <stdint.h>
 
+// Temporary compatibility aliases. New code must use ALTRUIST_INSIGHT.
+#if defined(ALTRUIST_INSIDE) && !defined(ALTRUIST_INSIGHT)
+#define ALTRUIST_INSIGHT
+#endif
+#if defined(ALTRUIST_INSIGHT) && !defined(ALTRUIST_INSIDE)
+#define ALTRUIST_INSIDE
+#endif
+
 #define DEVICE_MODEL_MDNS_PROPERTY "device_model"
 #define DEVICE_MODEL_INSIGHT "insight"
 #define DEVICE_MODEL_URBAN "urban"
 
 // increment on change
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 #define SOFTWARE_VERSION_BASE "R-INS_2026-06.1"
 #define PM_SENSOR_NAME "Altruist Insight"
 #define DEVICE_MODEL DEVICE_MODEL_INSIGHT
@@ -274,7 +282,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 #define I2S_PIN_DIN      11
 #define I2S_PIN_DOUT     -1
 #endif
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #define I2S_PIN_BCLK     -1
 #define I2S_PIN_WS       -1
 #define I2S_PIN_DIN      -1
@@ -283,7 +291,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // I2C pins
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 // #define SDA_I2C_PIN 19
 // #define SCL_I2C_PIN 18
 #ifdef PRE
@@ -293,7 +301,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 #define SDA_I2C_PIN 19
 #define SCL_I2C_PIN 18
 #endif //PRE
-#endif //ALTRUIST_INSIDE
+#endif // ALTRUIST_INSIGHT
 #ifdef ALTRUIST_URBAN
 #define SDA_I2C_PIN 3
 #define SCL_I2C_PIN 2
@@ -301,7 +309,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // PM Serial
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #define PM_SERIAL_RX -1
 #define PM_SERIAL_TX -1
 #endif
@@ -313,7 +321,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // SPI SD Card pins
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #ifdef PRE
 #define SPI_SCK_PIN 5
 #define SPI_MISO_PIN 18
@@ -329,7 +337,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // Display
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #ifdef PRE
 #define EPD_SCK_PIN  21
 #define EPD_MOSI_PIN 20
@@ -349,7 +357,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // Buttons
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #ifdef PRE
 #define BTN_DOWN_PIN 0
 #define BTN_SET_PIN 1
@@ -377,7 +385,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // Led pin
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 // #define LED_PIN -1
 #define LED_PIN 11
 #endif

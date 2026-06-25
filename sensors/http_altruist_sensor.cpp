@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "http_altruist_sensor.h"
 #include "../utils.h"

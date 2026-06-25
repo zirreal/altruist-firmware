@@ -28,7 +28,7 @@
 # THE SOFTWARE.
 #
 ******************************************************************************/
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #ifdef DISPLAY_4IN2
 
 #include "EPD_4in2_SSD1683.h"

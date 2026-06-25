@@ -24,7 +24,7 @@ static String buildFirmwarePath() {
 	}
 	language.toLowerCase();
 
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 	String path(F("/latest32c6ins_"));
 #elif defined(ALTRUIST_URBAN) && defined(CONFIG_IDF_TARGET_ESP32C3)
 	String path(F("/latest32c3_"));

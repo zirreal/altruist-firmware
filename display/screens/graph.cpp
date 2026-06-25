@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "../paint_driver/graphPainter.h"
 #include "graph.h"

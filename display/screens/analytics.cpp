@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "analytics.h"
 #include "../driver/EPD.h"

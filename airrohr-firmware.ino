@@ -104,10 +104,10 @@
 #if defined(USE_SD_CARD)
 #include "sd_card/sd_card.h"
 #endif
-#if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
+#if defined(ALTRUIST_INSIGHT) || defined(ALTRUIST_URBAN_HW_UI)
 #include "buttons/button_manager.h"
 #endif
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 #include "display/display_manager.h"
 #include "leds/leds_controller_insight.h"
 #endif
@@ -132,10 +132,10 @@ device_status_t deviceStatus;
 SDCard sdCardLogger;
 #endif
 
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 DisplayManager displayManager(sensors_data, deviceStatus, mutex);
 #endif
-#if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
+#if defined(ALTRUIST_INSIGHT) || defined(ALTRUIST_URBAN_HW_UI)
 ButtonManager button_manager;
 button_pressed_t btn_press;
 #endif
@@ -149,7 +149,7 @@ static volatile unsigned long urban_datalog_result_until_ms = 0;
 /** After power-on hard-reset hold: ignore GPIO7 until the button is released. */
 static bool urban_reset_suppress_runtime_until_release = false;
 #endif
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 LedControllerInsight leds_controller_insight(sensors_data, mutex);
 #endif
 
@@ -279,7 +279,7 @@ static void checkSystemWatchdogs() {
 	}
 	if (main_loop_last_ms != 0 &&
 	    msSince(main_loop_last_ms) > MAIN_LOOP_STALL_WATCHDOG_MS) {
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 		watchdogReboot(F("[Watchdog] Main loop stall; rebooting"),
 		               CRASH_SECTION_DISPLAY_UPDATE);
 #else
@@ -298,7 +298,7 @@ void watchdogWorker(void *pvParameters) {
 	}
 }
 
-#if defined(USE_SD_CARD) && defined(ALTRUIST_INSIDE)
+#if defined(USE_SD_CARD) && defined(ALTRUIST_INSIGHT)
 // Write a boot diagnostic file to SD card with crash context from NVS
 void writeBootFile() {
 	if (!deviceStatus.sd_card_connected) return;
@@ -467,7 +467,7 @@ static void sdRetentionWorker(void *pvParameters) {
 		}
 	}
 }
-#endif // USE_SD_CARD && ALTRUIST_INSIDE
+#endif // USE_SD_CARD && ALTRUIST_INSIGHT
 
 /*****************************************************************
  * Variables for Robonomics                                      *
@@ -483,7 +483,7 @@ static void powerOnTestSensors() {
 	debug_outln_info(F("Current reg: "), cfg::current_reg);
 
 	for (int i = 0; i < sizeof(supported_sensor_names) / sizeof(supported_sensor_names[0]); i++) {
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 		if (cfg::standalone && supported_sensor_names[i] == HTTP_ALTRUIST_SENSOR_NAME) {
 			debug_outln_info(F("Skipping Urban HTTP sensor (standalone mode)"));
 			continue;
@@ -587,7 +587,7 @@ static void setupNetworkTime() {
 }
 
 static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &doc, analytics_screen_values_t &values) {
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 	values = analytics_screen_values_t{};
 	JsonObjectConst data = doc.as<JsonObjectConst>();
 	const String urban_key = ATRUIST_URBAN_SENSOR;
@@ -700,14 +700,14 @@ bool fetchSensors() {
 
 void sensorAndAPIWorker(void *pvParameters) {
 	int reconnected = 0;
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 	analytics_screen_values_t analytics_rollup_values;
 #endif
 	static bool prev_sta_connected = false;
 		for (;;) {  // infinite loop
 		sensor_worker_loop_started_ms = millis();
 		if (wifiTakeUserPortalRequest()) {
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 			displayManager.setScreen(ScreenPage::SETUP);
 			displayManager.process(btn_press);
 #endif
@@ -792,7 +792,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 		// Mark that we're about to fetch sensor data
 		markCrashSection(CRASH_SECTION_FETCH_SENSORS);
 		const bool sensors_updated = fetchSensors();
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 		// Keep analytics history collection independent from Analytics screen rendering.
 		if (xSemaphoreTake(mutex, pdMS_TO_TICKS(200))) {
 			extractAnalyticsRollupValuesFromSensors(sensors_data, analytics_rollup_values);
@@ -808,7 +808,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 		for (int i = 0; i < ActiveAPIsCount; i++) {
 			if (activeAPIs[i]->isTimeToSend()) {
 			#if defined(ALTRUIST_BUILD_DEBUG)
-			#if defined(ALTRUIST_INSIDE)
+			#if defined(ALTRUIST_INSIGHT)
 			Serial.printf("[INSIGHT] WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
 			#elif defined(ALTRUIST_URBAN)
 			Serial.printf("[URBAN] WiFi status connected: %d, reconnected: %d\r\n", WiFi.status() == WL_CONNECTED, reconnected);
@@ -890,7 +890,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 
 
 			#if defined(ALTRUIST_BUILD_DEBUG)
-			#if defined(ALTRUIST_INSIDE)
+			#if defined(ALTRUIST_INSIGHT)
 			Serial.println(F("[INSIGHT] Device Status:"));
 			#elif defined(ALTRUIST_URBAN)
 			Serial.println(F("[URBAN] Device Status:"));
@@ -974,14 +974,14 @@ void ledsWorker(void *pvParameters) {
 		}
 		leds_controller_urban.process();
 #endif
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 		leds_controller_insight.process();
 #endif
 		markCrashSection(CRASH_SECTION_IDLE);
 	}
 }
 
-#if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
+#if defined(ALTRUIST_INSIGHT) || defined(ALTRUIST_URBAN_HW_UI)
 void buttonsWorker(void *pvParameters) {
 #ifdef ALTRUIST_URBAN_HW_UI
 	static bool reset_pressed = false;
@@ -1049,7 +1049,7 @@ void buttonsWorker(void *pvParameters) {
 			btn_press.double_long = res.double_long;
 			btn_press.second_button_num = res.second_button_num;
 			btn_press.pressed = true;
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 			if (btn_press.double_long) {
 				debug_outln_info(F("[WiFi] Insight SET+DOWN long: wipe Wi-Fi, show cleared + restart, then setup AP"));
 				removeWiFiCredentials();
@@ -1066,7 +1066,7 @@ void buttonsWorker(void *pvParameters) {
 		}
 	}
 }
-#endif // ALTRUIST_INSIDE || ALTRUIST_URBAN_HW_UI
+#endif // ALTRUIST_INSIGHT || ALTRUIST_URBAN_HW_UI
 
 #if defined(ALTRUIST_BUILD_DEBUG) || defined(ALTRUIST_HEALTH_TELEMETRY)
 void metricsWorker(void *pvParameters) {
@@ -1132,14 +1132,14 @@ void metricsWorker(void *pvParameters) {
 
 
 void setup(void) {
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	bool insight_sta_join_started_early = false;
 #endif
 	delay(300);
 	Serial.begin(115200);
 	delay(500);
 	#if defined(ALTRUIST_BUILD_DEBUG)
-	#if defined(ALTRUIST_INSIDE)
+	#if defined(ALTRUIST_INSIGHT)
 	Serial.println(F("[INSIGHT] Start setup"));
 	#elif defined(ALTRUIST_URBAN)
 	Serial.println(F("[URBAN] Start setup"));
@@ -1165,11 +1165,11 @@ void setup(void) {
 	improv_start_announce(20);
 
 	// If button(s) pressed while turning on, factory-reset configuration (Insight / Urban C6 HW).
-#if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
+#if defined(ALTRUIST_INSIGHT) || defined(ALTRUIST_URBAN_HW_UI)
 #ifdef ALTRUIST_URBAN_HW_UI
 	leds_controller_urban.init();
 #endif
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	leds_controller_insight.init();
 #endif
 	bool reset_needed = false;
@@ -1192,7 +1192,7 @@ void setup(void) {
 		}
 	}
 #endif
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	button_manager.init();
 	reset_needed = true;
 	for (int i = 0; i < 5; i++) {
@@ -1202,7 +1202,7 @@ void setup(void) {
 		delay(10);
 	}
 #endif
-#if defined(ALTRUIST_URBAN_HW_UI) && !defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_URBAN_HW_UI) && !defined(ALTRUIST_INSIGHT)
 	button_manager.init();
 #endif
 	if (reset_needed) {
@@ -1215,7 +1215,7 @@ void setup(void) {
 	}
 #endif
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	DEV_Module_Init();
 	displayManager.setup();
 	displayManager.setScreen(ScreenPage::LOADING);
@@ -1231,7 +1231,7 @@ void setup(void) {
 	
 	// Initialize metrics (load boot counter, etc.) - works for both Urban and Insight
 	#if defined(ALTRUIST_BUILD_DEBUG)
-	#if defined(ALTRUIST_INSIDE)
+	#if defined(ALTRUIST_INSIGHT)
 	Serial.print(F("[INSIGHT][Setup] Initializing metrics system...\r\n"));
 	#elif defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] Initializing metrics system...\r\n"));
@@ -1241,7 +1241,7 @@ void setup(void) {
 	delay(10);
 	initMetrics();
 	#if defined(ALTRUIST_BUILD_DEBUG)
-	#if defined(ALTRUIST_INSIDE)
+	#if defined(ALTRUIST_INSIGHT)
 	Serial.print(F("[INSIGHT][Setup] Metrics initialized. Boot counter: "));
 	#elif defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] Metrics initialized. Boot counter: "));
@@ -1256,7 +1256,7 @@ void setup(void) {
 	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] Initializing ESP temperature sensor...\r\n"));
-	#elif defined(ALTRUIST_INSIDE)
+	#elif defined(ALTRUIST_INSIGHT)
 	Serial.print(F("[INSIGHT][Setup] Initializing ESP temperature sensor...\r\n"));
 	#endif
 	Serial.flush();
@@ -1266,7 +1266,7 @@ void setup(void) {
 	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] ESP temperature sensor initialized\r\n"));
-	#elif defined(ALTRUIST_INSIDE)
+	#elif defined(ALTRUIST_INSIGHT)
 	Serial.print(F("[INSIGHT][Setup] ESP temperature sensor initialized\r\n"));
 	#endif
 	#endif
@@ -1293,7 +1293,7 @@ void setup(void) {
 #endif
 	// Sync config language with actual compiled firmware language.
 	// Covers: USB reflash with different locale, failed OTA language switch.
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	if (wifiHasSavedStationCredentials()) {
 		debug_outln_info(F("[WiFi] Insight: early STA join (parallel with display / rest of setup)"));
 		wifiStaBeginStationJoin();
@@ -1306,14 +1306,14 @@ void setup(void) {
 	}
 	setupEnabledAPIs();
 	webserver.setRobonomicsAddress(robonomics.getSs58Address());
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	displayManager.setRobonomicsAddress(robonomics.getSs58Address());
 	if (strcmp(cfg::wlanssid, WLANSSID) != 0) {
 		displayManager.setScreen(ScreenPage::CONNECTING);
 		displayManager.process(btn_press);
 	}
 #endif
-#if defined(ALTRUIST_INSIDE) || defined(ALTRUIST_URBAN_HW_UI)
+#if defined(ALTRUIST_INSIGHT) || defined(ALTRUIST_URBAN_HW_UI)
 	// Create button worker task BEFORE wifiConfig so buttons work during WiFi setup
 	xTaskCreatePinnedToCore(
 		buttonsWorker,  // task function
@@ -1333,13 +1333,13 @@ void setup(void) {
 		// Insight: SETUP e-ink is drawn inside wifiConfig() after AP + captive portal are up (same idea as Urban: RF first).
 		wifiConfig(webserver);
 	} else {
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 		const bool sta_ok = connectWifi(webserver, insight_sta_join_started_early);
 #else
 		const bool sta_ok = connectWifi(webserver);
 #endif
 		if (!sta_ok) {
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 			// Insight: wrong password / unreachable SSID must not leave the device "running" without
 			// a working STA — same as first-time setup, block in the captive portal until WiFi works
 			// (portal flow ends with sensor_restart() once association succeeds).
@@ -1367,7 +1367,7 @@ void setup(void) {
 
 	sensors_data["service_data"]["robonomics_address"] = robonomics.getSs58Address();
 	sensors_data["service_data"]["signal_strength"] = WiFi.RSSI();
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	// Pre-create Urban block at boot while the JSON document is still mostly empty.
 	// This avoids allocation failures later when Urban appears after Insight has
 	// already filled sensors_data with other keys.
@@ -1381,7 +1381,7 @@ void setup(void) {
 	debug_outln_info(F("Active Sensors count: "), activeSensorsCount);
 
 	#if defined(ALTRUIST_BUILD_DEBUG)
-	#if defined(ALTRUIST_INSIDE)
+	#if defined(ALTRUIST_INSIGHT)
 	Serial.print(F("[INSIGHT] Sensors: "));
 	#elif defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN] Sensors: "));
@@ -1403,7 +1403,7 @@ void setup(void) {
 	}
 #endif
 
-#if defined(USE_SD_CARD) && defined(ALTRUIST_INSIDE)
+#if defined(USE_SD_CARD) && defined(ALTRUIST_INSIGHT)
 	// Write boot diagnostic file immediately after SD init - captures RTC crash context
 	writeBootFile();
 
@@ -1433,11 +1433,11 @@ void setup(void) {
 		0
 	);
 #endif // ALTRUIST_BUILD_DEBUG
-#endif // USE_SD_CARD && ALTRUIST_INSIDE
+#endif // USE_SD_CARD && ALTRUIST_INSIGHT
 	fetchSensors();
 	deviceStatus.ip_address = WiFi.localIP().toString();
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	// First MAIN + LEDs after a real sensor read (avoids empty metrics).
 	// Draw LEDs before the long e-paper MAIN refresh: EPD update blocks loop() for seconds.
 	// would otherwise miss the 100 ms timeout and stay dark until scheduleNextLedRefresh.
@@ -1486,7 +1486,7 @@ void setup(void) {
 	// Keep health telemetry independent from heavyweight debug diagnostics.
 	#if defined(ALTRUIST_BUILD_DEBUG) || defined(ALTRUIST_HEALTH_TELEMETRY)
 	#if defined(ALTRUIST_BUILD_DEBUG)
-	#if defined(ALTRUIST_INSIDE)
+	#if defined(ALTRUIST_INSIGHT)
 	Serial.print(F("[INSIGHT][Setup] Creating metrics worker task...\r\n"));
 	#elif defined(ALTRUIST_URBAN)
 	Serial.print(F("[URBAN][Setup] Creating metrics worker task...\r\n"));
@@ -1511,7 +1511,7 @@ void setup(void) {
 	}
 	#if defined(ALTRUIST_BUILD_DEBUG)
 	else {
-		#if defined(ALTRUIST_INSIDE)
+		#if defined(ALTRUIST_INSIGHT)
 		Serial.print(F("[INSIGHT][Setup] Metrics worker task created successfully! Handle: 0x"));
 		#elif defined(ALTRUIST_URBAN)
 		Serial.print(F("[URBAN][Setup] Metrics worker task created successfully! Handle: 0x"));
@@ -1529,7 +1529,7 @@ void setup(void) {
 	// button_controller.init();
 }
 
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 void firmwareBlockingYieldHook(void) {
 	// EPD updates block loop() for seconds; service HTTP while the panel is busy.
 	if (!wifiIsConfigPortalRunning()) {
@@ -1546,7 +1546,7 @@ void loop(void) {
 		webserver.handleClient();
 	}
 	improv_serial_loop();
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 	markCrashSection(CRASH_SECTION_DISPLAY_UPDATE);
 	displayManager.process(btn_press);
 	markCrashSection(CRASH_SECTION_IDLE);

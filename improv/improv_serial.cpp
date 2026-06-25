@@ -140,7 +140,7 @@ static void improv_handle_rpc(const uint8_t* data, size_t len) {
     } else if (cmd == IMPROV_CMD_GET_DEVICE_INFO) {
         std::vector<String> info;
         info.push_back(F("Altruist"));
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
         info.push_back(F("Altruist-Insight"));
 #else
         info.push_back(F("Altruist-Urban"));

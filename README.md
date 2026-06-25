@@ -73,6 +73,10 @@ Release builds produce channel-aware files in `builds/`: Stable uses names such 
 
 Stable firmware keeps the base version (for example `R-URB_2026-06.1`). Testing firmware includes its source revision (for example `R-URB_2026-06.1-testing+7445b03`). The startup UART log and status page also expose the channel, source commit, device model, ESP target, language, and build profile.
 
+Insight builds use the `ALTRUIST_INSIGHT` compile-time flag. The previous
+`ALTRUIST_INSIDE` name remains available as a temporary compatibility alias;
+new code should use `ALTRUIST_INSIGHT`.
+
 OTA updates remain on the compile-time channel: Stable firmware requests the normal language artifact, while Testing firmware requests the corresponding `_testing.bin` artifact. Changing the runtime log level or legacy `use_beta` configuration cannot switch channels.
 
 GitHub Actions builds Stable release artifacts from `esp32`. The `esp32-dev` branch builds Testing release artifacts and compiles the technical Debug environments separately without publishing Debug binaries.

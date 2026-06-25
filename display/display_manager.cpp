@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "display_manager.h"
 #include "screens/screens.h"
@@ -718,4 +718,4 @@ draw_complete:
     }
 }
 
-#endif // ALTRUIST_INSIDE
+#endif // ALTRUIST_INSIGHT

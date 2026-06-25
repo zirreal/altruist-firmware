@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #include "display_common.h"
 #include "../paint_driver/GUI_Paint.h"

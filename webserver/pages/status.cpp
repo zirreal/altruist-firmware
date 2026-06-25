@@ -5,7 +5,7 @@
 #include "../../defines.h"
 #include "../html-content.h"
 #include "../../config_manager/config_helpers.h"
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #include "../../display/screens/analytics.h"
 #endif
 #include <HTTPClient.h>
@@ -68,7 +68,7 @@ void webserver_status_part1(String &page_content, device_status_t &deviceStatus)
 	add_table_row_from_value(page_content, FPSTR(INTL_IP_ADDRESS), deviceStatus.ip_address);
 	add_table_row_from_value(page_content, FPSTR(INTL_SD_CONNECTED), deviceStatus.sd_card_connected ? "YES" : "NO");
 	add_table_row_from_value(page_content, FPSTR(INTL_FREE_RAM), String(ESP.getFreeHeap()));
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	add_table_row_from_value(page_content, "Analytics history persistence", analyticsHistoryPersistenceEnabled() ? "ENABLED" : "DISABLED");
 	add_table_row_from_value(page_content, "Analytics history loaded", analyticsHistoryIsLoaded() ? "YES" : "NO");
 	add_table_row_from_value(page_content, "Analytics history has data", analyticsHistoryHasData() ? "YES" : "NO");

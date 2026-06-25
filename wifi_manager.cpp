@@ -11,7 +11,7 @@
 #include "utils.h"
 #include "config_manager/config_helpers.h"
 #include "wifi_info.h"
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #include "display/display_manager.h"
 #include "buttons/button_manager.h"
 extern DisplayManager displayManager;
@@ -350,7 +350,7 @@ void wifiConfig(SensorWebServer &webserver) {
 
 	webserver.setup();
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	// Full e-ink refresh is slow; defer until AP + DNS + webserver are ready so phones can associate sooner (closer to Urban).
 	displayManager.setScreen(ScreenPage::SETUP);
 	displayManager.process(btn_press);
@@ -363,7 +363,7 @@ void wifiConfig(SensorWebServer &webserver) {
 		dnsServer.processNextRequest();
 		webserver.handleClient();
 		improv_serial_loop();
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 		insightGuestProcessPendingFinish();
 		// Process display manager to handle button presses (e.g., sleep mode) even during WiFi config
 		displayManager.process(btn_press);
@@ -496,7 +496,7 @@ bool connectWifi(SensorWebServer &webserver, bool station_join_already_started) 
 
 	// Bounded wait on boot; if STA fails and credentials are saved, setup() skips AP and relies on runtime reconnect.
 	// 200 ms * N ≈ previous 500 ms * (N/2.5); first loop iteration checks immediately in waitForWifiToConnect.
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 	// Insight: ~10 s cap (50 * 200 ms), same order of magnitude as old 20 * 500 ms; worker reconnect handles slow DHCP.
 	waitForWifiToConnect(50, 200);
 #else
