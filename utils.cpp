@@ -228,7 +228,11 @@ String LoggingSerial::popLines()
 	return r;
 }
 
-#define debug_level_check(level) { if (level > cfg::debug) return; }
+unsigned int effectiveRuntimeLogLevel() {
+	return max(static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL), cfg::debug);
+}
+
+#define debug_level_check(level) { if (level > effectiveRuntimeLogLevel()) return; }
 
 void debug_out(const String& text, unsigned int level) {
 	debug_level_check(level); Debug.print(text); Serial.print(text);

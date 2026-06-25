@@ -1286,6 +1286,18 @@ void setup(void) {
 	);
 
 	init_config();
+#if defined(CORE_DEBUG_LEVEL)
+	constexpr unsigned int core_log_level = CORE_DEBUG_LEVEL;
+#else
+	constexpr unsigned int core_log_level = 0;
+#endif
+	Serial.printf(
+		"[LOG] runtime=%u configured=%u forced=%u core=%u\r\n",
+		effectiveRuntimeLogLevel(),
+		cfg::debug,
+		static_cast<unsigned int>(ALTRUIST_FORCE_LOG_LEVEL),
+		core_log_level
+	);
 	repairInconsistentRwsRegistrationState();
 #ifdef ALTRUIST_URBAN_HW_UI
 	leds_controller_urban.setMode(wifiHasSavedStationCredentials() ? LedMode::GREEN : LedMode::PROVISIONING);
