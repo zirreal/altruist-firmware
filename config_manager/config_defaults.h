@@ -46,7 +46,7 @@ namespace cfg {
 	extern bool send2csv;
 
 	extern bool auto_update;
-	extern bool use_beta;
+	extern bool use_beta;  // Legacy persisted key; ignored by channel-aware OTA.
 
 	// (in)active displays
 	extern bool has_display;

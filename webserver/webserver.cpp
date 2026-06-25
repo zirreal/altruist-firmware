@@ -756,6 +756,7 @@ void SensorWebServer::_webserver_ota() {
 
 		page_content += F("<table>");
 		add_table_row_from_value(page_content, FPSTR(INTL_OTA_CURRENT_VERSION), String(SOFTWARE_VERSION_STR));
+		add_table_row_from_value(page_content, "OTA channel", ALTRUIST_BUILD_CHANNEL);
 		add_table_row_from_value(page_content, FPSTR(INTL_LAST_OTA),
 			delayToString(millis() - deviceStatus.last_update_attempt));
 		page_content += FPSTR(TABLE_TAG_CLOSE_BR);

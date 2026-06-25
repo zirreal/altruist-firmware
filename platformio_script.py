@@ -74,8 +74,6 @@ def after_build(source, target, env):
     compatibility_names = []
     if channel == "testing":
         compatibility_names.append(f"{artifact_prefix}_{language}_dev.bin")
-    if language == "en":
-        compatibility_names.append(f"{artifact_prefix}_beta.bin")
 
     for compatibility_name in compatibility_names:
         _write_artifact(source_path, output_dir, compatibility_name, digest)

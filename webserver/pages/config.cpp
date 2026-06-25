@@ -508,7 +508,6 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<div class='panel-container'>");
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_FIRMWARE "</h3>");
 	add_form_checkbox(Config_auto_update, FPSTR(INTL_AUTO_UPDATE), true);
-	add_form_checkbox(Config_use_beta, FPSTR(INTL_USE_BETA), true);
 #ifdef ALTRUIST_INSIDE
 	add_form_checkbox(Config_standalone, FPSTR(INTL_INSIGHT_STANDALONE), true);
 #endif
@@ -522,7 +521,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<script>"
 	    "var $ = function(e) { return document.getElementById(e); };"
 	    "function updateOTAOptions() { "
-		"$('current_lang').disabled = $('use_beta').disabled = !$('auto_update').checked; "
+		"$('current_lang').disabled = !$('auto_update').checked; "
 		"}; updateOTAOptions(); $('auto_update').onchange = updateOTAOptions;"
 		"</script>");
 
@@ -595,5 +594,4 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	server.sendContent(page_content);
 	page_content = emptyString;
 }
-
 

@@ -48,9 +48,11 @@ void firmwareBlockingYieldHook(void);
 
 #if defined(ALTRUIST_CHANNEL_TESTING)
 #define ALTRUIST_BUILD_CHANNEL "testing"
+#define ALTRUIST_OTA_CHANNEL_SUFFIX "_testing"
 #define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE "-testing+" ALTRUIST_BUILD_COMMIT
 #else
 #define ALTRUIST_BUILD_CHANNEL "stable"
+#define ALTRUIST_OTA_CHANNEL_SUFFIX ""
 #define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE
 #endif
 
@@ -497,15 +499,11 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // MHZ19 CO2 sensor
 #define MHZ19_READ 0
 
-// Keep testing firmware on its explicitly selected channel until channel-aware
-// OTA artifact selection is implemented.
-#if defined(ALTRUIST_CHANNEL_TESTING)
-	#define AUTO_UPDATE 0
-#else
-	#define AUTO_UPDATE 1
-#endif
+// OTA stays on the compile-time firmware channel.
+#define AUTO_UPDATE 1
 
-// use beta firmware
+// Legacy config default. The saved value is retained for compatibility but no
+// longer selects the OTA channel.
 #define USE_BETA 0
 
 // OLED Display SSD1306 connected?
