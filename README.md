@@ -75,6 +75,8 @@ Stable firmware keeps the base version (for example `R-URB_2026-06.1`). Testing 
 
 OTA updates remain on the compile-time channel: Stable firmware requests the normal language artifact, while Testing firmware requests the corresponding `_testing.bin` artifact. Changing the runtime log level or legacy `use_beta` configuration cannot switch channels.
 
+GitHub Actions builds Stable release artifacts from `esp32`. The `esp32-dev` branch builds Testing release artifacts and compiles the technical Debug environments separately without publishing Debug binaries.
+
 ## Configuration
 
 On first boot (or after reset), the device starts in Access Point mode. Connect to its WiFi network and open the configuration page to set:

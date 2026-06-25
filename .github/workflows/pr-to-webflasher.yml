@@ -21,7 +21,7 @@ jobs:
       - name: Install PlatformIO
         run: pip install platformio
 
-      - name: Build release firmware (no _dev)
+      - name: Build Stable release firmware
         env:
           ALTRUIST_CHANNEL_TESTING: '0'
           ALTRUIST_HEALTH_TELEMETRY: '1'
@@ -37,7 +37,7 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           path: webflasher
 
-      - name: Update webflasher (release files only)
+      - name: Update webflasher Stable firmware
         env:
           BRANCH: ${{ github.ref_name }}
           SHA: ${{ github.sha }}
@@ -48,11 +48,8 @@ jobs:
           git config user.name "Altruist Actions"
           git config user.email "ci-automation@example.com"
 
-          # Replace only non-dev binaries + md5, keep *_dev intact
-          for f in ../builds/*.bin ../builds/*.md5; do
-            case "$f" in
-              *_dev.bin|*_dev.bin.md5|*_dev.md5) continue ;;
-            esac
+          # Stable builds generate only canonical channel files.
+          for f in ../builds/latest*.bin ../builds/latest*.bin.md5; do
             cp "$f" firmware/Altruist/
           done
 

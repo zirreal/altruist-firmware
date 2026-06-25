@@ -30,6 +30,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Channel-aware firmware artifacts** — Build outputs now use explicit environment metadata and generate distinct Stable and Testing filenames, with temporary `_dev` compatibility aliases for the existing webflasher manifests.
 - **Traceable firmware identity** — Testing versions now include the short source commit, while UART startup logs and the status page expose channel, commit, model, ESP target, language, and build profile.
 - **Channel-aware OTA updates** — Stable and Testing firmware now request artifacts from their own compile-time channel; the legacy runtime beta setting no longer changes OTA targets.
+- **Branch-aware firmware CI** — The `esp32` branch publishes Stable artifacts, while `esp32-dev` publishes Testing artifacts and runs technical Debug environments as compile-only checks.
 
 ### Bug Fixes
 
