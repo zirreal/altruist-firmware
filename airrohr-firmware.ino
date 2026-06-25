@@ -1274,6 +1274,16 @@ void setup(void) {
 	delay(10);
 
 	debug_outln_info(F("Altruist: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
+	Serial.printf(
+		"[BUILD] version=%s channel=%s commit=%s model=%s target=%s language=%s profile=%s\r\n",
+		SOFTWARE_VERSION_STR,
+		ALTRUIST_BUILD_CHANNEL,
+		ALTRUIST_BUILD_COMMIT,
+		ALTRUIST_BUILD_MODEL,
+		ALTRUIST_BUILD_TARGET,
+		ALTRUIST_BUILD_LANGUAGE,
+		ALTRUIST_BUILD_PROFILE
+	);
 
 	init_config();
 	repairInconsistentRwsRegistrationState();

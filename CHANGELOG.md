@@ -28,6 +28,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Build profile inheritance** — PlatformIO environments now inherit shared platform, hardware, model, language, and debug settings; `NDEBUG` is applied only to release builds and is absent from technical debug builds.
 - **Explicit CI channel selection** — CI now injects the Testing channel, UART health telemetry, and source commit into normal release environments instead of encoding the channel in PlatformIO environment names.
 - **Channel-aware firmware artifacts** — Build outputs now use explicit environment metadata and generate distinct Stable and Testing filenames, with temporary `_dev` and `_beta` compatibility aliases where required.
+- **Traceable firmware identity** — Testing versions now include the short source commit, while UART startup logs and the status page expose channel, commit, model, ESP target, language, and build profile.
 
 ### Bug Fixes
 

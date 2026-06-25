@@ -59,13 +59,13 @@ void webserver_status_part1(String &page_content, device_status_t &deviceStatus)
 	String versionHtml(SOFTWARE_VERSION_STR);
 	versionHtml.replace("/", FPSTR(BR_TAG));
 	add_table_row_from_value(page_content, FPSTR(INTL_FIRMWARE), versionHtml);
+	add_table_row_from_value(page_content, "Firmware channel", ALTRUIST_BUILD_CHANNEL);
+	add_table_row_from_value(page_content, "Source commit", ALTRUIST_BUILD_COMMIT);
+	add_table_row_from_value(page_content, "Device model", ALTRUIST_BUILD_MODEL);
+	add_table_row_from_value(page_content, "ESP target", ALTRUIST_BUILD_TARGET);
+	add_table_row_from_value(page_content, "Firmware language", ALTRUIST_BUILD_LANGUAGE);
+	add_table_row_from_value(page_content, "Build profile", ALTRUIST_BUILD_PROFILE);
 	add_table_row_from_value(page_content, FPSTR(INTL_IP_ADDRESS), deviceStatus.ip_address);
-#ifdef CONFIG_IDF_TARGET_ESP32C6
-	add_table_row_from_value(page_content, FPSTR(INTL_CHIP_TYPE), "esp32c6");
-#endif
-#ifdef CONFIG_IDF_TARGET_ESP32C3
-	add_table_row_from_value(page_content, FPSTR(INTL_CHIP_TYPE), "esp32c3");
-#endif
 	add_table_row_from_value(page_content, FPSTR(INTL_SD_CONNECTED), deviceStatus.sd_card_connected ? "YES" : "NO");
 	add_table_row_from_value(page_content, FPSTR(INTL_FREE_RAM), String(ESP.getFreeHeap()));
 #ifdef ALTRUIST_INSIDE

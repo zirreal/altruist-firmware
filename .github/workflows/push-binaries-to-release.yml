@@ -22,6 +22,10 @@ jobs:
         run: pip install platformio
 
       - name: Build firmware
+        env:
+          ALTRUIST_CHANNEL_TESTING: '0'
+          ALTRUIST_HEALTH_TELEMETRY: '1'
+          ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
           # Build only release binaries (no *_dev)

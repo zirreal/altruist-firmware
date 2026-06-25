@@ -71,6 +71,8 @@ Available release environments: `esp32c3_urban_en`, `esp32c3_urban_ru`, `esp32c6
 
 Release builds produce channel-aware files in `builds/`: Stable uses names such as `latest32c6urb_en.bin`, while Testing uses `latest32c6urb_en_testing.bin`. During the webflasher transition, Testing builds also produce matching `_dev.bin` aliases. English builds retain the legacy `_beta.bin` alias until channel-aware OTA replaces it.
 
+Stable firmware keeps the base version (for example `R-URB_2026-06.1`). Testing firmware includes its source revision (for example `R-URB_2026-06.1-testing+7445b03`). The startup UART log and status page also expose the channel, source commit, device model, ESP target, language, and build profile.
+
 ## Configuration
 
 On first boot (or after reset), the device starts in Access Point mode. Connect to its WiFi network and open the configuration page to set:

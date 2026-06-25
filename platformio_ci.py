@@ -18,7 +18,24 @@ def _read_boolean_env(name):
     raise ValueError(f"{name} must be a boolean value, got {value!r}")
 
 
-defines = []
+def _project_option(name):
+    value = env.GetProjectOption(name, "").strip().lower()
+    if not value:
+        raise ValueError(f"Missing required build metadata: {name}")
+    return value
+
+
+esp_target = _project_option("custom_esp_target")
+model = _project_option("custom_model")
+language = _project_option("custom_language")
+build_profile = env.GetBuildType()
+
+defines = [
+    ("ALTRUIST_BUILD_TARGET", env.StringifyMacro(esp_target)),
+    ("ALTRUIST_BUILD_MODEL", env.StringifyMacro(model)),
+    ("ALTRUIST_BUILD_LANGUAGE", env.StringifyMacro(language)),
+    ("ALTRUIST_BUILD_PROFILE", env.StringifyMacro(build_profile)),
+]
 testing_channel = _read_boolean_env("ALTRUIST_CHANNEL_TESTING")
 env["ALTRUIST_ARTIFACT_CHANNEL"] = "testing" if testing_channel else "stable"
 
@@ -34,12 +51,13 @@ if build_commit:
         raise ValueError(
             "ALTRUIST_BUILD_COMMIT must contain a 7-40 character hexadecimal SHA"
         )
-    defines.append(("ALTRUIST_BUILD_COMMIT", env.StringifyMacro(build_commit)))
+    defines.append(
+        ("ALTRUIST_BUILD_COMMIT", env.StringifyMacro(build_commit[:7].lower()))
+    )
 
-if defines:
-    env.Append(CPPDEFINES=defines)
-    define_names = [
-        item[0] if isinstance(item, tuple) else item
-        for item in defines
-    ]
-    print("Applied CI build defines:", ", ".join(define_names))
+env.Append(CPPDEFINES=defines)
+define_names = [
+    item[0] if isinstance(item, tuple) else item
+    for item in defines
+]
+print("Applied build metadata:", ", ".join(define_names))

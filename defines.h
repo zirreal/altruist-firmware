@@ -3,18 +3,54 @@
 
 #include <stdint.h>
 
+#define DEVICE_MODEL_MDNS_PROPERTY "device_model"
+#define DEVICE_MODEL_INSIGHT "insight"
+#define DEVICE_MODEL_URBAN "urban"
+
 // increment on change
 #if defined(ALTRUIST_INSIDE)
 #define SOFTWARE_VERSION_BASE "R-INS_2026-06.1"
 #define PM_SENSOR_NAME "Altruist Insight"
+#define DEVICE_MODEL DEVICE_MODEL_INSIGHT
+void firmwareBlockingYieldHook(void);
 #endif
 #if defined(ALTRUIST_URBAN)
 #define SOFTWARE_VERSION_BASE "R-URB_2026-06.1"
 #define PM_SENSOR_NAME "Altruist Urban"
+#define DEVICE_MODEL DEVICE_MODEL_URBAN
 #endif
-#if defined(ALTRUIST_CHANNEL_TESTING)
-#define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE "_testing"
+
+#ifndef ALTRUIST_BUILD_COMMIT
+#define ALTRUIST_BUILD_COMMIT "unknown"
+#endif
+#ifndef ALTRUIST_BUILD_MODEL
+#define ALTRUIST_BUILD_MODEL DEVICE_MODEL
+#endif
+#ifndef ALTRUIST_BUILD_TARGET
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+#define ALTRUIST_BUILD_TARGET "esp32c3"
+#elif defined(CONFIG_IDF_TARGET_ESP32C6)
+#define ALTRUIST_BUILD_TARGET "esp32c6"
 #else
+#define ALTRUIST_BUILD_TARGET "unknown"
+#endif
+#endif
+#ifndef ALTRUIST_BUILD_LANGUAGE
+#define ALTRUIST_BUILD_LANGUAGE "unknown"
+#endif
+#ifndef ALTRUIST_BUILD_PROFILE
+#if defined(ALTRUIST_BUILD_DEBUG)
+#define ALTRUIST_BUILD_PROFILE "debug"
+#else
+#define ALTRUIST_BUILD_PROFILE "release"
+#endif
+#endif
+
+#if defined(ALTRUIST_CHANNEL_TESTING)
+#define ALTRUIST_BUILD_CHANNEL "testing"
+#define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE "-testing+" ALTRUIST_BUILD_COMMIT
+#else
+#define ALTRUIST_BUILD_CHANNEL "stable"
 #define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE
 #endif
 
@@ -28,17 +64,6 @@
 #endif
 
 #define ATRUIST_URBAN_SENSOR "altruist_urban"
-
-#define DEVICE_MODEL_MDNS_PROPERTY "device_model"
-#define DEVICE_MODEL_INSIGHT "insight"
-#define DEVICE_MODEL_URBAN "urban"
-#if defined(ALTRUIST_INSIDE)
-#define DEVICE_MODEL DEVICE_MODEL_INSIGHT
-void firmwareBlockingYieldHook(void);
-#endif
-#if defined(ALTRUIST_URBAN)
-#define DEVICE_MODEL DEVICE_MODEL_URBAN
-#endif
 
 /** ESP32-C6 Urban: NeoPixel ring + reset button. Not defined on ESP32-C3 Urban (no LED/button HW). */
 #if defined(ALTRUIST_URBAN) && defined(ALTRUIST_URBAN_HW_UI)
@@ -118,6 +143,7 @@ void firmwareBlockingYieldHook(void);
  * - ALTRUIST_CHANNEL_TESTING identifies testing-channel firmware.
  * - ALTRUIST_HEALTH_TELEMETRY enables UART health telemetry.
  * - ALTRUIST_DEFAULT_LOG_LEVEL sets the initial cfg::debug value.
+ * - ALTRUIST_BUILD_* strings describe the source and build identity.
  */
 
 /******************************************************************
