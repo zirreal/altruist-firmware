@@ -72,7 +72,7 @@ pio run -e esp32c6_urban_en --target upload
 The PlatformIO environment and Git branch control different things:
 
 - **Environment** selects hardware, language, and build profile.
-- **Branch** selects the firmware publication and OTA channel.
+- **Branch** selects the firmware publication channel.
 
 | Selection | Result |
 | --------- | ------ |
@@ -82,8 +82,9 @@ The PlatformIO environment and Git branch control different things:
 | Branch `esp32-dev` or a feature branch | Testing channel |
 
 Only release builds are published to webflasher. Debug builds are intended for
-local diagnostics, stay on the Stable OTA channel, and do not create
-publishable artifacts.
+local diagnostics and do not create publishable artifacts. The Debug profile
+does not change the firmware channel: a Debug build on `esp32-dev` is still
+Testing firmware, just compiled with verbose diagnostics.
 
 ### Environments
 
@@ -124,7 +125,7 @@ Insight builds use the `ALTRUIST_INSIGHT` compile-time flag. The previous
 `ALTRUIST_INSIDE` name remains available as a temporary compatibility alias;
 new code should use `ALTRUIST_INSIGHT`.
 
-OTA updates remain on the compile-time channel: Stable firmware requests the normal language artifact, while Testing firmware requests the corresponding `_testing.bin` artifact. Changing the runtime log level or legacy `use_beta` configuration cannot switch channels.
+OTA updates are pinned to Stable artifacts for now: every firmware build requests the normal language artifact without the `_testing` suffix. Testing firmware is installed explicitly through webflasher or local flashing, and automatic OTA is disabled in Testing builds so devices do not immediately return to Stable. Manual `/ota` remains available as an explicit Stable rollback path. Changing the build profile, runtime log level, or legacy `use_beta` configuration cannot switch OTA away from Stable.
 
 ## Configuration
 

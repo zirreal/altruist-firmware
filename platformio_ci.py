@@ -58,12 +58,13 @@ configured_testing_channel = _read_optional_boolean_env(
     "ALTRUIST_CHANNEL_TESTING"
 )
 if configured_testing_channel is None:
-    testing_channel = build_profile != "debug" and git_branch != "esp32"
+    testing_channel = git_branch != "esp32"
     channel_source = "local branch default"
 else:
     testing_channel = configured_testing_channel
     channel_source = "ALTRUIST_CHANNEL_TESTING"
 
+firmware_channel = "testing" if testing_channel else "stable"
 env["ALTRUIST_ARTIFACT_CHANNEL"] = "testing" if testing_channel else "stable"
 
 if testing_channel:
@@ -99,7 +100,7 @@ env.Append(CPPDEFINES=defines)
 print("Altruist build:")
 print(f"  source: {channel_source}")
 print(f"  branch: {git_branch or 'detached/unknown'}")
-print(f"  channel: {'testing' if testing_channel else 'stable'}")
+print(f"  firmware channel: {firmware_channel}")
 print(f"  profile: {build_profile}")
 print(f"  health telemetry: {'enabled' if health_telemetry else 'disabled'}")
 print(f"  commit: {build_commit[:7].lower() if build_commit else 'unknown'}")

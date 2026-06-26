@@ -106,7 +106,6 @@ jobs:
 
       - name: Compile technical Debug firmware
         env:
-          ALTRUIST_CHANNEL_TESTING: '0'
           ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail

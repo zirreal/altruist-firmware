@@ -56,13 +56,17 @@ void firmwareBlockingYieldHook(void);
 
 #if defined(ALTRUIST_CHANNEL_TESTING)
 #define ALTRUIST_BUILD_CHANNEL "testing"
-#define ALTRUIST_OTA_CHANNEL_SUFFIX "_testing"
 #define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE "-testing+" ALTRUIST_BUILD_COMMIT
 #else
 #define ALTRUIST_BUILD_CHANNEL "stable"
-#define ALTRUIST_OTA_CHANNEL_SUFFIX ""
 #define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE
 #endif
+
+// OTA is intentionally pinned to Stable artifacts. Testing firmware can be
+// installed explicitly through webflasher/local builds, but OTA must not move
+// deployed devices onto Testing until channel switching is designed separately.
+#define ALTRUIST_OTA_SOURCE_CHANNEL "stable"
+#define ALTRUIST_OTA_CHANNEL_SUFFIX ""
 
 #if defined(ESP8266)
 #define SENSOR_BASENAME "esp8266-"
@@ -508,8 +512,15 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // MHZ19 CO2 sensor
 #define MHZ19_READ 0
 
-// OTA stays on the compile-time firmware channel.
+// Automatic OTA is allowed only for Stable firmware. Testing firmware can be
+// flashed explicitly, but must not replace itself with Stable unexpectedly.
+#if defined(ALTRUIST_CHANNEL_TESTING)
+#define ALTRUIST_AUTOMATIC_OTA_ALLOWED 0
+#define AUTO_UPDATE 0
+#else
+#define ALTRUIST_AUTOMATIC_OTA_ALLOWED 1
 #define AUTO_UPDATE 1
+#endif
 
 // Legacy config default. The saved value is retained for compatibility but no
 // longer selects the OTA channel.

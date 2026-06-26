@@ -244,13 +244,16 @@ bool downloadAndUpdate(const char* url, const String& expectedMD5, device_status
 }
 
 void twoStageOTAUpdate(device_status_t &deviceStatus, bool manual) {
-	if (!manual && !cfg::auto_update) return;
+	if (!manual) {
+		if (!ALTRUIST_AUTOMATIC_OTA_ALLOWED || !cfg::auto_update) return;
+	}
 
 	debug_outln_info(F("twoStageOTAUpdate"));
 	String fetch_name = buildFirmwarePath();
 	debug_outln_info(
-		F("OTA channel: "),
-		String(ALTRUIST_BUILD_CHANNEL) + F(", artifact: ") + fetch_name
+		F("OTA source: "),
+		String(ALTRUIST_OTA_SOURCE_CHANNEL) + F(", firmware channel: ") +
+			String(ALTRUIST_BUILD_CHANNEL) + F(", artifact: ") + fetch_name
 	);
 
 	WiFiClient client;
