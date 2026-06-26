@@ -67,19 +67,64 @@ Flash:
 pio run -e esp32c6_urban_en --target upload
 ```
 
-Available release environments: `esp32c3_urban_en`, `esp32c3_urban_ru`, `esp32c6_urban_en`, `esp32c6_urban_ru`, `esp32c6_inside_en`, and `esp32c6_inside_ru`. ESP32-C6 technical debug environments use the `_debug` suffix and do not produce publishable firmware artifacts.
+### Build Model
 
-Release builds produce channel-aware files in `builds/`: Stable uses names such as `latest32c6urb_en.bin`, while Testing uses `latest32c6urb_en_testing.bin`. During the webflasher transition, Testing builds also produce matching `_dev.bin` aliases.
+The PlatformIO environment and Git branch control different things:
 
-Stable firmware keeps the base version (for example `R-URB_2026-06.1`). Testing firmware includes its source revision (for example `R-URB_2026-06.1-testing+7445b03`). The startup UART log and status page also expose the channel, source commit, device model, ESP target, language, and build profile.
+- **Environment** selects hardware, language, and build profile.
+- **Branch** selects the firmware publication and OTA channel.
+
+| Selection | Result |
+| --------- | ------ |
+| Environment without `_debug` | Release profile with normal project logs |
+| Environment with `_debug` | Local Debug profile with verbose project and framework logs |
+| Branch `esp32` | Stable channel |
+| Branch `esp32-dev` or a feature branch | Testing channel |
+
+Only release builds are published to webflasher. Debug builds are intended for
+local diagnostics, stay on the Stable OTA channel, and do not create
+publishable artifacts.
+
+### Environments
+
+Release environments:
+
+- `esp32c3_urban_en`, `esp32c3_urban_ru`
+- `esp32c6_urban_en`, `esp32c6_urban_ru`
+- `esp32c6_inside_en`, `esp32c6_inside_ru`
+
+ESP32-C6 Debug environments use the same names with the `_debug` suffix. The
+legacy `inside` environment name builds Insight firmware.
+
+### Common Scenarios
+
+- On `esp32-dev`, build `esp32c6_urban_en` to test the same Testing release
+  profile that CI publishes to webflasher.
+- On `esp32`, build `esp32c6_urban_en` to reproduce a Stable release.
+- Use `esp32c6_urban_en_debug` only when verbose diagnostics or JTAG are needed.
+
+Local builds infer the channel from the branch, enable health telemetry, and
+read the source commit from Git. The build output prints the resolved branch,
+channel, profile, telemetry state, and commit before compilation.
+
+CI sets `ALTRUIST_CHANNEL_TESTING`, `ALTRUIST_HEALTH_TELEMETRY`, and
+`ALTRUIST_BUILD_COMMIT` explicitly, so published builds do not depend on local
+Git state. These variables can also override the automatic local defaults.
+
+Stable artifacts use names such as `latest32c6urb_en.bin`; Testing artifacts use
+`latest32c6urb_en_testing.bin`. During the transition, Testing builds also
+produce `_dev.bin` compatibility aliases.
+
+Stable firmware keeps the base version, for example `R-URB_2026-06.1`. Testing
+firmware includes its source revision, for example
+`R-URB_2026-06.1-testing+7445b03`. UART startup logs and the status page expose
+the channel, commit, model, target, language, and profile.
 
 Insight builds use the `ALTRUIST_INSIGHT` compile-time flag. The previous
 `ALTRUIST_INSIDE` name remains available as a temporary compatibility alias;
 new code should use `ALTRUIST_INSIGHT`.
 
 OTA updates remain on the compile-time channel: Stable firmware requests the normal language artifact, while Testing firmware requests the corresponding `_testing.bin` artifact. Changing the runtime log level or legacy `use_beta` configuration cannot switch channels.
-
-GitHub Actions builds Stable release artifacts from `esp32`. The `esp32-dev` branch builds Testing release artifacts and compiles the technical Debug environments separately without publishing Debug binaries.
 
 ## Configuration
 

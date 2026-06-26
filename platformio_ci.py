@@ -2,6 +2,7 @@ Import("env")
 
 import os
 import re
+import subprocess
 
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
@@ -9,8 +10,12 @@ _FALSE_VALUES = {"", "0", "false", "no", "off"}
 _COMMIT_PATTERN = re.compile(r"^[0-9a-fA-F]{7,40}$")
 
 
-def _read_boolean_env(name):
-    value = os.getenv(name, "").strip().lower()
+def _read_optional_boolean_env(name):
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return None
+
+    value = raw_value.strip().lower()
     if value in _TRUE_VALUES:
         return True
     if value in _FALSE_VALUES:
@@ -25,10 +30,23 @@ def _project_option(name):
     return value
 
 
+def _git_output(*args):
+    try:
+        return subprocess.check_output(
+            ["git", *args],
+            cwd=env.subst("$PROJECT_DIR"),
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+
+
 esp_target = _project_option("custom_esp_target")
 model = _project_option("custom_model")
 language = _project_option("custom_language")
 build_profile = env.GetBuildType()
+git_branch = _git_output("symbolic-ref", "--short", "HEAD")
 
 defines = [
     ("ALTRUIST_BUILD_TARGET", env.StringifyMacro(esp_target)),
@@ -36,16 +54,38 @@ defines = [
     ("ALTRUIST_BUILD_LANGUAGE", env.StringifyMacro(language)),
     ("ALTRUIST_BUILD_PROFILE", env.StringifyMacro(build_profile)),
 ]
-testing_channel = _read_boolean_env("ALTRUIST_CHANNEL_TESTING")
+configured_testing_channel = _read_optional_boolean_env(
+    "ALTRUIST_CHANNEL_TESTING"
+)
+if configured_testing_channel is None:
+    testing_channel = build_profile != "debug" and git_branch != "esp32"
+    channel_source = "local branch default"
+else:
+    testing_channel = configured_testing_channel
+    channel_source = "ALTRUIST_CHANNEL_TESTING"
+
 env["ALTRUIST_ARTIFACT_CHANNEL"] = "testing" if testing_channel else "stable"
 
 if testing_channel:
     defines.append("ALTRUIST_CHANNEL_TESTING")
 
-if _read_boolean_env("ALTRUIST_HEALTH_TELEMETRY"):
+configured_health_telemetry = _read_optional_boolean_env(
+    "ALTRUIST_HEALTH_TELEMETRY"
+)
+health_telemetry = (
+    True
+    if configured_health_telemetry is None
+    else configured_health_telemetry
+)
+if health_telemetry:
     defines.append("ALTRUIST_HEALTH_TELEMETRY")
 
 build_commit = os.getenv("ALTRUIST_BUILD_COMMIT", "").strip()
+commit_source = "ALTRUIST_BUILD_COMMIT"
+if not build_commit:
+    build_commit = _git_output("rev-parse", "--short=7", "HEAD")
+    commit_source = "local Git"
+
 if build_commit:
     if not _COMMIT_PATTERN.fullmatch(build_commit):
         raise ValueError(
@@ -56,8 +96,11 @@ if build_commit:
     )
 
 env.Append(CPPDEFINES=defines)
-define_names = [
-    item[0] if isinstance(item, tuple) else item
-    for item in defines
-]
-print("Applied build metadata:", ", ".join(define_names))
+print("Altruist build:")
+print(f"  source: {channel_source}")
+print(f"  branch: {git_branch or 'detached/unknown'}")
+print(f"  channel: {'testing' if testing_channel else 'stable'}")
+print(f"  profile: {build_profile}")
+print(f"  health telemetry: {'enabled' if health_telemetry else 'disabled'}")
+print(f"  commit: {build_commit[:7].lower() if build_commit else 'unknown'}")
+print(f"  commit source: {commit_source}")
