@@ -8,15 +8,15 @@ This document describes how to build and debug the **Insight** and **Urban** fir
 
 ### What `_debug` builds give you
 
-All `_debug` environments (`esp32c6_inside_en_debug`, `esp32c6_inside_ru_debug`, `esp32c6_urban_en_debug`, `esp32c6_urban_ru_debug`) include:
+All `_debug` environments (`esp32c3_urban_en_debug`, `esp32c3_urban_ru_debug`, `esp32c6_inside_en_debug`, `esp32c6_inside_ru_debug`, `esp32c6_urban_en_debug`, `esp32c6_urban_ru_debug`) include:
 
 | Feature | What it does |
 | ------- | ------------ |
 | **Project logs** (`ALTRUIST_FORCE_LOG_LEVEL=4`) | Keeps `debug_outln_error/info/verbose` enabled even when saved `cfg::debug` is lower |
-| **Framework logs** (`CORE_DEBUG_LEVEL=4`, `ARDUHAL_LOG_LEVEL=4`) | Enables Arduino/ESP framework informational and debug output at level 4 |
+| **Arduino core logs** (`CORE_DEBUG_LEVEL=4`) | Enables Arduino framework informational and debug output at level 4 |
 | **Health telemetry** (`ALTRUIST_HEALTH_TELEMETRY`) | Emits the stable `[HEALTH]` UART snapshot once per minute |
 | **Debug symbols** (`-g -Og`) | Enables breakpoints and variable inspection |
-| **Built-in JTAG** (`debug_tool = esp-builtin`) | No external hardware needed — ESP32-C6 has USB JTAG built in |
+| **Built-in JTAG** (`debug_tool = esp-builtin`) | No external hardware needed on supported ESP32-C3/C6 boards |
 
 ### 3-step debugging
 
@@ -62,6 +62,12 @@ The main PlatformIO environments relevant for Insight/Urban are:
   - `env:esp32c6_urban_en_debug` – **technical debug EN**
   - `env:esp32c6_urban_ru_debug` – **technical debug RU**
 
+- **Urban (ESP32‑C3, old hardware)**
+  - `env:esp32c3_urban_en` – production EN
+  - `env:esp32c3_urban_ru` – production RU
+  - `env:esp32c3_urban_en_debug` – **technical debug EN**
+  - `env:esp32c3_urban_ru_debug` – **technical debug RU**
+
 - **Insight (ESP32‑C6, “inside”)**
   - `env:esp32c6_inside_en` – production EN
   - `env:esp32c6_inside_ru` – production RU
@@ -69,7 +75,9 @@ The main PlatformIO environments relevant for Insight/Urban are:
   - `env:esp32c6_inside_ru_debug` – **technical debug RU**
 
 Use the `_debug` environments for local diagnostics or an attached debugger.
-They are not Testing-channel firmware and are not published to webflasher.
+They are not published to webflasher. The firmware channel still follows the
+selected branch, so `_debug` builds on `esp32-dev` are Testing firmware with a
+Debug build profile.
 
 ### 2. Building and uploading with PlatformIO
 
@@ -98,6 +106,8 @@ pio run -e esp32c6_inside_ru_debug -t upload
 # Similarly for Urban EN/RU debug
 pio run -e esp32c6_urban_en_debug -t upload
 pio run -e esp32c6_urban_ru_debug -t upload
+pio run -e esp32c3_urban_en_debug -t upload
+pio run -e esp32c3_urban_ru_debug -t upload
 ```
 
 ### 3. Serial logging
@@ -109,10 +119,10 @@ The firmware has three independent logging layers:
    `cfg::debug`, while `ALTRUIST_FORCE_LOG_LEVEL` sets its minimum effective value.
    Debug builds force level 4, so an older saved configuration cannot suppress
    project diagnostics.
-2. **Arduino/ESP framework logs** are controlled at compile time by
-   `CORE_DEBUG_LEVEL` and `ARDUHAL_LOG_LEVEL`. Debug builds set both levels to
-   4, then route framework diagnostics to
-   `Serial` through `DEBUG_ESP_PORT`.
+2. **Arduino core logs** are controlled at compile time by `CORE_DEBUG_LEVEL`.
+   Debug builds set it to 4 and route diagnostics to `Serial` through
+   `DEBUG_ESP_PORT`. Precompiled ESP-IDF library logs remain limited by the
+   SDK configuration bundled with the Arduino package.
 3. **Health telemetry** is controlled by `ALTRUIST_HEALTH_TELEMETRY`. It is a
    stable machine-readable snapshot for the tester and does not depend on either
    project or framework log levels.
@@ -285,7 +295,7 @@ Build flags for debugging:
 - `-g -Og -fno-inline` — Include debug symbols, optimize for debugging
 - `-DUSING_JTAG_DEBUGGER_PINS=1` — Reserve JTAG pins
 - `-DDEBUG_ESP_PORT=Serial` — Route framework diagnostics to `Serial`
-- `-DCORE_DEBUG_LEVEL=4`, `-DARDUHAL_LOG_LEVEL=4` — Enable Arduino/ESP framework logs at level 4
+- `-DCORE_DEBUG_LEVEL=4` — Enable Arduino framework logs at level 4
 - `-DALTRUIST_BUILD_DEBUG` — Enable heavyweight development diagnostics
 - `-DALTRUIST_DEFAULT_LOG_LEVEL=4` — Initialize `cfg::debug` to verbose output
 - `-DALTRUIST_FORCE_LOG_LEVEL=4` — Keep project logs verbose despite saved `cfg::debug`
@@ -455,15 +465,15 @@ pio run -e esp32c6_inside_en_debug -t clean
 
 ### Что дают сборки `_debug`
 
-Все `_debug`‑окружения (`esp32c6_inside_en_debug`, `esp32c6_inside_ru_debug`, `esp32c6_urban_en_debug`, `esp32c6_urban_ru_debug`) включают:
+Все `_debug`‑окружения (`esp32c3_urban_en_debug`, `esp32c3_urban_ru_debug`, `esp32c6_inside_en_debug`, `esp32c6_inside_ru_debug`, `esp32c6_urban_en_debug`, `esp32c6_urban_ru_debug`) включают:
 
 | Функция | Описание |
 | ------- | -------- |
 | **Логи проекта** (`ALTRUIST_FORCE_LOG_LEVEL=4`) | Не позволяет сохраненному `cfg::debug` отключить `debug_outln_error/info/verbose` |
-| **Логи фреймворка** (`CORE_DEBUG_LEVEL=4`, `ARDUHAL_LOG_LEVEL=4`) | Включает информационный и отладочный вывод Arduino/ESP на уровне 4 |
+| **Логи Arduino core** (`CORE_DEBUG_LEVEL=4`) | Включает информационный и отладочный вывод Arduino framework на уровне 4 |
 | **Health telemetry** (`ALTRUIST_HEALTH_TELEMETRY`) | Раз в минуту выводит стабильную строку `[HEALTH]` |
 | **Символы отладки** (`-g -Og`) | Позволяют ставить точки останова и инспектировать переменные |
-| **Встроенный JTAG** (`debug_tool = esp-builtin`) | Внешнее оборудование не нужно — в ESP32‑C6 USB JTAG встроен |
+| **Встроенный JTAG** (`debug_tool = esp-builtin`) | Внешнее оборудование не нужно на поддерживаемых платах ESP32‑C3/C6 |
 
 ### Отладка в 3 шага
 
@@ -509,6 +519,12 @@ pio device monitor
   - `env:esp32c6_urban_en_debug` – **техническая отладка EN**
   - `env:esp32c6_urban_ru_debug` – **техническая отладка RU**
 
+- **Urban (ESP32‑C3, старое железо)**
+  - `env:esp32c3_urban_en` – продакшн EN
+  - `env:esp32c3_urban_ru` – продакшн RU
+  - `env:esp32c3_urban_en_debug` – **техническая отладка EN**
+  - `env:esp32c3_urban_ru_debug` – **техническая отладка RU**
+
 - **Insight (ESP32‑C6, "inside")**
   - `env:esp32c6_inside_en` – продакшн EN
   - `env:esp32c6_inside_ru` – продакшн RU
@@ -516,7 +532,9 @@ pio device monitor
   - `env:esp32c6_inside_ru_debug` – **техническая отладка RU**
 
 Используйте `_debug`‑окружения для локальной диагностики или подключения
-отладчика. Они не относятся к Testing-каналу и не публикуются в webflasher.
+отладчика. Они не публикуются в webflasher. Канал прошивки по-прежнему зависит
+от выбранной ветки, поэтому `_debug` сборки на `esp32-dev` остаются
+Testing-прошивками с Debug-профилем сборки.
 
 ### 2. Сборка и загрузка через PlatformIO
 
@@ -545,6 +563,8 @@ pio run -e esp32c6_inside_ru_debug -t upload
 # Аналогично для Urban EN/RU debug
 pio run -e esp32c6_urban_en_debug -t upload
 pio run -e esp32c6_urban_ru_debug -t upload
+pio run -e esp32c3_urban_en_debug -t upload
+pio run -e esp32c3_urban_ru_debug -t upload
 ```
 
 ### 3. Логирование через serial
@@ -556,10 +576,10 @@ pio run -e esp32c6_urban_ru_debug -t upload
    начальное значение `cfg::debug`, а `ALTRUIST_FORCE_LOG_LEVEL` — минимальный
    эффективный уровень. В Debug-сборках уровень 4 принудителен, поэтому старое
    сохраненное значение не может отключить диагностические сообщения.
-2. **Логи Arduino/ESP framework** управляются compile-time флагами
-   `CORE_DEBUG_LEVEL` и `ARDUHAL_LOG_LEVEL`. Debug-сборки задают оба уровня 4
-   и направляют вывод в `Serial` через
-   `DEBUG_ESP_PORT`.
+2. **Логи Arduino core** управляются compile-time флагом `CORE_DEBUG_LEVEL`.
+   Debug-сборки задают уровень 4 и направляют вывод в `Serial` через
+   `DEBUG_ESP_PORT`. Логи precompiled ESP-IDF библиотек остаются ограничены
+   SDK-конфигурацией, поставляемой вместе с Arduino package.
 3. **Health telemetry** управляется `ALTRUIST_HEALTH_TELEMETRY`. Это стабильная,
    машиночитаемая строка для тестера, не зависящая от уровней логов проекта и
    фреймворка.
@@ -732,7 +752,7 @@ debug_init_break = tbreak setup ; Остановиться на setup() при �
 - `-g -Og -fno-inline` — символы отладки, оптимизация для отладки
 - `-DUSING_JTAG_DEBUGGER_PINS=1` — резервирование пинов JTAG
 - `-DDEBUG_ESP_PORT=Serial` — направление логов фреймворка в `Serial`
-- `-DCORE_DEBUG_LEVEL=4`, `-DARDUHAL_LOG_LEVEL=4` — логи Arduino/ESP framework на уровне 4
+- `-DCORE_DEBUG_LEVEL=4` — логи Arduino framework на уровне 4
 - `-DALTRUIST_BUILD_DEBUG` — тяжёлая диагностическая функциональность
 - `-DALTRUIST_DEFAULT_LOG_LEVEL=4` — начальное значение `cfg::debug`
 - `-DALTRUIST_FORCE_LOG_LEVEL=4` — принудительный минимум для логов проекта

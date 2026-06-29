@@ -95,7 +95,8 @@ Release environments:
 - `esp32c6_urban_en`, `esp32c6_urban_ru`
 - `esp32c6_inside_en`, `esp32c6_inside_ru`
 
-ESP32-C6 Debug environments use the same names with the `_debug` suffix. The
+Debug environments use the same names with the `_debug` suffix. ESP32-C3 Debug
+builds keep the C3-lite feature set to stay within the old hardware limits. The
 legacy `inside` environment name builds Insight firmware.
 
 ### Common Scenarios
@@ -104,6 +105,8 @@ legacy `inside` environment name builds Insight firmware.
   profile that CI publishes to webflasher.
 - On `esp32`, build `esp32c6_urban_en` to reproduce a Stable release.
 - Use `esp32c6_urban_en_debug` only when verbose diagnostics or JTAG are needed.
+- Use `esp32c3_urban_en_debug` to debug old ESP32-C3 Urban hardware with the
+  same reduced feature set as the C3 release build.
 
 Local builds infer the channel from the branch, enable health telemetry, and
 read the source commit from Git. Detached or no-Git local builds fall back to

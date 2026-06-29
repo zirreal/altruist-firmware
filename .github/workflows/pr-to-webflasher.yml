@@ -55,7 +55,7 @@ jobs:
           ALTRUIST_BUILD_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
-          pio run -e esp32c6_urban_en -e esp32c6_urban_ru -e esp32c6_inside_en -e esp32c6_inside_ru
+          pio run -e esp32c3_urban_en -e esp32c3_urban_ru -e esp32c6_urban_en -e esp32c6_urban_ru -e esp32c6_inside_en -e esp32c6_inside_ru
 
       - name: Checkout webflasher repo
         uses: actions/checkout@v4
@@ -79,6 +79,8 @@ jobs:
             channel="testing"
             label="Testing"
             artifacts=(
+              latest32c3_en_testing
+              latest32c3_ru_testing
               latest32c6urb_en_testing
               latest32c6urb_ru_testing
               latest32c6ins_en_testing
