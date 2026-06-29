@@ -80,6 +80,7 @@ The PlatformIO environment and Git branch control different things:
 | Environment with `_debug` | Local Debug profile with verbose project and framework logs |
 | Branch `esp32` | Stable channel |
 | Branch `esp32-dev` or a feature branch | Testing channel |
+| Detached/no-Git local build | Stable channel unless explicitly overridden |
 
 Only release builds are published to webflasher. Debug builds are intended for
 local diagnostics and do not create publishable artifacts. The Debug profile
@@ -105,8 +106,10 @@ legacy `inside` environment name builds Insight firmware.
 - Use `esp32c6_urban_en_debug` only when verbose diagnostics or JTAG are needed.
 
 Local builds infer the channel from the branch, enable health telemetry, and
-read the source commit from Git. The build output prints the resolved branch,
-channel, profile, telemetry state, and commit before compilation.
+read the source commit from Git. Detached or no-Git local builds fall back to
+Stable unless `ALTRUIST_CHANNEL_TESTING=1` is set explicitly. The build output
+prints the resolved branch, channel, profile, telemetry state, and commit before
+compilation.
 
 CI sets `ALTRUIST_CHANNEL_TESTING`, `ALTRUIST_HEALTH_TELEMETRY`, and
 `ALTRUIST_BUILD_COMMIT` explicitly, so published builds do not depend on local

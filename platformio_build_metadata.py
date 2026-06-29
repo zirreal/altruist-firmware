@@ -42,6 +42,12 @@ def _git_output(*args):
         return ""
 
 
+def _infer_testing_channel(branch):
+    if not branch:
+        return False, "local branch default (detached/unknown -> stable)"
+    return branch != "esp32", "local branch default"
+
+
 esp_target = _project_option("custom_esp_target")
 model = _project_option("custom_model")
 language = _project_option("custom_language")
@@ -58,8 +64,7 @@ configured_testing_channel = _read_optional_boolean_env(
     "ALTRUIST_CHANNEL_TESTING"
 )
 if configured_testing_channel is None:
-    testing_channel = git_branch != "esp32"
-    channel_source = "local branch default"
+    testing_channel, channel_source = _infer_testing_channel(git_branch)
 else:
     testing_channel = configured_testing_channel
     channel_source = "ALTRUIST_CHANNEL_TESTING"
