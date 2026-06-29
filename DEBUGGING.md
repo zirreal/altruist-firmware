@@ -128,8 +128,11 @@ Each line also contains a millisecond timestamp in square brackets (time since b
 Testing and technical Debug firmware emit a stable UART health snapshot once per minute:
 
 ```text
-[HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0
+[HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0 wifi=1 wifi_errors=0 sensor_errors=0 sd_errors=0
 ```
+
+The initial fields are kept stable for simple parsers. The trailing fields add
+the Wi-Fi link state and per-subsystem error counters for diagnostics.
 
 At boot, firmware reports the effective project and framework levels after the
 saved configuration has been loaded:
@@ -572,8 +575,11 @@ pio run -e esp32c6_urban_ru_debug -t upload
 Testing-прошивка и техническая Debug-сборка раз в минуту выводят стабильную строку состояния в UART:
 
 ```text
-[HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0
+[HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0 wifi=1 wifi_errors=0 sensor_errors=0 sd_errors=0
 ```
+
+Начальные поля сохраняются стабильными для простых парсеров. Поля в конце
+добавляют состояние Wi-Fi и отдельные счетчики ошибок по подсистемам.
 
 После загрузки сохраненной конфигурации прошивка сообщает фактически применяемые
 уровни:

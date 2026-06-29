@@ -463,7 +463,8 @@ void incrementTXCounter() {
 void logMetrics() {
 #if defined(ALTRUIST_HEALTH_TELEMETRY)
 	updateMetrics();
-	const int rssi = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
+	const bool wifi_connected = WiFi.status() == WL_CONNECTED;
+	const int rssi = wifi_connected ? WiFi.RSSI() : 0;
 	const unsigned long error_count =
 		system_metrics.err_wifi_reconnects +
 		system_metrics.err_sensor +
@@ -485,6 +486,14 @@ void logMetrics() {
 	Serial.print(F(" tx="));
 	Serial.print(system_metrics.tx_counter);
 	Serial.print(F(" errors="));
-	Serial.println(error_count);
+	Serial.print(error_count);
+	Serial.print(F(" wifi="));
+	Serial.print(wifi_connected ? 1 : 0);
+	Serial.print(F(" wifi_errors="));
+	Serial.print(system_metrics.err_wifi_reconnects);
+	Serial.print(F(" sensor_errors="));
+	Serial.print(system_metrics.err_sensor);
+	Serial.print(F(" sd_errors="));
+	Serial.println(system_metrics.err_sd_write);
 #endif
 }
