@@ -2,7 +2,7 @@
 #include "config_defaults.h"
 
 namespace cfg {
-	unsigned debug = DEFAULT_DEBUG_LEVEL;
+	unsigned debug = ALTRUIST_DEFAULT_LOG_LEVEL;
 
 	unsigned time_for_wifi_config = 600000;
 	unsigned sending_intervall_ms = 30000;
@@ -46,7 +46,7 @@ namespace cfg {
 	bool send2csv = SEND2CSV;
 
 	bool auto_update = AUTO_UPDATE;
-	bool use_beta = USE_BETA;
+	bool use_beta = USE_BETA;  // Retained so existing config files remain readable.
 
 	// (in)active displays
 	bool has_display = HAS_DISPLAY;											// OLED with SSD1306 and I2C

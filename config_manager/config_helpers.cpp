@@ -6,7 +6,7 @@
 #include <strings.h>
 #include <time.h>
 
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 #include "../sensors/sensor_names.h"
 #include "../display/screens/analytics.h"
 
@@ -150,7 +150,7 @@ bool config_set_string_by_key(const char* key, const char* value) {
  *****************************************************************/
 
 bool writeConfig() {
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 	if (cfg::standalone) {
 		cfg::analytics_sleep_add_urban = false;
 	}
@@ -292,7 +292,7 @@ void readConfig(bool oldconfig) {
 	DynamicJsonDocument json(JSON_BUFFER_SIZE);
 	DeserializationError err = deserializeJson(json, configFile.readString());
 	configFile.close();
-#if defined(DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG)
 	{
 		String saved_private_key;
 		if (json.containsKey("private_key")) {
@@ -353,7 +353,7 @@ void readConfig(bool oldconfig) {
 		if (cfgMigrateLegacyFsSsid()) {
 			rewriteConfig = true;
 		}
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 		if (cfg::standalone && cfg::analytics_sleep_add_urban) {
 			cfgApplyStandaloneModeEnabled();
 			rewriteConfig = true;

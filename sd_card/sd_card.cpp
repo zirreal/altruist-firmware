@@ -59,7 +59,7 @@ bool sdCardLockWithYield(uint32_t total_timeout_ms) {
         if (xSemaphoreTakeRecursive(g_sd_mutex, pdMS_TO_TICKS(wait_ms)) == pdTRUE) {
             return true;
         }
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
         firmwareBlockingYieldHook();
 #else
         yield();
@@ -423,7 +423,7 @@ bool readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
         uint32_t line_idx = 0;
         while (file.available()) {
             if ((line_idx & 63u) == 0) {
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
                 firmwareBlockingYieldHook();
 #else
                 yield();

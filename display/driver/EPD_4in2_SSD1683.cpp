@@ -28,7 +28,7 @@
 # THE SOFTWARE.
 #
 ******************************************************************************/
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #ifdef DISPLAY_4IN2
 
 #include "EPD_4in2_SSD1683.h"
@@ -145,7 +145,7 @@ returns  :  true if display is ready, false if timed out
 ******************************************************************************/
 bool EPD_4IN2_V2_ReadBusy(void)
 {
-#if defined(DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG)
     Serial.println(F("[EPD] busy..."));
     Serial.flush();
 #endif
@@ -164,7 +164,7 @@ bool EPD_4IN2_V2_ReadBusy(void)
             return false; // Timed out - display stuck
         }
         
-#if defined(DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG)
         // Log progress every 5 seconds so we know it's still waiting
         if (now - last_log > 5000) {
             Serial.print(F("[EPD] still busy... "));
@@ -179,7 +179,7 @@ bool EPD_4IN2_V2_ReadBusy(void)
         DEV_Delay_ms(10);
     }
     
-#if defined(DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG)
     Serial.println(F("[EPD] busy release"));
     Serial.flush();
 #endif

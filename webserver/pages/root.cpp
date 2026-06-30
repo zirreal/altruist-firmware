@@ -10,7 +10,7 @@ void webserver_root(String &page_content, const String &robonomics_address) {
     page_content.replace(F("{t}"), FPSTR(INTL_CURRENT_DATA));
     page_content.replace(F("{s}"), FPSTR(INTL_DEVICE_STATUS));
     page_content.replace(F("{conf}"), FPSTR(INTL_CONFIGURATION));
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
     page_content.replace(F("{screen}"),
         String(F("<a class='b' href='/screen'>")) + FPSTR(INTL_SCREEN_MENU) + F("</a>"));
 #else

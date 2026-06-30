@@ -4,7 +4,7 @@
 #include "../html-content.h"
 #include "../utils.h"
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 /** Parse "H:MM" or "HH:MM" (24h) into minutes since midnight [0..1439]. */
 static bool altruistParseWebHHMM(const String &raw, unsigned *out_min) {
 	if (!out_min) {
@@ -146,7 +146,7 @@ void webserver_config_send_body_post(WebServer &server) {
 		}
 	}
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	// Keep LED schedule values in a safe 0..23 range even for crafted requests.
 	if (cfg::leds_off_hour > 23) cfg::leds_off_hour = 0;
 	if (cfg::leds_on_hour > 23) cfg::leds_on_hour = 6;
@@ -378,7 +378,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_checkbox(Config_share_temperature, FPSTR(INTL_SHARE_TEMPERATURE), true);
 	add_form_checkbox(Config_share_humidity, FPSTR(INTL_SHARE_HUMIDITY), true);
 	add_form_checkbox(Config_share_pressure, FPSTR(INTL_SHARE_PRESSURE), true);
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	add_form_checkbox(Config_share_co2, FPSTR(INTL_SHARE_CO2), true);
 #endif
 #ifdef ALTRUIST_URBAN
@@ -412,7 +412,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 #ifdef ALTRUIST_URBAN
 	add_form_input(page_content, Config_sds_meas_interval_ms, FPSTR(INTL_SDS_MEAS_INTERVAL), 5);
 #endif
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	if (!cfg::standalone) {
 		page_content += form_select_altruist(data);
 		add_form_checkbox(Config_use_custom_urban, FPSTR(INTL_USE_CUSTOM_URBAN), true);
@@ -463,7 +463,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	if (LED_PIN != -1) {
 		add_form_checkbox(Config_leds_on, FPSTR(INTL_LEDS_ON), true);
 		add_form_input(page_content, Config_leds_brightness, FPSTR(INTL_LEDS_BRIGHTNESS), 5);
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 		add_form_input(page_content, Config_leds_off_hour, FPSTR(INTL_LEDS_OFF_HOUR), 2);
 		add_form_input(page_content, Config_leds_on_hour, FPSTR(INTL_LEDS_ON_HOUR), 2);
 		{
@@ -508,8 +508,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<div class='panel-container'>");
 	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_FIRMWARE "</h3>");
 	add_form_checkbox(Config_auto_update, FPSTR(INTL_AUTO_UPDATE), true);
-	add_form_checkbox(Config_use_beta, FPSTR(INTL_USE_BETA), true);
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 	add_form_checkbox(Config_standalone, FPSTR(INTL_INSIGHT_STANDALONE), true);
 #endif
 
@@ -522,7 +521,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	page_content += F("<script>"
 	    "var $ = function(e) { return document.getElementById(e); };"
 	    "function updateOTAOptions() { "
-		"$('current_lang').disabled = $('use_beta').disabled = !$('auto_update').checked; "
+		"$('current_lang').disabled = !$('auto_update').checked; "
 		"}; updateOTAOptions(); $('auto_update').onchange = updateOTAOptions;"
 		"</script>");
 
@@ -595,5 +594,4 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	server.sendContent(page_content);
 	page_content = emptyString;
 }
-
 

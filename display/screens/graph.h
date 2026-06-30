@@ -1,4 +1,4 @@
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 
 #ifndef GRAPH_SCREEN_H
 #define GRAPH_SCREEN_H

@@ -3,20 +3,70 @@
 
 #include <stdint.h>
 
+// Temporary compatibility aliases. New code must use ALTRUIST_INSIGHT.
+#if defined(ALTRUIST_INSIDE) && !defined(ALTRUIST_INSIGHT)
+#define ALTRUIST_INSIGHT
+#endif
+#if defined(ALTRUIST_INSIGHT) && !defined(ALTRUIST_INSIDE)
+#define ALTRUIST_INSIDE
+#endif
+
+#define DEVICE_MODEL_MDNS_PROPERTY "device_model"
+#define DEVICE_MODEL_INSIGHT "insight"
+#define DEVICE_MODEL_URBAN "urban"
+
 // increment on change
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 #define SOFTWARE_VERSION_BASE "R-INS_2026-06.1"
 #define PM_SENSOR_NAME "Altruist Insight"
+#define DEVICE_MODEL DEVICE_MODEL_INSIGHT
+void firmwareBlockingYieldHook(void);
 #endif
 #if defined(ALTRUIST_URBAN)
 #define SOFTWARE_VERSION_BASE "R-URB_2026-06.1"
 #define PM_SENSOR_NAME "Altruist Urban"
+#define DEVICE_MODEL DEVICE_MODEL_URBAN
 #endif
-#if defined(ALTRUIST_FIRMWARE_DEV)
-#define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE "_dev"
+
+#ifndef ALTRUIST_BUILD_COMMIT
+#define ALTRUIST_BUILD_COMMIT "unknown"
+#endif
+#ifndef ALTRUIST_BUILD_MODEL
+#define ALTRUIST_BUILD_MODEL DEVICE_MODEL
+#endif
+#ifndef ALTRUIST_BUILD_TARGET
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+#define ALTRUIST_BUILD_TARGET "esp32c3"
+#elif defined(CONFIG_IDF_TARGET_ESP32C6)
+#define ALTRUIST_BUILD_TARGET "esp32c6"
 #else
+#define ALTRUIST_BUILD_TARGET "unknown"
+#endif
+#endif
+#ifndef ALTRUIST_BUILD_LANGUAGE
+#define ALTRUIST_BUILD_LANGUAGE "unknown"
+#endif
+#ifndef ALTRUIST_BUILD_PROFILE
+#if defined(ALTRUIST_BUILD_DEBUG)
+#define ALTRUIST_BUILD_PROFILE "debug"
+#else
+#define ALTRUIST_BUILD_PROFILE "release"
+#endif
+#endif
+
+#if defined(ALTRUIST_CHANNEL_TESTING)
+#define ALTRUIST_BUILD_CHANNEL "testing"
+#define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE "-testing+" ALTRUIST_BUILD_COMMIT
+#else
+#define ALTRUIST_BUILD_CHANNEL "stable"
 #define SOFTWARE_VERSION_STR SOFTWARE_VERSION_BASE
 #endif
+
+// OTA is intentionally pinned to Stable artifacts. Testing firmware can be
+// installed explicitly through webflasher/local builds, but OTA must not move
+// deployed devices onto Testing until channel switching is designed separately.
+#define ALTRUIST_OTA_SOURCE_CHANNEL "stable"
+#define ALTRUIST_OTA_CHANNEL_SUFFIX ""
 
 #if defined(ESP8266)
 #define SENSOR_BASENAME "esp8266-"
@@ -28,17 +78,6 @@
 #endif
 
 #define ATRUIST_URBAN_SENSOR "altruist_urban"
-
-#define DEVICE_MODEL_MDNS_PROPERTY "device_model"
-#define DEVICE_MODEL_INSIGHT "insight"
-#define DEVICE_MODEL_URBAN "urban"
-#if defined(ALTRUIST_INSIDE)
-#define DEVICE_MODEL DEVICE_MODEL_INSIGHT
-void firmwareBlockingYieldHook(void);
-#endif
-#if defined(ALTRUIST_URBAN)
-#define DEVICE_MODEL DEVICE_MODEL_URBAN
-#endif
 
 /** ESP32-C6 Urban: NeoPixel ring + reset button. Not defined on ESP32-C3 Urban (no LED/button HW). */
 #if defined(ALTRUIST_URBAN) && defined(ALTRUIST_URBAN_HW_UI)
@@ -111,6 +150,16 @@ void firmwareBlockingYieldHook(void);
 #define DEBUG_MIN_INFO 3
 #define DEBUG_MED_INFO 4
 #define DEBUG_MAX_INFO 5
+
+/*
+ * Build configuration flags are intentionally independent:
+ * - ALTRUIST_BUILD_DEBUG enables heavyweight development diagnostics.
+ * - ALTRUIST_CHANNEL_TESTING identifies testing-channel firmware.
+ * - ALTRUIST_HEALTH_TELEMETRY enables UART health telemetry.
+ * - ALTRUIST_DEFAULT_LOG_LEVEL sets the initial cfg::debug value.
+ * - ALTRUIST_FORCE_LOG_LEVEL sets the minimum effective project log level.
+ * - ALTRUIST_BUILD_* strings describe the source and build identity.
+ */
 
 /******************************************************************
  * Constants                                                      *
@@ -238,7 +287,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 #define I2S_PIN_DIN      11
 #define I2S_PIN_DOUT     -1
 #endif
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #define I2S_PIN_BCLK     -1
 #define I2S_PIN_WS       -1
 #define I2S_PIN_DIN      -1
@@ -247,7 +296,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // I2C pins
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 // #define SDA_I2C_PIN 19
 // #define SCL_I2C_PIN 18
 #ifdef PRE
@@ -257,7 +306,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 #define SDA_I2C_PIN 19
 #define SCL_I2C_PIN 18
 #endif //PRE
-#endif //ALTRUIST_INSIDE
+#endif // ALTRUIST_INSIGHT
 #ifdef ALTRUIST_URBAN
 #define SDA_I2C_PIN 3
 #define SCL_I2C_PIN 2
@@ -265,7 +314,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // PM Serial
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #define PM_SERIAL_RX -1
 #define PM_SERIAL_TX -1
 #endif
@@ -277,7 +326,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // SPI SD Card pins
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #ifdef PRE
 #define SPI_SCK_PIN 5
 #define SPI_MISO_PIN 18
@@ -293,7 +342,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // Display
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #ifdef PRE
 #define EPD_SCK_PIN  21
 #define EPD_MOSI_PIN 20
@@ -313,7 +362,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // Buttons
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 #ifdef PRE
 #define BTN_DOWN_PIN 0
 #define BTN_SET_PIN 1
@@ -341,7 +390,7 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 
 // Led pin
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 // #define LED_PIN -1
 #define LED_PIN 11
 #endif
@@ -463,16 +512,18 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // MHZ19 CO2 sensor
 #define MHZ19_READ 0
 
-// automatic firmware updates
-// Production builds: auto-update on
-// Debug firmware (*_dev): auto-update off
-#if defined(DEBUG)
-	#define AUTO_UPDATE 0
+// Automatic OTA is allowed only for Stable firmware. Testing firmware can be
+// flashed explicitly, but must not replace itself with Stable unexpectedly.
+#if defined(ALTRUIST_CHANNEL_TESTING)
+#define ALTRUIST_AUTOMATIC_OTA_ALLOWED 0
+#define AUTO_UPDATE 0
 #else
-	#define AUTO_UPDATE 1
+#define ALTRUIST_AUTOMATIC_OTA_ALLOWED 1
+#define AUTO_UPDATE 1
 #endif
 
-// use beta firmware
+// Legacy config default. The saved value is retained for compatibility but no
+// longer selects the OTA channel.
 #define USE_BETA 0
 
 // OLED Display SSD1306 connected?
@@ -502,13 +553,22 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 // Show device info on displays
 #define DISPLAY_DEVICE_INFO 1
 
-// Default runtime log level (cfg::debug). Dev builds pass -DDEBUG=4 via PlatformIO.
-#ifndef DEFAULT_DEBUG_LEVEL
-#if defined(DEBUG)
-#define DEFAULT_DEBUG_LEVEL DEBUG
-#else
-#define DEFAULT_DEBUG_LEVEL 3
+// Default runtime log level (cfg::debug), independent from the build profile.
+#ifndef ALTRUIST_DEFAULT_LOG_LEVEL
+#define ALTRUIST_DEFAULT_LOG_LEVEL DEBUG_MIN_INFO
 #endif
+
+// Minimum project log level regardless of the value restored into cfg::debug.
+#ifndef ALTRUIST_FORCE_LOG_LEVEL
+#define ALTRUIST_FORCE_LOG_LEVEL 0
+#endif
+
+#if ALTRUIST_DEFAULT_LOG_LEVEL < 0 || ALTRUIST_DEFAULT_LOG_LEVEL > DEBUG_MAX_INFO
+#error "ALTRUIST_DEFAULT_LOG_LEVEL must be between 0 and DEBUG_MAX_INFO"
+#endif
+
+#if ALTRUIST_FORCE_LOG_LEVEL < 0 || ALTRUIST_FORCE_LOG_LEVEL > DEBUG_MAX_INFO
+#error "ALTRUIST_FORCE_LOG_LEVEL must be between 0 and DEBUG_MAX_INFO"
 #endif
 
 // Insight standalone main: 1 = force all four footer warnings (Hum/Temp/Press/CO2) for layout preview.

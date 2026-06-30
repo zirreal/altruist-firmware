@@ -31,7 +31,7 @@ void webserver_status_part2(String &page_content, device_status_t &deviceStatus)
 void webserver_group_page(String& page_content, const String& self_ss58, Robonomics* robonomics,
                           RwsGroupApplyResult save_result);
 RwsGroupApplyResult webserver_group_post(WebServer& server, const String& self_ss58);
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
 void webserver_screen_page(String& page_content, ScreenSaveResult save_result);
 ScreenSaveResult webserver_screen_post(WebServer& server);
 #endif

@@ -63,7 +63,7 @@ private:
 
     void _webserver_group();
 
-#ifdef ALTRUIST_INSIDE
+#ifdef ALTRUIST_INSIGHT
     void _webserver_screen();
     void _webserver_select_urban();
     void _webserver_scan_urbans();

@@ -104,7 +104,7 @@ String normalizeFingerprint(String value) {
 }
 
 bool shouldRegisterDevices() {
-#if defined(ALTRUIST_INSIDE)
+#if defined(ALTRUIST_INSIGHT)
 	if (!cfg::standalone && cfg::rws_group_mode != RWS_GROUP_MASTER) {
 		return false;
 	}
@@ -498,7 +498,7 @@ bool deviceListMatchesHashRobonomics(Robonomics* robonomics) {
 	if (expected.length() == 0) {
 		return false;
 	}
-#if defined(DEBUG)
+#if defined(ALTRUIST_BUILD_DEBUG)
 	if (hash != expected) {
 		debug_outln_verbose(F("[RWS] registration hash mismatch"));
 		debug_outln_verbose(F("[RWS] expected: "), expected);
