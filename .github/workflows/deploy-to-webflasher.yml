@@ -1,4 +1,4 @@
-name: Deploy firmware to Webflasher
+name: Deploy Altruist firmware to Webflasher
 
 on:
   push:
