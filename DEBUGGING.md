@@ -135,7 +135,8 @@ Project log lines are prefixed with a level:
 
 Each line also contains a millisecond timestamp in square brackets (time since boot). See the Quick Start section above for example output.
 
-Testing and technical Debug firmware emit a stable UART health snapshot once per minute:
+Builds with `ALTRUIST_HEALTH_TELEMETRY` emit a stable UART health snapshot once
+per minute:
 
 ```text
 [HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0 wifi=1 wifi_errors=0 sensor_errors=0 sd_errors=0
@@ -278,7 +279,9 @@ This tells you:
 
 ### 6. PlatformIO debugging (JTAG)
 
-The ESP32‑C6 has a **built‑in USB JTAG debugger** — no external probe needed. The `_debug` environments are pre‑configured to use it.
+Supported ESP32-C3/C6 boards expose **built-in USB JTAG** — no external probe is
+needed when that interface is available. The `_debug` environments are
+pre-configured to use it.
 
 #### 6.1. Debug configuration in platformio.ini
 
@@ -286,7 +289,7 @@ The `_debug` environments include these debugging options (from [PlatformIO Debu
 
 ```ini
 build_type = debug
-debug_tool = esp-builtin       ; Use ESP32-C6 built-in USB JTAG
+debug_tool = esp-builtin       ; Use built-in USB JTAG
 debug_init_break = tbreak setup ; Break at setup() on start
 ```
 
@@ -336,7 +339,7 @@ Once the debugger is attached, you can:
 
 If you prefer an external JTAG probe instead of the built-in USB JTAG:
 
-1. Connect ESP-PROG to the ESP32-C6 JTAG pins.
+1. Connect ESP-PROG to the JTAG pins of the target board.
 2. Update the environment in `platformio.ini`:
 
 ```ini
@@ -592,7 +595,8 @@ pio run -e esp32c3_urban_ru_debug -t upload
 
 Каждая строка содержит метку времени в миллисекундах (с момента загрузки). Пример вывода см. в разделе «Быстрый старт» выше.
 
-Testing-прошивка и техническая Debug-сборка раз в минуту выводят стабильную строку состояния в UART:
+Сборки с `ALTRUIST_HEALTH_TELEMETRY` раз в минуту выводят стабильную строку
+состояния в UART:
 
 ```text
 [HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0 wifi=1 wifi_errors=0 sensor_errors=0 sd_errors=0
@@ -735,7 +739,9 @@ rssi: -65
 
 ### 6. Отладка через PlatformIO (JTAG)
 
-ESP32‑C6 имеет **встроенный USB JTAG отладчик** — внешний адаптер не нужен. `_debug`‑окружения уже настроены для его использования.
+Поддерживаемые платы ESP32-C3/C6 имеют **встроенный USB JTAG** — внешний адаптер
+не нужен, когда этот интерфейс доступен. `_debug`‑окружения уже настроены для
+его использования.
 
 #### 6.1. Конфигурация отладки в platformio.ini
 
@@ -743,7 +749,7 @@ ESP32‑C6 имеет **встроенный USB JTAG отладчик** — в�
 
 ```ini
 build_type = debug
-debug_tool = esp-builtin       ; Использовать встроенный USB JTAG ESP32-C6
+debug_tool = esp-builtin       ; Использовать встроенный USB JTAG
 debug_init_break = tbreak setup ; Остановиться на setup() при запуске
 ```
 
@@ -793,7 +799,7 @@ pio debug -e esp32c6_inside_en_debug --interface=gdb
 
 Если нужен внешний JTAG‑адаптер вместо встроенного USB JTAG:
 
-1. Подключите ESP-PROG к JTAG‑пинам ESP32‑C6.
+1. Подключите ESP-PROG к JTAG‑пинам целевой платы.
 2. Обновите окружение в `platformio.ini`:
 
 ```ini

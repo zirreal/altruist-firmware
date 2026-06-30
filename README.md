@@ -1,6 +1,7 @@
 # Altruist Firmware
 
-Firmware for the Altruist environmental sensor station, built on ESP32-C6.
+Firmware for the Altruist environmental sensor station, built on ESP32-C6 and
+legacy ESP32-C3 Urban hardware.
 
 ## Architecture Overview
 
@@ -119,8 +120,8 @@ CI sets `ALTRUIST_CHANNEL_TESTING`, `ALTRUIST_HEALTH_TELEMETRY`, and
 Git state. These variables can also override the automatic local defaults.
 
 Stable artifacts use names such as `latest32c6urb_en.bin`; Testing artifacts use
-`latest32c6urb_en_testing.bin`. During the transition, Testing builds also
-produce `_dev.bin` compatibility aliases.
+`latest32c6urb_en_testing.bin`. Legacy `_dev.bin` aliases are also produced for
+external compatibility and point to the same Testing firmware.
 
 Stable firmware keeps the base version, for example `R-URB_2026-06.1`. Testing
 firmware includes its source revision, for example
@@ -128,8 +129,8 @@ firmware includes its source revision, for example
 the channel, commit, model, target, language, and profile.
 
 Insight builds use the `ALTRUIST_INSIGHT` compile-time flag. The previous
-`ALTRUIST_INSIDE` name remains available as a temporary compatibility alias;
-new code should use `ALTRUIST_INSIGHT`.
+`ALTRUIST_INSIDE` name remains available as a compatibility alias; new code
+should use `ALTRUIST_INSIGHT`.
 
 OTA updates are pinned to Stable artifacts for now: every firmware build requests the normal language artifact without the `_testing` suffix. Testing firmware is installed explicitly through webflasher or local flashing, and automatic OTA is disabled in Testing builds so devices do not immediately return to Stable. Manual `/ota` remains available as an explicit Stable rollback path. Changing the build profile, runtime log level, or legacy `use_beta` configuration cannot switch OTA away from Stable.
 
@@ -180,7 +181,8 @@ LED indication can be disabled in the web configuration.
 
 ## Contributing
 
-All development changes should be submitted as pull requests against the **beta** branch. The **master** branch reflects the current release firmware.
+Submit development changes against the **esp32-dev** branch first. After they
+are validated, promote them to **esp32**, which is the Stable release branch.
 
 To add a Connectivity Robonomics Server, fork this repository and edit `robonomics_servers.h`. Add your server:
 
