@@ -184,8 +184,12 @@ struct CrashContextData {
 };
 
 static uint8_t crash_last_section = 0;
+static volatile bool crash_section_frozen = false;
 
 void markCrashSection(uint8_t section) {
+	if (crash_section_frozen) {
+		return;
+	}
 	crash_last_section = section;
 }
 
@@ -239,7 +243,7 @@ CrashContextData loadCrashContext() {
 	return ctx;
 }
 
-static void markMainLoopAlive() {
+void markMainLoopAlive() {
 	main_loop_last_ms = millis();
 }
 
@@ -253,9 +257,13 @@ static void datalogSendWatchdogEnd() {
 
 static void watchdogReboot(const __FlashStringHelper* reason, uint8_t crash_section) {
 	debug_outln_error(reason);
+	// Freeze the section breadcrumb so other tasks can't overwrite it back to Idle
+	// while we are about to reboot (Insight has multiple tasks that may still run briefly).
+	crash_section_frozen = true;
 	markCrashSection(crash_section);
 	saveCrashContext();
-	delay(100);
+	set_restart_reason(RESTART_REASON_WATCHDOG);
+	delay(10);
 	esp_restart();
 }
 
@@ -594,7 +602,7 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 
 	auto validTemp = [](float v) { return v > -40.0f && v < 80.0f; };
 	auto validHumidity = [](float v) { return v >= 0.0f && v <= 100.0f; };
-	auto validCO2 = [](float v) { return v >= 300.0f && v <= 5000.0f; };
+	auto validCO2 = [](float v) { return v >= 150.0f; };
 	auto validPM = [](float v) { return v >= 0.0f && v <= 1500.0f; };
 	auto validNoise = [](float v) { return v >= 0.0f && v <= 120.0f; };
 
@@ -766,6 +774,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 					if (WIFI_STA_REBOOT_AFTER_MS != 0 && wifiHasSavedStationCredentials() &&
 					    msSince(sta_down_since_ms) >= WIFI_STA_REBOOT_AFTER_MS) {
 						debug_outln_info(F("[WiFi] STA link down too long; rebooting for recovery"));
+						set_restart_reason(RESTART_REASON_WIFI);
 						delay(100);
 						esp_restart();
 					}
@@ -1056,9 +1065,13 @@ void buttonsWorker(void *pvParameters) {
 				btn_press.pressed = false;
 				btn_press.double_long = false;
 				WiFi.disconnect(true);
-				displayManager.setScreen(ScreenPage::LOGO);
-				displayManager.process(btn_press);
-				delay(2500);
+				displayManager.requestWifiClearConfirmScreen();
+				const unsigned long deadline = millis() + 30000UL;
+				while ((int32_t)(deadline - millis()) > 0) {
+					displayManager.process(btn_press);
+					btn_press.pressed = false;
+					vTaskDelay(10 / portTICK_PERIOD_MS);
+				}
 				set_restart_reason(RESTART_REASON_CONFIG);
 				esp_restart();
 			}
@@ -1547,6 +1560,7 @@ void firmwareBlockingYieldHook(void) {
 	if (!wifiIsConfigPortalRunning()) {
 		webserver.handleClient();
 	}
+	markMainLoopAlive();
 	yield();
 }
 #endif
@@ -1563,6 +1577,9 @@ void loop(void) {
 	displayManager.process(btn_press);
 	markCrashSection(CRASH_SECTION_IDLE);
 #endif
+	if (!wifiIsConfigPortalRunning()) {
+		webserver.handleClient();
+	}
 	markMainLoopAlive();
 	yield();
 }

@@ -178,7 +178,7 @@
 #define INTL_GUEST_INSIGHT_FINISH_HINT "Press Continue to finish setup and restart the device."
 #endif
 #ifndef INTL_GUEST_INSIGHT_AUTO_FINISH_HINT
-#define INTL_GUEST_INSIGHT_AUTO_FINISH_HINT "If you close this page, setup will finish automatically in"
+#define INTL_GUEST_INSIGHT_AUTO_FINISH_HINT "If you don't press Continue, setup will finish alone (standalone) in"
 #endif
 #ifndef INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX
 #define INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "seconds (standalone mode)."
@@ -196,7 +196,7 @@
 #define INTL_GUEST_KEEP_OPEN_HINT "Do not close this page until you press Continue."
 #endif
 #ifndef INTL_SETUP_INSIGHT_MODE_HINT
-#define INTL_SETUP_INSIGHT_MODE_HINT "If you have an Altruist Urban (outdoor unit), check the box and press Continue to search the network and pick it. Leave the box unchecked to use this Insight on its own — the device will restart right away."
+#define INTL_SETUP_INSIGHT_MODE_HINT "To pair with an Altruist Urban, check the box below, then press Continue. If you leave it unchecked, setup continues in standalone mode."
 #endif
 #ifndef INTL_SETUP_PAIR_WITH_URBAN
 #define INTL_SETUP_PAIR_WITH_URBAN "Set up link to an Altruist Urban now"
@@ -359,6 +359,225 @@
 #endif
 #ifndef INTL_SCREEN_SAVE_CONFIG_FAILED
 #define INTL_SCREEN_SAVE_CONFIG_FAILED "Could not write configuration."
+#endif
+
+#ifndef INTL_NAV_MONITOR
+#define INTL_NAV_MONITOR "Data & status"
+#endif
+#ifndef INTL_NAV_SETTINGS
+#define INTL_NAV_SETTINGS "Settings"
+#endif
+#ifndef INTL_NAV_MAINTENANCE
+#define INTL_NAV_MAINTENANCE "Maintenance"
+#endif
+#ifndef INTL_CONFIG_TAB_INTEGRATIONS
+#define INTL_CONFIG_TAB_INTEGRATIONS "Integrations"
+#endif
+#ifndef INTL_CONFIG_PANEL1_INTRO
+#define INTL_CONFIG_PANEL1_INTRO "Wi-Fi, Robonomics, location, and what data is published to the public map."
+#endif
+#ifndef INTL_CONFIG_PANEL2_INTRO
+#define INTL_CONFIG_PANEL2_INTRO "Security, firmware updates, and options for advanced users."
+#endif
+#ifndef INTL_CONFIG_PANEL3_INTRO
+#define INTL_CONFIG_PANEL3_INTRO "Optional exports to your own services. Expand a section only if you need it."
+#endif
+#ifndef INTL_BADGE_BETA
+#define INTL_BADGE_BETA "Beta"
+#endif
+#ifndef INTL_BADGE_EXPERIMENTAL
+#define INTL_BADGE_EXPERIMENTAL "Experimental"
+#endif
+
+#ifndef INTL_PANEL_TITLE_LEDS
+#define INTL_PANEL_TITLE_LEDS "LEDs"
+#endif
+
+#ifndef INTL_PANEL_TITLE_SLEEP_ANALYTICS
+#define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Sleep analytics"
+#endif
+#ifndef INTL_DATA_SECTION_SDS
+#define INTL_DATA_SECTION_SDS "SDS"
+#endif
+#ifndef INTL_DATA_SECTION_SCD
+#define INTL_DATA_SECTION_SCD "SCD4x"
+#endif
+#ifndef INTL_DATA_SECTION_BME
+#define INTL_DATA_SECTION_BME "BME"
+#endif
+#ifndef INTL_DATA_SECTION_URBAN
+#define INTL_DATA_SECTION_URBAN "Urban data"
+#endif
+#ifndef INTL_DATA_SECTION_OVERVIEW
+#define INTL_DATA_SECTION_OVERVIEW "Overview"
+#endif
+#ifndef INTL_DATA_SECTION_DEVICE
+#define INTL_DATA_SECTION_DEVICE "Device"
+#endif
+#ifndef INTL_DATA_SECTION_RUNTIME
+#define INTL_DATA_SECTION_RUNTIME "Runtime"
+#endif
+#ifndef INTL_DATA_SECTION_NETWORK
+#define INTL_DATA_SECTION_NETWORK "Network"
+#endif
+#ifndef INTL_DATA_SECTION_EXPORT
+#define INTL_DATA_SECTION_EXPORT "Data export"
+#endif
+#ifndef INTL_DATA_SECTION_TECHNICAL
+#define INTL_DATA_SECTION_TECHNICAL "Technical details"
+#endif
+#ifndef INTL_VALUE_YES
+#define INTL_VALUE_YES "Yes"
+#endif
+#ifndef INTL_VALUE_NO
+#define INTL_VALUE_NO "No"
+#endif
+#ifndef INTL_READINGS_SECTION_NETWORK_INTRO
+#define INTL_READINGS_SECTION_NETWORK_INTRO "Wi-Fi signal strength at the sensor."
+#endif
+#ifndef INTL_STATUS_SECTION_OVERVIEW_INTRO
+#define INTL_STATUS_SECTION_OVERVIEW_INTRO "Is the device running normally right now?"
+#endif
+#ifndef INTL_STATUS_SECTION_DEVICE_INTRO
+#define INTL_STATUS_SECTION_DEVICE_INTRO "Firmware version, memory, and storage."
+#endif
+#ifndef INTL_STATUS_SECTION_TECH_INTRO
+#define INTL_STATUS_SECTION_TECH_INTRO "Build details — useful when contacting support."
+#endif
+#ifndef INTL_STATUS_SECTION_EXPORT_INTRO
+#define INTL_STATUS_SECTION_EXPORT_INTRO "Whether your data is reaching each service."
+#endif
+#ifndef INTL_API_SENDS_SHORT
+#define INTL_API_SENDS_SHORT "Sends"
+#endif
+#ifndef INTL_API_LAST_SHORT
+#define INTL_API_LAST_SHORT "Last"
+#endif
+#ifndef INTL_DATA_BUSY
+#define INTL_DATA_BUSY "Sensor data is updating — refresh in a moment."
+#endif
+#ifndef INTL_NAV_HOME
+#define INTL_NAV_HOME "Home"
+#endif
+#ifndef INTL_NAV_READINGS
+#define INTL_NAV_READINGS "Readings"
+#endif
+#ifndef INTL_NAV_STATUS
+#define INTL_NAV_STATUS "Status"
+#endif
+#ifndef INTL_NAV_MAIN
+#define INTL_NAV_MAIN "Main navigation"
+#endif
+#ifndef INTL_BREADCRUMB_ARIA
+#define INTL_BREADCRUMB_ARIA "Breadcrumb"
+#endif
+#ifndef INTL_DASH_TITLE
+#define INTL_DASH_TITLE "Dashboard"
+#endif
+#ifndef INTL_DASH_ALL_READINGS
+#define INTL_DASH_ALL_READINGS "All readings"
+#endif
+#ifndef INTL_DASH_DEVICE_HEALTH
+#define INTL_DASH_DEVICE_HEALTH "Device health"
+#endif
+#ifndef INTL_DASH_WIFI_OK
+#define INTL_DASH_WIFI_OK "WiFi connected"
+#endif
+#ifndef INTL_DASH_WIFI_OFF
+#define INTL_DASH_WIFI_OFF "WiFi offline"
+#endif
+#ifndef INTL_DASH_DATALOG_OK
+#define INTL_DASH_DATALOG_OK "Datalog OK"
+#endif
+#ifndef INTL_DASH_DATALOG_ERR
+#define INTL_DASH_DATALOG_ERR "Datalog issue"
+#endif
+#ifndef INTL_DASH_MAP_OK
+#define INTL_DASH_MAP_OK "Map OK"
+#endif
+#ifndef INTL_DASH_MAP_ERR
+#define INTL_DASH_MAP_ERR "Map issue"
+#endif
+#ifndef INTL_DASH_NAV
+#define INTL_DASH_NAV "Quick links"
+#endif
+#ifndef INTL_DASH_SECTION_MONITOR_INTRO
+#define INTL_DASH_SECTION_MONITOR_INTRO "See what your sensor measures and whether it is working."
+#endif
+#ifndef INTL_DASH_SECTION_SETTINGS_INTRO
+#define INTL_DASH_SECTION_SETTINGS_INTRO "Wi-Fi, updates, and how your data is shared."
+#endif
+#ifndef INTL_DASH_SECTION_MAP_INTRO
+#define INTL_DASH_SECTION_MAP_INTRO "Find this device on the public air-quality map."
+#endif
+#ifndef INTL_DASH_READINGS_DESC
+#define INTL_DASH_READINGS_DESC "Live temperature, humidity, and air quality"
+#endif
+#ifndef INTL_DASH_STATUS_DESC
+#define INTL_DASH_STATUS_DESC "Connection, firmware, and device details"
+#endif
+#ifndef INTL_DASH_CONFIG_DESC
+#define INTL_DASH_CONFIG_DESC "Wi-Fi, location, and publishing options"
+#endif
+#ifndef INTL_DASH_GROUP_DESC
+#define INTL_DASH_GROUP_DESC "Combine readings with nearby sensors"
+#endif
+#ifndef INTL_DASH_OTA_DESC
+#define INTL_DASH_OTA_DESC "Check and install firmware updates"
+#endif
+#ifndef INTL_DASH_SCREEN_DESC
+#define INTL_DASH_SCREEN_DESC "Choose what the display shows"
+#endif
+#ifndef INTL_DASH_MAP_DESC
+#define INTL_DASH_MAP_DESC "Open sensors.social in a new tab"
+#endif
+#ifndef INTL_DASH_SECTION_MAINTENANCE_INTRO
+#define INTL_DASH_SECTION_MAINTENANCE_INTRO "Advanced actions — only if you know what you are doing."
+#endif
+#ifndef INTL_DASH_DEBUG_DESC
+#define INTL_DASH_DEBUG_DESC "More detailed logs for troubleshooting"
+#endif
+#ifndef INTL_DASH_RESTART_DESC
+#define INTL_DASH_RESTART_DESC "Reboot the sensor (about a minute)"
+#endif
+#ifndef INTL_DASH_DELETE_CONFIG_DESC
+#define INTL_DASH_DELETE_CONFIG_DESC "Erase saved settings from the device"
+#endif
+#ifndef INTL_DASH_HEALTH_TITLE
+#define INTL_DASH_HEALTH_TITLE "At a glance"
+#endif
+#ifndef INTL_PAGE_READINGS_INTRO
+#define INTL_PAGE_READINGS_INTRO "Latest measurements from your sensors."
+#endif
+#ifndef INTL_PAGE_STATUS_INTRO
+#define INTL_PAGE_STATUS_INTRO "Quick health check first — open a section below for details."
+#endif
+#ifndef INTL_PAGE_OTA_INTRO
+#define INTL_PAGE_OTA_INTRO "Check for updates or switch the firmware language."
+#endif
+#ifndef INTL_PAGE_DEBUG_INTRO
+#define INTL_PAGE_DEBUG_INTRO "Live log output and how much detail is recorded."
+#endif
+#ifndef INTL_PAGE_RESTART_INTRO
+#define INTL_PAGE_RESTART_INTRO "The sensor will reboot and reconnect to Wi-Fi."
+#endif
+#ifndef INTL_PAGE_DELETE_CONFIG_INTRO
+#define INTL_PAGE_DELETE_CONFIG_INTRO "Choose what to erase. This cannot be undone."
+#endif
+#ifndef INTL_DELETE_CONFIG_ALL
+#define INTL_DELETE_CONFIG_ALL "All settings"
+#endif
+#ifndef INTL_DELETE_CONFIG_WIFI
+#define INTL_DELETE_CONFIG_WIFI "Wi-Fi only"
+#endif
+#ifndef INTL_DELETE_CONFIG_ALL_DESC
+#define INTL_DELETE_CONFIG_ALL_DESC "Everything stored on the device"
+#endif
+#ifndef INTL_DELETE_CONFIG_WIFI_DESC
+#define INTL_DELETE_CONFIG_WIFI_DESC "Only forget the saved Wi-Fi network"
+#endif
+#ifndef INTL_WIFI_CREDENTIALS_DELETED
+#define INTL_WIFI_CREDENTIALS_DELETED "Wi-Fi credentials were deleted. You can close this page."
 #endif
 
 #endif

@@ -416,7 +416,7 @@ String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type) {
 
 	char date[11] = "1970-01-01";
 	struct tm timeinfo;
-	if (getLocalTime(&timeinfo)) {
+	if (getLocalTime(&timeinfo, 0)) {
 		strftime(date, sizeof(date), "%Y-%m-%d", &timeinfo);
 	}
 

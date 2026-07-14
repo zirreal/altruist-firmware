@@ -1,26 +1,9 @@
-#ifndef _SCRIPT_JS_LITE_H
-#define _SCRIPT_JS_LITE_H
+#ifndef _SCRIPT_JS_CONFIG_TOGGLES_H
+#define _SCRIPT_JS_CONFIG_TOGGLES_H
 
-/** Config page JS: tabs, conditional fields, GPS map marker, Urban scan. */
-const char WEB_PAGE_STATIC_JS_CONFIG[] PROGMEM = R"rawliteral(
-document.addEventListener('DOMContentLoaded', function() {
-  var tabs = document.querySelectorAll('.tab');
-  var panels = document.querySelectorAll('.panel');
-  function showTab(id) {
-    panels.forEach(function(p) { p.classList.remove('active'); });
-    tabs.forEach(function(t) { t.classList.remove('active'); });
-    if (panels[id - 1]) panels[id - 1].classList.add('active');
-    if (tabs[id - 1]) tabs[id - 1].classList.add('active');
-  }
-  if (tabs.length && panels.length) {
-    tabs.forEach(function(tab) {
-      tab.addEventListener('click', function(e) {
-        showTab(parseInt(e.target.dataset.id, 10));
-      });
-    });
-    showTab(1);
-  }
-
+/** Appended to WEB_PAGE_STATIC_JS_CONFIG (Insight): conditional form fields, OTA, Urban scan. */
+#define WEB_PAGE_STATIC_JS_CONFIG_SUFFIX R"rawliteral(
+;(function() {
   function byId(id) { return document.getElementById(id); }
   function toggleDisplay(el, show) {
     if (el) el.style.display = show ? 'block' : 'none';
@@ -117,8 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   }
+})();
+)rawliteral"
 
-});
-)rawliteral";
-
-#endif // _SCRIPT_JS_LITE_H
+#endif // _SCRIPT_JS_CONFIG_TOGGLES_H

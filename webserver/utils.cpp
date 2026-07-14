@@ -4,16 +4,168 @@
 #include "../intl.h"
 #include <ArduinoJson.h>
 
+namespace {
 
+String data_row_unit_html(const String& unit) {
+	if (unit.length() == 0) {
+		return emptyString;
+	}
+	RESERVE_STRING(s, SMALL_STR);
+	s = F("<span class='data-line__unit'>");
+	s += unit;
+	s += F("</span>");
+	return s;
+}
 
-void add_table_row_from_value(String& page_content, const String& sensor, const String& param, const String& value, const String& unit) {
+void append_data_block_open(String& page_content, const String& label, const char* block_modifier) {
+	page_content += F("<div class='data-block");
+	if (block_modifier && block_modifier[0] != '\0') {
+		page_content += ' ';
+		page_content += block_modifier;
+	}
+	page_content += F("'><h3 class='data-block__title'>");
+	page_content += label;
+	page_content += F("</h3><div class='data-block__rows'>");
+}
+
+} // namespace
+
+void web_page_flush_chunk(String& page_content, WebServer* server) {
+	if (!server || page_content.length() == 0) {
+		return;
+	}
+	server->sendContent(page_content);
+	page_content = emptyString;
+	markMainLoopAlive();
+	yield();
+}
+
+void web_send_content_progmem(WebServer* server, const char* data, size_t len) {
+	if (!server || !data || len == 0) {
+		return;
+	}
+	constexpr size_t kChunk = 512;
+	char buf[kChunk];
+	for (size_t i = 0; i < len; ) {
+		const size_t n = (len - i > kChunk) ? kChunk : (len - i);
+		memcpy_P(buf, data + i, n);
+		server->sendContent(buf, n);
+		i += n;
+		markMainLoopAlive();
+		yield();
+	}
+}
+
+void web_page_finish_chunked(WebServer* server) {
+	if (!server) {
+		return;
+	}
+	server->sendContent(emptyString);
+}
+
+void add_data_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit) {
 	RESERVE_STRING(s, MED_STR);
-	s = F("<tr><td>{s}</td><td>{p}</td><td class='r'>{v}&nbsp;{u}</td></tr>");
-	s.replace("{s}", sensor);
+	s = F("<div class='data-line'><span class='data-line__name'>{p}</span><span class='data-line__reading'><span class='data-line__val'>{v}</span>");
 	s.replace("{p}", param);
 	s.replace("{v}", value);
-	s.replace("{u}", unit);
 	page_content += s;
+	page_content += data_row_unit_html(String(unit));
+	page_content += F("</span></div>");
+}
+
+void add_data_row_from_value(String& page_content, const __FlashStringHelper* param, const __FlashStringHelper* value, const char* unit) {
+	RESERVE_STRING(s, MED_STR);
+	s = F("<div class='data-line'><span class='data-line__name'>{p}</span><span class='data-line__reading'><span class='data-line__val'>{v}</span>");
+	s.replace("{p}", param);
+	s.replace("{v}", value);
+	page_content += s;
+	page_content += data_row_unit_html(String(unit));
+	page_content += F("</span></div>");
+}
+
+void add_data_row_from_value(String& page_content, const String& param, const String& value, const char* unit) {
+	RESERVE_STRING(s, MED_STR);
+	s = F("<div class='data-line'><span class='data-line__name'>{p}</span><span class='data-line__reading'><span class='data-line__val'>{v}</span>");
+	s.replace("{p}", param);
+	s.replace("{v}", value);
+	page_content += s;
+	page_content += data_row_unit_html(String(unit));
+	page_content += F("</span></div>");
+}
+
+void add_data_section_start(String& page_content, const __FlashStringHelper* label, const char* block_modifier) {
+	append_data_block_open(page_content, String(label), block_modifier);
+}
+
+void add_data_section_start(String& page_content, const String& label, const char* block_modifier) {
+	append_data_block_open(page_content, label, block_modifier);
+}
+
+void add_data_section_end(String& page_content) {
+	page_content += F("</div></div>");
+}
+
+void add_reading_metrics_grid_start(String& page_content) {
+	page_content += F("<div class='reading-grid'>");
+}
+
+void add_reading_metrics_grid_end(String& page_content) {
+	page_content += F("</div>");
+}
+
+void add_reading_metric_card(String& page_content, const __FlashStringHelper* label, const String& value, const char* unit) {
+	page_content += F("<div class='reading-card'><span class='reading-card__label'>");
+	page_content += label;
+	page_content += F("</span><span class='reading-card__value'>");
+	page_content += value;
+	page_content += F("</span>");
+	if (unit != nullptr && unit[0] != '\0') {
+		page_content += F("<span class='reading-card__unit'>");
+		page_content += unit;
+		page_content += F("</span>");
+	}
+	page_content += F("</div>");
+}
+
+void add_reading_metric_card(String& page_content, const String& label, const String& value, const char* unit) {
+	page_content += F("<div class='reading-card'><span class='reading-card__label'>");
+	page_content += label;
+	page_content += F("</span><span class='reading-card__value'>");
+	page_content += value;
+	page_content += F("</span>");
+	if (unit != nullptr && unit[0] != '\0') {
+		page_content += F("<span class='reading-card__unit'>");
+		page_content += unit;
+		page_content += F("</span>");
+	}
+	page_content += F("</div>");
+}
+
+void add_data_block_intro(String& page_content, const __FlashStringHelper* intro) {
+	page_content += F("<p class='data-block__intro'>");
+	page_content += intro;
+	page_content += F("</p>");
+}
+
+void add_data_api_status_row(String& page_content, const String& api_name, const String& status,
+	const String& sends, const String& last_send) {
+	page_content += F("<div class='data-api'><span class='data-api__name'>");
+	page_content += api_name;
+	page_content += F("</span><div class='data-api__details'>");
+	if (status == "OK") {
+		page_content += F("<span class='data-api__badge data-api__badge--ok'>OK</span>");
+	} else {
+		page_content += F("<span class='data-api__badge data-api__badge--err'>Error</span>");
+	}
+	page_content += F("<span class='data-api__detail'><span class='data-api__detail-lbl'>");
+	page_content += FPSTR(INTL_API_SENDS_SHORT);
+	page_content += F("</span>");
+	page_content += sends;
+	page_content += F("</span><span class='data-api__detail'><span class='data-api__detail-lbl'>");
+	page_content += FPSTR(INTL_API_LAST_SHORT);
+	page_content += F("</span>");
+	page_content += last_send;
+	page_content += F("</span></div></div>");
 }
 
 void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit) {
@@ -153,38 +305,11 @@ String form_select_altruist(JsonDocument& data) {
 	}
 
 	s += F("</select>"
-		"<button type='button' id='btn_scan_urbans' onclick='scanUrbans()' "
+		"<button type='button' id='btn_scan_urbans' "
 		"style='padding:6px 14px;border:1px solid #ccc;border-radius:4px;background:#f8f8f8;cursor:pointer;white-space:nowrap;'>"
 		"&#x1F50D; " INTL_SCAN_BTN "</button></div>"
 		"<span id='scan_status' style='font-size:12px;color:#666;'></span>"
-		"</div>"
-		"<script>"
-		"function scanUrbans(){"
-			"var btn=document.getElementById('btn_scan_urbans');"
-			"var sel=document.getElementById('chosen_altruist_urban');"
-			"var st=document.getElementById('scan_status');"
-			"btn.disabled=true;st.textContent='" INTL_SCAN_SCANNING "';"
-			"fetch('/scan_urbans').then(function(r){return r.json();}).then(function(devices){"
-				"var cur=sel.value;"
-				"sel.innerHTML='';"
-				"if(devices.length===0){"
-					"st.textContent='" INTL_SCAN_NO_URBANS "';"
-				"}else{"
-					"st.textContent='" INTL_SCAN_FOUND_PREFIX "'+devices.length+'" INTL_SCAN_FOUND_SUFFIX "';"
-					"devices.forEach(function(d){"
-						"var o=document.createElement('option');"
-						"o.value=d.ip;o.textContent=d.hostname+' ('+d.ip+')';"
-						"if(d.ip===cur)o.selected=true;"
-						"sel.appendChild(o);"
-					"});"
-				"}"
-				"btn.disabled=false;"
-			"}).catch(function(e){"
-				"st.textContent='" INTL_SCAN_FAILED "'+e;"
-				"btn.disabled=false;"
-			"});"
-		"}"
-		"</script>");
+		"</div>");
 	return s;
 }
 
@@ -289,4 +414,17 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length) {
     add_form_input(page_content, cfgid, info, length, true);
+}
+
+void append_app_page_body_start(String& page_content, const __FlashStringHelper* lead) {
+	page_content += F("<div class='app-page-body'>");
+	if (lead != nullptr) {
+		page_content += F("<p class='app-page-lead'>");
+		page_content += lead;
+		page_content += F("</p>");
+	}
+}
+
+void append_app_page_body_end(String& page_content) {
+	page_content += F("</div>");
 }

@@ -15,14 +15,20 @@
 #include <WiFi.h>
 #include "../leds/leds_controller_insight.h"
 #include "../config_manager/config_helpers.h"
+#include "../utils.h"
+#include "../buttons/button_manager.h"
 #ifdef DISPLAY_4IN2
 #include "driver/EPD_4in2_SSD1683.h"
 #endif
 
 extern LedControllerInsight leds_controller_insight;
+extern ButtonManager button_manager;
+extern bool wificonfig_loop;
 #if defined(USE_SD_CARD)
 extern SDCard sdCardLogger;
 #endif
+
+static SemaphoreHandle_t epd_draw_mutex = nullptr;
 
 // Sensor map Urban ID waiting policy:
 // If Urban ID is not yet known, we will perform up to 3 checks,
@@ -81,6 +87,9 @@ void DisplayManager::setup() {
     if (cached_urban_address.length() > 0) {
         refresh_now = true;
     }
+    if (!epd_draw_mutex) {
+        epd_draw_mutex = xSemaphoreCreateMutex();
+    }
     // Initialize display and show loading screen immediately
     // initAndClearScreen();
     // Paint_SelectImage(BlackImage);
@@ -103,6 +112,11 @@ void DisplayManager::requestEpdFullRefresh() {
     force_full_refresh = true;
     refresh_now = true;
     epdResetPeriodPosition();
+}
+
+void DisplayManager::requestWifiClearConfirmScreen() {
+    wifi_clear_confirm_pending = true;
+    refresh_now = true;
 }
 
 void DisplayManager::setScreen(ScreenPage pageID) {
@@ -129,6 +143,31 @@ void DisplayManager::setScreen(ScreenPage pageID) {
 }
 
 void DisplayManager::process(button_pressed_t &btn_press) {
+    if (wifi_clear_confirm_pending) {
+        wifi_clear_confirm_pending = false;
+        debug_outln_info(F("[EPD] WiFi credentials cleared — showing confirm screen"));
+        display_sleeping = false;
+        wake_loading_active = false;
+        currentScreenID = ScreenPage::LOGO;
+        refresh_now = false;
+        force_full_refresh = false;
+        if (epd_draw_mutex) {
+            xSemaphoreTake(epd_draw_mutex, portMAX_DELAY);
+        }
+        Paint_SelectImage(BlackImage);
+        Paint_Clear(WHITE);
+        showLogoPage();
+        epdResetPeriodPosition();
+        epdDisplay(DisplayMode::FULL, BlackImage);
+        last_refresh_time = millis();
+        if (epd_draw_mutex) {
+            xSemaphoreGive(epd_draw_mutex);
+        }
+        DEV_Delay_ms(5000);
+        set_restart_reason(RESTART_REASON_CONFIG);
+        esp_restart();
+    }
+
     if (btn_press.pressed && !btn_press.double_long) {
         btn_press.pressed = false;
 
@@ -158,8 +197,11 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             return;
         }
         else {
-            // Global: long DOWN to sleep from any screen (works on MAIN, GRAPHS, SENSOR_MAP, SETTINGS, SETUP, CONNECTING, LOADING, LOGO)
+            // Global: long DOWN to sleep from any screen (not SET+DOWN Wi-Fi reset combo)
             if (btn_press.button_num == ButtonNum::DOWN && btn_press.press_type == PressType::LONG) {
+                if (button_manager.get_button_state(ButtonNum::SET) == PRESSED_STATE) {
+                    return;
+                }
                 debug_outln_info(F("[EPD] Going to sleep - starting sleep cycle"));
                 initAndClearScreen();
                 // Clear the image buffer to white before drawing sleep message
@@ -479,10 +521,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             } else {
                 time_based_refresh = (int32_t)(millis() - next_main_refresh_ms) >= 0;
             }
-        } else {
-            time_based_refresh = msSince(last_refresh_time) > DISPLAY_REFRESH_INTERVAL;
-            next_main_refresh_ms = 0;
-        }
+    } else {
+        const unsigned long refresh_interval =
+            (wificonfig_loop && currentScreenID == ScreenPage::SETUP)
+                ? 300000UL
+                : DISPLAY_REFRESH_INTERVAL;
+        time_based_refresh = msSince(last_refresh_time) > refresh_interval;
+        next_main_refresh_ms = 0;
+    }
     }
     prev_ota_in_progress = deviceStatus.ota_in_progress;
 
@@ -493,6 +539,10 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                           (currentScreenID == ScreenPage::GRAPHS && graphScreenSdRetryDue());
     
     if (should_refresh) {
+        if (epd_draw_mutex && xSemaphoreTake(epd_draw_mutex, 0) != pdTRUE) {
+            refresh_now = true;
+            return;
+        }
         debug_outln_verbose(F("[Display] Starting refresh cycle for screen "), String((int)currentScreenID));
         refresh_now = false;
         Paint_SelectImage(BlackImage);
@@ -714,6 +764,9 @@ draw_complete:
         } else if (!deviceStatus.ota_in_progress && !deviceStatus.ota_failed && !deviceStatus.ota_success) {
             debug_outln_verbose(F("[EPD] FAST/partial refresh pushed for screen "), String((int)currentScreenID));
             showImageFast(BlackImage, currentScreenID);
+        }
+        if (epd_draw_mutex) {
+            xSemaphoreGive(epd_draw_mutex);
         }
     }
 }

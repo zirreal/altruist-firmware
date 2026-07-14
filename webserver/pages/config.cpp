@@ -175,43 +175,56 @@ void webserver_config_send_body_post(WebServer &server) {
 void webserver_config_send_body_get(WebServer &server, String& page_content, bool wificonfig_loop, JsonDocument &data) {
 	const char *kRobonomicsNodePolkadot = "polkadot.rpc.robonomics.network";
 	const char *kRobonomicsNodeKusama = "kusama.rpc.robonomics.network";
+	auto flush_chunk = [&]() {
+		web_page_flush_chunk(page_content, &server);
+	};
+	auto maybe_flush = [&]() {
+		if (page_content.length() >= 384) {
+			flush_chunk();
+		}
+	};
 	auto add_form_checkbox = [&page_content](const ConfigShapeId cfgid, const String& info, bool enabled) {
 		page_content += form_checkbox(cfgid, info, true, enabled);
 	};
+	auto add_form_checkbox_grid = [&page_content](const ConfigShapeId cfgid, const String& info, bool enabled) {
+		// Checkbox grids use their own layout; avoid trailing <br/> which breaks grid flow.
+		page_content += form_checkbox(cfgid, info, false, enabled);
+	};
 
 	debug_outln_info(F("begin webserver_config_body_get ..."));
-	page_content += F("<form method='POST' action='/config' style='width:100%;'>\n"
-  "<div class='tabs'>"
-	"<div class='tab' data-id='1' style='background: rgb(244, 244, 244)'>" INTL_COMMON_SETTINGS "</div>"
-	"<div class='tab' data-id='2' style='background: rgb(244, 244, 244)'>");
+	append_app_page_body_start(page_content, F(INTL_CONFIG_PANEL1_INTRO));
+	page_content += F("<form method='POST' action='/config' class='config-form'>\n"
+		"<div class='config-layout'>"
+		"<aside class='config-sidebar'><nav class='config-nav tabs'>"
+		"<div class='tab' data-id='1'>" INTL_COMMON_SETTINGS "</div>"
+		"<div class='tab' data-id='2'>");
 	page_content += FPSTR(INTL_MORE_SETTINGS);
 	page_content += F("</div>"
-		"<div class='tab' data-id='3' style='background: rgb(244, 244, 244)'>" INTL_APIS_SETTINGS "</div></div>"
+		"<div class='tab' data-id='3'>" INTL_CONFIG_TAB_INTEGRATIONS "</div>"
+		"</nav></aside>"
+		"<div class='config-main'><div class='config-panels'>"
 		"<div class='panel' id='panel1'>");
 
-	// if (wificonfig_loop) {  // scan for wlan ssids
-	// 	page_content += F("<div id='wifilist'>" INTL_WIFI_NETWORKS "</div><br/>");
-	// }
+	flush_chunk();
 
 	// WiFi Settings (tab 1)
-
-	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_WIFI "</h3>");
+	page_content += F("<div class='config-row config-section--full'>");
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>" INTL_PANEL_TITLE_WIFI "</h2>"
+		"<div class='config-section__body config-section__body--compact'>");
 	add_form_input(page_content, Config_wlanssid, FPSTR(INTL_FS_WIFI_NAME), LEN_WLANSSID-1);
 	add_form_input(page_content, Config_wlanpwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
 	page_content += form_checkbox(Config_wlannopwd, FPSTR(INTL_NO_WLAN_PWD), false);
 	add_form_input(page_content, Config_local_hostname, FPSTR(INTL_LOCAL_HOSTNAME), LEN_LOCAL_HOSTNAME-1);
-	page_content += F("</div>");
+	page_content += F("</div></section>");
 
-	server.sendContent(page_content);
-	page_content = emptyString;
+	maybe_flush();
 
 	// Robonomics Settings (tab 1)
 
-	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_ROBONOMICS "</h3>");
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>" INTL_PANEL_TITLE_ROBONOMICS "</h2>"
+		"<div class='config-section__body'>");
 	// page_content += form_checkbox(Config_send2robonomics, FPSTR(WEB_ROBONOMICS), false);
-	page_content += F("<p style='font-size:12px;margin:0 0 8px 0;'><a href='/group'>");
+	page_content += F("<p class='form-hint link-inline'><a href='/group'>");
 	page_content += FPSTR(INTL_GROUP_MENU);
 	page_content += F("</a></p>");
 	add_form_input(page_content, Config_rws_owner, FPSTR(INTL_RWS_OWNER), LEN_RWS_OWNER-1);
@@ -249,21 +262,6 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		page_content += F("' value='");
 		page_content += custom_value;
 		page_content += F("'/></div>");
-
-		page_content += F("<script>"
-				"(function(){"
-					"var sel=document.getElementById('robonomics_public_node_select');"
-					"var wrap=document.getElementById('robonomics_public_node_custom_wrap');"
-					"var input=document.getElementById('robonomics_public_node_custom');"
-					"function sync(){"
-						"var custom=(sel && sel.value==='custom');"
-						"if(wrap){wrap.style.display=custom?'block':'none';}"
-						"if(input){input.disabled=!custom;}"
-					"}"
-					"sync();"
-					"if(sel){sel.onchange=sync;}"
-				"})();"
-				"</script>");
 	}
 
 #if !defined(ALTRUIST_URBAN_C3_LITE)
@@ -339,74 +337,54 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		page_content += (is_pool ? pool : String(""));
 		page_content += F("</textarea></div>");
 
-		page_content += F("<div id='robonomics_connectivity_hosts_hint' style='font-size:12px;color:#666;margin-top:-6px;margin-bottom:10px;display:none;'>"
+		page_content += F("<div id='robonomics_connectivity_hosts_hint' class='form-hint' style='display:none;'>"
 			"Example pool:<br/>"
 			"<code>connectivity.robonomics.network<br/>1.connectivity.robonomics.network<br/>2.connectivity.robonomics.network</code>"
 			"</div>");
-
-		page_content += F("<script>"
-			"(function(){"
-				"var mode=document.getElementById('robonomics_connectivity_mode');"
-				"var wPreset=document.getElementById('robonomics_connectivity_preset_wrap');"
-				"var wHost=document.getElementById('robonomics_connectivity_host_wrap');"
-				"var ta=document.getElementById('robonomics_connectivity_hosts');"
-				"var hint=document.getElementById('robonomics_connectivity_hosts_hint');"
-				"function sync(){"
-					"var m=mode?mode.value:'auto';"
-					"if(wPreset) wPreset.style.display=(m==='preset')?'block':'none';"
-					"if(wHost) wHost.style.display=(m==='custom')?'block':'none';"
-					"if(ta) ta.disabled=(m!=='pool');"
-					"var wTa=ta?ta.parentElement:null;"
-					"if(wTa) wTa.style.display=(m==='pool')?'block':'none';"
-					"if(hint) hint.style.display=(m==='pool')?'block':'none';"
-				"}"
-				"sync();"
-				"if(mode) mode.onchange=sync;"
-			"})();"
-			"</script>");
 	}
 #endif
+	page_content += F("</div></section></div>");
 
-	page_content += F("<h3 class='panel-subtitle' style='margin-top:16px;'>" INTL_PANEL_TITLE_DATA_SHARING "</h3>");
-	page_content += F("<p style='font-size:0.9em;color:#555;margin-bottom:12px;'>"
-		INTL_DATA_SHARING_DISCLAIMER
-		"</p>");
+	page_content += F("<section class='config-section config-section--full'><h2 class='config-section__title'>" INTL_PANEL_TITLE_DATA_SHARING "</h2>"
+		"<div class='config-section__body'>"
+			"<p class='form-hint'>"
+				INTL_DATA_SHARING_DISCLAIMER
+			"</p>"
+			"<div class='checkbox-grid'>");
 
-	server.sendContent(page_content);
-	page_content = emptyString;
+	maybe_flush();
 
-	add_form_checkbox(Config_share_temperature, FPSTR(INTL_SHARE_TEMPERATURE), true);
-	add_form_checkbox(Config_share_humidity, FPSTR(INTL_SHARE_HUMIDITY), true);
-	add_form_checkbox(Config_share_pressure, FPSTR(INTL_SHARE_PRESSURE), true);
-#ifdef ALTRUIST_INSIGHT
-	add_form_checkbox(Config_share_co2, FPSTR(INTL_SHARE_CO2), true);
+	add_form_checkbox_grid(Config_share_temperature, FPSTR(INTL_SHARE_TEMPERATURE), true);
+	add_form_checkbox_grid(Config_share_humidity, FPSTR(INTL_SHARE_HUMIDITY), true);
+	add_form_checkbox_grid(Config_share_pressure, FPSTR(INTL_SHARE_PRESSURE), true);
+#ifdef ALTRUIST_INSIDE
+	add_form_checkbox_grid(Config_share_co2, FPSTR(INTL_SHARE_CO2), true);
 #endif
 #ifdef ALTRUIST_URBAN
-	add_form_checkbox(Config_share_pm, FPSTR(INTL_SHARE_PM), true);
-	add_form_checkbox(Config_share_noise, FPSTR(INTL_SHARE_NOISE), true);
-	page_content += F("<div style='margin-top:14px;margin-bottom:14px;font-size:0.9em;color:#666;'>");
+	add_form_checkbox_grid(Config_share_pm, FPSTR(INTL_SHARE_PM), true);
+	add_form_checkbox_grid(Config_share_noise, FPSTR(INTL_SHARE_NOISE), true);
+	page_content += F("<div class='form-hint' style='grid-column:1/-1;margin-top:8px;'>");
 	page_content += F(INTL_DATA_SHARING_ADDITIONAL);
 	page_content += F("</div>");
-	add_form_checkbox(Config_share_co, FPSTR(INTL_SHARE_CO), true);
-	add_form_checkbox(Config_share_radiation, FPSTR(INTL_SHARE_RADIATION), true);
-	add_form_checkbox(Config_share_o3, FPSTR(INTL_SHARE_O3), true);
-	add_form_checkbox(Config_share_no2, FPSTR(INTL_SHARE_NO2), true);
-	add_form_checkbox(Config_share_fast_aqi, FPSTR(INTL_SHARE_FAST_AQI), true);
-	add_form_checkbox(Config_share_epa_aqi, FPSTR(INTL_SHARE_EPA_AQI), true);
+	add_form_checkbox_grid(Config_share_co, FPSTR(INTL_SHARE_CO), true);
+	add_form_checkbox_grid(Config_share_radiation, FPSTR(INTL_SHARE_RADIATION), true);
+	add_form_checkbox_grid(Config_share_o3, FPSTR(INTL_SHARE_O3), true);
+	add_form_checkbox_grid(Config_share_no2, FPSTR(INTL_SHARE_NO2), true);
+	add_form_checkbox_grid(Config_share_fast_aqi, FPSTR(INTL_SHARE_FAST_AQI), true);
+	add_form_checkbox_grid(Config_share_epa_aqi, FPSTR(INTL_SHARE_EPA_AQI), true);
 #endif
-	page_content += F("</div>");
+	page_content += F("</div></div></section>");
 
-	server.sendContent(page_content);
-	page_content = emptyString;
+	maybe_flush();
 
-	// GPS Settings (tab 1)
-
-#if defined(ALTRUIST_URBAN_C3_LITE)
-	page_content += F("<div class='panel-container'>");
+	// GPS Settings (tab 1 — Common settings)
+#if !defined(ALTRUIST_URBAN_C3_LITE)
+	page_content += F("<section class='config-section config-section--full config-section--gps'><h2 class='config-section__title'>" INTL_PANEL_TITLE_GPS "</h2>"
+		"<div class='config-section__body'>");
 #else
-	page_content += F("<div class='panel-container panel-container--with-map'>");
+	page_content += F("<section class='config-section config-section--gps'><h2 class='config-section__title'>" INTL_PANEL_TITLE_GPS "</h2>"
+		"<div class='config-section__body'>");
 #endif
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_GPS "</h3>");
 	add_form_input(page_content, Config_coords_gps, FPSTR(INTL_COORDS), LEN_GPS_COORDS-1);
 	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
 #ifdef ALTRUIST_URBAN
@@ -417,96 +395,92 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		page_content += form_select_altruist(data);
 		add_form_checkbox(Config_use_custom_urban, FPSTR(INTL_USE_CUSTOM_URBAN), true);
 		add_form_input(page_content, Config_custom_altruist_urban, FPSTR(INTL_CUSTOM_ALTRUIST), LEN_CHOSEN_ALTRUIS_ADDRESS-1);
-		page_content += F("<script>"
-		    "var $ = function(e) { return document.getElementById(e); };"
-		    "function updateUrbanOptions() { "
-			"$('custom_altruist_urban').disabled = !$('use_custom_urban').checked; "
-			"$('chosen_altruist_urban').disabled = $('use_custom_urban').checked;"
-			"}; updateUrbanOptions(); $('use_custom_urban').onchange = updateUrbanOptions;"
-			"</script>");
 	} else {
-		page_content += F("<p style='font-size:14px;color:#555;margin:0 0 8px;line-height:1.5;'>");
+		page_content += F("<p class='form-hint'>");
 		page_content += FPSTR(INTL_INSIGHT_STANDALONE);
 		page_content += F("</p>");
 	}
 #endif
 #if !defined(ALTRUIST_URBAN_C3_LITE)
-	page_content += F("<div class='map-container'><div id='map'></div>");
-	page_content += F("</div><span class='map-text'> <em>The marker on the map shows approximate location to make sure you have the right hemisphere</em></span>");
+	page_content += F("<div class='map-container'><div id='map'></div></div>");
+	page_content += F("<span class='map-text'> <em>The marker on the map shows approximate location to make sure you have the right hemisphere</em></span>");
 #endif
-	page_content += F("</div>");
+	page_content += F("</div></section>");
 
-	server.sendContent(page_content);
-	page_content = emptyString;
+	maybe_flush();
 
-	// Authentication  (tab 2)
-	page_content = tmpl(FPSTR(WEB_DIV_PANEL), String(2));
+	flush_chunk();
+	page_content += tmpl(FPSTR(WEB_DIV_PANEL), String(2));
 
-	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_AUTH "</h3>");
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>" INTL_PANEL_TITLE_AUTH "</h2>"
+		"<div class='config-section__body'>");
 
 	add_form_checkbox(Config_www_basicauth_enabled, FPSTR(INTL_BASICAUTH), true);
 	add_form_input(page_content, Config_www_username, FPSTR(INTL_USER), LEN_WWW_USERNAME-1);
 	add_form_input(page_content, Config_www_password, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
 
-	page_content += F("</div>");
+	page_content += F("</div></section>");
 
-	server.sendContent(page_content);
-	page_content = emptyString;
+	maybe_flush();
 
 	// Debug Level (tab 2)
 
-	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_DEBUG "</h3>");
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>" INTL_PANEL_TITLE_DEBUG "</h2>"
+		"<div class='config-section__body'>");
 	add_form_input(page_content, Config_debug, FPSTR(INTL_DEBUG_LEVEL), 1);
 	add_form_input(page_content, Config_sending_intervall_ms, FPSTR(INTL_MEASUREMENT_INTERVAL), 5);
+	page_content += F("</div></section>");
+
+	// LEDs / display (tab 2)
 	if (LED_PIN != -1) {
+		page_content += F("<section class='config-section'><h2 class='config-section__title'>" INTL_PANEL_TITLE_LEDS "</h2>"
+			"<div class='config-section__body'>");
 		add_form_checkbox(Config_leds_on, FPSTR(INTL_LEDS_ON), true);
 		add_form_input(page_content, Config_leds_brightness, FPSTR(INTL_LEDS_BRIGHTNESS), 5);
 #ifdef ALTRUIST_INSIGHT
 		add_form_input(page_content, Config_leds_off_hour, FPSTR(INTL_LEDS_OFF_HOUR), 2);
 		add_form_input(page_content, Config_leds_on_hour, FPSTR(INTL_LEDS_ON_HOUR), 2);
-		{
-			const String start_v =
-			    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_start_hour, 22u * 60u));
-			const String end_v =
-			    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_end_hour, 7u * 60u));
-			page_content += F("<div class='form-group'><label for='analytics_night_start_time'>Sleep analytics night start (local, HH:MM)</label>"
-				"<input type='text' id='analytics_night_start_time' name='analytics_night_start_time' "
-				"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='22:00' value='");
-			page_content += start_v;
-			page_content += F("'/></div><div class='form-group'><label for='analytics_night_end_time'>Sleep analytics night end (local, HH:MM)</label>"
-				"<input type='text' id='analytics_night_end_time' name='analytics_night_end_time' "
-				"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='07:00' value='");
-			page_content += end_v;
-			page_content += F("'/></div><p style='font-size:12px;color:#666;margin:4px 0 0;'>End is exclusive for hourly buckets (e.g. 07:00 uses hours through 06:xx).</p>");
-			add_form_checkbox(Config_analytics_sleep_add_urban,
-			                  F("Add Urban data to sleep analytics (PM2.5 & noise)"),
-			                  !cfg::standalone);
-			if (cfg::standalone) {
-				page_content += F("<p style='font-size:12px;color:#666;margin:4px 0 8px;'>"
-				                  "Uncheck Insight standalone above to pair with Urban and use outdoor PM2.5/noise in sleep analytics.</p>");
-			}
-		}
-		page_content += F("<script>"
-			"(function(){"
-				"var off=document.getElementById('leds_off_hour');"
-				"var on=document.getElementById('leds_on_hour');"
-				"if(off){off.min='0';off.max='23';off.step='1';}"
-				"if(on){on.min='0';on.max='23';on.step='1';}"
-			"})();"
-		"</script>");
 #endif
+		page_content += F("</div></section>");
 	}
-	page_content += F("</div>");
 
-	server.sendContent(page_content);
-	page_content = emptyString;
+	maybe_flush();
+
+#ifdef ALTRUIST_INSIDE
+	// Sleep analytics (tab 2)
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>" INTL_PANEL_TITLE_SLEEP_ANALYTICS "</h2>"
+		"<div class='config-section__body'>");
+	{
+		const String start_v =
+		    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_start_hour, 22u * 60u));
+		const String end_v =
+		    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_end_hour, 7u * 60u));
+		page_content += F("<div class='form-group'><label for='analytics_night_start_time'>Sleep analytics night start (local, HH:MM)</label>"
+			"<input type='text' id='analytics_night_start_time' name='analytics_night_start_time' "
+			"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='22:00' value='");
+		page_content += start_v;
+		page_content += F("'/></div><div class='form-group'><label for='analytics_night_end_time'>Sleep analytics night end (local, HH:MM)</label>"
+			"<input type='text' id='analytics_night_end_time' name='analytics_night_end_time' "
+			"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='07:00' value='");
+		page_content += end_v;
+		page_content += F("'/></div><p class='form-hint'>End is exclusive for hourly buckets (e.g. 07:00 uses hours through 06:xx).</p>");
+		add_form_checkbox(Config_analytics_sleep_add_urban,
+		                  F("Add Urban data to sleep analytics (PM2.5 & noise)"),
+		                  !cfg::standalone);
+		if (cfg::standalone) {
+			page_content += F("<p class='form-hint'>"
+			                  "Disable Insight standalone in the Firmware section to pair with Urban and use outdoor PM2.5/noise in sleep analytics.</p>");
+		}
+	}
+	page_content += F("</div></section>");
+
+	maybe_flush();
+#endif
 
 	// Firmware Version (tab 2)
 
-	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_FIRMWARE "</h3>");
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>" INTL_PANEL_TITLE_FIRMWARE "</h2>"
+		"<div class='config-section__body'>");
 	add_form_checkbox(Config_auto_update, FPSTR(INTL_AUTO_UPDATE), true);
 #ifdef ALTRUIST_INSIGHT
 	add_form_checkbox(Config_standalone, FPSTR(INTL_INSIGHT_STANDALONE), true);
@@ -516,54 +490,39 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 
 	page_content += form_select_timezone();
 
-	// page_content += form_select_reg();
+	page_content += F("</div></section>");
 
-	page_content += F("<script>"
-	    "var $ = function(e) { return document.getElementById(e); };"
-	    "function updateOTAOptions() { "
-		"$('current_lang').disabled = !$('auto_update').checked; "
-		"}; updateOTAOptions(); $('auto_update').onchange = updateOTAOptions;"
-		"</script>");
-
-	page_content += "</div>";
-
-	server.sendContent(page_content);
-	page_content = emptyString;
+	maybe_flush();
 
 	// WiFi Sensor in configuration mode (tab 2)
 
-	page_content = F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_WIFI_CONFIG "</h3>");
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>" INTL_PANEL_TITLE_WIFI_CONFIG "</h2>"
+		"<div class='config-section__body'>");
 	add_form_input(page_content, Config_fs_ssid, FPSTR(INTL_FS_WIFI_NAME), LEN_FS_SSID-1);
 	add_form_input(page_content, Config_fs_pwd, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1);
-	page_content += F("</div>");
+	page_content += F("</div></section>");
 
-	server.sendContent(page_content);
-	page_content = emptyString;
+	maybe_flush();
 
-	page_content = tmpl(FPSTR(WEB_DIV_PANEL), String(3));
+	flush_chunk();
+	page_content += tmpl(FPSTR(WEB_DIV_PANEL), String(3));
 
 	// Custom API (tab 3)
-
-	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CUSTOMAPI " (BETA)</h3>");
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>" INTL_PANEL_TITLE_CUSTOMAPI
+		" <span class='config-tag'>" INTL_BADGE_BETA "</span></h2>"
+		"<div class='config-section__body'>");
 	page_content += form_checkbox(Config_send2custom, FPSTR(INTL_SEND_TO_OWN_API), false, true);
-	// page_content += form_checkbox(Config_ssl_custom, FPSTR(WEB_HTTPS), false, false);
-
 	add_form_input(page_content, Config_host_custom, FPSTR(INTL_SERVER), LEN_HOST_CUSTOM-1, true);
 	add_form_input(page_content, Config_url_custom, FPSTR(INTL_PATH), LEN_URL_CUSTOM-1, true);
 	add_form_input(page_content, Config_port_custom, FPSTR(INTL_PORT), MAX_PORT_DIGITS, true);
-	// add_form_input(page_content, Config_user_custom, FPSTR(INTL_USER), LEN_USER_CUSTOM-1, false);
-	// add_form_input(page_content, Config_pwd_custom, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1, false);
-	page_content += F("</div>");
-	server.sendContent(page_content);
+	page_content += F("</div></section>");
+	maybe_flush();
 
 	// Influx DB (tab 3)
-	
-	page_content = F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_INFLUX " (UNDO DEVELOPMENT)</h3>");
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>" INTL_PANEL_TITLE_INFLUX
+		" <span class='config-tag config-tag--muted'>" INTL_BADGE_EXPERIMENTAL "</span></h2>"
+		"<div class='config-section__body'>");
 	page_content += form_checkbox(Config_send2influx, tmpl(FPSTR(INTL_SEND_TO), F("InfluxDB")), false, false);
-
 	page_content += form_checkbox(Config_ssl_influx, FPSTR(WEB_HTTPS), false, false);
 	add_form_input(page_content, Config_host_influx, FPSTR(INTL_SERVER), LEN_HOST_INFLUX-1, false);
 	add_form_input(page_content, Config_url_influx, FPSTR(INTL_PATH), LEN_URL_INFLUX-1, false);
@@ -571,27 +530,27 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_input(page_content, Config_user_influx, FPSTR(INTL_USER), LEN_USER_INFLUX-1, false);
 	add_form_input(page_content, Config_pwd_influx, FPSTR(INTL_PASSWORD), LEN_CFG_PASSWORD-1, false);
 	add_form_input(page_content, Config_measurement_name_influx, FPSTR(INTL_MEASUREMENT), LEN_MEASUREMENT_NAME_INFLUX-1, false);
-	page_content += "</div>";
+	page_content += F("</div></section>");
 
-	server.sendContent(page_content);
-	page_content = emptyString;
+	maybe_flush();
 
 	// CSV (tab 3)
-
-	page_content += F("<div class='panel-container'>");
-	page_content += F("<h3 class='panel-subtitle'>" INTL_PANEL_TITLE_CSV " (UNDO DEVELOPMENT)</h3>");
+	page_content += F("<section class='config-section'><h2 class='config-section__title'>" INTL_PANEL_TITLE_CSV
+		" <span class='config-tag config-tag--muted'>" INTL_BADGE_EXPERIMENTAL "</span></h2>"
+		"<div class='config-section__body'>");
 	add_form_checkbox(Config_send2csv, FPSTR(WEB_CSV), false);
-	page_content += F("</div>");
+	page_content += F("</div></section>");
 
-	page_content += F("</span></div>");
+	page_content += F("</div></div><div class='config-form-footer'>");
 	page_content += form_submit(FPSTR(INTL_SAVE_AND_RESTART));
+	page_content += F("</div></div></div>");
 	page_content += FPSTR(BR_TAG);
 	page_content += FPSTR(WEB_BR_FORM);
 	if (wificonfig_loop) {  // scan for wlan ssids
 		page_content += F("<script>window.setTimeout(load_wifi_list,1000);</script>");
 	}
 
-	server.sendContent(page_content);
-	page_content = emptyString;
+	append_app_page_body_end(page_content);
+	flush_chunk();
 }
 

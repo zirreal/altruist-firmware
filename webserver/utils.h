@@ -5,11 +5,32 @@
 #include <ArduinoJson.h>
 #include "../config_manager/config_helpers.h"
 
-void add_table_row_from_value(String& page_content, const String& sensor, const String& param, const String& value, const String& unit);
+/** Flush a built HTML chunk over chunked HTTP and yield so sensors/WiFi keep running. */
+void web_page_flush_chunk(String& page_content, WebServer* server);
+/** Stream PROGMEM bytes into the current chunked HTTP response. */
+void web_send_content_progmem(WebServer* server, const char* data, size_t len);
+/** Send the final empty chunk to close a chunked HTTP response. */
+void web_page_finish_chunked(WebServer* server);
+
 void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit = nullptr);
 void add_table_row_from_value(String& page_content, const __FlashStringHelper* param, const __FlashStringHelper* value, const char* unit = nullptr);
 void add_table_row_from_value(String& page_content, const String& param, const String& value, const char* unit = nullptr);
 
+void add_data_row_from_value(String& page_content, const __FlashStringHelper* param, const String& value, const char* unit = nullptr);
+void add_data_row_from_value(String& page_content, const __FlashStringHelper* param, const __FlashStringHelper* value, const char* unit = nullptr);
+void add_data_row_from_value(String& page_content, const String& param, const String& value, const char* unit = nullptr);
+
+void add_data_section_start(String& page_content, const __FlashStringHelper* label, const char* block_modifier = nullptr);
+void add_data_section_start(String& page_content, const String& label, const char* block_modifier = nullptr);
+void add_data_section_end(String& page_content);
+void add_data_api_status_row(String& page_content, const String& api_name, const String& status,
+	const String& sends, const String& last_send);
+
+void add_reading_metrics_grid_start(String& page_content);
+void add_reading_metrics_grid_end(String& page_content);
+void add_reading_metric_card(String& page_content, const __FlashStringHelper* label, const String& value, const char* unit = nullptr);
+void add_reading_metric_card(String& page_content, const String& label, const String& value, const char* unit = nullptr);
+void add_data_block_intro(String& page_content, const __FlashStringHelper* intro);
 
 int32_t calcWiFiSignalQuality(int32_t rssi);
 String add_sensor_type(const String& sensor_text);
@@ -21,6 +42,9 @@ String form_select_timezone();
 String form_select_reg();
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length, bool enabled);
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length);
+
+void append_app_page_body_start(String& page_content, const __FlashStringHelper* lead = nullptr);
+void append_app_page_body_end(String& page_content);
 
 #endif // __WEBSERVER_UTILS_H__
 

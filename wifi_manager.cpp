@@ -217,7 +217,7 @@ void wifiGuestPortalPrepareStaJoin(void) {
 #if defined(ESP32) || defined(ESP8266)
 	debug_outln_info(F("[WiFi] Guest portal: preparing STA join"));
 	WiFi.disconnect(true, false);
-	const unsigned long deadline = millis() + 3000UL;
+	const unsigned long deadline = millis() + 1200UL;
 	while (millis() < deadline) {
 		yield();
 		delay(50);
@@ -225,7 +225,7 @@ void wifiGuestPortalPrepareStaJoin(void) {
 			break;
 		}
 	}
-	delay(150);
+	delay(80);
 	if (WiFi.getMode() != WIFI_AP_STA) {
 		WiFi.mode(WIFI_AP_STA);
 	}
@@ -365,8 +365,12 @@ void wifiConfig(SensorWebServer &webserver) {
 		improv_serial_loop();
 #ifdef ALTRUIST_INSIGHT
 		insightGuestProcessPendingFinish();
-		// Process display manager to handle button presses (e.g., sleep mode) even during WiFi config
-		displayManager.process(btn_press);
+		static unsigned long last_portal_display_ms = 0;
+		const unsigned long portal_now = millis();
+		if (portal_now - last_portal_display_ms >= 2000UL) {
+			last_portal_display_ms = portal_now;
+			displayManager.process(btn_press);
+		}
 #endif
 		if (millis() - start_setup_time > 15 * 60 * 1000) {
 			debug_outln_error(F("WiFi config timeout, restarting..."));

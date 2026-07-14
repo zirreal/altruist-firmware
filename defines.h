@@ -205,15 +205,21 @@ constexpr const uint8_t WIFI_STA_DEEP_FORCE_AFTER_THROTTLED_SKIPS = 5;
  */
 constexpr const unsigned long WIFI_STA_REBOOT_AFTER_MS = (30UL * 60UL * 1000UL);
 
-/** On-chain datalog send must finish within this window; otherwise reboot (stuck Robonomics client). */
-constexpr const unsigned long DATALOG_SEND_WATCHDOG_MS = 90UL * 1000UL;
+/**
+ * Recovery watchdog windows.
+ *
+ * These are *software* health checks that trigger an automatic reboot when a worker
+ * appears stuck for too long (e.g., network stall, blocked loop iteration).
+ *
+ */
+constexpr const unsigned long DATALOG_SEND_WATCHDOG_MS = 5UL * 60UL * 1000UL;
 /** loop() must complete within this window (web + Insight display); otherwise reboot. */
-constexpr const unsigned long MAIN_LOOP_STALL_WATCHDOG_MS = 90UL * 1000UL;
+constexpr const unsigned long MAIN_LOOP_STALL_WATCHDOG_MS = 5UL * 60UL * 1000UL;
 /**
  * sensorAndAPIWorker must finish one full iteration within this window (fetch + APIs + OTA check).
  * Catches Map HTTP / fetch / datalog hangs even when loop() still runs (Insight frozen UI).
  */
-constexpr const unsigned long SENSOR_WORKER_LOOP_WATCHDOG_MS = 120UL * 1000UL;
+constexpr const unsigned long SENSOR_WORKER_LOOP_WATCHDOG_MS = 5UL * 60UL * 1000UL;
 
 // ------------------------------------------------------------
 // Urban TTL constants (Insight only)

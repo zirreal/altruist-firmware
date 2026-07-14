@@ -204,7 +204,7 @@ static bool isValidHumidity(float v) {
 }
 
 static bool isValidCO2(float v) {
-    return (v >= 300.0f && v <= 5000.0f && fabsf(v - kNoData) > kEpsilon);
+    return (v >= 150.0f && fabsf(v - kNoData) > kEpsilon);
 }
 
 static bool isValidPM25(float v) {

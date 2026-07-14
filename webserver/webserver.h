@@ -39,9 +39,12 @@ private:
     bool webserver_request_auth();
     void sendHttpRedirectGuest();
     void sendHttpRedirectConnected(String &address);
-    void start_html_page(String& page_content, const String& title);
+    void stream_html_page_head(const String& title, bool guest_page = false, const char* app_page = nullptr, bool app_config_layout = false);
+    void start_html_page(String& page_content, const String& title, bool guest_page = false, const char* app_page = nullptr, bool app_config_layout = false);
     void end_html_page(String& page_content);
+    void end_html_page_guest(String& page_content);
     void end_html_page_root(String& page_content);
+    void end_html_page_app(String& page_content);
     
     // Web Pages
     void _webserver_guest();
@@ -57,6 +60,7 @@ private:
     void _webserver_data_json();
     void _webserver_metrics_endpoint();
     void _webserver_favicon();
+    void _webserver_favicon_dark();
     void _webserver_static();
     void _webserver_not_found();
     void _webserver_ota();

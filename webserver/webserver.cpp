@@ -11,12 +11,12 @@
 #include "../config_manager/config_helpers.h"
 #include "../apis/rws_group.h"
 #include "../defines.h"
+#include "../utils.h"
 #include "../wifi_manager.h"
 #include <Robonomics.h>
 #include "web-header-logo-select.h"
-#if !defined(ALTRUIST_URBAN_C3_LITE)
-#include "robonomics-logo-common.h"
-#endif
+#include "favicon.h"
+#include "nav-icons.h"
 
 extern Robonomics robonomics;
 
@@ -83,11 +83,20 @@ static void webserverUnlock() {
 
 void SensorWebServer::handleClient() {
 	// Guard against races between loop() and the captive portal worker.
-	if (!webserverLock()) {
+	// Retry briefly: a single 250ms miss drops phone requests (HTML + CSS + logo in parallel).
+	for (uint8_t attempt = 0; attempt < 4; ++attempt) {
+		if (!webserverLock(attempt == 0 ? 250 : 100)) {
+			yield();
+			continue;
+		}
+		for (uint8_t i = 0; i < 4; ++i) {
+			server.handleClient();
+			markMainLoopAlive();
+			yield();
+		}
+		webserverUnlock();
 		return;
 	}
-	server.handleClient();
-	webserverUnlock();
 }
 
 
@@ -111,6 +120,7 @@ void SensorWebServer::setup() {
 	server.on(F("/restart"), std::bind(&SensorWebServer::_webserver_restart, this)); // x
 	server.on(F("/data.json"), std::bind(&SensorWebServer::_webserver_data_json, this)); // x
 	server.on(F("/favicon.ico"), std::bind(&SensorWebServer::_webserver_favicon, this)); // x
+	server.on(F("/favicon-dark.ico"), std::bind(&SensorWebServer::_webserver_favicon_dark, this)); // x
 	server.on(F(STATIC_PREFIX), std::bind(&SensorWebServer::_webserver_static, this)); // x
 	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
 	server.on(F("/group"), std::bind(&SensorWebServer::_webserver_group, this));
@@ -118,6 +128,10 @@ void SensorWebServer::setup() {
 	server.on(F("/screen"), std::bind(&SensorWebServer::_webserver_screen, this));
 	server.on(F("/select_urban"), std::bind(&SensorWebServer::_webserver_select_urban, this));
 	server.on(F("/scan_urbans"), std::bind(&SensorWebServer::_webserver_scan_urbans, this));
+	server.on(F("/guest_setup_ack"), [this]() {
+		insightGuestClearFinishPending();
+		server.send(204, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), emptyString);
+	});
 #endif
 	server.onNotFound(std::bind(&SensorWebServer::_webserver_not_found, this)); // x
 
@@ -149,26 +163,25 @@ void SensorWebServer::_webserver_status() {
 	}
 
 	RESERVE_STRING(page_content, XLARGE_STR);
-	start_html_page(page_content, FPSTR(INTL_DEVICE_STATUS));
+	start_html_page(page_content, FPSTR(INTL_DEVICE_STATUS), false, "status");
 
 	debug_outln_info(F("ws: status ..."));
-	server.sendContent(page_content);
-    webserver_status_part1(page_content, deviceStatus);
-    server.sendContent(page_content);
-    page_content = FPSTR(EMPTY_ROW);
-    webserver_status_part2(page_content, deviceStatus);
-    // server.sendContent(page_content);
+    webserver_status_part1(page_content, deviceStatus, server);
+    web_page_flush_chunk(page_content, &server);
+    webserver_status_part2(page_content, deviceStatus, server);
 
-	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
-	end_html_page(page_content);
+	page_content += F("</div></div>");
+	end_html_page_app(page_content);
 }
 
 void SensorWebServer::_webserver_data_json() {
 	String json_content;
-	if (xSemaphoreTake(mutex, portMAX_DELAY)) {
-    	webserver_data_json(sensors_data, esp_chipid, json_content);
-		xSemaphoreGive(mutex);
+	if (!xSemaphoreTake(mutex, pdMS_TO_TICKS(300))) {
+		server.send(503, FPSTR(TXT_CONTENT_TYPE_JSON), F("{\"error\":\"busy\"}"));
+		return;
 	}
+	webserver_data_json(sensors_data, esp_chipid, json_content);
+	xSemaphoreGive(mutex);
     server.send(200, FPSTR(TXT_CONTENT_TYPE_JSON), json_content);
 }
 
@@ -192,6 +205,27 @@ void SensorWebServer::_webserver_static() {
 		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_HEADER_LOGO_SVG, WEB_HEADER_LOGO_SIZE);
 		return;
 	}
+	const String resource = server.arg(String('r'));
+	if (resource == F("nav-home")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_NAV_ICON_HOME_PNG, WEB_NAV_ICON_HOME_PNG_SIZE);
+		return;
+	}
+	if (resource == F("nav-readings")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_NAV_ICON_READINGS_PNG, WEB_NAV_ICON_READINGS_PNG_SIZE);
+		return;
+	}
+	if (resource == F("nav-status")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_NAV_ICON_STATUS_PNG, WEB_NAV_ICON_STATUS_PNG_SIZE);
+		return;
+	}
+	if (resource == F("nav-settings")) {
+		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
+		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_NAV_ICON_SETTINGS_PNG, WEB_NAV_ICON_SETTINGS_PNG_SIZE);
+		return;
+	}
 	server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
 
 	if (server.arg(String('r')) == F("css")) {
@@ -207,12 +241,12 @@ void SensorWebServer::_webserver_static() {
 
 void SensorWebServer::_webserver_favicon() {
 	server.sendHeader(F("Cache-Control"), F("max-age=86400, public"));
-#if defined(ALTRUIST_URBAN_C3_LITE)
-	server.send_P(200, TXT_CONTENT_TYPE_IMAGE_SVG, WEB_HEADER_LOGO_SVG, WEB_HEADER_LOGO_SIZE);
-#else
-	server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG,
-		ROBONOMICS_INFO_LOGO_PNG, ROBONOMICS_INFO_LOGO_PNG_SIZE);
-#endif
+	server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_FAVICON_PNG, WEB_FAVICON_PNG_SIZE);
+}
+
+void SensorWebServer::_webserver_favicon_dark() {
+	server.sendHeader(F("Cache-Control"), F("max-age=86400, public"));
+	server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_FAVICON_DARK_PNG, WEB_FAVICON_DARK_PNG_SIZE);
 }
 
 void SensorWebServer::_webserver_restart() {
@@ -222,16 +256,21 @@ void SensorWebServer::_webserver_restart() {
 	String page_content;
 	page_content.reserve(512);
 
-	start_html_page(page_content, FPSTR(INTL_RESTART_SENSOR));
+	start_html_page(page_content, FPSTR(INTL_RESTART_SENSOR), false, "settings");
 	debug_outln_info(F("ws: reset ..."));
 
+	append_app_page_body_start(page_content, F(INTL_PAGE_RESTART_INTRO));
+
 	if (server.method() == HTTP_GET) {
+		page_content += F("<section class='app-panel app-panel--confirm'>");
 		page_content += FPSTR(WEB_RESET_CONTENT);
+		page_content += F("</section>");
 	} else {
 		set_restart_reason(RESTART_REASON_USER);
 		sensor_restart();
 	}
-	end_html_page(page_content);
+	append_app_page_body_end(page_content);
+	end_html_page_app(page_content);
 }
 
 void SensorWebServer::_webserver_removeConfig() {
@@ -239,7 +278,8 @@ void SensorWebServer::_webserver_removeConfig() {
 	{ return; }
 
 	RESERVE_STRING(page_content, LARGE_STR);
-	start_html_page(page_content, FPSTR(INTL_DELETE_CONFIG));
+	start_html_page(page_content, String(F(INTL_CONFIGURATION_DELETE)), false, "settings");
+	append_app_page_body_start(page_content, F(INTL_PAGE_DELETE_CONFIG_INTRO));
     bool is_HTTP_GET = server.method() == HTTP_GET;
 	bool remove_all = false;
 	if (server.hasArg("configType")) {
@@ -247,7 +287,8 @@ void SensorWebServer::_webserver_removeConfig() {
 		remove_all = server_arg == "all";
 	}
     webserver_removeConfig(page_content, is_HTTP_GET, remove_all);
-    end_html_page(page_content);
+	append_app_page_body_end(page_content);
+    end_html_page_app(page_content);
     if (!is_HTTP_GET) {
         esp_restart();
     }
@@ -270,9 +311,11 @@ void SensorWebServer::_webserver_debug_level() {
 	{ return; }
 
 	RESERVE_STRING(page_content, LARGE_STR);
-	start_html_page(page_content, FPSTR(INTL_DEBUG_LEVEL));
+	start_html_page(page_content, FPSTR(INTL_DEBUG_LEVEL), false, "settings");
+	append_app_page_body_start(page_content, F(INTL_PAGE_DEBUG_INTRO));
     webserver_debug_level(server, page_content);
-    end_html_page(page_content);;
+	append_app_page_body_end(page_content);
+    end_html_page_app(page_content);
 }
 
 void SensorWebServer::_webserver_group() {
@@ -285,7 +328,7 @@ void SensorWebServer::_webserver_group() {
 	}
 
 	RESERVE_STRING(page_content, LARGE_STR);
-	start_html_page(page_content, FPSTR(INTL_GROUP_MENU));
+	start_html_page(page_content, FPSTR(INTL_GROUP_MENU), false, "settings");
 
 	const String self_ss58 = String(robonomics.getSs58Address());
 	setRobonomicsAddress(self_ss58);
@@ -297,7 +340,7 @@ void SensorWebServer::_webserver_group() {
 	}
 
 	webserver_group_page(page_content, self_ss58, &robonomics, save_result);
-	end_html_page(page_content);
+	end_html_page_app(page_content);
 }
 
 #ifdef ALTRUIST_INSIGHT
@@ -311,7 +354,7 @@ void SensorWebServer::_webserver_screen() {
 	}
 
 	RESERVE_STRING(page_content, LARGE_STR);
-	start_html_page(page_content, FPSTR(INTL_SCREEN_MENU));
+	start_html_page(page_content, FPSTR(INTL_SCREEN_MENU), false, "settings");
 
 	ScreenSaveResult save_result = ScreenSave_None;
 	if (server.method() == HTTP_POST) {
@@ -319,7 +362,7 @@ void SensorWebServer::_webserver_screen() {
 	}
 
 	webserver_screen_page(page_content, save_result);
-	end_html_page(page_content);
+	end_html_page_app(page_content);
 }
 #endif
 
@@ -331,181 +374,175 @@ void SensorWebServer::_webserver_values() {
     if (!webserver_request_auth())
 		{ return; }
     RESERVE_STRING(page_content, XLARGE_STR);
-    start_html_page(page_content, FPSTR(INTL_CURRENT_DATA));
-	server.sendContent(page_content);
-    webserver_values(sensors_data, page_content);
-    end_html_page(page_content);
+    start_html_page(page_content, FPSTR(INTL_CURRENT_DATA), false, "values");
+	DynamicJsonDocument values_snapshot(sensors_data.capacity());
+	if (!xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
+		page_content = F("<p class='data-busy-msg'>");
+		page_content += FPSTR(INTL_DATA_BUSY);
+		page_content += F("</p>");
+	} else {
+		values_snapshot.set(sensors_data.as<JsonVariantConst>());
+		xSemaphoreGive(mutex);
+		if (values_snapshot.overflowed()) {
+			page_content = F("<p class='data-busy-msg'>");
+			page_content += FPSTR(INTL_DATA_BUSY);
+			page_content += F("</p>");
+		} else {
+			webserver_values(values_snapshot, page_content, server);
+		}
+	}
+    end_html_page_app(page_content);
 }
 
 void SensorWebServer::_webserver_guest() {
     server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
 	server.sendHeader(F("Pragma"), F("no-cache"));
-	server.sendHeader(F("Expires"), F("0"));
-	// Enable Pagination (Chunked Transfer)
-	server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server.sendHeader(F("Expires"), F("0"));
+
+	if (server.method() == HTTP_POST) {
+		debug_outln_info(F("ws: guest POST ..."));
+		webserver_config_send_body_post(server);
+
+		stream_html_page_head(FPSTR(INTL_CONFIGURATION), true);
+		server.sendContent_P(WEB_GUEST_CONNECT_STATUS);
+		yield();
+
+#if defined(ESP32) || defined(ESP8266)
+		wifiGuestPortalPrepareStaJoin();
+#endif
+		if (cfg::wlannopwd) {
+			debug_outln_info(F("No password"));
+			WiFi.begin(cfg::wlanssid);
+		} else {
+			WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
+		}
+
+		int counter = 0;
+		while (!wifiGuestPortalStaReady()) {
+			// Fail-fast: don't keep user stuck on "Connecting..." for too long.
+			// 40 * 500ms = ~20s.
+			if (counter > 40) {
+				break;
+			}
+			yield();
+			delay(500);
+			counter++;
+		}
+
+		RESERVE_STRING(page_content, XLARGE_STR);
+
+		if (wifiGuestPortalStaReady()) {
+			String address = WiFi.localIP().toString();
+			debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
+			debug_outln_info(F("STA IP: "), address);
+			page_content = F("<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>");
+#ifdef ALTRUIST_INSIDE
+			const unsigned insightAutoSec = (unsigned)(INSIGHT_GUEST_AUTO_FINISH_MS / 1000UL);
+			page_content += F("<div class='guest-page'><div class='guest-card guest__setup-finish'>");
+			page_content += F("<div class='guest__setup-header'>"
+				"<span class='guest__step-label'>" INTL_GUEST_SETUP_STEP_2_LABEL "</span>"
+				"<h2 class='guest__step-title'>" INTL_GUEST_WIFI_STEP_TITLE "</h2>"
+				"</div>");
+			page_content += F("<p class='form-hint guest-hint'>" INTL_GUEST_INSIGHT_FINISH_HINT "</p>");
+			page_content += F("<p class='form-hint'>" INTL_GUEST_KEEP_OPEN_HINT "</p>");
+			page_content += F("<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS
+				" <span class='ip-address guest-ip'>");
+			page_content += address;
+			page_content += F("</span> <button class='copy-btn' onclick='copyText()'></button></div>");
+			page_content += F("<p class='form-hint' id='insight-auto-finish-hint'>"
+				INTL_GUEST_INSIGHT_AUTO_FINISH_HINT " <strong id='insight-auto-sec'>");
+			page_content += String(insightAutoSec);
+			page_content += F("</strong> " INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "</p>");
+			page_content += FPSTR(WEB_COPY_IP_JS);
+
+			if (!writeConfig()) {
+				page_content += F("<p class='guest__reboot error'>Failed to save configuration.</p></div></div>");
+				end_html_page_guest(page_content);
+				return;
+			}
+			insightGuestMarkFinishPending();
+
+			page_content += F("<p class='form-hint'>" INTL_SETUP_INSIGHT_MODE_HINT "</p>");
+			page_content += F("<form id='insight-finish-form' class='guest-wizard-form' method='POST' action='/select_urban'>"
+				"<label class='guest-option'>"
+				"<input type='checkbox' name='pair_with_urban' value='1'>"
+				"<span>" INTL_SETUP_PAIR_WITH_URBAN "</span>"
+				"</label>"
+				"<button type='submit' class='submit-btn guest__setup-finish-btn'>");
+			page_content += F(INTL_SETUP_CONTINUE);
+			page_content += F("</button></form></div></div>");
+			page_content += F("<script>(function(){var s=");
+			page_content += String(insightAutoSec);
+			page_content += F(",el=document.getElementById('insight-auto-sec'),form=document.getElementById('insight-finish-form');"
+				"function tick(){if(s>0){if(el)el.textContent=String(s);s--;}else if(form)form.submit();}"
+				"tick();setInterval(tick,1000);})();</script>");
+			page_content += FPSTR(WEB_GUEST_WIZARD_SUBMIT_JS);
+			end_html_page_guest(page_content);
+			return;
+#else
+			page_content += F("<div class='guest-page'><div class='guest-card'>");
+			page_content += F("<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_GUEST_CONNECTED "</h2></div>");
+			page_content += F("<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS " <span class='ip-address guest-ip'>");
+			page_content += address;
+			page_content += F("</span> <button class='copy-btn' onclick='copyText()'></button></div>");
+			page_content += F("<p class='form-hint'>" INTL_GUEST_OPEN_IP_HINT "</p>");
+			page_content += FPSTR(WEB_COPY_IP_JS);
+
+			if (!writeConfig()) {
+				page_content += F("<p class='guest__reboot error'>Failed to save configuration.</p></div></div>");
+				end_html_page_guest(page_content);
+				return;
+			}
+			page_content += F("<p class='form-hint' id='guest-restart-hint'>");
+			page_content += FPSTR(INTL_GUEST_RESTART_PAUSE_HINT);
+			page_content += F("</p></div></div><script>(function(){var s=");
+			page_content += String((unsigned)(GUEST_SUCCESS_PAGE_DELAY_MS / 1000UL));
+			page_content += F(",el=document.getElementById('guest-restart-hint'),base=");
+			page_content += F("'");
+			page_content += FPSTR(INTL_GUEST_RESTART_PAUSE_HINT);
+			page_content += F("';function tick(){if(!el)return;if(s>0){el.textContent=base+' ('+s+'s)';s--;}else{clearInterval(iv);}}tick();var iv=setInterval(tick,1000);})();</script>");
+			end_html_page_guest(page_content);
+			Serial.flush();
+			delay(GUEST_SUCCESS_PAGE_DELAY_MS);
+			wifiCaptivePortalRestartAfterSuccess();
+			return;
+#endif
+		}
+
+		page_content = F("<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>");
+		page_content += F("<h2 class='guest__connect-subtitle error'>Connection Failed</h2>"
+						"<p class='guest__reboot'>Failed to connect to: ");
+		page_content += cfg::wlanssid;
+		page_content += F("</p>");
+#ifdef ALTRUIST_INSIDE
+		page_content += F("<p class='guest__reboot'>Rebooting to WiFi setup… You can close this page and try again.</p>");
+#else
+		page_content += F("<p class='guest__reboot'>Check SSID and password, then try again.</p>");
+#endif
+		end_html_page_guest(page_content);
+#ifdef ALTRUIST_INSIDE
+		if (writeConfig()) {
+			set_restart_reason(RESTART_REASON_CONFIG);
+			sensor_restart();
+		}
+#endif
+		return;
+	}
 
 	RESERVE_STRING(page_content, XLARGE_STR);
 
-	start_html_page(page_content, FPSTR(INTL_CONFIGURATION));
-    debug_outln_info(F("ws: guest ..."));
+	start_html_page(page_content, FPSTR(INTL_CONFIGURATION), true);
+    debug_outln_info(F("ws: guest GET ..."));
 
 	if (wificonfig_loop) {  // scan for wlan ssids
 		page_content += FPSTR(WEB_CONFIG_SCRIPT);
 	}
 
-	if (server.method() == HTTP_GET) {
-		webserver_guest_create_body_get_part1(page_content, wificonfig_loop, deviceStatus);
-        // Paginate page after ~ 1500 Bytes
-        server.sendContent(page_content);
-	    page_content = emptyString;
-        webserver_guest_create_body_get_part2(page_content, wificonfig_loop);
-        server.sendContent(page_content);
-	    page_content = emptyString;
-	} else {
-		webserver_config_send_body_post(server);
-		server.sendContent(page_content);
-		page_content = emptyString;
-	}
-
-	if (server.method() == HTTP_POST) {
-			String page_content = F(
-				"<body class='configuration'>"
-				"<br>"
-				"<div class='guest__connect-status guest__connect-status--initial'><h2 class='guest__connect-subtitle'>Connecting to WiFi...</h2>"
-				"<div class='loader'></div></div>"
-				"</body>"
-				"</html>");
-
-			server.sendContent(page_content);
-
-#if defined(ESP32) || defined(ESP8266)
-			wifiGuestPortalPrepareStaJoin();
-#endif
-			if (cfg::wlannopwd) {
-				debug_outln_info(F("No password"));
-				WiFi.begin(cfg::wlanssid);
-			} else {
-				WiFi.begin(cfg::wlanssid, cfg::wlanpwd);
-			}
-
-			int counter = 0;
-			while (!wifiGuestPortalStaReady()) {
-				// Fail-fast: don't keep user stuck on "Connecting..." for too long.
-				// 40 * 500ms = ~20s.
-				if (counter > 40) {
-					break;
-				}
-				delay(500);
-				counter++;
-			}
-
-			if (wifiGuestPortalStaReady()) {
-				String address = WiFi.localIP().toString();
-				debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
-				debug_outln_info(F("STA IP: "), address);
-				page_content = "<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>";
-#ifdef ALTRUIST_INSIGHT
-				const unsigned insightAutoSec = (unsigned)(INSIGHT_GUEST_AUTO_FINISH_MS / 1000UL);
-				page_content += F("<div class='guest__setup-finish' style='margin:16px auto;max-width:480px;'>");
-				page_content += F("<div class='guest__setup-header'>"
-					"<span class='guest__step-label'>" INTL_GUEST_SETUP_STEP_2_LABEL "</span>"
-					"<h2 class='guest__step-title'>" INTL_GUEST_WIFI_STEP_TITLE "</h2>"
-					"</div>");
-				page_content += F("<p style='background:#fff8e6;border:1px solid #f0c040;border-radius:8px;padding:14px 16px;"
-					"font-size:15px;line-height:1.45;margin:0 0 16px;color:#333;'>" INTL_GUEST_INSIGHT_FINISH_HINT "</p>");
-				page_content += F("<p style='margin:0 0 8px;font-size:14px;color:#555;'>" INTL_GUEST_KEEP_OPEN_HINT "</p>");
-				page_content += F("<div class='guest__reboot guest__reboot--ip' style='margin:0 0 12px;'>" INTL_GUEST_IP_ADDRESS
-					" <span class='ip-address'>");
-				page_content += address;
-				page_content += F("</span> <button class='copy-btn' onclick='copyText()'></button></div>");
-				page_content += F("<p id='insight-auto-finish-hint' style='color:#666;font-size:14px;line-height:1.4;margin:0 0 18px;'>"
-					INTL_GUEST_INSIGHT_AUTO_FINISH_HINT " <strong id='insight-auto-sec'>");
-				page_content += String(insightAutoSec);
-				page_content += F("</strong> " INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "</p>");
-				page_content += F("<script>function copyText(){const e=document.querySelector('.ip-address').innerText;"
-					"if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')}))"
-					".catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');"
-					"o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),"
-					"alert('Copied to clipboard (fallback)')}}</script>");
-
-				if (!writeConfig()) {
-					page_content += F("<p class='guest__reboot error'>Failed to save configuration.</p></div>");
-					server.sendContent(page_content);
-					server.sendContent(emptyString);
-					return;
-				}
-				insightGuestMarkFinishPending();
-
-				page_content += F("<p style='color:#444;font-size:14px;line-height:1.45;margin-bottom:14px;'>"
-					INTL_SETUP_INSIGHT_MODE_HINT "</p>");
-				page_content += F("<form id='insight-finish-form' method='POST' action='/select_urban'>"
-					"<label style='display:flex;align-items:flex-start;gap:12px;padding:14px 16px;"
-					"border:1px solid #ddd;border-radius:8px;background:#fafafa;cursor:pointer;font-size:15px;line-height:1.35;'>"
-					"<input type='checkbox' name='pair_with_urban' value='1' style='margin-top:3px;flex-shrink:0;'>"
-					"<span>" INTL_SETUP_PAIR_WITH_URBAN "</span>"
-					"</label>"
-					"<button type='submit' class='submit-btn' style='margin-top:22px;width:100%;padding:14px;font-size:16px;'>");
-				page_content += F(INTL_SETUP_CONTINUE);
-				page_content += F("</button></form></div>");
-				page_content += F("<script>(function(){var s=");
-				page_content += String(insightAutoSec);
-				page_content += F(",el=document.getElementById('insight-auto-sec'),form=document.getElementById('insight-finish-form');"
-					"function tick(){if(s>0){if(el)el.textContent=String(s);s--;}else if(form)form.submit();}"
-					"setInterval(tick,1000);})();</script>");
-				server.sendContent(page_content);
-				server.sendContent(emptyString);
-				return;
-#else
-				page_content += "<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_GUEST_CONNECTED "</h2></div>\n";
-				page_content += "<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS " <span class='ip-address'>" + address + "</span> <button class='copy-btn' onclick='copyText()'></button></div>";
-				page_content += "<p class='guest__reboot' style='margin-top:10px;'>" INTL_GUEST_OPEN_IP_HINT "</p>";
-				page_content += "<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>";
-				server.sendContent(page_content);
-
-				if (!writeConfig()) {
-					page_content = F("<p class='guest__reboot error'>Failed to save configuration.</p>");
-					server.sendContent(page_content);
-					server.sendContent(emptyString);
-					return;
-				}
-				page_content = F("<p class='guest__reboot' style='margin-top:14px;line-height:1.45;'>");
-				page_content += F("</p><p class='guest__reboot' id='guest-restart-hint' style='margin-top:8px;color:#666;'>");
-				page_content += FPSTR(INTL_GUEST_RESTART_PAUSE_HINT);
-				page_content += F("</p><script>(function(){var s=");
-				page_content += String((unsigned)(GUEST_SUCCESS_PAGE_DELAY_MS / 1000UL));
-				page_content += F(",el=document.getElementById('guest-restart-hint'),base=");
-				page_content += F("'");
-				page_content += FPSTR(INTL_GUEST_RESTART_PAUSE_HINT);
-				page_content += F("';function tick(){if(!el)return;if(s>0){el.textContent=base+' ('+s+'s)';s--;}else{clearInterval(iv);}}tick();var iv=setInterval(tick,1000);})();</script>");
-				server.sendContent(page_content);
-				server.sendContent(emptyString);
-				Serial.flush();
-				delay(GUEST_SUCCESS_PAGE_DELAY_MS);
-				wifiCaptivePortalRestartAfterSuccess();
-				return;
-#endif
-			} else {
-				page_content = F("<h2 class='guest__connect-subtitle error'>Connection Failed</h2>"
-								"<p class='guest__reboot'>Failed to connect to: ");
-				page_content += cfg::wlanssid;
-				page_content += F("</p>");
-#ifdef ALTRUIST_INSIGHT
-				page_content += F("<p class='guest__reboot'>Rebooting to WiFi setup… You can close this page and try again.</p>");
-#else
-				page_content += F("<p class='guest__reboot'>Check SSID and password, then try again.</p>");
-#endif
-				server.sendContent(page_content);
-#ifdef ALTRUIST_INSIGHT
-				if (writeConfig()) {
-					set_restart_reason(RESTART_REASON_CONFIG);
-					sensor_restart();
-				}
-#endif
-				server.sendContent(emptyString);
-				return;
-			}
-		}
-    // end_html_page(page_content);
+	webserver_guest_create_body_get_part1(page_content, wificonfig_loop, deviceStatus);
+	web_page_flush_chunk(page_content, &server);
+	webserver_guest_create_body_get_part2(page_content, wificonfig_loop);
+	web_page_flush_chunk(page_content, &server);
+	end_html_page_guest(page_content);
 }
 
 void SensorWebServer::setWifiInfo(struct_wifiInfo* info, uint8_t count) {
@@ -538,20 +575,21 @@ void SensorWebServer::_send_urban_pairing_form_html() {
 	MDNS.begin(cfg::local_hostname);
 	MDNS.addService("altruist", "tcp", 80);
 	MDNS.addServiceTxt("altruist", "tcp", DEVICE_MODEL_MDNS_PROPERTY, DEVICE_MODEL);
-	delay(1000);
+	delay(250);
+	yield();
 
 	int nrOfServices = MDNS.queryService("altruist", "tcp");
 	debug_outln_info(F("mDNS scan found services: "), String(nrOfServices));
 
 	RESERVE_STRING(page_content, XLARGE_STR);
-	start_html_page(page_content, FPSTR(INTL_CONFIGURATION));
+	start_html_page(page_content, FPSTR(INTL_CONFIGURATION), true);
 
 	page_content += F(
 		"<div style='margin:20px auto;max-width:480px;padding:20px;'>"
 		"<h3 style='margin-bottom:15px;text-align:center;'>" INTL_SELECT_URBAN_TITLE "</h3>"
 		"<p style='color:#666;font-size:14px;margin-bottom:15px;text-align:center;'>"
 		INTL_SELECT_URBAN_DESC "</p>"
-		"<form method='POST' action='/select_urban'>");
+		"<form class='guest-wizard-form' method='POST' action='/select_urban'>");
 
 	int urban_count = 0;
 	for (int i = 0; i < nrOfServices; i++) {
@@ -601,8 +639,9 @@ void SensorWebServer::_send_urban_pairing_form_html() {
 		"<button type='submit' class='submit-btn' style='margin-top:20px;width:100%;padding:14px;'>");
 	page_content += FPSTR(INTL_SAVE_AND_RESTART);
 	page_content += F("</button></form></div>");
+	page_content += FPSTR(WEB_GUEST_WIZARD_SUBMIT_JS);
 
-	end_html_page(page_content);
+	end_html_page_guest(page_content);
 }
 
 void SensorWebServer::_webserver_select_urban() {
@@ -631,7 +670,7 @@ void SensorWebServer::_webserver_select_urban() {
 		}
 
 		RESERVE_STRING(page_content, LARGE_STR);
-		start_html_page(page_content, F(INTL_SETUP_COMPLETE));
+		start_html_page(page_content, F(INTL_SETUP_COMPLETE), true);
 		String setup_ip = WiFi.localIP().toString();
 		page_content += F("<div style='text-align:center;padding:40px;'>"
 			"<h2 style='color:#4CAF50;'>" INTL_SETTINGS_SAVED "</h2>"
@@ -639,9 +678,9 @@ void SensorWebServer::_webserver_select_urban() {
 		page_content += setup_ip;
 		page_content += F("</span></strong> <button class='copy-btn' onclick='copyText()'></button></p>"
 			"<p>" INTL_GUEST_OPEN_IP_HINT "</p>"
-			"</div>"
-			"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
-		end_html_page(page_content);
+			"</div>");
+		page_content += FPSTR(WEB_COPY_IP_JS);
+		end_html_page_guest(page_content);
 
 		if (writeConfig()) {
 			set_restart_reason(RESTART_REASON_CONFIG);
@@ -687,7 +726,7 @@ void SensorWebServer::_webserver_select_urban() {
 	}
 
 	RESERVE_STRING(page_content, LARGE_STR);
-	start_html_page(page_content, F(INTL_SETUP_COMPLETE));
+	start_html_page(page_content, F(INTL_SETUP_COMPLETE), true);
 	String setup_ip = WiFi.localIP().toString();
 	page_content += F("<div style='text-align:center;padding:40px;'>"
 		"<h2 style='color:#4CAF50;'>" INTL_SETTINGS_SAVED "</h2>"
@@ -695,9 +734,9 @@ void SensorWebServer::_webserver_select_urban() {
 	page_content += setup_ip;
 	page_content += F("</span></strong> <button class='copy-btn' onclick='copyText()'></button></p>"
 		"<p>" INTL_GUEST_OPEN_IP_HINT "</p>"
-		"</div>"
-		"<script>function copyText(){const e=document.querySelector('.ip-address').innerText;if(navigator.clipboard)navigator.clipboard.writeText(e).then((function(){alert('Copied to clipboard')})).catch((function(e){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=e,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>");
-	end_html_page(page_content);
+		"</div>");
+	page_content += FPSTR(WEB_COPY_IP_JS);
+	end_html_page_guest(page_content);
 
 	if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
 		clearUrbanPairingTelemetry(sensors_data);
@@ -722,81 +761,74 @@ void SensorWebServer::_webserver_ota() {
 	}
 
 	RESERVE_STRING(page_content, LARGE_STR);
-	start_html_page(page_content, FPSTR(INTL_OTA_UPDATE));
+	start_html_page(page_content, FPSTR(INTL_OTA_UPDATE), false, "settings");
 
 	if (server.method() == HTTP_POST) {
+		append_app_page_body_start(page_content, F(INTL_PAGE_OTA_INTRO));
 		if (server.hasArg("action") && server.arg("action") == F("switch_lang")) {
 			String new_lang = server.arg("current_lang");
 			new_lang.toUpperCase();
 			if (new_lang == String(CURRENT_LANG)) {
-				page_content += F("<div style='text-align:center;padding:30px;'>"
-					"<h3 style='color:#FF9800;'>&#x26A0; ");
+				page_content += F("<div class='ui-notice ui-notice--warn'><strong>");
 				page_content += FPSTR(INTL_OTA_LANG_SAME);
-				page_content += F("</h3></div>");
+				page_content += F("</strong></div>");
 			} else {
 				strncpy(cfg::current_lang, new_lang.c_str(), sizeof(cfg::current_lang) - 1);
 				cfg::current_lang[sizeof(cfg::current_lang) - 1] = '\0';
 				writeConfig();
 				deviceStatus.ota_update_requested = true;
-				page_content += F("<div style='text-align:center;padding:30px;'>"
-					"<h3 style='color:#4CAF50;'>&#x2713; ");
+				page_content += F("<div class='ui-notice ui-notice--ok'><strong>");
 				page_content += FPSTR(INTL_OTA_LANG_REQUESTED);
-				page_content += F("</h3></div>");
+				page_content += F("</strong></div>");
 			}
-			
 		} else {
 			deviceStatus.ota_update_requested = true;
-			page_content += F("<div style='text-align:center;padding:30px;'>"
-				"<h3 style='color:#4CAF50;'>&#x2713; ");
+			page_content += F("<div class='ui-notice ui-notice--ok'><strong>");
 			page_content += FPSTR(INTL_OTA_CHECK_REQUESTED);
-			page_content += F("</h3></div>");
+			page_content += F("</strong></div>");
 		}
 	} else {
-		page_content += F("<div style='max-width:480px;margin:20px auto;padding:20px;'>");
-
-		page_content += F("<table>");
-		add_table_row_from_value(page_content, FPSTR(INTL_OTA_CURRENT_VERSION), String(SOFTWARE_VERSION_STR));
-		add_table_row_from_value(page_content, "Firmware channel", ALTRUIST_BUILD_CHANNEL);
-		add_table_row_from_value(page_content, FPSTR(INTL_LAST_OTA),
+		append_app_page_body_start(page_content, F(INTL_PAGE_OTA_INTRO));
+		page_content += F("<div class='data-sheet'>");
+		add_data_section_start(page_content, FPSTR(INTL_OTA_UPDATE));
+		add_data_row_from_value(page_content, FPSTR(INTL_OTA_CURRENT_VERSION), String(SOFTWARE_VERSION_STR));
+		add_data_row_from_value(page_content, "Firmware channel", ALTRUIST_BUILD_CHANNEL);
+		add_data_row_from_value(page_content, FPSTR(INTL_LAST_OTA),
 			delayToString(millis() - deviceStatus.last_update_attempt));
-		page_content += FPSTR(TABLE_TAG_CLOSE_BR);
+		add_data_section_end(page_content);
+		page_content += F("</div>");
 
-		page_content += F("<form method='POST' action='/ota' style='text-align:center;margin-top:20px;'>"
-			"<button type='submit' class='submit-btn'>");
+		page_content += F("<div class='page-form'>");
+
+		page_content += F("<section class='config-section'><h2 class='config-section__title'>");
 		page_content += FPSTR(INTL_OTA_CHECK_UPDATE);
-		page_content += F("</button></form>");
+		page_content += F("</h2><div class='config-section__body'>"
+			"<form method='POST' action='/ota'>");
+		page_content += form_submit(FPSTR(INTL_OTA_CHECK_UPDATE));
+		page_content += F("</form></div></section>");
 
-		// Language switch section
-		page_content += F("<hr style='margin:30px 0;border:none;border-top:1px solid #ccc;'>");
-		page_content += F("<h3 style='text-align:center;'>");
+		page_content += F("<section class='config-section'><h2 class='config-section__title'>");
 		page_content += FPSTR(INTL_OTA_SWITCH_LANG);
-		page_content += F("</h3>");
-
-		page_content += F("<table>");
-		add_table_row_from_value(page_content, FPSTR(INTL_OTA_CURRENT_LANG), String(CURRENT_LANG));
-		page_content += FPSTR(TABLE_TAG_CLOSE_BR);
-
-		String lang_select = F("<form method='POST' action='/ota' style='text-align:center;margin-top:10px;'>"
-			"<input type='hidden' name='action' value='switch_lang'>"
-			"<div class='form-group' style='margin-bottom:10px;'>"
-			"<select name='current_lang' style='padding:8px;font-size:14px;'>"
-			"<option value='EN'>English (EN)</option>"
-			"<option value='RU'>Русский (RU)</option>"
-			"</select></div>");
-		lang_select.replace("'" + String(CURRENT_LANG) + "'>",
-			"'" + String(CURRENT_LANG) + "' selected>");
-		page_content += lang_select;
-		page_content += F("<p style='color:#666;font-size:13px;margin:10px 0;'>");
-		page_content += FPSTR(INTL_OTA_SWITCH_LANG_NOTE);
+		page_content += F("</h2><div class='config-section__body'>"
+			"<p class='form-hint'><strong>");
+		page_content += FPSTR(INTL_OTA_CURRENT_LANG);
+		page_content += F(":</strong> ");
+		page_content += String(CURRENT_LANG);
 		page_content += F("</p>"
-			"<button type='submit' class='submit-btn'>");
-		page_content += FPSTR(INTL_OTA_SWITCH_LANG);
-		page_content += F("</button></form>");
+			"<form method='POST' action='/ota'>"
+			"<input type='hidden' name='action' value='switch_lang'>");
+		page_content += form_select_lang();
+		page_content += F("<p class='form-hint'>");
+		page_content += FPSTR(INTL_OTA_SWITCH_LANG_NOTE);
+		page_content += F("</p>");
+		page_content += form_submit(FPSTR(INTL_OTA_SWITCH_LANG));
+		page_content += F("</form></div></section>");
 
 		page_content += F("</div>");
 	}
 
-	end_html_page(page_content);
+	append_app_page_body_end(page_content);
+	end_html_page_app(page_content);
 }
 
 void SensorWebServer::_webserver_config() {
@@ -811,14 +843,14 @@ void SensorWebServer::_webserver_config() {
 		server.sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
 		server.sendHeader(F("Pragma"), F("no-cache"));
 		server.sendHeader(F("Expires"), F("0"));
-		// Enable Pagination (Chunked Transfer)
-		server.setContentLength(CONTENT_LENGTH_UNKNOWN);
 
 		RESERVE_STRING(page_content, XLARGE_STR);
+		page_content.reserve(4096);
 
-		start_html_page(page_content, FPSTR(INTL_CONFIGURATION));
+		start_html_page(page_content, FPSTR(INTL_CONFIGURATION), false, "settings", true);
 		if (wificonfig_loop) {  // scan for wlan ssids
 			page_content += FPSTR(WEB_CONFIG_SCRIPT);
+			web_page_flush_chunk(page_content, &server);
 		}
 
 		if (server.method() == HTTP_GET) {
@@ -849,10 +881,9 @@ void SensorWebServer::_webserver_config() {
 			}
 #endif
 			page_content += FPSTR(INTL_SENSOR_IS_REBOOTING);
-			server.sendContent(page_content);
-			page_content = emptyString;
+			web_page_flush_chunk(page_content, &server);
 		}
-		end_html_page(page_content);
+		end_html_page_app(page_content);
 
 		if (server.method() == HTTP_POST) {
 
@@ -873,10 +904,10 @@ void SensorWebServer::_webserver_root() {
 		{ return; }
 
     RESERVE_STRING(page_content, XLARGE_STR);
-    start_html_page(page_content, emptyString);
+    start_html_page(page_content, emptyString, false, "home");
     debug_outln_info(F("ws: root ..."));
-    webserver_root(page_content, robonomics_address);
-    end_html_page_root(page_content);
+    webserver_root(page_content, robonomics_address, deviceStatus);
+    end_html_page_app(page_content);
 }
 
 bool SensorWebServer::webserver_request_auth() {
@@ -921,48 +952,107 @@ void SensorWebServer::sendHttpRedirectConnected(String &address) {
 
 }
 
-void SensorWebServer::start_html_page(String& page_content, const String& title) {
+void SensorWebServer::stream_html_page_head(const String& title, bool guest_page, const char* app_page, bool app_config_layout) {
 	RESERVE_STRING(s, LARGE_STR);
 	s = FPSTR(WEB_PAGE_HEADER);
-	s.replace("{t}", title);
+	s.replace("{t}", title.length() ? title : String(F(INTL_DASH_TITLE)));
 	server.setContentLength(CONTENT_LENGTH_UNKNOWN);
 	server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), s);
+	yield();
 
-	if(title.indexOf(INTL_CONFIGURATION) != -1) {
+	if (app_page) {
+		if (app_config_layout) {
+			s = FPSTR(WEB_PAGE_APP_CONFIG_HEADER_HEAD);
+		} else {
+			s = FPSTR(WEB_PAGE_APP_HEADER_HEAD);
+		}
+		s.replace(F("{page}"), app_page);
+		server.sendContent(s);
+		yield();
+
+		if (app_config_layout) {
+			s = FPSTR(WEB_PAGE_APP_CONFIG_HEADER_BODY);
+		} else {
+			s = FPSTR(WEB_PAGE_APP_HEADER_BODY);
+		}
+		s.replace(F("{t}"), title.length() ? title : String(F(INTL_DASH_TITLE)));
+		s.replace(F("{device}"), esp_chipid);
+		s.replace(F("{addr}"), robonomics_address);
+		server.sendContent(s);
+		yield();
+		return;
+	}
+
+	if (title.indexOf(FPSTR(INTL_CONFIGURATION)) != -1) {
 		server.sendContent_P(WEB_PAGE_HEADER_CONFIG_HEAD);
 	} else {
 		server.sendContent_P(WEB_PAGE_HEADER_HEAD);
 	}
+	yield();
 
-	if (title.indexOf(INTL_DEBUG_LEVEL) != -1) {
+	if (guest_page) {
+		s = FPSTR(WEB_PAGE_GUEST_HEADER_BODY);
+	} else if (title.indexOf(FPSTR(INTL_DEBUG_LEVEL)) != -1) {
 		s = FPSTR(WEB_PAGE_DEBUG_HEADER_BODY);
-	} else if (title.indexOf(INTL_CONFIGURATION) != -1) {
+	} else if (title.indexOf(FPSTR(INTL_CONFIGURATION)) != -1) {
 		s = FPSTR(WEB_PAGE_CONFIG_HEADER_BODY);
+	} else if (title.indexOf(FPSTR(INTL_OTA_UPDATE)) != -1 || title.indexOf(FPSTR(INTL_GROUP_MENU)) != -1) {
+		s = FPSTR(WEB_PAGE_DATA_HEADER_BODY);
 	} else {
 		s = FPSTR(WEB_PAGE_HEADER_BODY);
 	}
 	s.replace("{addr}", robonomics_address);
-	s.replace("{t}", title);
-	if (title != " ") {
-		s.replace("{n}", F("&raquo;"));
-	} else {
-		s.replace("{n}", emptyString);
+	if (!guest_page) {
+		s.replace("{t}", title);
+		if (title != " ") {
+			s.replace("{n}", F("&raquo;"));
+		} else {
+			s.replace("{n}", emptyString);
+		}
 	}
 	s.replace("{id}", esp_chipid);
 	s.replace("{mac}", WiFi.macAddress());
-	page_content += s;
+	server.sendContent(s);
+	yield();
+}
+
+void SensorWebServer::start_html_page(String& page_content, const String& title, bool guest_page, const char* app_page, bool app_config_layout) {
+	(void)page_content;
+	stream_html_page_head(title, guest_page, app_page, app_config_layout);
 }
 
 void SensorWebServer::end_html_page(String& page_content) {
 	if (page_content.length()) {
 		server.sendContent(page_content);
+		page_content = emptyString;
 	}
 	server.sendContent_P(WEB_PAGE_FOOTER);
+	web_page_finish_chunked(&server);
+}
+
+void SensorWebServer::end_html_page_guest(String& page_content) {
+	if (page_content.length()) {
+		server.sendContent(page_content);
+		page_content = emptyString;
+	}
+	server.sendContent_P(WEB_PAGE_GUEST_FOOTER);
+	web_page_finish_chunked(&server);
 }
 
 void SensorWebServer::end_html_page_root(String& page_content) {
 	if (page_content.length()) {
 		server.sendContent(page_content);
+		page_content = emptyString;
 	}
 	server.sendContent_P(WEB_PAGE_ROOT_FOOTER);
+	web_page_finish_chunked(&server);
+}
+
+void SensorWebServer::end_html_page_app(String& page_content) {
+	if (page_content.length()) {
+		server.sendContent(page_content);
+		page_content = emptyString;
+	}
+	server.sendContent_P(WEB_PAGE_APP_FOOTER);
+	web_page_finish_chunked(&server);
 }

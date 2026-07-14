@@ -86,9 +86,11 @@ const char* get_reset_reason_text() {
         uint32_t custom = rtc_restart_reason;
         rtc_restart_magic = 0;
         switch (custom) {
-            case RESTART_REASON_OTA:    cached = "OTA firmware update"; return cached;
-            case RESTART_REASON_CONFIG: cached = "Configuration saved"; return cached;
-            case RESTART_REASON_USER:   cached = "User restart (web)"; return cached;
+            case RESTART_REASON_OTA:       cached = "OTA firmware update"; return cached;
+            case RESTART_REASON_CONFIG:    cached = "Configuration saved"; return cached;
+            case RESTART_REASON_USER:      cached = "User restart (web)"; return cached;
+            case RESTART_REASON_WATCHDOG:  cached = "Automatic recovery restart"; return cached;
+            case RESTART_REASON_WIFI:      cached = "WiFi recovery reboot"; return cached;
         }
     }
     rtc_restart_magic = 0;

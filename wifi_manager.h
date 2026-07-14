@@ -35,7 +35,7 @@ void wifiCaptivePortalRestartAfterSuccess(void);
 /** Leave captive portal loop after successful POST (before restart). */
 void wifiRequestPortalExit(void);
 
-#if defined(ALTRUIST_INSIGHT)
+#if defined(ALTRUIST_INSIDE)
 /** Insight guest WiFi OK but setup step 2 (Continue) not done yet — server-side auto-finish deadline. */
 void insightGuestMarkFinishPending(void);
 void insightGuestClearFinishPending(void);
