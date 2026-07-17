@@ -22,6 +22,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **`/data.json` under load** — Mutex take uses a 300 ms timeout; returns `503 {"error":"busy"}` instead of blocking the client indefinitely.
 - **Recovery watchdog timeouts** — Datalog, main-loop, and sensor-worker stall watchdogs extended from ~90–120 s to **5 minutes** (Urban and Insight).
 - **CO₂ display range** — Removed the 5000 ppm upper cap; minimum valid CO₂ lowered from 300 to **150 ppm** on Insight main screen, sleep analytics, and analytics rollup (values above sensor range still show `--` on e-paper when invalid).
+- **Insight ↔ Urban HTTP** — On failed Urban fetch: up to 3 quick retries with a TCP nudge, poll every ~1 min while failing (instead of waiting 5 min), clearer `-1` / connection-error logs, and less mDNS spam when a Urban IP is already configured.
 - **Urban LEDs** — Brightness from config is reapplied each `process()` cycle (strip and board RGB stay in sync when the slider changes).
 - **Insight guest/setup copy** — Clearer standalone vs Urban pairing hints and auto-finish wording (EN/RU).
 

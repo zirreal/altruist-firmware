@@ -232,9 +232,30 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
 void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http, const String &ip_address) {
     debug_outln_verbose(F("fetch HTTP Altruist "), ip_address);
     String sensor_url = SENSOR_URL_PREFIX + ip_address + JSON_DATA_PATH;
-    http.begin(sensor_url);
-    http.setTimeout(12000);
-    int httpCode = http.GET();
+
+    // A few quick GETs help when the LAN path to Urban is flaky (mesh / ARP / brief isolation).
+    int httpCode = -1;
+    const int kMaxAttempts = 3;
+    for (int attempt = 0; attempt < kMaxAttempts; ++attempt) {
+        if (attempt > 0) {
+            http.end();
+            delay(400);
+            {
+                WiFiClient nudge;
+                nudge.setTimeout(1000);
+                if (nudge.connect(ip_address.c_str(), 80)) {
+                    nudge.stop();
+                }
+            }
+            debug_outln_info(F("HTTPAltruistSensor: retry Urban GET "), String(attempt + 1));
+        }
+        http.begin(sensor_url);
+        http.setTimeout(12000);
+        httpCode = http.GET();
+        if (httpCode == HTTP_CODE_OK) {
+            break;
+        }
+    }
 
     if (httpCode == HTTP_CODE_OK) {
         debug_outln_verbose(F("Success request to Altruis Urban"));
@@ -396,51 +417,59 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
         // IMPORTANT: Close the HTTP connection to free resources
         http.end();
     } else {
-        debug_outln_info(F("Request to Altruist Urban failed, code: "), httpCode);
+        if (httpCode < 0) {
+            debug_outln_info(F("Request to Altruist Urban failed: "), HTTPClient::errorToString(httpCode));
+            debug_outln_info(F("  Insight cannot open LAN path to Urban (phone may still work)"));
+        } else {
+            debug_outln_info(F("Request to Altruist Urban failed, HTTP "), httpCode);
+        }
         consecutive_failures++;
+        // While failing, poll every ~1 min instead of waiting 5 min between tries.
+        timeout = HTTP_ALTRUIST_FAST_POLL_MS;
+
+        const bool have_configured_ip = httpUrbanHasConfiguredAddress();
         bool never_succeeded = (last_success_time == 0);
-        bool have_any_address = !sensor_addresses.empty() || httpUrbanHasConfiguredAddress();
+        bool have_any_address = !sensor_addresses.empty() || have_configured_ip;
 
         if (never_succeeded && !have_any_address) {
             // Limited discovery sequence while Urban is "possibly not present".
             if (discovery_attempts < URBAN_MAX_DISCOVERY_ATTEMPTS) {
-                unsigned long now = millis();
                 bool first_attempt = (discovery_attempts == 0);
                 bool interval_elapsed = msSince(last_discovery_attempt_time) >= URBAN_REDISCOVER_INTERVAL_MS;
 
                 if (first_attempt || interval_elapsed) {
                     debug_outln_info(F("HTTPAltruistSensor: scheduled rediscovery attempt "), String(discovery_attempts + 1));
                     if (_discoverSensors()) {
-                        // After rediscovery, reset failure counter; success time will be updated
-                        // once we actually fetch data successfully.
                         consecutive_failures = 0;
                     }
                 }
             } else {
                 debug_outln_info(F("HTTPAltruistSensor: reached max discovery attempts, Urban assumed absent"));
             }
-        } else {
-            // We had at least one successful communication before (or know an address);
-            // occasionally re-discover in case of IP / network changes.
+        } else if (!have_configured_ip) {
+            // No saved IP: mDNS rediscovery may find Urban after it joins Wi‑Fi.
             bool long_since_success = (last_success_time != 0 && msSince(last_success_time) > URBAN_REDISCOVER_INTERVAL_MS);
-
             if (long_since_success) {
                 debug_outln_info(F("HTTPAltruistSensor: attempting rediscovery after prolonged failures"));
                 if (_discoverSensors()) {
                     consecutive_failures = 0;
                 }
             }
-        }
-
-        // Extra robustness: if Urban is "healthy" but its IP changed (DHCP),
-        // don't wait a full URBAN_REDISCOVER_INTERVAL_MS before trying to re-bind.
-        // Throttle rediscovery attempts to avoid spamming mDNS on unstable networks.
-        const unsigned long FAST_REDISCOVER_THROTTLE_MS = 30UL * 1000UL;
-        bool fast_interval_elapsed = (last_discovery_attempt_time == 0) ||
-                                     (msSince(last_discovery_attempt_time) >= FAST_REDISCOVER_THROTTLE_MS);
-        if (fast_interval_elapsed) {
-            debug_outln_info(F("HTTPAltruistSensor: fast rediscovery after HTTP failure"));
-            _discoverSensors();
+            const unsigned long FAST_REDISCOVER_THROTTLE_MS = 30UL * 1000UL;
+            bool fast_interval_elapsed = (last_discovery_attempt_time == 0) ||
+                                         (msSince(last_discovery_attempt_time) >= FAST_REDISCOVER_THROTTLE_MS);
+            if (fast_interval_elapsed) {
+                debug_outln_info(F("HTTPAltruistSensor: fast rediscovery after HTTP failure"));
+                _discoverSensors();
+            }
+        } else if (!cfg::use_custom_urban) {
+            bool long_since_success = (last_success_time != 0 && msSince(last_success_time) > URBAN_REDISCOVER_INTERVAL_MS);
+            bool interval_elapsed = (last_discovery_attempt_time == 0) ||
+                                    (msSince(last_discovery_attempt_time) >= URBAN_REDISCOVER_INTERVAL_MS);
+            if (long_since_success && interval_elapsed) {
+                debug_outln_info(F("HTTPAltruistSensor: occasional mDNS check (saved IP still preferred)"));
+                _discoverSensors();
+            }
         }
         
         // Close the HTTP connection even on failure
