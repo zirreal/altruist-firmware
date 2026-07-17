@@ -396,6 +396,15 @@
 #ifndef INTL_PANEL_TITLE_SLEEP_ANALYTICS
 #define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Sleep analytics"
 #endif
+#ifndef INTL_ANALYTICS_MORNING_AUTOSWITCH
+#define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
+#endif
+#ifndef INTL_ANALYTICS_MORNING_END_TIME
+#define INTL_ANALYTICS_MORNING_END_TIME "Morning display until (local, HH:MM)"
+#endif
+#ifndef INTL_ANALYTICS_MORNING_END_HINT
+#define INTL_ANALYTICS_MORNING_END_HINT "After this time the display returns to the main screen. End time is exclusive (10:00 means until 09:59)."
+#endif
 #ifndef INTL_DATA_SECTION_SDS
 #define INTL_DATA_SECTION_SDS "SDS"
 #endif
@@ -546,6 +555,69 @@
 #ifndef INTL_DASH_HEALTH_TITLE
 #define INTL_DASH_HEALTH_TITLE "At a glance"
 #endif
+#ifndef INTL_HUB_LOCAL_TITLE
+#define INTL_HUB_LOCAL_TITLE "Local"
+#endif
+#ifndef INTL_HUB_LOCAL_DESC
+#define INTL_HUB_LOCAL_DESC "Readings, settings, and device maintenance"
+#endif
+#ifndef INTL_HUB_SOCIAL_DESC
+#define INTL_HUB_SOCIAL_DESC "Public map and Robonomics network"
+#endif
+#ifndef INTL_HUB_CUSTOM_DESC
+#define INTL_HUB_CUSTOM_DESC "Home Assistant, API, InfluxDB, CSV"
+#endif
+#ifndef INTL_DASH_GROUP_LOCAL_INTRO
+#define INTL_DASH_GROUP_LOCAL_INTRO "Readings, settings, and maintenance on your home network."
+#endif
+#ifndef INTL_DASH_GROUP_SOCIAL_TITLE
+#define INTL_DASH_GROUP_SOCIAL_TITLE "sensors.social"
+#endif
+#ifndef INTL_DASH_GROUP_SOCIAL_INTRO
+#define INTL_DASH_GROUP_SOCIAL_INTRO "Public map, Robonomics network, and what you publish."
+#endif
+#ifndef INTL_DASH_GROUP_CUSTOM_TITLE
+#define INTL_DASH_GROUP_CUSTOM_TITLE "Custom"
+#endif
+#ifndef INTL_DASH_GROUP_CUSTOM_INTRO
+#define INTL_DASH_GROUP_CUSTOM_INTRO "Home Assistant, your own API, InfluxDB, and CSV export."
+#endif
+#ifndef INTL_DASH_CAT_DATA
+#define INTL_DASH_CAT_DATA "Data"
+#endif
+#ifndef INTL_DASH_CAT_SETTINGS
+#define INTL_DASH_CAT_SETTINGS "Settings"
+#endif
+#ifndef INTL_DASH_CAT_MAINTENANCE
+#define INTL_DASH_CAT_MAINTENANCE "Maintenance"
+#endif
+#ifndef INTL_DASH_CAT_MAP
+#define INTL_DASH_CAT_MAP "Public map"
+#endif
+#ifndef INTL_DASH_CAT_NETWORK
+#define INTL_DASH_CAT_NETWORK "Robonomics"
+#endif
+#ifndef INTL_DASH_CAT_INTEGRATIONS
+#define INTL_DASH_CAT_INTEGRATIONS "Integrations"
+#endif
+#ifndef INTL_DASH_CONFIG_MAP_DESC
+#define INTL_DASH_CONFIG_MAP_DESC "Choose which measurements appear on the public map."
+#endif
+#ifndef INTL_DASH_CONFIG_ROBONOMICS_DESC
+#define INTL_DASH_CONFIG_ROBONOMICS_DESC "Owner, node, and on-chain data settings."
+#endif
+#ifndef INTL_DASH_CONFIG_INTEGRATIONS_DESC
+#define INTL_DASH_CONFIG_INTEGRATIONS_DESC "Open the data export tab in configuration."
+#endif
+#ifndef INTL_DASH_CUSTOM_API_DESC
+#define INTL_DASH_CUSTOM_API_DESC "HTTP push to your server (e.g. Home Assistant REST)."
+#endif
+#ifndef INTL_DASH_INFLUX_DESC
+#define INTL_DASH_INFLUX_DESC "Send measurements to InfluxDB."
+#endif
+#ifndef INTL_DASH_CSV_DESC
+#define INTL_DASH_CSV_DESC "Write a CSV file on the device or your endpoint."
+#endif
 #ifndef INTL_PAGE_READINGS_INTRO
 #define INTL_PAGE_READINGS_INTRO "Latest measurements from your sensors."
 #endif
@@ -566,6 +638,12 @@
 #endif
 #ifndef INTL_DELETE_CONFIG_ALL
 #define INTL_DELETE_CONFIG_ALL "All settings"
+#endif
+#ifndef INTL_CONFIGURATION_DELETE_WARNING
+#define INTL_CONFIGURATION_DELETE_WARNING "This cannot be undone. The device will restart after deleting the selected settings."
+#endif
+#ifndef INTL_CONFIGURATION_DELETE_CONFIRM
+#define INTL_CONFIGURATION_DELETE_CONFIRM "Yes, delete permanently"
 #endif
 #ifndef INTL_DELETE_CONFIG_WIFI
 #define INTL_DELETE_CONFIG_WIFI "Wi-Fi only"

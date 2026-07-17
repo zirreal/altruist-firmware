@@ -48,7 +48,11 @@ private:
     
     // Web Pages
     void _webserver_guest();
-    void _webserver_root();
+    void _webserver_hub_local();
+    void _webserver_hub_social();
+    void _webserver_hub_custom();
+    void _webserver_hub_advanced();
+    void _webserver_hub_warnings_redirect();
     void _webserver_config();
     void _webserver_wifi();
     void _webserver_values();

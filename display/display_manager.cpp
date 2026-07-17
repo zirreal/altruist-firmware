@@ -394,14 +394,14 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         return;
     }
 
-    // Between 06:00 and 12:00 (local) analytics is the default screen.
+    // Between 06:00 and configured end time (local) analytics is the default screen.
     // Auto-switch only once per window so user can still navigate back to MAIN.
     // Only evaluate when getLocalTime() succeeds: if time is not synced yet, do not
     // treat "unknown" as "outside the window" (avoids a brief ANALYTICS flash then MAIN on boot).
     struct tm timeinfo;
     const bool time_valid = getLocalTime(&timeinfo);
     const bool in_analytics_priority_window =
-        time_valid && (timeinfo.tm_hour >= 6 && timeinfo.tm_hour < 12);
+        time_valid && cfgInAnalyticsMorningWindow(timeinfo);
     if (time_valid) {
         if (!in_analytics_priority_window) {
             // Leaving the priority window: if analytics is still open, return to MAIN once.
@@ -439,7 +439,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             wake_loading_active = false;
             bool wifi_connected = (WiFi.status() == WL_CONNECTED);
             if (wifi_connected) {
-                // Allow morning rule (MAIN -> ANALYTICS 06:00-12:00) on the next process() pass;
+                // Allow morning rule (MAIN -> ANALYTICS) on the next process() pass;
                 // autoswitch_done may still be true from before sleep.
                 analytics_priority_autoswitch_done = false;
                 setScreen(ScreenPage::MAIN);

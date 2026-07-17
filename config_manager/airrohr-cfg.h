@@ -93,6 +93,8 @@ enum ConfigShapeId {
 	Config_standalone,
 	Config_epd_refresh_mode,
 	Config_analytics_sleep_add_urban,
+	Config_analytics_morning_autoswitch,
+	Config_analytics_morning_end_hour,
 	Config_share_temperature,
 	Config_share_humidity,
 	Config_share_pressure,
@@ -170,6 +172,8 @@ static constexpr char CFG_KEY_USE_CUSTOM_URBAN[] PROGMEM = "use_custom_urban";
 static constexpr char CFG_KEY_STANDALONE[] PROGMEM = "standalone";
 static constexpr char CFG_KEY_EPD_REFRESH_MODE[] PROGMEM = "epd_refresh_mode";
 static constexpr char CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN[] PROGMEM = "analytics_sleep_add_urban";
+static constexpr char CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH[] PROGMEM = "analytics_morning_autoswitch";
+static constexpr char CFG_KEY_ANALYTICS_MORNING_END_HOUR[] PROGMEM = "analytics_morning_end_hour";
 static constexpr char CFG_KEY_SHARE_TEMPERATURE[] PROGMEM = "share_temperature";
 static constexpr char CFG_KEY_SHARE_HUMIDITY[] PROGMEM = "share_humidity";
 static constexpr char CFG_KEY_SHARE_PRESSURE[] PROGMEM = "share_pressure";
@@ -247,6 +251,8 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_STANDALONE, &cfg::standalone },
 	{ Config_Type_UInt, 0, CFG_KEY_EPD_REFRESH_MODE, &cfg::epd_refresh_mode },
 	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN, &cfg::analytics_sleep_add_urban },
+	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH, &cfg::analytics_morning_autoswitch },
+	{ Config_Type_UInt, 0, CFG_KEY_ANALYTICS_MORNING_END_HOUR, &cfg::analytics_morning_end_hour },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_TEMPERATURE, &cfg::share_temperature },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_HUMIDITY, &cfg::share_humidity },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_PRESSURE, &cfg::share_pressure },

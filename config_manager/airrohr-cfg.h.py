@@ -65,6 +65,8 @@ Bool		use_custom_urban
 Bool		standalone
 UInt		epd_refresh_mode
 Bool		analytics_sleep_add_urban
+Bool		analytics_morning_autoswitch
+UInt		analytics_morning_end_hour
 Bool		share_temperature
 Bool		share_humidity
 Bool		share_pressure

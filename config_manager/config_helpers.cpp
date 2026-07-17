@@ -25,6 +25,30 @@ void cfgOnStandaloneModeDisabled() {
 	}
 }
 
+unsigned cfgMinutesOfDay(unsigned raw, unsigned fallback_minutes) {
+	if (raw <= 23u) {
+		return raw * 60u;
+	}
+	if (raw <= 1439u) {
+		return raw;
+	}
+	return fallback_minutes;
+}
+
+bool cfgInAnalyticsMorningWindow(const struct tm& timeinfo) {
+	if (!cfg::analytics_morning_autoswitch) {
+		return false;
+	}
+	const unsigned now_minutes =
+	    static_cast<unsigned>(timeinfo.tm_hour) * 60u + static_cast<unsigned>(timeinfo.tm_min);
+	constexpr unsigned kMorningStartMinutes = 6u * 60u;
+	const unsigned end_minutes = cfgMinutesOfDay(cfg::analytics_morning_end_hour, 12u * 60u);
+	if (end_minutes <= kMorningStartMinutes) {
+		return false;
+	}
+	return now_minutes >= kMorningStartMinutes && now_minutes < end_minutes;
+}
+
 void clearUrbanPairingTelemetry(JsonDocument &data) {
 	if (SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
 		SPIFFS.remove(F("/urban_ss58.cache"));

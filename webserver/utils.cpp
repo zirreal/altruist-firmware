@@ -116,7 +116,7 @@ void add_reading_metrics_grid_end(String& page_content) {
 void add_reading_metric_card(String& page_content, const __FlashStringHelper* label, const String& value, const char* unit) {
 	page_content += F("<div class='reading-card'><span class='reading-card__label'>");
 	page_content += label;
-	page_content += F("</span><span class='reading-card__value'>");
+	page_content += F("</span><div class='reading-card__reading'><span class='reading-card__value'>");
 	page_content += value;
 	page_content += F("</span>");
 	if (unit != nullptr && unit[0] != '\0') {
@@ -124,13 +124,13 @@ void add_reading_metric_card(String& page_content, const __FlashStringHelper* la
 		page_content += unit;
 		page_content += F("</span>");
 	}
-	page_content += F("</div>");
+	page_content += F("</div></div>");
 }
 
 void add_reading_metric_card(String& page_content, const String& label, const String& value, const char* unit) {
 	page_content += F("<div class='reading-card'><span class='reading-card__label'>");
 	page_content += label;
-	page_content += F("</span><span class='reading-card__value'>");
+	page_content += F("</span><div class='reading-card__reading'><span class='reading-card__value'>");
 	page_content += value;
 	page_content += F("</span>");
 	if (unit != nullptr && unit[0] != '\0') {
@@ -138,7 +138,7 @@ void add_reading_metric_card(String& page_content, const String& label, const St
 		page_content += unit;
 		page_content += F("</span>");
 	}
-	page_content += F("</div>");
+	page_content += F("</div></div>");
 }
 
 void add_data_block_intro(String& page_content, const __FlashStringHelper* intro) {
@@ -416,6 +416,100 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
     add_form_input(page_content, cfgid, info, length, true);
 }
 
+String buildLocalAccessLabel() {
+	String host = String(cfg::local_hostname);
+	host.trim();
+	if (host.length() == 0) {
+		host = F("altruist");
+	}
+	if (host.indexOf('.') < 0) {
+		host += F(".local");
+	}
+	return host;
+}
+
+void append_app_sidebar(String& page_content) {
+	const String local_host = buildLocalAccessLabel();
+
+	page_content += F("<aside class='app-sidebar' aria-label='" INTL_NAV_MAIN "'>"
+		"<nav class='app-sidebar__nav'>"
+		"<div class='app-sidebar__block app-sidebar__hub'>"
+		"<a class='app-sidebar__item app-sidebar__item--local' data-tab='local' href='/'>");
+	page_content += local_host;
+	page_content += F("</a>"
+		"<a class='app-sidebar__item app-sidebar__item--social' data-tab='social' href='/social'>");
+	page_content += FPSTR(INTL_DASH_GROUP_SOCIAL_TITLE);
+	page_content += F("</a>"
+		"<a class='app-sidebar__item app-sidebar__item--custom' data-tab='custom' href='/custom'>");
+	page_content += FPSTR(INTL_DASH_GROUP_CUSTOM_TITLE);
+	page_content += F("</a>"
+		"<a class='app-sidebar__item app-sidebar__item--advanced' data-tab='advanced' href='/advanced'>");
+	page_content += FPSTR(INTL_NAV_ADVANCED);
+	page_content += F("</a></div>"
+		"<div class='app-sidebar__block app-sidebar__sub app-sidebar__sub--local'>"
+		"<span class='app-sidebar__heading'>");
+	page_content += FPSTR(INTL_NAV_MONITOR);
+	page_content += F("</span>"
+		"<a class='app-sidebar__subitem' href='/#readings'>");
+	page_content += FPSTR(INTL_NAV_READINGS);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/#status'>");
+	page_content += FPSTR(INTL_NAV_STATUS);
+	page_content += F("</a>"
+		"<span class='app-sidebar__heading'>");
+	page_content += FPSTR(INTL_NAV_SETTINGS);
+	page_content += F("</span>"
+		"<a class='app-sidebar__subitem' href='/#settings'>");
+	page_content += FPSTR(INTL_CONFIGURATION);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/#ota'>");
+	page_content += FPSTR(INTL_OTA_UPDATE);
+	page_content += F("</a>");
+#ifdef ALTRUIST_INSIGHT
+	page_content += F("<span class='app-sidebar__heading'>");
+	page_content += FPSTR(INTL_NAV_MAINTENANCE);
+	page_content += F("</span>"
+		"<a class='app-sidebar__subitem' href='/#screen'>");
+	page_content += FPSTR(INTL_SCREEN_MENU);
+	page_content += F("</a>");
+#endif
+	page_content += F("</div>"
+		"<div class='app-sidebar__block app-sidebar__sub app-sidebar__sub--social'>"
+		"<a class='app-sidebar__subitem' href='/social#map-link'>");
+	page_content += FPSTR(INTL_ACTIVE_SENSORS_MAP);
+	page_content += F("</a>"
+		"<span class='app-sidebar__heading'>");
+	page_content += FPSTR(INTL_NAV_SETTINGS);
+	page_content += F("</span>"
+		"<a class='app-sidebar__subitem' href='/social#settings'>");
+	page_content += FPSTR(INTL_HUB_DIV_LOCATION);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/social#group'>");
+	page_content += FPSTR(INTL_GROUP_MENU);
+	page_content += F("</a></div>"
+		"<div class='app-sidebar__block app-sidebar__sub app-sidebar__sub--custom'>"
+		"<span class='app-sidebar__heading'>");
+	page_content += FPSTR(INTL_NAV_SETTINGS);
+	page_content += F("</span>"
+		"<a class='app-sidebar__subitem' href='/custom#settings'>");
+	page_content += FPSTR(INTL_CONFIG_TAB_INTEGRATIONS);
+	page_content += F("</a></div>"
+		"<div class='app-sidebar__block app-sidebar__sub app-sidebar__sub--advanced'>"
+		"<span class='app-sidebar__heading'>");
+	page_content += FPSTR(INTL_NAV_MAINTENANCE);
+	page_content += F("</span>"
+		"<a class='app-sidebar__subitem' href='/advanced#debug'>");
+	page_content += FPSTR(INTL_DEBUG_LEVEL);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/advanced#restart'>");
+	page_content += FPSTR(INTL_RESTART_SENSOR);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem app-sidebar__subitem--danger' href='/advanced#reset'>");
+	page_content += FPSTR(INTL_CONFIGURATION_DELETE);
+	page_content += F("</a></div>"
+		"</nav></aside>");
+}
+
 void append_app_page_body_start(String& page_content, const __FlashStringHelper* lead) {
 	page_content += F("<div class='app-page-body'>");
 	if (lead != nullptr) {
@@ -427,4 +521,65 @@ void append_app_page_body_start(String& page_content, const __FlashStringHelper*
 
 void append_app_page_body_end(String& page_content) {
 	page_content += F("</div>");
+}
+
+void append_hub_page_start(String& page_content) {
+	page_content += F("<div class='hub-page'>");
+}
+
+void append_hub_page_end(String& page_content) {
+	page_content += F("</div>");
+}
+
+void append_hub_group_start(String& page_content, const __FlashStringHelper* title,
+                            const __FlashStringHelper* intro, const char* modifier) {
+	page_content += F("<div class='hub-group");
+	if (modifier != nullptr && modifier[0] != '\0') {
+		page_content += F(" hub-group--");
+		page_content += modifier;
+	}
+	page_content += F("'><div class='hub-group__head'><h2 class='hub-group__title'>");
+	page_content += title;
+	page_content += F("</h2>");
+	if (intro != nullptr) {
+		page_content += F("<p class='hub-group__intro'>");
+		page_content += intro;
+		page_content += F("</p>");
+	}
+	page_content += F("</div><div class='hub-group__sections'>");
+}
+
+void append_hub_group_end(String& page_content) {
+	page_content += F("</div></div>");
+}
+
+void append_hub_section_start(String& page_content, const __FlashStringHelper* title, const char* section_id) {
+	page_content += F("<section class='hub-section'");
+	if (section_id != nullptr && section_id[0] != '\0') {
+		page_content += F(" id='");
+		page_content += section_id;
+		page_content += F("'");
+	}
+	page_content += F("><div class='hub-section__head'><h2 class='hub-section__title'>");
+	page_content += title;
+	page_content += F("</h2></div><div class='hub-section__body'>");
+}
+
+void append_hub_section_end(String& page_content) {
+	page_content += F("</div></section>");
+}
+
+void append_hub_config_form_start(String& page_content, const char* form_action) {
+	page_content += F("<form method='POST' action='");
+	page_content += form_action;
+	page_content += F("' id='settings' class='config-form hub-config-form'><div class='hub-config-stack'>");
+}
+
+void append_hub_config_form_end(String& page_content, bool load_wifi_list) {
+	page_content += F("</div><div class='config-form-footer hub-config-footer'>");
+	page_content += form_submit(FPSTR(INTL_SAVE_AND_RESTART));
+	page_content += F("</div></form>");
+	if (load_wifi_list) {
+		page_content += F("<script>window.setTimeout(load_wifi_list,1000);</script>");
+	}
 }

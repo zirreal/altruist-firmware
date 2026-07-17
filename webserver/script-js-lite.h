@@ -18,7 +18,15 @@ document.addEventListener('DOMContentLoaded', function() {
         showTab(parseInt(e.target.dataset.id, 10));
       });
     });
-    showTab(1);
+    var hashTab = { integrations: 3, export: 3, advanced: 2, more: 2, map: 1, robonomics: 1 };
+    function openTabFromHash() {
+      var h = (location.hash || '').replace(/^#/, '').toLowerCase();
+      var id = hashTab[h];
+      if (id) showTab(id);
+      else showTab(1);
+    }
+    openTabFromHash();
+    window.addEventListener('hashchange', openTabFromHash);
   }
 
   function byId(id) { return document.getElementById(id); }
@@ -117,6 +125,24 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   }
+
+  document.querySelectorAll('form.js-delete-config').forEach(function(form) {
+    var ask = form.querySelector('[data-delete-step="ask"]');
+    var confirmStep = form.querySelector('[data-delete-step="confirm"]');
+    var askBtn = form.querySelector('.js-delete-ask');
+    var cancelBtn = form.querySelector('.js-delete-cancel');
+    if (!ask || !confirmStep || !askBtn) return;
+    askBtn.addEventListener('click', function() {
+      ask.hidden = true;
+      confirmStep.hidden = false;
+    });
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function() {
+        confirmStep.hidden = true;
+        ask.hidden = false;
+      });
+    }
+  });
 
 });
 )rawliteral";

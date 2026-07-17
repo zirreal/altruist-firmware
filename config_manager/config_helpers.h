@@ -28,6 +28,10 @@ void clearUrbanPairingTelemetry(JsonDocument &data);
 void cfgApplyStandaloneModeEnabled();
 /** Paired mode: enable Urban PM/noise in sleep analytics when leaving standalone. */
 void cfgOnStandaloneModeDisabled();
+/** Normalize cfg UInt that may be legacy 0..23 hour or minutes 0..1439. */
+unsigned cfgMinutesOfDay(unsigned raw, unsigned fallback_minutes);
+/** True when local time is inside the morning analytics auto-display window (Insight). */
+bool cfgInAnalyticsMorningWindow(const struct tm& timeinfo);
 #endif
 
 #endif // __CONFIG_HELPERS_H__

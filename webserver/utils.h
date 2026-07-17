@@ -43,8 +43,20 @@ String form_select_reg();
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length, bool enabled);
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length);
 
+String buildLocalAccessLabel();
+void append_app_sidebar(String& page_content);
 void append_app_page_body_start(String& page_content, const __FlashStringHelper* lead = nullptr);
 void append_app_page_body_end(String& page_content);
+
+void append_hub_page_start(String& page_content);
+void append_hub_page_end(String& page_content);
+void append_hub_group_start(String& page_content, const __FlashStringHelper* title,
+                            const __FlashStringHelper* intro = nullptr, const char* modifier = nullptr);
+void append_hub_group_end(String& page_content);
+void append_hub_section_start(String& page_content, const __FlashStringHelper* title, const char* section_id = nullptr);
+void append_hub_section_end(String& page_content);
+void append_hub_config_form_start(String& page_content, const char* form_action);
+void append_hub_config_form_end(String& page_content, bool load_wifi_list = false);
 
 #endif // __WEBSERVER_UTILS_H__
 

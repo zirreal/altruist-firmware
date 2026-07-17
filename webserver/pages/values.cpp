@@ -5,6 +5,7 @@
 #include "../../intl.h"
 #include "../../defines.h"
 #include "../../sensors/sensor_names.h"
+#include "../../config_manager/config_helpers.h"
 #include "../html-content.h"
 #include <ArduinoJson.h>
 
@@ -29,6 +30,11 @@ const __FlashStringHelper* data_section_label_for(const String& sensor_name) {
 #if defined(ALTRUIST_INSIDE)
 bool is_urban_values_sensor(const String& sensor_name) {
 	return sensor_name == ATRUIST_URBAN_SENSOR;
+}
+
+bool should_show_urban_values() {
+	// Standalone Insight has no Urban pair — don't show outdoor Urban block in readings.
+	return !cfg::standalone;
 }
 #endif
 
@@ -88,11 +94,13 @@ void render_sensor_section(
 /*****************************************************************
  * Webserver root: show latest values                            *
  *****************************************************************/
-void webserver_values(JsonDocument &data, String &page_content, WebServer &server) {
+void webserver_values(JsonDocument &data, String &page_content, WebServer &server, bool hub_embed) {
 	debug_outln_info(F("ws: values ..."));
 	int8_t signal_strength = 0;
 
-	append_app_page_body_start(page_content, F(INTL_PAGE_READINGS_INTRO));
+	if (!hub_embed) {
+		append_app_page_body_start(page_content, F(INTL_PAGE_READINGS_INTRO));
+	}
 	page_content += F("<div class='data-sheet data-sheet--readings'>");
 
 	JsonObject readings = data.as<JsonObject>();
@@ -117,7 +125,7 @@ void webserver_values(JsonDocument &data, String &page_content, WebServer &serve
 	}
 
 #if defined(ALTRUIST_INSIDE)
-	if (readings.containsKey(ATRUIST_URBAN_SENSOR)) {
+	if (should_show_urban_values() && readings.containsKey(ATRUIST_URBAN_SENSOR)) {
 		render_sensor_section(
 			page_content,
 			server,
@@ -137,5 +145,7 @@ void webserver_values(JsonDocument &data, String &page_content, WebServer &serve
 	add_data_section_end(page_content);
 
 	page_content += F("</div>");
-	append_app_page_body_end(page_content);
+	if (!hub_embed) {
+		append_app_page_body_end(page_content);
+	}
 }

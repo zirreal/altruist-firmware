@@ -53,8 +53,10 @@ const char* getCrashSectionNameForStatus(uint8_t section) {
 /*****************************************************************
  * Webserver root: show device status
  *****************************************************************/
-void webserver_status_part1(String &page_content, device_status_t &deviceStatus, WebServer &server) {
-	append_app_page_body_start(page_content, F(INTL_PAGE_STATUS_INTRO));
+void webserver_status_part1(String &page_content, device_status_t &deviceStatus, WebServer &server, bool hub_embed) {
+	if (!hub_embed) {
+		append_app_page_body_start(page_content, F(INTL_PAGE_STATUS_INTRO));
+	}
 	page_content += F("<div class='data-sheet'>");
 
 	add_data_section_start(page_content, FPSTR(INTL_DATA_SECTION_OVERVIEW));

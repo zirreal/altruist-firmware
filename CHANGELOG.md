@@ -6,18 +6,18 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Features
 
-- **Minimal style web interface** — Main device pages use a new mobile-first **app shell**: slim top bar (logo, device name, chip ID, firmware version, Robonomics address), grouped **dashboard** home with an at-a-glance health strip and quick links, and a fixed **bottom tab bar** on phones (Home · Readings · Status · Settings). Desktop shows **breadcrumbs** (`Home › page`) instead of duplicating the tab bar. Guest captive portal keeps the previous layout.
-- **Readings page (`/values`)** — Sensor sections use a **metric card grid** (`reading-grid` / `reading-card`) instead of long single-column tables; network signal is shown as cards with a short intro.
-- **Status page (`/status`)** — Reordered into **Overview → Device → Technical details → Export**, with metric cards for the essentials and a muted block for build/support fields.
-- **Settings in app shell** — Config, OTA, Device group, Screen mode (Insight), Debug, Restart, and Delete configuration share the same shell and highlight **Settings** in the bottom nav.
-- **Config page redesign (`/config`)** — Sidebar tab navigation, sectioned panels (Wi-Fi, Robonomics, data sharing, GPS, auth, debug, LEDs, sleep analytics, integrations), checkbox **grids** for map-sharing toggles, and shared JS for conditional fields (`script-js-config-toggles.h`). Tab 3 renamed to **Integrations** / **Data export** (EN/RU).
+- **Hub web interface** — Device pages use a mobile-first **app shell** with four hub areas: **altruist.local** (`/`, readings & device settings), **sensors.social** (`/social`, sensors.social map & Robonomics), **custom** (`/custom`, Home Assistant / API / Influx / CSV), and **system** (`/advanced`, debug / restart / delete config). Desktop sidebar + mobile bottom tabs; breadcrumbs on inner views. Guest captive portal keeps the previous layout.
+- **Local hub layout** — **Values** and **Status** first (important for Urban without a display), then Settings (Wi‑Fi, auth, LEDs, sleep, firmware, OTA), then Screen mode on Insight.
+- **Readings (`/values`)** — Sensor sections use a **metric card grid** (`reading-grid` / `reading-card`); network signal as cards with a short intro. Insight **standalone** hides the paired Urban outdoor block.
+- **Status (`/status`)** — Reordered into **Overview → Device → Technical details → Export**, with metric cards for the essentials and a muted block for build/support fields.
+- **Delete configuration** — Two-step confirm: first click shows the warning; second click (**Yes, delete permanently**) submits.
+- **Bottom navigation icons** — Local / Map / Custom / System PNGs from `display/icons/interface/`, embedded in `nav-icons.h`.
 - **Favicon** — `/favicon.ico` and `/favicon-dark.ico` (PNG, light/dark scheme) replace the previous generic tab icon.
-- **Bottom navigation icons** — Home, Readings, Status, and Settings PNG icons served from embedded assets (`nav-icons.h`).
+- **Config panels** — Sectioned settings (Wi-Fi, Robonomics, data sharing, GPS, auth, debug, LEDs, sleep analytics, integrations) with checkbox **grids** for map-sharing toggles and shared JS for conditional fields (`script-js-config-toggles.h`).
 
 ### Improvements
 
-- **Web UI polish** — Card-based dashboard rows with chevrons; maintenance links grouped separately; page intros on inner screens; improved config/OTA/group/screen/debug/restart/delete layouts inside the app shell.
-- **Mobile layout** — Footer padding so the bottom nav does not cover “Secured by…”; Wi-Fi status pill removed from the app header (health still on dashboard).
+- **Web UI polish** — Hub groups with clear section cards; hostname/`altruist.local` access label; sensors.social as a plain top link on Social; Wi‑Fi credentials full-width on Local; more bottom padding above the mobile tab bar.
 - **HTTP responsiveness** — `handleClient()` retries the webserver mutex briefly and processes multiple requests per lock; `markMainLoopAlive()` is called during HTTP service and in `loop()` so long web work is less likely to trip the main-loop watchdog.
 - **`/data.json` under load** — Mutex take uses a 300 ms timeout; returns `503 {"error":"busy"}` instead of blocking the client indefinitely.
 - **Recovery watchdog timeouts** — Datalog, main-loop, and sensor-worker stall watchdogs extended from ~90–120 s to **5 minutes** (Urban and Insight).
@@ -27,6 +27,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Bug Fixes
 
+- **Leaflet map init** — GPS map script only runs when `#map` is present (no more `Map container not found` on hub pages without a map).
 - **Config checkbox grids** — Trailing `<br/>` after checkboxes no longer breaks the data-sharing grid layout.
 - **Status time / map date** — `getLocalTime(&timeinfo, 0)` avoids blocking the status page or sensors.social URL when SNTP has not synced yet.
 

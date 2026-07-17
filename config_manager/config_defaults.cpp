@@ -85,6 +85,8 @@ namespace cfg {
 	unsigned leds_on_hour = 6;  // Default on at 06:00 (local time)
 	unsigned analytics_night_start_hour = 22 * 60; // minutes from midnight (key name legacy)
 	unsigned analytics_night_end_hour = 7 * 60;    // exclusive end, minutes (07:00)
+	bool analytics_morning_autoswitch = true;
+	unsigned analytics_morning_end_hour = 12 * 60; // exclusive end (12:00 local)
 
 	// data sharing preferences (all shared by default)
 	bool share_temperature = true;

@@ -48,14 +48,18 @@ static void appendSaveFeedback(String& page, ScreenSaveResult save_result) {
 	page += F("</strong></div>");
 }
 
-void webserver_screen_page(String& page_content, ScreenSaveResult save_result) {
+void webserver_screen_page(String& page_content, ScreenSaveResult save_result, const char* form_action, bool hub_embed) {
 	const unsigned mode = cfg::epd_refresh_mode;
 
-	append_app_page_body_start(page_content, FPSTR(INTL_SCREEN_INTRO));
+	if (!hub_embed) {
+		append_app_page_body_start(page_content, FPSTR(INTL_SCREEN_INTRO));
+	}
 
 	appendSaveFeedback(page_content, save_result);
 
-	page_content += F("<form class='page-form' method='POST' action='/screen'>");
+	page_content += F("<form class='page-form' method='POST' action='");
+	page_content += form_action;
+	page_content += F("'>");
 
 	appendModeRadio(page_content, EPD_REFRESH_SAFE, FPSTR(INTL_SCREEN_MODE_SAFE),
 	                FPSTR(INTL_SCREEN_MODE_SAFE_HINT), mode);
@@ -67,7 +71,9 @@ void webserver_screen_page(String& page_content, ScreenSaveResult save_result) {
 	page_content += form_submit(FPSTR(INTL_SAVE));
 	page_content += F("</div></form>");
 
-	append_app_page_body_end(page_content);
+	if (!hub_embed) {
+		append_app_page_body_end(page_content);
+	}
 }
 
 ScreenSaveResult webserver_screen_post(WebServer& server) {

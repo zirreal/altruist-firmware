@@ -90,6 +90,8 @@ namespace cfg {
 	/** Sleep analytics window: minutes from midnight [0..1439] (local). NVS keys stay *_hour for compatibility; values <=23 are treated as legacy whole hours. */
 	extern unsigned analytics_night_start_hour;
 	extern unsigned analytics_night_end_hour;
+	extern bool analytics_morning_autoswitch;
+	extern unsigned analytics_morning_end_hour;
 
 	// data sharing preferences
 	extern bool share_temperature;

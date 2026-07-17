@@ -152,7 +152,7 @@ static void appendGroupOverview(String& page_content, unsigned mode, Robonomics*
 }
 
 void webserver_group_page(String& page_content, const String& self_ss58, Robonomics* robonomics,
-                          RwsGroupApplyResult save_result) {
+                          RwsGroupApplyResult save_result, const char* form_action, bool hub_embed) {
 	const unsigned mode = cfg::rws_group_mode;
 	const String self_display =
 	    (self_ss58.length() > 0 && self_ss58 != F("Not Set")) ? self_ss58 : String(F("-"));
@@ -171,13 +171,17 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 		group_id_display = group_id_seed;
 	}
 
-	append_app_page_body_start(page_content, FPSTR(INTL_GROUP_INTRO));
+	if (!hub_embed) {
+		append_app_page_body_start(page_content, FPSTR(INTL_GROUP_INTRO));
+	}
 
 	appendSaveFeedback(page_content, save_result);
 
 	appendGroupOverview(page_content, mode, robonomics, self_ss58, self_display, group_id_display, current_devices);
 
-	page_content += F("<form class='page-form' method='POST' action='/group'>");
+	page_content += F("<form class='page-form' method='POST' action='");
+	page_content += form_action;
+	page_content += F("'>");
 
 	page_content += F("<section class='config-section'><h2 class='config-section__title'>");
 	page_content += FPSTR(INTL_GROUP_MODE_TITLE);
@@ -281,7 +285,9 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 		"groupPanels();"
 		"</script>");
 
-	append_app_page_body_end(page_content);
+	if (!hub_embed) {
+		append_app_page_body_end(page_content);
+	}
 }
 
 RwsGroupApplyResult webserver_group_post(WebServer& server, const String& self_ss58) {
