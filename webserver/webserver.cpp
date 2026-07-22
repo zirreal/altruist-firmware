@@ -17,6 +17,7 @@
 #include "web-header-logo-select.h"
 #include "favicon.h"
 #include "nav-icons.h"
+#include "../apis/helpers/value_crypto.h"
 
 extern Robonomics robonomics;
 
@@ -126,8 +127,12 @@ void SensorWebServer::setup() {
 	server.on(F("/data.json"), std::bind(&SensorWebServer::_webserver_data_json, this)); // x
 	server.on(F("/favicon.ico"), std::bind(&SensorWebServer::_webserver_favicon, this)); // x
 	server.on(F("/favicon-dark.ico"), std::bind(&SensorWebServer::_webserver_favicon_dark, this)); // x
+	server.on(F("/aes-key-qr.svg"), std::bind(&SensorWebServer::_webserver_aes_key_qr, this));
+	server.on(F("/aes-key.json"), std::bind(&SensorWebServer::_webserver_aes_key_json, this));
+	server.on(F("/device-info.json"), std::bind(&SensorWebServer::_webserver_device_info_json, this));
 	server.on(F(STATIC_PREFIX), std::bind(&SensorWebServer::_webserver_static, this)); // x
 	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
+	server.on(F("/finish_setup"), std::bind(&SensorWebServer::_webserver_finish_setup, this));
 	server.on(F("/group"), std::bind(&SensorWebServer::_webserver_group, this));
 #ifdef ALTRUIST_INSIGHT
 	server.on(F("/screen"), std::bind(&SensorWebServer::_webserver_screen, this));
@@ -252,6 +257,84 @@ void SensorWebServer::_webserver_favicon() {
 void SensorWebServer::_webserver_favicon_dark() {
 	server.sendHeader(F("Cache-Control"), F("max-age=86400, public"));
 	server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_FAVICON_DARK_PNG, WEB_FAVICON_DARK_PNG_SIZE);
+}
+
+void SensorWebServer::_webserver_aes_key_qr() {
+	if (!webserver_request_auth()) {
+		return;
+	}
+	const String qr_url = buildAesKeyDownloadUrl();
+	String svg;
+	svg.reserve(8192);
+	if (!valueCryptoAppendKeyQrSvg(svg, qr_url.c_str(), 8)) {
+		server.send(503, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("QR unavailable"));
+		return;
+	}
+	server.sendHeader(F("Cache-Control"), F("no-store"));
+	server.send(200, FPSTR(TXT_CONTENT_TYPE_IMAGE_SVG), svg);
+}
+
+void SensorWebServer::_webserver_aes_key_json() {
+	if (!webserver_request_auth()) {
+		return;
+	}
+	if (!valueCryptoEnsureKey()) {
+		server.send(503, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("Key unavailable"));
+		return;
+	}
+	const String key_b64 = valueCryptoKeyBase64();
+	const String export_payload = valueCryptoExportPayload();
+	if (key_b64.isEmpty() || export_payload.isEmpty()) {
+		server.send(503, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("Key unavailable"));
+		return;
+	}
+
+	DynamicJsonDocument doc(768);
+	doc["format"] = "altruist-aes1";
+	doc["key"] = key_b64;
+	doc["export"] = export_payload;
+	if (robonomics_address.length() > 0 && strcasecmp(robonomics_address.c_str(), "Not Set") != 0) {
+		doc["sensor"] = robonomics_address;
+	}
+
+	String body;
+	serializeJson(doc, body);
+	server.sendHeader(F("Content-Disposition"), F("attachment; filename=\"altruist-aes-key.json\""));
+	server.sendHeader(F("Cache-Control"), F("no-store"));
+	server.send(200, FPSTR(TXT_CONTENT_TYPE_JSON), body);
+}
+
+void SensorWebServer::_webserver_device_info_json() {
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	DynamicJsonDocument doc(1024);
+	doc["format"] = "altruist-device1";
+	doc["hostname"] = buildLocalAccessLabel();
+	if (WiFi.status() == WL_CONNECTED) {
+		doc["ip"] = WiFi.localIP().toString();
+	}
+	if (robonomics_address.length() > 0 && strcasecmp(robonomics_address.c_str(), "Not Set") != 0) {
+		doc["sensor"] = robonomics_address;
+	}
+	if (valueCryptoEnsureKey()) {
+		const String key_b64 = valueCryptoKeyBase64();
+		const String export_payload = valueCryptoExportPayload();
+		if (!key_b64.isEmpty()) {
+			doc["key"] = key_b64;
+		}
+		if (!export_payload.isEmpty()) {
+			doc["export"] = export_payload;
+		}
+	}
+
+	String body;
+	serializeJson(doc, body);
+	server.sendHeader(F("Content-Disposition"), F("attachment; filename=\"altruist-device-info.json\""));
+	server.sendHeader(F("Cache-Control"), F("no-store"));
+	// octet-stream so browsers download instead of opening JSON in the tab
+	server.send(200, F("application/octet-stream"), body);
 }
 
 void SensorWebServer::_webserver_restart() {
@@ -440,7 +523,7 @@ void SensorWebServer::_webserver_guest() {
 			String address = WiFi.localIP().toString();
 			debug_outln_info(F("Connected to WiFi network: "), cfg::wlanssid);
 			debug_outln_info(F("STA IP: "), address);
-			page_content = F("<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>");
+			page_content = F("<script>var gc=document.getElementById('guest-connecting');if(gc)gc.classList.add('hide');</script>");
 #ifdef ALTRUIST_INSIDE
 			const unsigned insightAutoSec = (unsigned)(INSIGHT_GUEST_AUTO_FINISH_MS / 1000UL);
 			page_content += F("<div class='guest-page'><div class='guest-card guest__setup-finish'>");
@@ -448,17 +531,13 @@ void SensorWebServer::_webserver_guest() {
 				"<span class='guest__step-label'>" INTL_GUEST_SETUP_STEP_2_LABEL "</span>"
 				"<h2 class='guest__step-title'>" INTL_GUEST_WIFI_STEP_TITLE "</h2>"
 				"</div>");
+			append_guest_device_access(page_content, address, robonomics_address);
 			page_content += F("<p class='form-hint guest-hint'>" INTL_GUEST_INSIGHT_FINISH_HINT "</p>");
 			page_content += F("<p class='form-hint'>" INTL_GUEST_KEEP_OPEN_HINT "</p>");
-			page_content += F("<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS
-				" <span class='ip-address guest-ip'>");
-			page_content += address;
-			page_content += F("</span> <button class='copy-btn' onclick='copyText()'></button></div>");
 			page_content += F("<p class='form-hint' id='insight-auto-finish-hint'>"
 				INTL_GUEST_INSIGHT_AUTO_FINISH_HINT " <strong id='insight-auto-sec'>");
 			page_content += String(insightAutoSec);
 			page_content += F("</strong> " INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "</p>");
-			page_content += FPSTR(WEB_COPY_IP_JS);
 
 			if (!writeConfig()) {
 				page_content += F("<p class='guest__reboot error'>Failed to save configuration.</p></div></div>");
@@ -487,43 +566,35 @@ void SensorWebServer::_webserver_guest() {
 #else
 			page_content += F("<div class='guest-page'><div class='guest-card'>");
 			page_content += F("<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_GUEST_CONNECTED "</h2></div>");
-			page_content += F("<div class='guest__reboot guest__reboot--ip'>" INTL_GUEST_IP_ADDRESS " <span class='ip-address guest-ip'>");
-			page_content += address;
-			page_content += F("</span> <button class='copy-btn' onclick='copyText()'></button></div>");
+			append_guest_device_access(page_content, address, robonomics_address);
 			page_content += F("<p class='form-hint'>" INTL_GUEST_OPEN_IP_HINT "</p>");
-			page_content += FPSTR(WEB_COPY_IP_JS);
 
 			if (!writeConfig()) {
 				page_content += F("<p class='guest__reboot error'>Failed to save configuration.</p></div></div>");
 				end_html_page_guest(page_content);
 				return;
 			}
-			page_content += F("<p class='form-hint' id='guest-restart-hint'>");
-			page_content += FPSTR(INTL_GUEST_RESTART_PAUSE_HINT);
-			page_content += F("</p></div></div><script>(function(){var s=");
-			page_content += String((unsigned)(GUEST_SUCCESS_PAGE_DELAY_MS / 1000UL));
-			page_content += F(",el=document.getElementById('guest-restart-hint'),base=");
-			page_content += F("'");
-			page_content += FPSTR(INTL_GUEST_RESTART_PAUSE_HINT);
-			page_content += F("';function tick(){if(!el)return;if(s>0){el.textContent=base+' ('+s+'s)';s--;}else{clearInterval(iv);}}tick();var iv=setInterval(tick,1000);})();</script>");
+			append_guest_success_restart_ui(page_content);
+			page_content += F("</div></div>");
 			end_html_page_guest(page_content);
-			Serial.flush();
-			delay(GUEST_SUCCESS_PAGE_DELAY_MS);
-			wifiCaptivePortalRestartAfterSuccess();
+			guestSuccessMarkRestartPending();
 			return;
 #endif
 		}
 
-		page_content = F("<script>document.querySelector('.guest__connect-status--initial').classList.add('hide');</script>");
-		page_content += F("<h2 class='guest__connect-subtitle error'>Connection Failed</h2>"
-						"<p class='guest__reboot'>Failed to connect to: ");
+		page_content = F("<script>var gc=document.getElementById('guest-connecting');if(gc)gc.classList.add('hide');</script>");
+		page_content += F("<div class='guest-page'><div class='guest-card guest-card--connect'>"
+			"<div class='guest__connect-status'>"
+			"<h2 class='guest__connect-subtitle error'>" INTL_GUEST_CONNECT_FAILED "</h2>"
+			"<p class='form-hint'>");
 		page_content += cfg::wlanssid;
 		page_content += F("</p>");
 #ifdef ALTRUIST_INSIDE
-		page_content += F("<p class='guest__reboot'>Rebooting to WiFi setup… You can close this page and try again.</p>");
+		page_content += F("<p class='form-hint'>" INTL_GUEST_CONNECT_FAILED_INSIGHT "</p>");
 #else
-		page_content += F("<p class='guest__reboot'>Check SSID and password, then try again.</p>");
+		page_content += F("<p class='form-hint'>" INTL_GUEST_CONNECT_FAILED_HINT "</p>");
 #endif
+		page_content += F("</div></div></div>");
 		end_html_page_guest(page_content);
 #ifdef ALTRUIST_INSIDE
 		if (writeConfig()) {
@@ -677,20 +748,18 @@ void SensorWebServer::_webserver_select_urban() {
 		RESERVE_STRING(page_content, LARGE_STR);
 		start_html_page(page_content, F(INTL_SETUP_COMPLETE), true);
 		String setup_ip = WiFi.localIP().toString();
-		page_content += F("<div style='text-align:center;padding:40px;'>"
-			"<h2 style='color:#4CAF50;'>" INTL_SETTINGS_SAVED "</h2>"
-			"<p>" INTL_GUEST_IP_ADDRESS " <strong><span class='ip-address'>");
-		page_content += setup_ip;
-		page_content += F("</span></strong> <button class='copy-btn' onclick='copyText()'></button></p>"
-			"<p>" INTL_GUEST_OPEN_IP_HINT "</p>"
-			"</div>");
-		page_content += FPSTR(WEB_COPY_IP_JS);
-		end_html_page_guest(page_content);
-
-		if (writeConfig()) {
-			set_restart_reason(RESTART_REASON_CONFIG);
-			sensor_restart();
+		page_content += F("<div class='guest-page'><div class='guest-card'>"
+			"<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_SETTINGS_SAVED "</h2></div>");
+		append_guest_device_access(page_content, setup_ip, robonomics_address);
+		if (!writeConfig()) {
+			page_content += F("<p class='guest__reboot error'>Failed to save configuration.</p></div></div>");
+			end_html_page_guest(page_content);
+			return;
 		}
+		append_guest_success_restart_ui(page_content);
+		page_content += F("</div></div>");
+		end_html_page_guest(page_content);
+		guestSuccessMarkRestartPending();
 		return;
 	}
 
@@ -733,15 +802,9 @@ void SensorWebServer::_webserver_select_urban() {
 	RESERVE_STRING(page_content, LARGE_STR);
 	start_html_page(page_content, F(INTL_SETUP_COMPLETE), true);
 	String setup_ip = WiFi.localIP().toString();
-	page_content += F("<div style='text-align:center;padding:40px;'>"
-		"<h2 style='color:#4CAF50;'>" INTL_SETTINGS_SAVED "</h2>"
-		"<p>" INTL_GUEST_IP_ADDRESS " <strong><span class='ip-address'>");
-	page_content += setup_ip;
-	page_content += F("</span></strong> <button class='copy-btn' onclick='copyText()'></button></p>"
-		"<p>" INTL_GUEST_OPEN_IP_HINT "</p>"
-		"</div>");
-	page_content += FPSTR(WEB_COPY_IP_JS);
-	end_html_page_guest(page_content);
+	page_content += F("<div class='guest-page'><div class='guest-card'>"
+		"<div class='guest__connected'><h2 class='guest__connect-title'>" INTL_SETTINGS_SAVED "</h2></div>");
+	append_guest_device_access(page_content, setup_ip, robonomics_address);
 
 	if (xSemaphoreTake(mutex, pdMS_TO_TICKS(500))) {
 		clearUrbanPairingTelemetry(sensors_data);
@@ -749,12 +812,40 @@ void SensorWebServer::_webserver_select_urban() {
 	}
 	displayManager.clearUrbanCache();
 
-	if (writeConfig()) {
-		set_restart_reason(RESTART_REASON_CONFIG);
-		sensor_restart();
+	if (!writeConfig()) {
+		page_content += F("<p class='guest__reboot error'>Failed to save configuration.</p></div></div>");
+		end_html_page_guest(page_content);
+		return;
 	}
+	append_guest_success_restart_ui(page_content);
+	page_content += F("</div></div>");
+	end_html_page_guest(page_content);
+	guestSuccessMarkRestartPending();
 }
 #endif
+
+void SensorWebServer::_webserver_finish_setup() {
+	debug_outln_info(F("ws: finish_setup ..."));
+	if (!wificonfig_loop) {
+		sendHttpRedirectGuest();
+		return;
+	}
+#ifdef ALTRUIST_INSIGHT
+	insightGuestClearFinishPending();
+#endif
+	guestSuccessClearRestartPending();
+
+	RESERVE_STRING(page_content, SMALL_STR);
+	start_html_page(page_content, F(INTL_SETUP_COMPLETE), true);
+	page_content += F("<div class='guest-page'><div class='guest-card guest-card--connect'>"
+		"<div class='guest__connect-status'>"
+		"<h2 class='guest__connect-title'>" INTL_GUEST_FINISHING_SETUP "</h2>"
+		"</div></div></div>");
+	end_html_page_guest(page_content);
+	Serial.flush();
+	delay(300);
+	guestSuccessRestartNow();
+}
 
 void SensorWebServer::_webserver_ota() {
 	if (WiFi.status() != WL_CONNECTED) {
@@ -859,7 +950,9 @@ void SensorWebServer::_webserver_config() {
 		}
 
 		if (server.method() == HTTP_GET) {
-			webserver_config_send_body_get(server, page_content, wificonfig_loop, sensors_data);
+			const char* sensor_ss58 =
+				(robonomics_address.length() > 0) ? robonomics_address.c_str() : nullptr;
+			webserver_config_send_body_get(server, page_content, wificonfig_loop, sensors_data, nullptr, 0, sensor_ss58);
 		} else {
 #ifdef ALTRUIST_INSIGHT
 			const bool prev_use_custom_urban = cfg::use_custom_urban;

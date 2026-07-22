@@ -121,14 +121,15 @@
       var st = byId('scan_status');
       if (!sel || !st) return;
       scanBtn.disabled = true;
-      st.textContent = '" INTL_SCAN_SCANNING "';
+      // Quotes stay in the rawliteral parts: INTL macros expand to unquoted text when concatenated.
+      st.textContent = ")rawliteral" INTL_SCAN_SCANNING R"rawliteral(";
       fetch('/scan_urbans').then(function(r) { return r.json(); }).then(function(devices) {
         var cur = sel.value;
         sel.innerHTML = '';
         if (!devices.length) {
-          st.textContent = '" INTL_SCAN_NO_URBANS "';
+          st.textContent = ")rawliteral" INTL_SCAN_NO_URBANS R"rawliteral(";
         } else {
-          st.textContent = '" INTL_SCAN_FOUND_PREFIX "' + devices.length + '" INTL_SCAN_FOUND_SUFFIX "';
+          st.textContent = ")rawliteral" INTL_SCAN_FOUND_PREFIX R"rawliteral(" + devices.length + ")rawliteral" INTL_SCAN_FOUND_SUFFIX R"rawliteral(";
           devices.forEach(function(d) {
             var o = document.createElement('option');
             o.value = d.ip;
@@ -139,7 +140,7 @@
         }
         scanBtn.disabled = false;
       }).catch(function(e) {
-        st.textContent = '" INTL_SCAN_FAILED "' + e;
+        st.textContent = ")rawliteral" INTL_SCAN_FAILED R"rawliteral(" + e;
         scanBtn.disabled = false;
       });
     });
@@ -162,6 +163,75 @@
       });
     }
   });
+
+  var keyField = byId('aes-device-key-display');
+  var keyPayload = byId('aes-device-payload');
+  var keyToggle = byId('aes-key-toggle');
+  var keyCopy = byId('aes-key-copy');
+  var keyCopyStatus = byId('aes-key-copy-status');
+  var keyShown = false;
+  if (keyField && keyPayload && keyToggle) {
+    var maskedText = keyField.value || '';
+    var plainText = keyPayload.textContent || '';
+    function syncKeyField() {
+      keyField.value = keyShown ? plainText : maskedText;
+      keyField.classList.toggle('is-revealed', keyShown);
+      keyField.rows = keyShown ? 3 : 2;
+    }
+    keyToggle.addEventListener('click', function() {
+      keyShown = !keyShown;
+      syncKeyField();
+      keyToggle.textContent = keyShown
+        ? ")rawliteral" INTL_DATA_ENCRYPT_KEY_HIDE R"rawliteral("
+        : ")rawliteral" INTL_DATA_ENCRYPT_KEY_SHOW R"rawliteral(";
+      if (keyShown) {
+        keyField.focus();
+        try { keyField.setSelectionRange(0, keyField.value.length); } catch (e) {}
+      }
+    });
+    keyField.addEventListener('focus', function() {
+      if (keyShown) {
+        try { keyField.setSelectionRange(0, keyField.value.length); } catch (e) {}
+      }
+    });
+    keyField.addEventListener('click', function() {
+      if (keyShown) {
+        try { keyField.setSelectionRange(0, keyField.value.length); } catch (e) {}
+      }
+    });
+  }
+  if (keyCopy) {
+    keyCopy.addEventListener('click', function() {
+      var src = keyPayload || keyField;
+      if (!src) return;
+      var text = src.textContent || src.value || '';
+      function copied() {
+        if (keyCopyStatus) {
+          keyCopyStatus.textContent = ")rawliteral" INTL_DATA_ENCRYPT_KEY_COPIED R"rawliteral(";
+          setTimeout(function() { keyCopyStatus.textContent = ''; }, 2500);
+        }
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(copied).catch(function() {
+          var o = document.createElement('textarea');
+          o.value = text;
+          document.body.appendChild(o);
+          o.select();
+          document.execCommand('copy');
+          document.body.removeChild(o);
+          copied();
+        });
+      } else {
+        var o = document.createElement('textarea');
+        o.value = text;
+        document.body.appendChild(o);
+        o.select();
+        document.execCommand('copy');
+        document.body.removeChild(o);
+        copied();
+      }
+    });
+  }
 })();
 )rawliteral"
 

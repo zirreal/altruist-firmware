@@ -3,6 +3,7 @@
 #include "../../utils.h"
 #include "../html-content.h"
 #include "../utils.h"
+#include "../../apis/helpers/value_crypto.h"
 
 #ifdef ALTRUIST_INSIGHT
 /** Parse "H:MM" or "HH:MM" (24h) into minutes since midnight [0..1439]. */
@@ -178,6 +179,8 @@ void webserver_config_send_body_post(WebServer &server) {
 		cfg::analytics_morning_end_hour = 12 * 60;
 	}
 #endif
+	// Climate chart on sensors.map shows temperature + humidity together.
+	cfg::encrypt_humidity = cfg::encrypt_temperature;
 }
 
 /*****************************************************************
@@ -185,7 +188,7 @@ void webserver_config_send_body_post(WebServer &server) {
  *****************************************************************/
 
 void webserver_config_send_body_get(WebServer &server, String& page_content, bool wificonfig_loop, JsonDocument &data,
-                                    const char* hub_form_action, uint16_t hub_sections) {
+                                    const char* hub_form_action, uint16_t hub_sections, const char* sensor_ss58) {
 	const char *kRobonomicsNodePolkadot = "polkadot.rpc.robonomics.network";
 	const char *kRobonomicsNodeKusama = "kusama.rpc.robonomics.network";
 	const bool hub_mode = hub_sections != 0;
@@ -425,6 +428,86 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_checkbox_grid(Config_share_epa_aqi, FPSTR(INTL_SHARE_EPA_AQI), true);
 #endif
 	page_content += F("</div></div></section>");
+
+	maybe_flush();
+
+	page_content += F("<section class='config-section config-section--full");
+	page_content += F("'><h2 class='config-section__title'>" INTL_PANEL_TITLE_DATA_ENCRYPT "</h2>"
+		"<div class='config-section__body'>"
+			"<p class='form-hint'>"
+				INTL_DATA_ENCRYPT_DISCLAIMER
+			"</p>"
+			"<div class='checkbox-grid'>");
+
+	// One climate toggle (map chart = temp + humidity). Keep both flags aligned for the checkbox.
+	{
+		const bool encrypt_climate = cfg::encrypt_temperature || cfg::encrypt_humidity;
+		cfg::encrypt_temperature = encrypt_climate;
+		cfg::encrypt_humidity = encrypt_climate;
+	}
+	add_form_checkbox_grid(Config_encrypt_temperature, FPSTR(INTL_ENCRYPT_TEMPERATURE),
+		cfg::share_temperature || cfg::share_humidity);
+	add_form_checkbox_grid(Config_encrypt_pressure, FPSTR(INTL_ENCRYPT_PRESSURE), cfg::share_pressure);
+#ifdef ALTRUIST_INSIGHT
+	add_form_checkbox_grid(Config_encrypt_co2, FPSTR(INTL_ENCRYPT_CO2), cfg::share_co2);
+#endif
+#ifdef ALTRUIST_URBAN
+	add_form_checkbox_grid(Config_encrypt_pm, FPSTR(INTL_ENCRYPT_PM), cfg::share_pm);
+	add_form_checkbox_grid(Config_encrypt_noise, FPSTR(INTL_ENCRYPT_NOISE), cfg::share_noise);
+	add_form_checkbox_grid(Config_encrypt_co, FPSTR(INTL_ENCRYPT_CO), cfg::share_co);
+	add_form_checkbox_grid(Config_encrypt_radiation, FPSTR(INTL_ENCRYPT_RADIATION), true);
+	add_form_checkbox_grid(Config_encrypt_o3, FPSTR(INTL_ENCRYPT_O3), cfg::share_o3);
+	add_form_checkbox_grid(Config_encrypt_no2, FPSTR(INTL_ENCRYPT_NO2), cfg::share_no2);
+	add_form_checkbox_grid(Config_encrypt_fast_aqi, FPSTR(INTL_ENCRYPT_FAST_AQI), cfg::share_fast_aqi);
+	add_form_checkbox_grid(Config_encrypt_epa_aqi, FPSTR(INTL_ENCRYPT_EPA_AQI), cfg::share_epa_aqi);
+#endif
+	page_content += F("</div>");
+
+	{
+		valueCryptoEnsureKey();
+		const String aes_export = valueCryptoExportPayload();
+		String aes_masked;
+		aes_masked.reserve(aes_export.length());
+		for (unsigned i = 0; i < aes_export.length(); i++) {
+			aes_masked += '*';
+		}
+		page_content += F("<p class='form-hint' style='margin-top:12px;'>");
+		page_content += F(INTL_DATA_ENCRYPT_KEY_LABEL);
+		page_content += F("</p>");
+		page_content += F("<p class='form-hint'>");
+		page_content += F(INTL_DATA_ENCRYPT_KEY_HINT);
+		page_content += F("</p>");
+		page_content += F("<div class='encrypt-key-panel'>");
+		page_content += F("<div class='encrypt-key-row'>");
+		page_content += F("<div class='encrypt-key-qr'>");
+		if (!aes_export.isEmpty()) {
+			page_content += F("<img class='encrypt-key-qr-img' src='/aes-key-qr.svg' width='240' height='240' alt='' decoding='async'/>");
+		} else {
+			page_content += F("<p class='form-hint'>");
+			page_content += F(INTL_DATA_ENCRYPT_QR_FAIL);
+			page_content += F("</p>");
+		}
+		page_content += F("</div>");
+		page_content += F("<div class='encrypt-key-copy'>");
+		page_content += F("<textarea readonly class='encrypt-key-field' id='aes-device-key-display' rows='3' spellcheck='false' wrap='soft' aria-live='polite'>");
+		page_content += aes_masked;
+		page_content += F("</textarea>");
+		page_content += F("<code id='aes-device-payload' hidden>");
+		page_content += aes_export;
+		page_content += F("</code>");
+		page_content += F("<div class='encrypt-key-actions'>");
+		page_content += F("<button type='button' class='encrypt-key-btn encrypt-key-btn--ghost' id='aes-key-toggle'>");
+		page_content += F(INTL_DATA_ENCRYPT_KEY_SHOW);
+		page_content += F("</button>");
+		page_content += F("<button type='button' class='submit-btn encrypt-key-btn encrypt-key-btn--copy' id='aes-key-copy'>");
+		page_content += F(INTL_DATA_ENCRYPT_KEY_COPY);
+		page_content += F("</button>");
+		page_content += F("</div>");
+		page_content += F("<p class='encrypt-key-copy-status' id='aes-key-copy-status' aria-live='polite'></p>");
+		page_content += F("</div></div></div>");
+	}
+
+	page_content += F("</div></section>");
 
 	maybe_flush();
 	}

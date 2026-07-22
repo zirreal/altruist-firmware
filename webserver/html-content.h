@@ -28,7 +28,7 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 	"<link rel='icon' type='image/png' href='/favicon.ico' media='(prefers-color-scheme: light)'>" \
 	"<link rel='icon' type='image/png' href='/favicon-dark.ico' media='(prefers-color-scheme: dark)'>"
 
-#define STATIC_PREFIX "/" INTL_LANG "_s3.74"
+#define STATIC_PREFIX "/" INTL_LANG "_s3.76"
 // Bust browser cache after PNG→SVG / logo changes; `m` reflects build (insight vs urban).
 #define WEB_HEADER_LOGO_SRC STATIC_PREFIX "?r=logo&v=" SOFTWARE_VERSION_STR "&m=" DEVICE_MODEL
 #define WEB_NAV_ICON_LOCAL_SRC STATIC_PREFIX "?r=nav-local&v=" SOFTWARE_VERSION_STR
@@ -268,9 +268,13 @@ const char WEB_GUEST_WIZARD_SUBMIT_JS[] PROGMEM = "<script>document.addEventList
 const char WEB_COPY_IP_JS[] PROGMEM = "<script>function copyText(){const e=document.querySelector('.guest-ip,.ip-address');if(!e)return;var t=e.innerText||e.textContent;if(navigator.clipboard)navigator.clipboard.writeText(t).then((function(){alert('Copied to clipboard')})).catch((function(){alert('Failed to copy text')}));else{const o=document.createElement('textarea');o.value=t,document.body.appendChild(o),o.select(),document.execCommand('copy'),document.body.removeChild(o),alert('Copied to clipboard (fallback)')}}</script>";
 
 const char WEB_GUEST_CONNECT_STATUS[] PROGMEM =
+	"<div class='guest-page guest-page--connecting' id='guest-connecting'>"
+	"<div class='guest-card guest-card--connect'>"
 	"<div class='guest__connect-status guest__connect-status--initial'>"
-	"<h2 class='guest__connect-subtitle'>Connecting to WiFi...</h2>"
-	"<div class='loader'></div></div>";
+	"<div class='loader' aria-hidden='true'></div>"
+	"<h2 class='guest__connect-subtitle'>" INTL_GUEST_CONNECTING "</h2>"
+	"<p class='form-hint guest__connect-hint'>" INTL_GUEST_CONNECTING_HINT "</p>"
+	"</div></div></div>";
 
 const char WEB_REMOVE_CONFIG_CONTENT[] PROGMEM =
 "<div class='confirm-action'>"

@@ -116,10 +116,11 @@ void append_hub_social_map_info(String& page_content, const String& robonomics_a
 }
 
 void append_hub_settings_cards(WebServer& server, String& page_content, bool wificonfig_loop,
-                               JsonDocument& data, const char* form_action, const uint16_t* order, size_t order_len) {
+                               JsonDocument& data, const char* form_action, const uint16_t* order, size_t order_len,
+                               const char* sensor_ss58 = nullptr) {
 	append_hub_config_form_start(page_content, form_action);
 	for (size_t i = 0; i < order_len; ++i) {
-		webserver_config_send_body_get(server, page_content, wificonfig_loop, data, nullptr, order[i]);
+		webserver_config_send_body_get(server, page_content, wificonfig_loop, data, nullptr, order[i], sensor_ss58);
 	}
 	append_hub_config_form_end(page_content, wificonfig_loop && form_action != nullptr && form_action[0] == '/' && form_action[1] == '\0');
 }
@@ -196,8 +197,10 @@ void webserver_hub_social(String& page_content, const String& robonomics_address
 
 	append_hub_social_map_info(page_content, robonomics_address);
 
+	const char* sensor_ss58 =
+		(robonomics_address.length() > 0) ? robonomics_address.c_str() : nullptr;
 	append_hub_settings_cards(server, page_content, wificonfig_loop, data, "/social", kSocialSettingsOrder,
-	                         sizeof(kSocialSettingsOrder) / sizeof(kSocialSettingsOrder[0]));
+	                         sizeof(kSocialSettingsOrder) / sizeof(kSocialSettingsOrder[0]), sensor_ss58);
 	web_page_flush_chunk(page_content, &server);
 
 	append_hub_section_start(page_content, FPSTR(INTL_GROUP_MENU), "group");

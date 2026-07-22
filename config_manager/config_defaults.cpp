@@ -103,6 +103,19 @@ namespace cfg {
 	bool share_fast_aqi = false;
 	bool share_epa_aqi = false;
 
+	bool encrypt_temperature = false;
+	bool encrypt_humidity = false;
+	bool encrypt_pressure = false;
+	bool encrypt_co2 = false;
+	bool encrypt_pm = false;
+	bool encrypt_noise = false;
+	bool encrypt_co = false;
+	bool encrypt_radiation = false;
+	bool encrypt_o3 = false;
+	bool encrypt_no2 = false;
+	bool encrypt_fast_aqi = false;
+	bool encrypt_epa_aqi = false;
+
 	void initNonTrivials(const char* id) {
 		strcpy(cfg::current_lang, CURRENT_LANG);
 		strcpy(cfg::current_reg, CURRENT_REG);

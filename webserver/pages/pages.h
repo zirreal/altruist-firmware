@@ -42,7 +42,8 @@ void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig
 void webserver_guest_create_body_get_part2(String& page_content, bool wificonfig_loop);
 void webserver_config_send_body_post(WebServer &server);
 void webserver_config_send_body_get(WebServer &server, String& page_content, bool wificonfig_loop, JsonDocument &data,
-                                    const char* hub_form_action = nullptr, uint16_t hub_sections = 0);
+                                    const char* hub_form_action = nullptr, uint16_t hub_sections = 0,
+                                    const char* sensor_ss58 = nullptr);
 void webserver_hub_local(String &page_content, JsonDocument &data, device_status_t &deviceStatus, WebServer &server,
                          bool wificonfig_loop, bool readings_busy = false);
 void webserver_hub_social(String &page_content, const String &robonomics_address, Robonomics *robonomics,

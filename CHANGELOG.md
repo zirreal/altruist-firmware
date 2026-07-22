@@ -6,6 +6,9 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Features
 
+- **Optional map-value encryption** — Per-metric AES-256-CBC encryption for data published to sensors.social (off by default). Selected metrics are sent as `e.<base64(IV+ciphertext)>` in the Robonomics CSV; import the device key on the map to decrypt locally. Config toggles under **Encrypt map values** (climate = temperature + humidity together); key is created in NVS on first use.
+- **Device encryption key UI** — Show/hide + copy for `altruist-aes1:<key>`; QR on Social → Data sharing encodes a short local URL (`/aes-key.json`) so a phone on the same Wi‑Fi can download the key file.
+- **Guest setup device info** — After Wi‑Fi connects, the success screen shows **IP** and **Robonomics address** with copy buttons, plus **Save device info** / **Copy as text** for a JSON backup (`ip`, `sensor`, encryption `export`). Share sheet on phones (Save to Files / Downloads); clipboard fallback when the captive-portal browser cannot download. Does not navigate away from the setup flow.
 - **Hub web interface** — Device pages use a mobile-first **app shell** with four hub areas: **altruist.local** (`/`, readings & device settings), **sensors.social** (`/social`, sensors.social map & Robonomics), **custom** (`/custom`, Home Assistant / API / Influx / CSV), and **system** (`/advanced`, debug / restart / delete config). Desktop sidebar + mobile bottom tabs; breadcrumbs on inner views. Guest captive portal keeps the previous layout.
 - **Local hub layout** — **Values** and **Status** first (important for Urban without a display), then Settings (Wi‑Fi, auth, LEDs, sleep, firmware, OTA), then Screen mode on Insight.
 - **Readings (`/values`)** — Sensor sections use a **metric card grid** (`reading-grid` / `reading-card`); network signal as cards with a short intro. Insight **standalone** hides the paired Urban outdoor block.
@@ -17,6 +20,9 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Improvements
 
+- **Guest Urban success pause** — After Wi‑Fi setup, the Connected screen stays up **~45 s** (was 15 s) with a countdown so there is time to copy IP / save device info before restart.
+- **Hub sidebar** — Sticky desktop sidebar; hub tabs use a black left border by default and green when active.
+- **Mobile spacing** — More padding between main content and the footer above the bottom tab bar.
 - **Web UI polish** — Hub groups with clear section cards; hostname/`altruist.local` access label; sensors.social as a plain top link on Social; Wi‑Fi credentials full-width on Local; more bottom padding above the mobile tab bar.
 - **HTTP responsiveness** — `handleClient()` retries the webserver mutex briefly and processes multiple requests per lock; `markMainLoopAlive()` is called during HTTP service and in `loop()` so long web work is less likely to trip the main-loop watchdog.
 - **`/data.json` under load** — Mutex take uses a 300 ms timeout; returns `503 {"error":"busy"}` instead of blocking the client indefinitely.

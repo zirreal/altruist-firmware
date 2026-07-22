@@ -44,6 +44,15 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length);
 
 String buildLocalAccessLabel();
+/** Short http:// URL encoded in the AES-key QR (downloads JSON on scan). */
+String buildAesKeyDownloadUrl();
+/**
+ * Guest setup success: show IP + sensor address inline, plus a download button
+ * that saves JSON without navigating away from the page.
+ */
+void append_guest_device_access(String& page_content, const String& ip, const String& sensor_ss58);
+/** Countdown hint + Finish setup button (POST /finish_setup) for guest success pages. */
+void append_guest_success_restart_ui(String& page_content);
 void append_app_sidebar(String& page_content);
 void append_app_page_body_start(String& page_content, const __FlashStringHelper* lead = nullptr);
 void append_app_page_body_end(String& page_content);

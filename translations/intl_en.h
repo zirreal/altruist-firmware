@@ -139,6 +139,11 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 #define INTL_SETTINGS_SAVED "Settings saved"
 #define INTL_DEVICE_RESTARTING "Restarting device..."
 #define INTL_GUEST_CONNECTED "Connected"
+#define INTL_GUEST_CONNECTING "Connecting to Wi‑Fi…"
+#define INTL_GUEST_CONNECTING_HINT "This usually takes a few seconds. Keep this page open."
+#define INTL_GUEST_CONNECT_FAILED "Connection failed"
+#define INTL_GUEST_CONNECT_FAILED_HINT "Check the network name and password, then try again."
+#define INTL_GUEST_CONNECT_FAILED_INSIGHT "Rebooting to Wi‑Fi setup… You can close this page and try again."
 #define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi connected"
 #define INTL_GUEST_SETUP_STEP_1_LABEL "Step 1 of 2"
 #define INTL_GUEST_SETUP_STEP_2_LABEL "Step 2 of 2"
@@ -148,7 +153,17 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 #define INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "seconds (standalone mode)."
 #define INTL_GUEST_IP_ADDRESS "IP Address:"
 #define INTL_GUEST_OPEN_IP_HINT "Copy the IP address and open it in your browser."
-#define INTL_GUEST_RESTART_PAUSE_HINT "The device will restart in a few seconds — copy the IP now."
+#define INTL_GUEST_DEVICE_INFO_HINT "On iPhone: tap Save → Share → Save to Files. On Android it can go to Downloads. Or copy as text."
+#define INTL_GUEST_DEVICE_INFO_DOWNLOAD "Save device info"
+#define INTL_GUEST_DEVICE_INFO_COPY "Copy as text"
+#define INTL_GUEST_DEVICE_INFO_SAVED "Saved"
+#define INTL_GUEST_DEVICE_INFO_SHARED "Choose Save to Files in the share sheet"
+#define INTL_GUEST_DEVICE_INFO_COPIED "Copied — paste into Notes"
+#define INTL_GUEST_DEVICE_INFO_SAVE_FAIL "Could not save — copy the IP above"
+#define INTL_GUEST_SENSOR_ADDRESS "Robonomics address:"
+#define INTL_GUEST_RESTART_PAUSE_HINT "The device will restart soon — copy or save your IP before it does."
+#define INTL_GUEST_FINISH_SETUP "Finish setup"
+#define INTL_GUEST_FINISHING_SETUP "Finishing setup — restarting…"
 #define INTL_GUEST_KEEP_OPEN_HINT "Do not close this page until you press Continue."
 #define INTL_DISP_MAP_PROMO_TITLE "Better analytics on your smartphone"
 #define INTL_DISP_MAP_PROMO_LINE1 "Just go to our web map: AQI, data history,"
@@ -157,7 +172,7 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 #define INTL_DISP_MAP_DOMAIN "SENSORS.SOCIAL"
 #define INTL_SCAN_BTN "Scan"
 #define INTL_SCAN_SCANNING "Scanning..."
-#define INTL_SCAN_NO_URBANS "No Urban devices found."
+#define INTL_SCAN_NO_URBANS "No Urban found via mDNS. For C3 Urban use Custom Urban IP (browser IP)."
 #define INTL_SCAN_FOUND_PREFIX "Found "
 #define INTL_SCAN_FOUND_SUFFIX " Urban device(s)."
 #define INTL_SCAN_FAILED "Scan failed: "
@@ -234,6 +249,15 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_PANEL_TITLE_DATA_SHARING "Publish to Map"
 #define INTL_DATA_SHARING_DISCLAIMER "By default, all sensor data is shared to the public sensors map. You can choose which data types to share below. Unshared data will still be displayed on your device screen and available locally."
 #define INTL_DATA_SHARING_ADDITIONAL "Additional sensors (optional)"
+#define INTL_PANEL_TITLE_DATA_ENCRYPT "Encrypt map values"
+#define INTL_DATA_ENCRYPT_DISCLAIMER "Optional. Selected metrics are sent encrypted (AES-256). Import this device key in sensors.map to view them. Erasing flash creates a new key."
+#define INTL_DATA_ENCRYPT_KEY_LABEL "Device encryption key"
+#define INTL_DATA_ENCRYPT_KEY_SHOW "Show key"
+#define INTL_DATA_ENCRYPT_KEY_HIDE "Hide key"
+#define INTL_DATA_ENCRYPT_KEY_COPY "Copy key"
+#define INTL_DATA_ENCRYPT_KEY_COPIED "Key copied"
+#define INTL_DATA_ENCRYPT_KEY_HINT "Scan with your phone camera (same Wi‑Fi) to download the key JSON file. Or tap Show key and copy the text."
+#define INTL_DATA_ENCRYPT_QR_FAIL "Could not render key QR."
 const char INTL_SHARE_TEMPERATURE[] PROGMEM = "Temperature";
 const char INTL_SHARE_HUMIDITY[] PROGMEM = "Humidity";
 const char INTL_SHARE_PRESSURE[] PROGMEM = "Pressure";
@@ -246,6 +270,18 @@ const char INTL_SHARE_O3[] PROGMEM = "Ozone (O3)";
 const char INTL_SHARE_NO2[] PROGMEM = "Nitrogen dioxide (NO2)";
 const char INTL_SHARE_FAST_AQI[] PROGMEM = "FAST AQI";
 const char INTL_SHARE_EPA_AQI[] PROGMEM = "EPA AQI";
+const char INTL_ENCRYPT_TEMPERATURE[] PROGMEM = "Encrypt climate (temperature & humidity)";
+const char INTL_ENCRYPT_HUMIDITY[] PROGMEM = "Encrypt humidity";
+const char INTL_ENCRYPT_PRESSURE[] PROGMEM = "Encrypt pressure";
+const char INTL_ENCRYPT_CO2[] PROGMEM = "Encrypt CO2";
+const char INTL_ENCRYPT_PM[] PROGMEM = "Encrypt PM";
+const char INTL_ENCRYPT_NOISE[] PROGMEM = "Encrypt noise";
+const char INTL_ENCRYPT_CO[] PROGMEM = "Encrypt CO";
+const char INTL_ENCRYPT_RADIATION[] PROGMEM = "Encrypt radiation";
+const char INTL_ENCRYPT_O3[] PROGMEM = "Encrypt O3";
+const char INTL_ENCRYPT_NO2[] PROGMEM = "Encrypt NO2";
+const char INTL_ENCRYPT_FAST_AQI[] PROGMEM = "Encrypt FAST AQI";
+const char INTL_ENCRYPT_EPA_AQI[] PROGMEM = "Encrypt EPA AQI";
 
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "WiFi Sensor in configuration mode";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Network name";

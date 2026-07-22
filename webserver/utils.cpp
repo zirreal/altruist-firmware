@@ -2,7 +2,10 @@
 #include "html-content.h"
 #include "../utils.h"
 #include "../intl.h"
+#include "../defines.h"
+#include "../apis/helpers/value_crypto.h"
 #include <ArduinoJson.h>
+#include <string.h>
 
 namespace {
 
@@ -426,6 +429,164 @@ String buildLocalAccessLabel() {
 		host += F(".local");
 	}
 	return host;
+}
+
+String buildAesKeyDownloadUrl() {
+	String url = F("http://");
+	url += buildLocalAccessLabel();
+	url += F("/aes-key.json");
+	return url;
+}
+
+String buildGuestDeviceInfoJson(const String& ip, const String& sensor_ss58) {
+	DynamicJsonDocument doc(1024);
+	doc["format"] = "altruist-device1";
+	doc["hostname"] = buildLocalAccessLabel();
+	if (ip.length() > 0) {
+		doc["ip"] = ip;
+	}
+	if (sensor_ss58.length() > 0 && strcasecmp(sensor_ss58.c_str(), "Not Set") != 0) {
+		doc["sensor"] = sensor_ss58;
+	}
+	if (valueCryptoEnsureKey()) {
+		const String key_b64 = valueCryptoKeyBase64();
+		const String export_payload = valueCryptoExportPayload();
+		if (!key_b64.isEmpty()) {
+			doc["key"] = key_b64;
+		}
+		if (!export_payload.isEmpty()) {
+			doc["export"] = export_payload;
+		}
+	}
+	String body;
+	serializeJson(doc, body);
+	return body;
+}
+
+void append_guest_device_access(String& page_content, const String& ip, const String& sensor_ss58) {
+	const String info_json = buildGuestDeviceInfoJson(ip, sensor_ss58);
+
+	page_content += F("<div class='guest-access'>"
+		"<p class='form-hint guest-access__hint'>");
+	page_content += FPSTR(INTL_GUEST_DEVICE_INFO_HINT);
+	page_content += F("</p>"
+		"<div class='guest-access__row'>"
+		"<span class='guest-access__label'>");
+	page_content += FPSTR(INTL_GUEST_IP_ADDRESS);
+	page_content += F("</span>"
+		"<strong class='guest-access__value guest-ip ip-address'>");
+	page_content += ip;
+	page_content += F("</strong>"
+		"<button type='button' class='copy-btn' onclick=\"copyGuestText(this)\" aria-label='Copy'></button>"
+		"</div>");
+	if (sensor_ss58.length() > 0 && strcasecmp(sensor_ss58.c_str(), "Not Set") != 0) {
+		page_content += F("<div class='guest-access__row'>"
+			"<span class='guest-access__label'>");
+		page_content += FPSTR(INTL_GUEST_SENSOR_ADDRESS);
+		page_content += F("</span>"
+			"<strong class='guest-access__value guest-access__value--addr'>");
+		page_content += sensor_ss58;
+		page_content += F("</strong>"
+			"<button type='button' class='copy-btn' onclick=\"copyGuestText(this)\" aria-label='Copy'></button>"
+			"</div>");
+	}
+	// Embed JSON on the page so save/share never navigates to /device-info.json
+	page_content += F("<script type='application/json' id='guest-device-info-json'>");
+	page_content += info_json;
+	page_content += F("</script>");
+
+	page_content += F("<button type='button' id='guest-device-info-btn' class='submit-btn guest-device-info__btn'"
+		" data-shared='");
+	page_content += FPSTR(INTL_GUEST_DEVICE_INFO_SHARED);
+	page_content += F("' data-saved='");
+	page_content += FPSTR(INTL_GUEST_DEVICE_INFO_SAVED);
+	page_content += F("' data-copied='");
+	page_content += FPSTR(INTL_GUEST_DEVICE_INFO_COPIED);
+	page_content += F("' data-fail='");
+	page_content += FPSTR(INTL_GUEST_DEVICE_INFO_SAVE_FAIL);
+	page_content += F("'>");
+	page_content += FPSTR(INTL_GUEST_DEVICE_INFO_DOWNLOAD);
+	page_content += F("</button>"
+		"<button type='button' id='guest-device-info-copy' class='encrypt-key-btn encrypt-key-btn--ghost guest-device-info__copy'>");
+	page_content += FPSTR(INTL_GUEST_DEVICE_INFO_COPY);
+	page_content += F("</button>"
+		"<p class='form-hint guest-access__dl-status' id='guest-device-info-status' aria-live='polite'></p>"
+		"</div><script>"
+		"window.copyGuestText=function(btn){"
+		"var row=btn&&btn.closest('.guest-access__row');"
+		"var el=row&&row.querySelector('.guest-access__value');"
+		"if(!el)return;var t=(el.innerText||el.textContent||'').trim();"
+		"function ok(){try{btn.title='OK';}catch(e){}}"
+		"if(navigator.clipboard&&navigator.clipboard.writeText){"
+		"navigator.clipboard.writeText(t).then(ok).catch(function(){"
+		"var o=document.createElement('textarea');o.value=t;document.body.appendChild(o);o.select();"
+		"document.execCommand('copy');document.body.removeChild(o);ok();});"
+		"}else{var o=document.createElement('textarea');o.value=t;document.body.appendChild(o);o.select();"
+		"document.execCommand('copy');document.body.removeChild(o);ok();}"
+		"};"
+		"(function(){"
+		"function infoText(){var el=document.getElementById('guest-device-info-json');return el?(el.textContent||'').trim():'';}"
+		"function copyText(t){"
+		"if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(t);"
+		"return new Promise(function(resolve,reject){try{"
+		"var o=document.createElement('textarea');o.value=t;o.setAttribute('readonly','');"
+		"o.style.position='fixed';o.style.left='-9999px';document.body.appendChild(o);o.select();"
+		"document.execCommand('copy');document.body.removeChild(o);resolve();"
+		"}catch(e){reject(e);}});"
+		"}"
+		"function isIOS(){return /iPad|iPhone|iPod/i.test(navigator.userAgent||'');}"
+		"function setStatus(msg){var st=document.getElementById('guest-device-info-status');if(st)st.textContent=msg||'';}"
+		"function saveFileDesktop(text){"
+		"var b=new Blob([text],{type:'application/octet-stream'});"
+		"var u=URL.createObjectURL(b);var a=document.createElement('a');"
+		"a.href=u;a.download='altruist-device-info.json';a.rel='noopener';"
+		"document.body.appendChild(a);a.click();a.remove();"
+		"setTimeout(function(){try{URL.revokeObjectURL(u);}catch(e){}},2500);"
+		"}"
+		"function shareOrSave(btn){"
+		"var text=infoText();if(!text)return Promise.reject(new Error('empty'));"
+		"var file=null;try{file=new File([text],'altruist-device-info.json',{type:'application/json'});}catch(e){file=null;}"
+		"if(file&&navigator.canShare&&navigator.canShare({files:[file]})){"
+		"return navigator.share({files:[file],title:'Altruist device info'})"
+		".then(function(){return btn.getAttribute('data-shared')||'';});"
+		"}"
+		"if(!isIOS()){saveFileDesktop(text);return Promise.resolve(btn.getAttribute('data-saved')||'');}"
+		"return copyText(text).then(function(){return btn.getAttribute('data-copied')||'';});"
+		"}"
+		"var btn=document.getElementById('guest-device-info-btn');"
+		"var copyBtn=document.getElementById('guest-device-info-copy');"
+		"if(btn){btn.addEventListener('click',function(ev){"
+		"ev.preventDefault();ev.stopPropagation();setStatus('…');"
+		"shareOrSave(btn).then(setStatus).catch(function(){"
+		"copyText(infoText()).then(function(){setStatus(btn.getAttribute('data-copied')||'');})"
+		".catch(function(){setStatus(btn.getAttribute('data-fail')||'');});"
+		"});"
+		"});}"
+		"if(copyBtn){copyBtn.addEventListener('click',function(ev){"
+		"ev.preventDefault();ev.stopPropagation();"
+		"copyText(infoText()).then(function(){"
+		"setStatus((btn&&btn.getAttribute('data-copied'))||'');"
+		"}).catch(function(){setStatus((btn&&btn.getAttribute('data-fail'))||'');});"
+		"});}"
+		"})();</script>");
+}
+
+void append_guest_success_restart_ui(String& page_content) {
+	const unsigned pause_sec = (unsigned)(GUEST_SUCCESS_PAGE_DELAY_MS / 1000UL);
+	page_content += F("<p class='form-hint' id='guest-restart-hint'>");
+	page_content += FPSTR(INTL_GUEST_RESTART_PAUSE_HINT);
+	page_content += F("</p>"
+		"<form method='POST' action='/finish_setup' class='guest-finish-form'>"
+		"<button type='submit' class='submit-btn guest__setup-finish-btn'>");
+	page_content += FPSTR(INTL_GUEST_FINISH_SETUP);
+	page_content += F("</button></form>"
+		"<script>(function(){var s=");
+	page_content += String(pause_sec);
+	page_content += F(",el=document.getElementById('guest-restart-hint'),base=");
+	page_content += F("'");
+	page_content += FPSTR(INTL_GUEST_RESTART_PAUSE_HINT);
+	page_content += F("';function tick(){if(!el)return;if(s>0){el.textContent=base+' ('+s+'s)';s--;}else{clearInterval(iv);}}"
+		"tick();var iv=setInterval(tick,1000);})();</script>");
 }
 
 void append_app_sidebar(String& page_content) {

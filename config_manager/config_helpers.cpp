@@ -383,6 +383,13 @@ void readConfig(bool oldconfig) {
 			rewriteConfig = true;
 		}
 #endif
+		// Climate (temp + humidity) is one map chart — keep encrypt flags paired.
+		if (cfg::encrypt_temperature != cfg::encrypt_humidity) {
+			const bool climate = cfg::encrypt_temperature || cfg::encrypt_humidity;
+			cfg::encrypt_temperature = climate;
+			cfg::encrypt_humidity = climate;
+			rewriteConfig = true;
+		}
 	} else {
 		debug_outln_error(F("failed to load json config"));
 

@@ -102,14 +102,15 @@ document.addEventListener('DOMContentLoaded', function() {
       var st = byId('scan_status');
       if (!sel || !st) return;
       scanBtn.disabled = true;
-      st.textContent = '" INTL_SCAN_SCANNING "';
+      // Quotes stay in the rawliteral parts: INTL macros expand to unquoted text when concatenated.
+      st.textContent = ")rawliteral" INTL_SCAN_SCANNING R"rawliteral(";
       fetch('/scan_urbans').then(function(r) { return r.json(); }).then(function(devices) {
         var cur = sel.value;
         sel.innerHTML = '';
         if (!devices.length) {
-          st.textContent = '" INTL_SCAN_NO_URBANS "';
+          st.textContent = ")rawliteral" INTL_SCAN_NO_URBANS R"rawliteral(";
         } else {
-          st.textContent = '" INTL_SCAN_FOUND_PREFIX "' + devices.length + '" INTL_SCAN_FOUND_SUFFIX "';
+          st.textContent = ")rawliteral" INTL_SCAN_FOUND_PREFIX R"rawliteral(" + devices.length + ")rawliteral" INTL_SCAN_FOUND_SUFFIX R"rawliteral(";
           devices.forEach(function(d) {
             var o = document.createElement('option');
             o.value = d.ip;
@@ -120,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         scanBtn.disabled = false;
       }).catch(function(e) {
-        st.textContent = '" INTL_SCAN_FAILED "' + e;
+        st.textContent = ")rawliteral" INTL_SCAN_FAILED R"rawliteral(" + e;
         scanBtn.disabled = false;
       });
     });

@@ -107,6 +107,20 @@ namespace cfg {
 	extern bool share_fast_aqi;
 	extern bool share_epa_aqi;
 
+	// optional per-metric encryption for public feed (default off)
+	extern bool encrypt_temperature;
+	extern bool encrypt_humidity;
+	extern bool encrypt_pressure;
+	extern bool encrypt_co2;
+	extern bool encrypt_pm;
+	extern bool encrypt_noise;
+	extern bool encrypt_co;
+	extern bool encrypt_radiation;
+	extern bool encrypt_o3;
+	extern bool encrypt_no2;
+	extern bool encrypt_fast_aqi;
+	extern bool encrypt_epa_aqi;
+
 	extern void initNonTrivials(const char* id);
 }
 

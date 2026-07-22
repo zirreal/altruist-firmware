@@ -185,7 +185,7 @@ constexpr const unsigned long WIFI_STA_PERIODIC_RECONNECT_MS = 18000UL;
  */
 constexpr const unsigned long WIFI_STA_RECOVERY_GRACE_MS = 45000UL;
 /** Urban captive portal: keep setup AP up after success so the phone can read/copy STA IP. */
-constexpr const unsigned long GUEST_SUCCESS_PAGE_DELAY_MS = 15000UL;
+constexpr const unsigned long GUEST_SUCCESS_PAGE_DELAY_MS = 45000UL;
 /** Insight captive portal: auto-finish setup (standalone) if user leaves before Continue. */
 constexpr const unsigned long INSIGHT_GUEST_AUTO_FINISH_MS = 45000UL;
 /** After association, STA can report WL_CONNECTED before IPv4; do not tear down the link during this window. */

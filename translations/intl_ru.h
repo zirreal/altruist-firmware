@@ -139,6 +139,11 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без св�
 #define INTL_SETTINGS_SAVED "Настройки сохранены"
 #define INTL_DEVICE_RESTARTING "Перезапуск устройства..."
 #define INTL_GUEST_CONNECTED "Подключено"
+#define INTL_GUEST_CONNECTING "Подключение к Wi‑Fi…"
+#define INTL_GUEST_CONNECTING_HINT "Обычно это занимает несколько секунд. Не закрывайте страницу."
+#define INTL_GUEST_CONNECT_FAILED "Не удалось подключиться"
+#define INTL_GUEST_CONNECT_FAILED_HINT "Проверьте имя сети и пароль, затем попробуйте снова."
+#define INTL_GUEST_CONNECT_FAILED_INSIGHT "Перезагрузка в режим настройки Wi‑Fi… Можно закрыть страницу и попробовать снова."
 #define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi подключён"
 #define INTL_GUEST_SETUP_STEP_1_LABEL "Шаг 1 из 2"
 #define INTL_GUEST_SETUP_STEP_2_LABEL "Шаг 2 из 2"
@@ -148,7 +153,17 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без св�
 #define INTL_GUEST_INSIGHT_AUTO_FINISH_SUFFIX "с (автономный режим)."
 #define INTL_GUEST_IP_ADDRESS "IP адрес:"
 #define INTL_GUEST_OPEN_IP_HINT "Скопируйте IP-адрес и откройте его в браузере."
-#define INTL_GUEST_RESTART_PAUSE_HINT "Устройство перезапустится через несколько секунд — скопируйте IP сейчас."
+#define INTL_GUEST_DEVICE_INFO_HINT "На iPhone: «Сохранить» → Поделиться → «Сохранить в Файлы». На Android можно в Загрузки. Или скопируйте текстом."
+#define INTL_GUEST_DEVICE_INFO_DOWNLOAD "Сохранить данные устройства"
+#define INTL_GUEST_DEVICE_INFO_COPY "Скопировать текстом"
+#define INTL_GUEST_DEVICE_INFO_SAVED "Сохранено"
+#define INTL_GUEST_DEVICE_INFO_SHARED "В меню «Поделиться» выберите «Сохранить в Файлы»"
+#define INTL_GUEST_DEVICE_INFO_COPIED "Скопировано — вставьте в Заметки"
+#define INTL_GUEST_DEVICE_INFO_SAVE_FAIL "Не удалось сохранить — скопируйте IP выше"
+#define INTL_GUEST_SENSOR_ADDRESS "Адрес Robonomics:"
+#define INTL_GUEST_RESTART_PAUSE_HINT "Устройство скоро перезапустится — скопируйте или сохраните IP заранее."
+#define INTL_GUEST_FINISH_SETUP "Завершить настройку"
+#define INTL_GUEST_FINISHING_SETUP "Завершение настройки — перезапуск…"
 #define INTL_GUEST_KEEP_OPEN_HINT "Не закрывайте эту страницу, пока не нажмёте «Дальше»."
 #define INTL_DISP_MAP_PROMO_TITLE "Больше аналитики прямо в смартфоне"
 #define INTL_DISP_MAP_PROMO_LINE1 "Заходите на нашу веб-карту: AQI, история данных,"
@@ -157,7 +172,7 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без св�
 #define INTL_DISP_MAP_DOMAIN "SENSORS.SOCIAL"
 #define INTL_SCAN_BTN "Поиск"
 #define INTL_SCAN_SCANNING "Поиск..."
-#define INTL_SCAN_NO_URBANS "Устройства Urban не найдены."
+#define INTL_SCAN_NO_URBANS "Urban не найден через mDNS. Для C3 укажите Custom Urban IP (IP из браузера)."
 #define INTL_SCAN_FOUND_PREFIX "Найдено "
 #define INTL_SCAN_FOUND_SUFFIX " устройств(о) Urban."
 #define INTL_SCAN_FAILED "Ошибка поиска: "
@@ -234,6 +249,15 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_PANEL_TITLE_DATA_SHARING "Публикация на карту"
 #define INTL_DATA_SHARING_DISCLAIMER "По умолчанию все данные датчиков отправляются на публичную карту. Вы можете выбрать, какие данные передавать. Остальные данные будут отображаться на экране устройства и доступны локально."
 #define INTL_DATA_SHARING_ADDITIONAL "Доп. датчики (опционально)"
+#define INTL_PANEL_TITLE_DATA_ENCRYPT "Шифровать значения на карте"
+#define INTL_DATA_ENCRYPT_DISCLAIMER "По желанию. Выбранные показатели отправляются зашифрованными (AES-256). Импортируйте ключ устройства в sensors.map, чтобы видеть их. Стирание flash создаёт новый ключ."
+#define INTL_DATA_ENCRYPT_KEY_LABEL "Ключ шифрования устройства"
+#define INTL_DATA_ENCRYPT_KEY_SHOW "Показать ключ"
+#define INTL_DATA_ENCRYPT_KEY_HIDE "Скрыть ключ"
+#define INTL_DATA_ENCRYPT_KEY_COPY "Копировать ключ"
+#define INTL_DATA_ENCRYPT_KEY_COPIED "Ключ скопирован"
+#define INTL_DATA_ENCRYPT_KEY_HINT "Отсканируйте QR камерой телефона (та же Wi‑Fi) — скачается JSON с ключом. Или нажмите «Показать ключ» и скопируйте текст."
+#define INTL_DATA_ENCRYPT_QR_FAIL "Не удалось показать QR ключа."
 const char INTL_SHARE_TEMPERATURE[] PROGMEM = "Температура";
 const char INTL_SHARE_HUMIDITY[] PROGMEM = "Влажность";
 const char INTL_SHARE_PRESSURE[] PROGMEM = "Давление";
@@ -246,6 +270,18 @@ const char INTL_SHARE_O3[] PROGMEM = "Озон (O3)";
 const char INTL_SHARE_NO2[] PROGMEM = "Диоксид азота (NO2)";
 const char INTL_SHARE_FAST_AQI[] PROGMEM = "FAST AQI";
 const char INTL_SHARE_EPA_AQI[] PROGMEM = "EPA AQI";
+const char INTL_ENCRYPT_TEMPERATURE[] PROGMEM = "Шифровать климат (температура и влажность)";
+const char INTL_ENCRYPT_HUMIDITY[] PROGMEM = "Шифровать влажность";
+const char INTL_ENCRYPT_PRESSURE[] PROGMEM = "Шифровать давление";
+const char INTL_ENCRYPT_CO2[] PROGMEM = "Шифровать CO2";
+const char INTL_ENCRYPT_PM[] PROGMEM = "Шифровать PM";
+const char INTL_ENCRYPT_NOISE[] PROGMEM = "Шифровать шум";
+const char INTL_ENCRYPT_CO[] PROGMEM = "Шифровать CO";
+const char INTL_ENCRYPT_RADIATION[] PROGMEM = "Шифровать радиацию";
+const char INTL_ENCRYPT_O3[] PROGMEM = "Шифровать O3";
+const char INTL_ENCRYPT_NO2[] PROGMEM = "Шифровать NO2";
+const char INTL_ENCRYPT_FAST_AQI[] PROGMEM = "Шифровать FAST AQI";
+const char INTL_ENCRYPT_EPA_AQI[] PROGMEM = "Шифровать EPA AQI";
 
 const char INTL_FS_WIFI_DESCRIPTION[] PROGMEM = "Название WiFi устройства в режиме конфигурации";
 const char INTL_FS_WIFI_NAME[] PROGMEM = "Имя";

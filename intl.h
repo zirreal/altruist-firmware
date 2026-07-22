@@ -162,6 +162,21 @@
 #ifndef INTL_GUEST_CONNECTED
 #define INTL_GUEST_CONNECTED "Connected"
 #endif
+#ifndef INTL_GUEST_CONNECTING
+#define INTL_GUEST_CONNECTING "Connecting to Wi‑Fi…"
+#endif
+#ifndef INTL_GUEST_CONNECTING_HINT
+#define INTL_GUEST_CONNECTING_HINT "This usually takes a few seconds. Keep this page open."
+#endif
+#ifndef INTL_GUEST_CONNECT_FAILED
+#define INTL_GUEST_CONNECT_FAILED "Connection failed"
+#endif
+#ifndef INTL_GUEST_CONNECT_FAILED_HINT
+#define INTL_GUEST_CONNECT_FAILED_HINT "Check the network name and password, then try again."
+#endif
+#ifndef INTL_GUEST_CONNECT_FAILED_INSIGHT
+#define INTL_GUEST_CONNECT_FAILED_INSIGHT "Rebooting to Wi‑Fi setup… You can close this page and try again."
+#endif
 #ifndef INTL_GUEST_WIFI_STEP_TITLE
 #define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi connected"
 #endif
@@ -189,8 +204,38 @@
 #ifndef INTL_GUEST_OPEN_IP_HINT
 #define INTL_GUEST_OPEN_IP_HINT "Copy the IP address and open it in your browser."
 #endif
+#ifndef INTL_GUEST_DEVICE_INFO_HINT
+#define INTL_GUEST_DEVICE_INFO_HINT "On iPhone: tap Save → Share → Save to Files. On Android it can go to Downloads. Or copy as text."
+#endif
+#ifndef INTL_GUEST_DEVICE_INFO_DOWNLOAD
+#define INTL_GUEST_DEVICE_INFO_DOWNLOAD "Save device info"
+#endif
+#ifndef INTL_GUEST_DEVICE_INFO_COPY
+#define INTL_GUEST_DEVICE_INFO_COPY "Copy as text"
+#endif
+#ifndef INTL_GUEST_DEVICE_INFO_SAVED
+#define INTL_GUEST_DEVICE_INFO_SAVED "Saved"
+#endif
+#ifndef INTL_GUEST_DEVICE_INFO_SHARED
+#define INTL_GUEST_DEVICE_INFO_SHARED "Choose Save to Files in the share sheet"
+#endif
+#ifndef INTL_GUEST_DEVICE_INFO_COPIED
+#define INTL_GUEST_DEVICE_INFO_COPIED "Copied — paste into Notes"
+#endif
+#ifndef INTL_GUEST_DEVICE_INFO_SAVE_FAIL
+#define INTL_GUEST_DEVICE_INFO_SAVE_FAIL "Could not save — copy the IP above"
+#endif
+#ifndef INTL_GUEST_SENSOR_ADDRESS
+#define INTL_GUEST_SENSOR_ADDRESS "Robonomics address:"
+#endif
 #ifndef INTL_GUEST_RESTART_PAUSE_HINT
-#define INTL_GUEST_RESTART_PAUSE_HINT "The device will restart in a few seconds — copy the IP now."
+#define INTL_GUEST_RESTART_PAUSE_HINT "The device will restart soon — copy or save your IP before it does."
+#endif
+#ifndef INTL_GUEST_FINISH_SETUP
+#define INTL_GUEST_FINISH_SETUP "Finish setup"
+#endif
+#ifndef INTL_GUEST_FINISHING_SETUP
+#define INTL_GUEST_FINISHING_SETUP "Finishing setup — restarting…"
 #endif
 #ifndef INTL_GUEST_KEEP_OPEN_HINT
 #define INTL_GUEST_KEEP_OPEN_HINT "Do not close this page until you press Continue."
@@ -656,6 +701,33 @@
 #endif
 #ifndef INTL_WIFI_CREDENTIALS_DELETED
 #define INTL_WIFI_CREDENTIALS_DELETED "Wi-Fi credentials were deleted. You can close this page."
+#endif
+#ifndef INTL_PANEL_TITLE_DATA_ENCRYPT
+#define INTL_PANEL_TITLE_DATA_ENCRYPT "Encrypt map values"
+#endif
+#ifndef INTL_DATA_ENCRYPT_DISCLAIMER
+#define INTL_DATA_ENCRYPT_DISCLAIMER "Optional. Selected metrics are sent encrypted (AES-256). Import this device key in sensors.map to view them. Erasing flash creates a new key."
+#endif
+#ifndef INTL_DATA_ENCRYPT_KEY_LABEL
+#define INTL_DATA_ENCRYPT_KEY_LABEL "Device encryption key"
+#endif
+#ifndef INTL_DATA_ENCRYPT_KEY_SHOW
+#define INTL_DATA_ENCRYPT_KEY_SHOW "Show key"
+#endif
+#ifndef INTL_DATA_ENCRYPT_KEY_HIDE
+#define INTL_DATA_ENCRYPT_KEY_HIDE "Hide key"
+#endif
+#ifndef INTL_DATA_ENCRYPT_KEY_COPY
+#define INTL_DATA_ENCRYPT_KEY_COPY "Copy key"
+#endif
+#ifndef INTL_DATA_ENCRYPT_KEY_COPIED
+#define INTL_DATA_ENCRYPT_KEY_COPIED "Key copied"
+#endif
+#ifndef INTL_DATA_ENCRYPT_KEY_HINT
+#define INTL_DATA_ENCRYPT_KEY_HINT "Scan with your phone camera (same Wi‑Fi) to download the key JSON file. Or tap Show key and copy the text."
+#endif
+#ifndef INTL_DATA_ENCRYPT_QR_FAIL
+#define INTL_DATA_ENCRYPT_QR_FAIL "Could not render key QR."
 #endif
 
 #endif

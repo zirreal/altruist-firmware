@@ -26,6 +26,33 @@ static volatile bool s_portal_exit_requested = false;
 
 static volatile bool s_user_portal_request = false;
 
+static unsigned long s_guest_success_restart_deadline_ms = 0;
+
+void guestSuccessMarkRestartPending(void) {
+	s_guest_success_restart_deadline_ms = millis() + GUEST_SUCCESS_PAGE_DELAY_MS;
+}
+
+void guestSuccessClearRestartPending(void) {
+	s_guest_success_restart_deadline_ms = 0;
+}
+
+void guestSuccessRestartNow(void) {
+	s_guest_success_restart_deadline_ms = 0;
+	wifiCaptivePortalRestartAfterSuccess();
+}
+
+void guestSuccessProcessPendingRestart(void) {
+	if (s_guest_success_restart_deadline_ms == 0) {
+		return;
+	}
+	if ((long)(millis() - s_guest_success_restart_deadline_ms) < 0) {
+		return;
+	}
+	s_guest_success_restart_deadline_ms = 0;
+	debug_outln_info(F("[WiFi] Guest success: auto-restart after pause"));
+	wifiCaptivePortalRestartAfterSuccess();
+}
+
 #if defined(ESP32)
 static volatile bool s_sta_disconnect_pending = false;
 static unsigned long s_last_disconnect_kick_ms = 0;
@@ -300,6 +327,7 @@ void wifiConfig(SensorWebServer &webserver) {
 	// Track portal state in the wifi module too (used by LED policy).
 	wificonfig_loop = true;
 	s_portal_exit_requested = false;
+	guestSuccessClearRestartPending();
 	webserver.setWifiConfigLoop(true);
 
 	WiFi.disconnect(true);
@@ -363,6 +391,7 @@ void wifiConfig(SensorWebServer &webserver) {
 		dnsServer.processNextRequest();
 		webserver.handleClient();
 		improv_serial_loop();
+		guestSuccessProcessPendingRestart();
 #ifdef ALTRUIST_INSIGHT
 		insightGuestProcessPendingFinish();
 		static unsigned long last_portal_display_ms = 0;

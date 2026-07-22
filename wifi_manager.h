@@ -35,6 +35,16 @@ void wifiCaptivePortalRestartAfterSuccess(void);
 /** Leave captive portal loop after successful POST (before restart). */
 void wifiRequestPortalExit(void);
 
+/**
+ * Guest success page: keep serving HTTP during the pause so "Finish setup" can restart early.
+ * Call from captive portal loop via guestSuccessProcessPendingRestart().
+ */
+void guestSuccessMarkRestartPending(void);
+void guestSuccessClearRestartPending(void);
+/** Immediate restart after success (Finish setup). Does not return. */
+void guestSuccessRestartNow(void);
+void guestSuccessProcessPendingRestart(void);
+
 #if defined(ALTRUIST_INSIDE)
 /** Insight guest WiFi OK but setup step 2 (Continue) not done yet — server-side auto-finish deadline. */
 void insightGuestMarkFinishPending(void);
