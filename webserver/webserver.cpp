@@ -311,7 +311,7 @@ void SensorWebServer::_webserver_device_info_json() {
 
 	DynamicJsonDocument doc(1024);
 	doc["format"] = "altruist-device1";
-	doc["hostname"] = buildLocalAccessLabel();
+	doc["hostname"] = buildDeviceAccessHost();
 	if (WiFi.status() == WL_CONNECTED) {
 		doc["ip"] = WiFi.localIP().toString();
 	}
@@ -497,6 +497,7 @@ void SensorWebServer::_webserver_guest() {
 
 #if defined(ESP32) || defined(ESP8266)
 		wifiGuestPortalPrepareStaJoin();
+		wifiApplyStaHostname();
 #endif
 		if (cfg::wlannopwd) {
 			debug_outln_info(F("No password"));

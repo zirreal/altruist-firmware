@@ -292,6 +292,30 @@ static bool cfgMigrateLegacyFsSsid() {
 	return true;
 }
 
+/** OTA-safe: plain altruist / altruist-insight / altruist-urban → altruist-<model>-<id>; keep custom names. */
+static bool cfgMigrateLegacyLocalHostname() {
+	const bool legacy =
+		cfg::local_hostname[0] == '\0' ||
+		strcmp(cfg::local_hostname, "altruist") == 0 ||
+		strcmp(cfg::local_hostname, "altruist-insight") == 0 ||
+		strcmp(cfg::local_hostname, "altruist-urban") == 0 ||
+		strcmp(cfg::local_hostname, LOCAL_HOSTNAME) == 0;
+	if (!legacy) {
+		return false;
+	}
+	const String chip_id = get_chipid();
+	char target[LEN_LOCAL_HOSTNAME];
+	cfg::formatDefaultLocalHostname(target, sizeof(target), chip_id.c_str());
+	if (strcmp(cfg::local_hostname, target) == 0) {
+		return false;
+	}
+	debug_outln_info(F("[Config] Migrating local_hostname from: "), String(cfg::local_hostname));
+	strncpy(cfg::local_hostname, target, LEN_LOCAL_HOSTNAME - 1);
+	cfg::local_hostname[LEN_LOCAL_HOSTNAME - 1] = '\0';
+	debug_outln_info(F("[Config] Migrated local_hostname to: "), String(cfg::local_hostname));
+	return true;
+}
+
 void readConfig(bool oldconfig) {
 	bool rewriteConfig = false;
 
@@ -377,6 +401,9 @@ void readConfig(bool oldconfig) {
 		if (cfgMigrateLegacyFsSsid()) {
 			rewriteConfig = true;
 		}
+		if (cfgMigrateLegacyLocalHostname()) {
+			rewriteConfig = true;
+		}
 #if defined(ALTRUIST_INSIGHT)
 		if (cfg::standalone && cfg::analytics_sleep_add_urban) {
 			cfgApplyStandaloneModeEnabled();
@@ -388,6 +415,10 @@ void readConfig(bool oldconfig) {
 			const bool climate = cfg::encrypt_temperature || cfg::encrypt_humidity;
 			cfg::encrypt_temperature = climate;
 			cfg::encrypt_humidity = climate;
+			rewriteConfig = true;
+		}
+		if (cfg::leds_brightness > 100) {
+			cfg::leds_brightness = 100;
 			rewriteConfig = true;
 		}
 	} else {

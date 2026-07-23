@@ -195,12 +195,14 @@ void webserver_hub_social(String& page_content, const String& robonomics_address
 
 	append_hub_page_start(page_content);
 
+	page_content += F("<div class='hub-social-top'>");
 	append_hub_social_map_info(page_content, robonomics_address);
 
 	const char* sensor_ss58 =
 		(robonomics_address.length() > 0) ? robonomics_address.c_str() : nullptr;
 	append_hub_settings_cards(server, page_content, wificonfig_loop, data, "/social", kSocialSettingsOrder,
 	                         sizeof(kSocialSettingsOrder) / sizeof(kSocialSettingsOrder[0]), sensor_ss58);
+	page_content += F("</div>");
 	web_page_flush_chunk(page_content, &server);
 
 	append_hub_section_start(page_content, FPSTR(INTL_GROUP_MENU), "group");

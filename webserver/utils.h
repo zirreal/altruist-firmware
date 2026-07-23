@@ -44,6 +44,8 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 void add_form_input(String& page_content, const ConfigShapeId cfgid, const __FlashStringHelper* info, const int length);
 
 String buildLocalAccessLabel();
+/** Real device hostname for mDNS/URLs (may include model + short id). */
+String buildDeviceAccessHost();
 /** Short http:// URL encoded in the AES-key QR (downloads JSON on scan). */
 String buildAesKeyDownloadUrl();
 /**

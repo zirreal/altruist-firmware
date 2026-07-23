@@ -378,25 +378,34 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 	if (enabled) {
 		s = F("<div class='form-group'>"
 				"<label for='{n}'>{i}</label>"
-				"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'/>"
+				"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'{a}/>"
 				"</div>");
 	} else {
 		s = F("<div class='form-group'>"
 			"<label for='{n}'>{i}</label>"
-			"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}' disabled/>"
+			"<input type='{t}' name='{n}' id='{n}' placeholder='{i}' value='{v}' maxlength='{l}'{a} disabled/>"
 			"</div>");
 	}
 	String t_value;
+	String attrs;
 	ConfigShapeEntry c;
 	memcpy_P(&c, &configShape[cfgid], sizeof(ConfigShapeEntry));
 	switch (c.cfg_type) {
 	case Config_Type_UInt:
 		t_value = String(*c.cfg_val.as_uint);
 		s.replace("{t}", F("number"));
+		if (cfgid == Config_leds_brightness) {
+			attrs = F(" min='0' max='100' step='1'");
+		} else if (cfgid == Config_leds_off_hour || cfgid == Config_leds_on_hour) {
+			attrs = F(" min='0' max='23' step='1'");
+		} else {
+			attrs = F(" min='0' step='1'");
+		}
 		break;
 	case Config_Type_Time:
 		t_value = String((*c.cfg_val.as_uint) / 1000);
 		s.replace("{t}", F("number"));
+		attrs = F(" min='0' step='1'");
 		break;
 	default:
 		if (c.cfg_type == Config_Type_Password) {
@@ -412,6 +421,7 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 	s.replace("{n}", String(c.cfg_key()));
 	s.replace("{v}", t_value);
 	s.replace("{l}", String(length));
+	s.replace("{a}", attrs);
 	page_content += s;
 }
 
@@ -420,10 +430,17 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 }
 
 String buildLocalAccessLabel() {
+	// Stable UI brand for sidebar / browser tab / footer (not the unique DHCP/mDNS name).
+	return F("altruist.local");
+}
+
+String buildDeviceAccessHost() {
 	String host = String(cfg::local_hostname);
 	host.trim();
 	if (host.length() == 0) {
-		host = F("altruist");
+		char fallback[32];
+		cfg::formatDefaultLocalHostname(fallback, sizeof(fallback), get_chipid().c_str());
+		host = fallback;
 	}
 	if (host.indexOf('.') < 0) {
 		host += F(".local");
@@ -433,7 +450,7 @@ String buildLocalAccessLabel() {
 
 String buildAesKeyDownloadUrl() {
 	String url = F("http://");
-	url += buildLocalAccessLabel();
+	url += buildDeviceAccessHost();
 	url += F("/aes-key.json");
 	return url;
 }
@@ -441,7 +458,7 @@ String buildAesKeyDownloadUrl() {
 String buildGuestDeviceInfoJson(const String& ip, const String& sensor_ss58) {
 	DynamicJsonDocument doc(1024);
 	doc["format"] = "altruist-device1";
-	doc["hostname"] = buildLocalAccessLabel();
+	doc["hostname"] = buildDeviceAccessHost();
 	if (ip.length() > 0) {
 		doc["ip"] = ip;
 	}
@@ -592,21 +609,13 @@ void append_guest_success_restart_ui(String& page_content) {
 void append_app_sidebar(String& page_content) {
 	const String local_host = buildLocalAccessLabel();
 
+	// Nest each submenu directly under its category item (not after the whole hub list).
 	page_content += F("<aside class='app-sidebar' aria-label='" INTL_NAV_MAIN "'>"
 		"<nav class='app-sidebar__nav'>"
 		"<div class='app-sidebar__block app-sidebar__hub'>"
 		"<a class='app-sidebar__item app-sidebar__item--local' data-tab='local' href='/'>");
 	page_content += local_host;
 	page_content += F("</a>"
-		"<a class='app-sidebar__item app-sidebar__item--social' data-tab='social' href='/social'>");
-	page_content += FPSTR(INTL_DASH_GROUP_SOCIAL_TITLE);
-	page_content += F("</a>"
-		"<a class='app-sidebar__item app-sidebar__item--custom' data-tab='custom' href='/custom'>");
-	page_content += FPSTR(INTL_DASH_GROUP_CUSTOM_TITLE);
-	page_content += F("</a>"
-		"<a class='app-sidebar__item app-sidebar__item--advanced' data-tab='advanced' href='/advanced'>");
-	page_content += FPSTR(INTL_NAV_ADVANCED);
-	page_content += F("</a></div>"
 		"<div class='app-sidebar__block app-sidebar__sub app-sidebar__sub--local'>"
 		"<span class='app-sidebar__heading'>");
 	page_content += FPSTR(INTL_NAV_MONITOR);
@@ -635,6 +644,9 @@ void append_app_sidebar(String& page_content) {
 	page_content += F("</a>");
 #endif
 	page_content += F("</div>"
+		"<a class='app-sidebar__item app-sidebar__item--social' data-tab='social' href='/social'>");
+	page_content += FPSTR(INTL_DASH_GROUP_SOCIAL_TITLE);
+	page_content += F("</a>"
 		"<div class='app-sidebar__block app-sidebar__sub app-sidebar__sub--social'>"
 		"<a class='app-sidebar__subitem' href='/social#map-link'>");
 	page_content += FPSTR(INTL_ACTIVE_SENSORS_MAP);
@@ -648,6 +660,9 @@ void append_app_sidebar(String& page_content) {
 		"<a class='app-sidebar__subitem' href='/social#group'>");
 	page_content += FPSTR(INTL_GROUP_MENU);
 	page_content += F("</a></div>"
+		"<a class='app-sidebar__item app-sidebar__item--custom' data-tab='custom' href='/custom'>");
+	page_content += FPSTR(INTL_DASH_GROUP_CUSTOM_TITLE);
+	page_content += F("</a>"
 		"<div class='app-sidebar__block app-sidebar__sub app-sidebar__sub--custom'>"
 		"<span class='app-sidebar__heading'>");
 	page_content += FPSTR(INTL_NAV_SETTINGS);
@@ -655,6 +670,9 @@ void append_app_sidebar(String& page_content) {
 		"<a class='app-sidebar__subitem' href='/custom#settings'>");
 	page_content += FPSTR(INTL_CONFIG_TAB_INTEGRATIONS);
 	page_content += F("</a></div>"
+		"<a class='app-sidebar__item app-sidebar__item--advanced' data-tab='advanced' href='/advanced'>");
+	page_content += FPSTR(INTL_NAV_ADVANCED);
+	page_content += F("</a>"
 		"<div class='app-sidebar__block app-sidebar__sub app-sidebar__sub--advanced'>"
 		"<span class='app-sidebar__heading'>");
 	page_content += FPSTR(INTL_NAV_MAINTENANCE);
@@ -667,7 +685,7 @@ void append_app_sidebar(String& page_content) {
 	page_content += F("</a>"
 		"<a class='app-sidebar__subitem app-sidebar__subitem--danger' href='/advanced#reset'>");
 	page_content += FPSTR(INTL_CONFIGURATION_DELETE);
-	page_content += F("</a></div>"
+	page_content += F("</a></div></div>"
 		"</nav></aside>");
 }
 

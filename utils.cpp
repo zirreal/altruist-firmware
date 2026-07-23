@@ -201,31 +201,54 @@ LoggingSerial::LoggingSerial()
     : HardwareSerial(0)
 {
 	m_buffer = xQueueCreate(LARGE_STR, sizeof(uint8_t));
+	m_write_mutex = xSemaphoreCreateMutex();
 }
 
 size_t LoggingSerial::write(uint8_t c)
 {
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
 	xQueueSendToBack(m_buffer, ( void * ) &c, ( TickType_t ) 1);
-	return HardwareSerial::write(c);
+	const size_t n = HardwareSerial::write(c);
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+	return n;
 }
 
 size_t LoggingSerial::write(const uint8_t *buffer, size_t size)
 {
-	for(int i = 0; i < size; i++) {
+	if (m_write_mutex) {
+		xSemaphoreTake(m_write_mutex, portMAX_DELAY);
+	}
+	for (size_t i = 0; i < size; i++) {
 		xQueueSendToBack(m_buffer, ( void * ) &buffer[i], ( TickType_t ) 1);
 	}
-	return HardwareSerial::write(buffer, size);
+	const size_t n = HardwareSerial::write(buffer, size);
+	if (m_write_mutex) {
+		xSemaphoreGive(m_write_mutex);
+	}
+	return n;
 }
 
 String LoggingSerial::popLines()
 {
 	String r;
 	uint8_t c;
-	while (xQueueReceive(m_buffer, &(c ), (TickType_t) 1 )) {
+	// Drain several lines per poll so the web log keeps up at max debug level.
+	unsigned lines = 0;
+	while (lines < 40 && xQueueReceive(m_buffer, &(c), (TickType_t) 1)) {
 		r += (char) c;
-
-		if (c == '\n' && r.length() > 10)
+		if (c == '\n') {
+			++lines;
+			if (r.length() > 1200) {
+				break;
+			}
+		}
+		if (r.length() > 1800) {
 			break;
+		}
 	}
 	return r;
 }

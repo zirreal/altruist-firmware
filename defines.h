@@ -416,7 +416,13 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 // Wifi config
 const char WLANSSID[] PROGMEM = "Not Set";
 const char WLANPWD[] PROGMEM = "";
+#if defined(ALTRUIST_INSIGHT)
+#define LOCAL_HOSTNAME "altruist-insight" // legacy base; runtime default is altruist-insight-<id>
+#elif defined(ALTRUIST_URBAN)
+#define LOCAL_HOSTNAME "altruist-urban" // legacy base; runtime default is altruist-urban-<id>
+#else
 #define LOCAL_HOSTNAME "altruist"
+#endif
 #define WLANNOPWD 0
 
 // BasicAuth config

@@ -3,6 +3,9 @@
 #include "improv/improv_serial.h"
 #include "utils.h"
 #include <WiFi.h>
+#if defined(ESP32)
+#include <esp_netif.h>
+#endif
 #if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 #include <ESPmDNS.h>
 #endif
@@ -16,6 +19,11 @@
 #include "buttons/button_manager.h"
 extern DisplayManager displayManager;
 extern button_pressed_t btn_press;
+#endif
+
+#if defined(ESP32)
+// Declared in Arduino-ESP32 WiFiGeneric.cpp; used to update hostname after STA is already up.
+esp_netif_t *get_esp_interface_netif(esp_interface_t interface);
 #endif
 
 bool wificonfig_loop;
@@ -169,8 +177,10 @@ bool wifiStaRuntimeRecovery(bool deep_radio_off) {
 		delay(650);
 		WiFi.mode(WIFI_OFF);
 		delay(1200);
+		wifiApplyStaHostname();
 		WiFi.mode(WIFI_STA);
 		WiFi.setSleep(false);
+		wifiApplyStaHostname();
 
 		if (cfg::wlannopwd) {
 			WiFi.begin(cfg::wlanssid);
@@ -180,6 +190,7 @@ bool wifiStaRuntimeRecovery(bool deep_radio_off) {
 	} else {
 		// Soft recovery: avoid WiFi.begin() while STA may still be connecting (can trigger ESP_ERR_WIFI_STATE).
 		// Rely on Arduino-ESP32 auto reconnect + reconnect() kick.
+		wifiApplyStaHostname();
 		WiFi.mode(WIFI_STA);
 		WiFi.setSleep(false);
 		WiFi.reconnect();
@@ -238,6 +249,62 @@ bool wifiGuestPortalStaReady(void) {
 		return false;
 	}
 	return true;
+}
+
+void wifiApplyStaHostname(void) {
+	char host[32];
+	char fallback[32];
+	const char* src = cfg::local_hostname;
+	if (src == nullptr || src[0] == '\0') {
+		cfg::formatDefaultLocalHostname(fallback, sizeof(fallback), get_chipid().c_str());
+		src = fallback;
+	}
+
+	size_t out = 0;
+	for (size_t i = 0; src[i] != '\0' && out + 1 < sizeof(host); ++i) {
+		char c = src[i];
+		if (c >= 'A' && c <= 'Z') {
+			c = static_cast<char>(c - 'A' + 'a');
+		}
+		const bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-';
+		if (ok) {
+			host[out++] = c;
+		} else if ((c == '.' || c == '_' || c == ' ') && out > 0 && host[out - 1] != '-') {
+			host[out++] = '-';
+		}
+	}
+	while (out > 0 && host[out - 1] == '-') {
+		--out;
+	}
+	host[out] = '\0';
+	if (out == 0) {
+		cfg::formatDefaultLocalHostname(host, sizeof(host), get_chipid().c_str());
+	}
+
+#if defined(ESP32)
+	// NetworkManager copies into its own buffer (default is esp32c6-XXXXXX until we override).
+	WiFi.setHostname(host);
+
+	// Arduino only pushes NetworkManager hostname into esp_netif when STA is first enabled.
+	// Captive portal / recovery often already have STA up (AP_STA), so apply directly too.
+	esp_netif_t *netif = get_esp_interface_netif(ESP_IF_WIFI_STA);
+	if (!netif) {
+		netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+	}
+	if (netif) {
+		const esp_err_t err = esp_netif_set_hostname(netif, host);
+		if (err != ESP_OK) {
+			debug_outln_error(F("[WiFi] esp_netif_set_hostname failed"));
+			debug_outln_info(F("[WiFi] esp_netif_set_hostname err="), String((int)err));
+		}
+	}
+
+	const char *applied = WiFi.getHostname();
+	debug_outln_info(F("[WiFi] STA hostname"), String(applied ? applied : host));
+#elif defined(ESP8266)
+	WiFi.hostname(host);
+	debug_outln_info(F("[WiFi] STA hostname"), String(host));
+#endif
 }
 
 void wifiGuestPortalPrepareStaJoin(void) {
@@ -362,7 +429,10 @@ void wifiConfig(SensorWebServer &webserver) {
 
     webserver.setWifiInfo(wifiInfo, count_wifiInfo);
 
+	// Apply hostname before AP_STA so the STA netif is created with altruist-* (not esp32c6-*).
+	wifiApplyStaHostname();
 	WiFi.mode(WIFI_AP_STA);
+	wifiApplyStaHostname();
 	const IPAddress apIP(192, 168, 4, 1);
 	WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
 	WiFi.softAP(cfg::fs_ssid, cfg::fs_pwd, selectChannelForAp());
@@ -417,13 +487,16 @@ void wifiConfig(SensorWebServer &webserver) {
 	}
 
 	WiFi.softAPdisconnect(true);
-	WiFi.mode(WIFI_STA);
-
 	dnsServer.stop();
 	delay(100);
 
 	debug_outln_info(FPSTR(DBG_TXT_CONNECTING_TO), cfg::wlanssid);
 
+	WiFi.mode(WIFI_OFF);
+	delay(80);
+	wifiApplyStaHostname();
+	WiFi.mode(WIFI_STA);
+	wifiApplyStaHostname();
 	if (cfg::wlannopwd) {
 		debug_outln_info(F("No password"));
 		WiFi.begin(cfg::wlanssid);
@@ -493,18 +566,18 @@ static void wifiApplyStaJoinStart(void) {
 	wifi_set_country(&wifi);
 #endif
 
-#if defined(ESP32)
-	WiFi.setHostname(cfg::fs_ssid);
-#endif
-
+	// Must run before enabling STA: Arduino applies NetworkManager hostname only on STA enable.
+	const wifi_mode_t cm = WiFi.getMode();
+	if (cm != WIFI_OFF) {
+		WiFi.mode(WIFI_OFF);
+		delay(80);
+	}
+	wifiApplyStaHostname();
 	WiFi.mode(WIFI_STA);
 #if defined(ESP32)
 	// Avoid modem sleep during association; some routers/APs otherwise look "slow" or flaky after outages.
 	WiFi.setSleep(false);
-#endif
-
-#if defined(ESP8266)
-	WiFi.hostname(cfg::fs_ssid);
+	wifiApplyStaHostname();
 #endif
 
 	if (cfg::wlannopwd) {
@@ -568,7 +641,11 @@ bool wifiApplyImprovCredentials(const String& ssid, const String& password) {
 
 	WiFi.disconnect(true, false);
 	delay(150);
+	WiFi.mode(WIFI_OFF);
+	delay(80);
+	wifiApplyStaHostname();
 	WiFi.mode(WIFI_STA);
+	wifiApplyStaHostname();
 	WiFi.setSleep(false);
 	if (cfg::wlannopwd) {
 		WiFi.begin(cfg::wlanssid);

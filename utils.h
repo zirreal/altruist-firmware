@@ -149,6 +149,7 @@ public:
 
 private:
 	QueueHandle_t m_buffer;
+	SemaphoreHandle_t m_write_mutex;
 };
 
 extern class LoggingSerial Debug;

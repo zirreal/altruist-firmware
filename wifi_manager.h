@@ -29,6 +29,13 @@ bool wifiGuestPortalStaReady(void);
 /** Abort any in-flight STA join before captive-portal WiFi.begin() (avoids ESP_ERR_WIFI_STATE on retry). */
 void wifiGuestPortalPrepareStaJoin(void);
 
+/**
+ * Set DHCP/router STA hostname from cfg::local_hostname (sanitized).
+ * Call before WiFi.begin() / reconnect so routers show altruist-urban / altruist-insight
+ * instead of the ESP-IDF default (e.g. esp32c6-XXXXXX).
+ */
+void wifiApplyStaHostname(void);
+
 /** Restart after Urban guest success (config must already be saved). Does not return. */
 void wifiCaptivePortalRestartAfterSuccess(void);
 

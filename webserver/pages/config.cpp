@@ -68,12 +68,22 @@ void webserver_config_send_body_post(WebServer &server) {
 		const String server_arg(server.arg(s_param));
 
 		switch (c.cfg_type) {
-		case Config_Type_UInt:
-			*(c.cfg_val.as_uint) = server_arg.toInt();
+		case Config_Type_UInt: {
+			long v = server_arg.toInt();
+			if (v < 0) {
+				v = 0;
+			}
+			*(c.cfg_val.as_uint) = static_cast<unsigned int>(v);
 			break;
-		case Config_Type_Time:
-			*(c.cfg_val.as_uint) = server_arg.toInt() * 1000;
+		}
+		case Config_Type_Time: {
+			long v = server_arg.toInt();
+			if (v < 0) {
+				v = 0;
+			}
+			*(c.cfg_val.as_uint) = static_cast<unsigned int>(v) * 1000U;
 			break;
+		}
 		case Config_Type_Bool:
 			*(c.cfg_val.as_bool) = (server_arg == "1");
 			break;
@@ -145,6 +155,11 @@ void webserver_config_send_body_post(WebServer &server) {
 				cfg::robonomics_connectivity_host[LEN_ROBONOMICS_CONNECTIVITY_HOST - 1] = '\0';
 			}
 		}
+	}
+
+	// LED brightness is a percent; reject negatives / out-of-range posts.
+	if (cfg::leds_brightness > 100) {
+		cfg::leds_brightness = 100;
 	}
 
 #ifdef ALTRUIST_INSIGHT
@@ -587,6 +602,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 #ifdef ALTRUIST_INSIGHT
 		add_form_input(page_content, Config_leds_off_hour, FPSTR(INTL_LEDS_OFF_HOUR), 2);
 		add_form_input(page_content, Config_leds_on_hour, FPSTR(INTL_LEDS_ON_HOUR), 2);
+		page_content += F("<p class='form-hint'>");
+		page_content += FPSTR(INTL_LEDS_SCHEDULE_HINT);
+		page_content += F("</p>");
 #endif
 		page_content += F("</div></section>");
 	}

@@ -2,13 +2,15 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
-## [R_2026-07](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-07) — 2026-07-..
+## [R_2026-07](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-07) — 2026-07-...
 
 ### Features
 
 - **Optional map-value encryption** — Per-metric AES-256-CBC encryption for data published to sensors.social (off by default). Selected metrics are sent as `e.<base64(IV+ciphertext)>` in the Robonomics CSV; import the device key on the map to decrypt locally. Config toggles under **Encrypt map values** (climate = temperature + humidity together); key is created in NVS on first use.
 - **Device encryption key UI** — Show/hide + copy for `altruist-aes1:<key>`; QR on Social → Data sharing encodes a short local URL (`/aes-key.json`) so a phone on the same Wi‑Fi can download the key file.
 - **Guest setup device info** — After Wi‑Fi connects, the success screen shows **IP** and **Robonomics address** with copy buttons, plus **Save device info** / **Copy as text** for a JSON backup (`ip`, `sensor`, encryption `export`). Share sheet on phones (Save to Files / Downloads); clipboard fallback when the captive-portal browser cannot download. Does not navigate away from the setup flow.
+- **Guest Finish setup** — On the post-setup success screen (Urban Wi‑Fi OK, Insight standalone, or after Urban pairing), a **Finish setup** button restarts immediately instead of waiting out the full pause; auto-restart still runs after ~45 s if the button is not used.
+- **Unique LAN / mDNS hostname** — Default device name is `altruist-insight-<id>` / `altruist-urban-<id>` (last 4 hex digits of the MAC) for DHCP/router listing and `http://altruist-…-<id>.local/`. The web UI sidebar, browser tab, and footer keep the stable **`altruist.local`** label. Legacy plain names migrate on config load; user-chosen hostnames are kept.
 - **Hub web interface** — Device pages use a mobile-first **app shell** with four hub areas: **altruist.local** (`/`, readings & device settings), **sensors.social** (`/social`, sensors.social map & Robonomics), **custom** (`/custom`, Home Assistant / API / Influx / CSV), and **system** (`/advanced`, debug / restart / delete config). Desktop sidebar + mobile bottom tabs; breadcrumbs on inner views. Guest captive portal keeps the previous layout.
 - **Local hub layout** — **Values** and **Status** first (important for Urban without a display), then Settings (Wi‑Fi, auth, LEDs, sleep, firmware, OTA), then Screen mode on Insight.
 - **Readings (`/values`)** — Sensor sections use a **metric card grid** (`reading-grid` / `reading-card`); network signal as cards with a short intro. Insight **standalone** hides the paired Urban outdoor block.
@@ -20,7 +22,9 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Improvements
 
-- **Guest Urban success pause** — After Wi‑Fi setup, the Connected screen stays up **~45 s** (was 15 s) with a countdown so there is time to copy IP / save device info before restart.
+- **Guest success pause** — After Wi‑Fi / pairing success, the device stays available **~45 s** (was 15 s on Urban) with a countdown so there is time to copy IP / save device info; the pause is non-blocking so **Finish setup** and other portal requests still work.
+- **Guest connecting screen** — Connecting / failed states use the same centered guest card layout as the rest of setup (no full-width sparse strip), with short status hints (EN/RU).
+- **LED schedule labels (Insight)** — Off/on hours labeled as local-hour turn-off / turn-back-on, with a hint about dimming and same-hour = stay on overnight.
 - **Hub sidebar** — Sticky desktop sidebar; hub tabs use a black left border by default and green when active.
 - **Mobile spacing** — More padding between main content and the footer above the bottom tab bar.
 - **Web UI polish** — Hub groups with clear section cards; hostname/`altruist.local` access label; sensors.social as a plain top link on Social; Wi‑Fi credentials full-width on Local; more bottom padding above the mobile tab bar.
@@ -34,6 +38,8 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Bug Fixes
 
+- **STA hostname on routers** — DHCP/router device name is set from the local hostname (not the setup AP `fs_ssid`) and applied even when STA is already up (captive portal / reconnect), so devices show as `altruist-…` instead of the ESP-IDF default `esp32c6-…`.
+- **LED brightness range** — Brightness input is limited to **0–100%**; negative and out-of-range form values are rejected / clamped on save and config load. Hour fields use **0–23**.
 - **Leaflet map init** — GPS map script only runs when `#map` is present (no more `Map container not found` on hub pages without a map).
 - **Config checkbox grids** — Trailing `<br/>` after checkboxes no longer breaks the data-sharing grid layout.
 - **Status time / map date** — `getLocalTime(&timeinfo, 0)` avoids blocking the status page or sensors.social URL when SNTP has not synced yet.

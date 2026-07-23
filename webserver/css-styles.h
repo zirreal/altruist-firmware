@@ -49,7 +49,7 @@ html{scroll-behavior:smooth}
 .app-sidebar__item:hover,.app-sidebar__subitem:hover{background:rgba(0,0,0,.04);color:#000}
 .app-sidebar__item--local,.app-sidebar__item--social,.app-sidebar__item--custom,.app-sidebar__item--advanced{border-left:3px solid #111;padding-left:9px}
 .app-sidebar__subitem--danger{color:#b71c1c}
-.app-sidebar__sub{display:none}
+.app-sidebar__sub{display:none;margin:2px 0 8px 8px;padding-left:4px;border-left:2px solid #e6e6e6}
 body[data-page=local] .app-sidebar__sub--local,body[data-page=social] .app-sidebar__sub--social,body[data-page=custom] .app-sidebar__sub--custom,body[data-page=advanced] .app-sidebar__sub--advanced{display:flex;flex-direction:column;gap:2px}
 body[data-page=local] .app-sidebar__item[data-tab=local],body[data-page=social] .app-sidebar__item[data-tab=social],body[data-page=custom] .app-sidebar__item[data-tab=custom],body[data-page=advanced] .app-sidebar__item[data-tab=advanced]{background:#fff;color:#000;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left-color:#c7fe6c}
 .hub-welcome__areas{display:flex;flex-direction:column;gap:12px;margin-top:8px}
@@ -80,19 +80,19 @@ body[data-page=local] .app-page-title{display:none}
 .hub-link--external .hub-link__chev{font-size:15px;color:#999}
 .hub-link--danger .hub-link__label{color:#b71c1c}
 .hub-link--danger:hover{background:#fdf6f6}
-.hub-page{display:flex;flex-direction:column;gap:40px}
+.hub-page{display:flex;flex-direction:column;gap:100px}
 .hub-group{display:flex;flex-direction:column;gap:18px}
 .hub-group+.hub-group{padding-top:28px;border-top:2px solid #ddd}
 .hub-group__head{padding:0 2px 10px}
 .hub-group__title{margin:0;font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#111}
 .hub-group__intro{margin:6px 0 0;font-size:13px;color:#666;line-height:1.4}
-.hub-group__sections{display:flex;flex-direction:column;gap:24px}
+.hub-group__sections{display:flex;flex-direction:column;gap:30px}.hub-group--settings>.hub-group__sections{gap:64px}
 .hub-group__sections>.hub-section{margin:0}
 .hub-section[id='restart'] .hub-section__head,.hub-section[id='reset'] .hub-section__head{background:#fdf6f6;border-bottom-color:#f5e0e0}
 .hub-section[id='restart'] .hub-section__title,.hub-section[id='reset'] .hub-section__title{color:#b71c1c}
-.hub-subsection{margin-top:18px;padding-top:16px;border-top:1px solid #efefef}
+.hub-subsection{margin-top:24px;padding-top:22px;border-top:1px solid #e5e5e5}
 .hub-subsection:first-child{margin-top:0;padding-top:0;border-top:0}
-.hub-subsection__title{margin:0 0 10px;font-size:13px;font-weight:600;color:#444}
+.hub-subsection__title{margin:0 0 12px;font-size:13px;font-weight:600;color:#444}
 .hub-section{background:#fff;border:1px solid #ddd;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)}.hub-config-stack>.config-section,.hub-config-stack>.config-row{margin:0}.hub-config-stack>.config-section,.hub-page>.hub-section{box-shadow:0 1px 3px rgba(0,0,0,.04)}
 .map-container{position:relative;width:100%;max-width:100%;height:320px;overflow:hidden;box-sizing:border-box;border-radius:8px}
 .map-container #map,.map-container .leaflet-container{position:absolute!important;top:0;right:0;bottom:0;left:0;width:100%!important;height:100%!important;max-width:100%;min-height:0;overflow:hidden!important}
@@ -115,12 +115,12 @@ body[data-page=local] .app-page-title{display:none}
 .hub-ota,.hub-ota__actions{display:flex;flex-direction:column;gap:20px}
 .hub-ota .config-section{margin:0}
 .hub-ota .data-block{margin:0}
-.hub-map-link{margin:0}
+.hub-social-top{display:flex;flex-direction:column;gap:30px}.hub-map-link{margin:0}
 .hub-map-link .b{display:inline-flex;width:auto;max-width:100%}
 .hub-config-form>.hub-config-stack{margin:0}
 .hub-config-footer{position:static;background:transparent;border-top:1px solid #e5e5e5;margin-top:18px;padding-top:16px;text-align:center;order:999}
 .hub-config-footer .submit-btn{width:100%;max-width:320px}
-.debug-log{max-height:220px;overflow:auto;background:#111;color:#e8e8e8;padding:12px;border-radius:8px;font-size:11px;line-height:1.4;margin:0}
+
 .dashboard-health{padding:14px 16px;background:#fff;border:1px solid #ddd;border-radius:12px;border-left:3px solid #111}
 .dashboard-health__title{margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#888}
 .dashboard-health__pills{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
@@ -166,11 +166,11 @@ body[data-page=local] .app-page-title{display:none}
 @media screen and (max-width:400px){.reading-grid{grid-template-columns:1fr}.reading-card__value{font-size:20px}}
 .app-shell .page-form{gap:14px;margin-top:2px}
 .app-shell .page-form .config-section{border:1px solid #ddd;border-radius:12px;overflow:hidden;box-shadow:none}
-.app-panel{border:1px solid #ddd;border-radius:12px;overflow:hidden;background:#fff}
+.app-panel{border:1px solid #ddd;border-radius:12px;overflow:hidden;background:#fff}.debug-log{display:block;margin:0;padding:12px 16px;max-height:280px;overflow:auto;background:#111;color:#e8e8e8;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;border:none;border-radius:0;-webkit-overflow-scrolling:touch}
 .app-panel__title{margin:0;padding:12px 16px;font-size:13px;font-weight:700;background:#f7f7f7;border-bottom:1px solid #e5e5e5;border-left:3px solid #111}
 .app-panel--confirm{border-color:#e8d4d4}
 .app-panel--confirm .app-panel__title{border-left-color:#b71c1c}
-.debug-log{display:block;margin:0;padding:12px 16px;max-height:240px;overflow:auto;background:#111;color:#e8e8e8;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;line-height:1.45;white-space:pre-wrap;word-break:break-word;border:none;border-radius:0}
+
 .debug-level-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px 16px 16px}
 .debug-level-btn{display:flex;align-items:center;justify-content:center;padding:12px 10px;background:#fafafa;border:1px solid #ddd;border-radius:10px;font-size:14px;font-weight:600;color:#111;text-align:center;min-height:44px;margin:0;box-shadow:none}
 .debug-level-btn:hover{background:#fff;border-color:#999;color:#000}

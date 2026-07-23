@@ -121,6 +121,8 @@ namespace cfg {
 	extern bool encrypt_fast_aqi;
 	extern bool encrypt_epa_aqi;
 
+	/** Default LAN/mDNS name: altruist-<model>-<last4 chip id>, e.g. altruist-insight-a1b2 */
+	void formatDefaultLocalHostname(char* out, size_t out_len, const char* chip_id);
 	extern void initNonTrivials(const char* id);
 }
 

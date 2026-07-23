@@ -9,10 +9,22 @@ static void append_debug_log(String &page_content) {
 	page_content += Debug.popLines();
 	page_content += F("</pre>"
 		"<script>"
-		"function slog_update() {"
-		"fetch('/serial').then(r => r.text()).then((r) => {"
-		"document.getElementById('slog').innerText += r;}).catch(err => console.log(err));};"
-		"setInterval(slog_update, 3000);"
+		"(function(){"
+		"var busy=false;"
+		"function slog_update(){"
+		"if(busy)return;busy=true;"
+		"fetch('/serial').then(function(r){return r.status===204?Promise.resolve(''):r.text();})"
+		".then(function(t){"
+		"if(!t)return;"
+		"var el=document.getElementById('slog');if(!el)return;"
+		"var atBottom=(el.scrollTop+el.clientHeight)>=(el.scrollHeight-24);"
+		"el.textContent+=t;"
+		"if(atBottom)el.scrollTop=el.scrollHeight;"
+		"}).catch(function(err){console.log(err);})"
+		".then(function(){busy=false;});"
+		"}"
+		"setInterval(slog_update,2000);"
+		"})();"
 		"</script>");
 }
 
