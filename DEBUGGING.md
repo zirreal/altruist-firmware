@@ -166,6 +166,18 @@ saved configuration has been loaded:
 Here `configured` is the persisted `cfg::debug`, `forced` is the compile-time
 minimum, and `runtime` is the effective project log level.
 
+On-chain Robonomics datalog sends emit stable machine-readable UART events:
+
+```text
+[DATALOG] attempt payload_len=68 payload_empty=0 owner_self_fallback=0
+[DATALOG] success response_len=66
+[DATALOG] failed reason=rpc_error code=1010 message=invalid_transaction response_len=111
+```
+
+`Datalog data: ...` remains the payload/sensor snapshot used by diagnostics.
+The `[DATALOG]` lines describe the actual on-chain send attempt and final
+result. Timestamp/signature internals are verbose-only diagnostics.
+
 To view these logs live:
 
 1. Connect the board over USB.

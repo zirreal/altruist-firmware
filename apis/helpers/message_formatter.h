@@ -11,7 +11,15 @@ void formatRobonomicsString(JsonDocument &data, String &datalog_data);
  * On-chain datalog: plain CSV, then one CPS blob if any encrypt flag is on
  * (fits Robonomics 512-byte record limit). Map/connectivity unchanged.
  */
-void formatRobonomicsDatalogString(JsonDocument &data, String &datalog_data);
+enum DatalogFormatStatus {
+	DATALOG_FORMAT_PLAIN,
+	DATALOG_FORMAT_CPS,
+	DATALOG_FORMAT_PAYLOAD_EMPTY,
+	DATALOG_FORMAT_ENCRYPTION_FAILED,
+	DATALOG_FORMAT_PAYLOAD_TOO_LARGE,
+};
+
+DatalogFormatStatus formatRobonomicsDatalogString(JsonDocument &data, String &datalog_data);
 
 void addTimeAndSign(const String &data, String &signature, Robonomics *robonomics);
 

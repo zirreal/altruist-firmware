@@ -157,19 +157,26 @@ void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
 	debug_outln_info(F("Map sensor data: "), datalog_data);
 }
 
-void formatRobonomicsDatalogString(JsonDocument &data, String &datalog_data) {
+DatalogFormatStatus formatRobonomicsDatalogString(JsonDocument &data, String &datalog_data) {
 	String plain;
 	appendRobonomicsFields(data, plain, false);
 	if (plain.isEmpty()) {
 		datalog_data = plain;
 		debug_outln_info(F("[Datalog] Plain record (empty): "), datalog_data);
-		return;
+		return DATALOG_FORMAT_PAYLOAD_EMPTY;
 	}
 
 	if (!anyMetricEncryptionEnabled()) {
+		if (plain.length() > DATALOG_CHAIN_SAFE_BYTES) {
+			debug_outln_error(F("[Datalog] Plain record too large for chain limit"));
+			debug_outln_verbose(String(F("[Datalog] Record size: ")) + String(plain.length()) + F(" bytes (max ") +
+					    String(DATALOG_CHAIN_MAX_BYTES) + F(")"));
+			datalog_data = "";
+			return DATALOG_FORMAT_PAYLOAD_TOO_LARGE;
+		}
 		datalog_data = plain;
 		debug_outln_info(F("[Datalog] Plain record: "), datalog_data);
-		return;
+		return DATALOG_FORMAT_PLAIN;
 	}
 
 	const String encrypted = valueCryptoEncryptValue(plain);
@@ -178,17 +185,20 @@ void formatRobonomicsDatalogString(JsonDocument &data, String &datalog_data) {
 		datalog_data = encrypted;
 		debug_outln_info(String(F("[Datalog] Bulk encrypted record (")) + String(datalog_data.length()) +
 					 F(" bytes): ") + datalog_data);
-		return;
+		return DATALOG_FORMAT_CPS;
 	}
 
 	if (encrypted.startsWith(VALUE_CRYPTO_CPS_PREFIX) && encrypted.length() > DATALOG_CHAIN_SAFE_BYTES) {
 		debug_outln_error(F("[Datalog] Bulk encrypted record too large for chain limit"));
 		debug_outln_verbose(String(F("[Datalog] Record size: ")) + String(encrypted.length()) + F(" bytes (max ") +
 				    String(DATALOG_CHAIN_MAX_BYTES) + F(")"));
+		datalog_data = "";
+		return DATALOG_FORMAT_PAYLOAD_TOO_LARGE;
 	} else {
 		debug_outln_error(F("[Datalog] Bulk encrypt failed; not sending plaintext fallback"));
 	}
 	datalog_data = "";
+	return DATALOG_FORMAT_ENCRYPTION_FAILED;
 }
 
 void addTimeAndSign(const String &data, String &signature, Robonomics *robonomics) {
@@ -198,7 +208,7 @@ void addTimeAndSign(const String &data, String &signature, Robonomics *robonomic
     debug_outln_verbose(F("Failed to obtain time"));
     return;
   }
-  debug_outln_info(F("Local time: "), timeinfo.tm_hour);
+  debug_outln_verbose(F("Local time: "), String(timeinfo.tm_hour));
   
   // Convert local time to a Unix timestamp.
   time_t timestamp = mktime(&timeinfo);
@@ -209,12 +219,11 @@ void addTimeAndSign(const String &data, String &signature, Robonomics *robonomic
     timestampStr = timestampStr.substring(0, timestampStr.length() - 2);
   }
   
-  debug_outln_info(F("Modified Timestamp: "), timestampStr);
+  debug_outln_verbose(F("Modified Timestamp: "), timestampStr);
 
   String messageWithTimestamp = data + ",time:" + timestampStr;
 
-  debug_outln_info(F("Message to sign: "), messageWithTimestamp);
-  debug_outln_info(F("Message length: "), String(messageWithTimestamp.length()));
+  debug_outln_verbose(F("Message to sign: "), messageWithTimestamp);
 
   if (!signMessageRaw(messageWithTimestamp, signature, robonomics)) {
     signature = "";
@@ -222,5 +231,5 @@ void addTimeAndSign(const String &data, String &signature, Robonomics *robonomic
     return;
   }
 
-  debug_outln_info(F("Signature: "), signature);
+  debug_outln_verbose(F("Signature: "), signature);
 }
