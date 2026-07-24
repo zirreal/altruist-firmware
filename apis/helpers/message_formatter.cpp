@@ -152,9 +152,9 @@ static void appendRobonomicsFields(JsonDocument &data, String &out, bool per_fie
 	}
 }
 
-void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
+void formatRobonomicsString(JsonDocument &data, String &datalog_data, const __FlashStringHelper *channel) {
 	appendRobonomicsFields(data, datalog_data, true);
-	debug_outln_info(F("Map sensor data: "), datalog_data);
+	debug_outln_info(String(F("[PAYLOAD] channel=")) + String(channel) + F(" data=") + datalog_data);
 }
 
 DatalogFormatStatus formatRobonomicsDatalogString(JsonDocument &data, String &datalog_data) {

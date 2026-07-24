@@ -35,7 +35,7 @@ void CustomHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &data) {
 	double last_value_GPS_lon;
 	String datalog_data;
 	sscanf(cfg::coords_gps, "%lf,%lf", &last_value_GPS_lat, &last_value_GPS_lon);
-	formatRobonomicsString(data, datalog_data);
+	formatRobonomicsString(data, datalog_data, F("custom-http"));
     String signature;
 	addTimeAndSign(datalog_data, signature, robonomics);
     data_to_send = F("{\"robonomics_address\": \"");

@@ -166,6 +166,17 @@ saved configuration has been loaded:
 Here `configured` is the persisted `cfg::debug`, `forced` is the compile-time
 minimum, and `runtime` is the effective project log level.
 
+Sensor upload payloads emit a shared machine-readable snapshot before they are
+signed and sent:
+
+```text
+[PAYLOAD] channel=datalog data=h:65.15,t:25.84,p:99860.91,nm:75,na:75
+[PAYLOAD] channel=connectivity data=h:65.15,t:25.84,p:99860.91,nm:75,na:75
+```
+
+The payload line is useful for tester-side sensor value parsing. It does not
+mean that a network upload has succeeded.
+
 On-chain Robonomics datalog sends emit stable machine-readable UART events:
 
 ```text
@@ -174,9 +185,25 @@ On-chain Robonomics datalog sends emit stable machine-readable UART events:
 [DATALOG] failed reason=rpc_error code=1010 message=invalid_transaction response_len=111
 ```
 
-`Datalog data: ...` remains the payload/sensor snapshot used by diagnostics.
 The `[DATALOG]` lines describe the actual on-chain send attempt and final
-result. Timestamp/signature internals are verbose-only diagnostics.
+result. Timestamp/signature internals are verbose-only diagnostics where the
+project controls the log output.
+
+Sensors Connectivity uploads emit their own stable machine-readable UART events:
+
+```text
+[CONNECTIVITY] attempt channel=sensors-connectivity seq=12
+[CONNECTIVITY] success channel=sensors-connectivity seq=12 host=example.host code=200
+[CONNECTIVITY] failed channel=sensors-connectivity seq=12 reason=http_error host=example.host code=403 response_len=128
+```
+
+The `[CONNECTIVITY]` lines describe the HTTP upload attempt and final result.
+Legacy `[Map#...]` lines are verbose diagnostics for host selection and HTTP
+details, not the primary parser contract for automated tests.
+
+Some signing/extrinsic lines such as `Signature size: ...` can still be emitted
+directly by `ESPRobonomicsClient`. They are library diagnostics, not part of the
+stable tester contract.
 
 To view these logs live:
 

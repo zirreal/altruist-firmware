@@ -1,11 +1,16 @@
 #ifndef __MSG_FORMATTER_H__
 #define __MSG_FORMATTER_H__
 
+#include <Arduino.h>
 #include <ArduinoJson.h>
 #include <Robonomics.h>
 
 /** Map / connectivity: per-field CPS encrypt where configured. */
-void formatRobonomicsString(JsonDocument &data, String &datalog_data);
+void formatRobonomicsString(
+	JsonDocument &data,
+	String &datalog_data,
+	const __FlashStringHelper *channel = F("connectivity")
+);
 
 /**
  * On-chain datalog: plain CSV, then one CPS blob if any encrypt flag is on
