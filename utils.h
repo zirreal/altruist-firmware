@@ -173,6 +173,10 @@ extern void debug_outln_info(const __FlashStringHelper* text, const String& opti
 extern void debug_outln_info(const __FlashStringHelper* text, float value);
 extern void debug_outln_verbose(const __FlashStringHelper* text, const String& option);
 extern void debug_outln_info_bool(const __FlashStringHelper* text, const bool option);
+extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
+extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
+extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
+extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
 
 
 extern bool isNumeric(const String& str);

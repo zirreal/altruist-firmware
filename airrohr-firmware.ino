@@ -785,6 +785,13 @@ bool fetchSensors() {
 						debug_outln_info(F("[Sensors] sensor: "), String(activeSensors[i]->sensor_name));
 						debug_outln_info(F("[Sensors] memory/capacity: "),
 						                 String(sensors_data.memoryUsage()) + "/" + String(sensors_data.capacity()));
+						logSubsystemError(
+							F("sensor"),
+							F("json_overflow"),
+							String(F("sensor=")) + activeSensors[i]->sensor_name +
+								F(" memory=") + String(sensors_data.memoryUsage()) +
+								F(" capacity=") + String(sensors_data.capacity())
+						);
 					}
 					xSemaphoreGive(mutex);
 				}
@@ -869,6 +876,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 					    msSince(sta_down_since_ms) >= WIFI_STA_REBOOT_AFTER_MS) {
 						debug_outln_info(F("[WiFi] STA link down too long; rebooting for recovery"));
 						set_restart_reason(RESTART_REASON_WIFI);
+						logSubsystemEvent(F("event"), F("wifi"), F("sta_recovery_reboot"), String(F("down_ms=")) + String(msSince(sta_down_since_ms)));
 						delay(100);
 						esp_restart();
 					}
@@ -942,6 +950,12 @@ void sensorAndAPIWorker(void *pvParameters) {
 					debug_outln_error(F("[API] JSON snapshot overflow; skipping send"));
 					debug_outln_info(F("[API] memory/capacity: "),
 					                 String(api_snapshot.memoryUsage()) + "/" + String(api_snapshot.capacity()));
+					logSubsystemError(
+						F("api"),
+						F("json_snapshot_overflow"),
+						String(F("memory=")) + String(api_snapshot.memoryUsage()) +
+							F(" capacity=") + String(api_snapshot.capacity())
+					);
 				}
 				xSemaphoreGive(mutex);
 			}

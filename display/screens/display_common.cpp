@@ -9,6 +9,7 @@
 #include "../display_modes.h"
 #include "../../defines.h"
 #include "../../config_manager/config_defaults.h"
+#include "../../utils.h"
 
 static bool epd_initialized = false;
 static DisplayMode epd_current_mode = DisplayMode::FULL; // Track current mode to avoid unnecessary re-init
@@ -221,6 +222,7 @@ bool epdDisplay(DisplayMode mode, UBYTE *Image) {
 
     if (!ok) {
         Serial.println(F("[EPD] Display stuck detected — recovering and retrying with FULL refresh"));
+        logSubsystemError(F("display"), F("epd_stuck"), String(F("action=recover_full_refresh mode=")) + String(static_cast<int>(mode)));
         epdRecoverFromStuck();
         epdInit(DisplayMode::FULL);
         EPD_4IN2_V2_Display_Fast(Image);

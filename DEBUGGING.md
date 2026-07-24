@@ -202,6 +202,19 @@ The `[CONNECTIVITY]` lines describe the HTTP upload attempt and final result.
 Legacy `[Map#...]` lines are verbose diagnostics for host selection and HTTP
 details, not the primary parser contract for automated tests.
 
+Important subsystem failures and recovery events emit stable release-level
+lines:
+
+```text
+[SUBSYSTEM] error subsystem=sd reason=open_append_failed path=/data/SDS011/2026-07-24.csv
+[SUBSYSTEM] error subsystem=ota reason=http_get_failed host=firmware.example code=404
+[SUBSYSTEM] event subsystem=wifi reason=sta_recovery mode=deep status=6 ip=0.0.0.0
+```
+
+These lines are printed directly to Serial and are intended for acceptance
+testing. They cover critical storage, sensor payload, Wi-Fi recovery, display,
+configuration, and OTA failures without requiring a `_debug` build.
+
 Some signing/extrinsic lines such as `Signature size: ...` can still be emitted
 directly by `ESPRobonomicsClient`. They are library diagnostics, not part of the
 stable tester contract.
@@ -663,11 +676,25 @@ pio run -e esp32c3_urban_ru_debug -t upload
 состояния в UART:
 
 ```text
-[HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0 wifi=1 wifi_errors=0 sensor_errors=0 sd_errors=0
+[HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0 wifi=1 wifi_errors=0 sensor_errors=0 sd_errors=0 reset_reason=power_on_reset reset_code=1 crash_valid=0 prev_uptime=0 prev_heap=0 last_section_id=0 last_section=Idle/MainLoop
 ```
 
 Начальные поля сохраняются стабильными для простых парсеров. Поля в конце
-добавляют состояние Wi-Fi и отдельные счетчики ошибок по подсистемам.
+добавляют состояние Wi-Fi, отдельные счетчики ошибок по подсистемам и контекст
+перезагрузки.
+
+Важные ошибки подсистем и события восстановления выводятся в стабильном
+release-level формате:
+
+```text
+[SUBSYSTEM] error subsystem=sd reason=open_append_failed path=/data/SDS011/2026-07-24.csv
+[SUBSYSTEM] error subsystem=ota reason=http_get_failed host=firmware.example code=404
+[SUBSYSTEM] event subsystem=wifi reason=sta_recovery mode=deep status=6 ip=0.0.0.0
+```
+
+Эти строки печатаются напрямую в Serial и предназначены для приемочного тестера.
+Они покрывают критичные ошибки SD/config, sensor payload, Wi-Fi recovery,
+display и OTA без необходимости собирать `_debug` прошивку.
 
 После загрузки сохраненной конфигурации прошивка сообщает фактически применяемые
 уровни:

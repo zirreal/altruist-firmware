@@ -239,6 +239,7 @@ bool writeConfig() {
 
 	if (json.overflowed()) {
 		debug_outln_error(F("Config JSON overflow while saving; increase JSON_BUFFER_SIZE"));
+		logSubsystemError(F("config"), F("json_overflow_save"));
 		return false;
 	}
 
@@ -249,6 +250,7 @@ bool writeConfig() {
 	File configFile = SPIFFS.open(F("/config.json.new"), "w");
 	if (!configFile) {
 		debug_outln_error(F("failed to open config file for writing"));
+		logSubsystemError(F("config"), F("open_write_failed"), String(F("path=/config.json")));
 		return false;
 	}
 	serializeJson(json, configFile);
@@ -381,6 +383,7 @@ void readConfig(bool oldconfig) {
 		}
 
 		debug_outln_error(F("failed to open config file."));
+		logSubsystemError(F("config"), F("open_read_failed"), String(F("path=")) + cfgName);
 		return;
 	}
 
@@ -471,6 +474,7 @@ void readConfig(bool oldconfig) {
 		}
 	} else {
 		debug_outln_error(F("failed to load json config"));
+		logSubsystemError(F("config"), F("json_parse_failed"), String(F("path=")) + cfgName);
 
 		if (!oldconfig) {
 			return readConfig(true /* oldconfig */);
@@ -499,6 +503,7 @@ void init_config() {
 
 	if (!spiffs_begin_ok) {
 		debug_outln_error(F("failed to mount FS"));
+		logSubsystemError(F("config"), F("fs_mount_failed"));
 		return;
 	}
 	readConfig();

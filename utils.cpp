@@ -343,6 +343,37 @@ void debug_outln_info_bool(const __FlashStringHelper* text, const bool option) {
 
 #undef debug_level_check
 
+void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason) {
+	logSubsystemEvent(level, subsystem, reason, String());
+}
+
+void logSubsystemEvent(
+	const __FlashStringHelper* level,
+	const __FlashStringHelper* subsystem,
+	const __FlashStringHelper* reason,
+	const String& details
+) {
+	Serial.print(F("[SUBSYSTEM] "));
+	Serial.print(level);
+	Serial.print(F(" subsystem="));
+	Serial.print(subsystem);
+	Serial.print(F(" reason="));
+	Serial.print(reason);
+	if (details.length() > 0) {
+		Serial.print(' ');
+		Serial.print(details);
+	}
+	Serial.println();
+}
+
+void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason) {
+	logSubsystemEvent(F("error"), subsystem, reason);
+}
+
+void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details) {
+	logSubsystemEvent(F("error"), subsystem, reason, details);
+}
+
 /*****************************************************************
  * helper to see if a given string is numeric                    *
  *****************************************************************/
