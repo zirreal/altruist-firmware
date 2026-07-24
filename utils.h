@@ -94,6 +94,13 @@ struct device_status_t {
 struct metrics_t {
 	unsigned long boot_counter = 0;
 	unsigned long uptime_sec = 0;
+	int reset_reason_code = 0;
+	char reset_reason[32] = "unknown";
+	bool crash_context_valid = false;
+	unsigned long prev_uptime_sec = 0;
+	unsigned long prev_free_heap = 0;
+	unsigned int last_section_id = 0;
+	char last_section[24] = "unknown";
 	unsigned long tx_counter = 0;
 	time_t last_telemetry_timestamp = 0;
 	unsigned long err_wifi_reconnects = 0;

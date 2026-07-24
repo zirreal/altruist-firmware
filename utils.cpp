@@ -519,6 +519,20 @@ void logMetrics() {
 	Serial.print(F(" sensor_errors="));
 	Serial.print(system_metrics.err_sensor);
 	Serial.print(F(" sd_errors="));
-	Serial.println(system_metrics.err_sd_write);
+	Serial.print(system_metrics.err_sd_write);
+	Serial.print(F(" reset_reason="));
+	Serial.print(system_metrics.reset_reason);
+	Serial.print(F(" reset_code="));
+	Serial.print(system_metrics.reset_reason_code);
+	Serial.print(F(" crash_valid="));
+	Serial.print(system_metrics.crash_context_valid ? 1 : 0);
+	Serial.print(F(" prev_uptime="));
+	Serial.print(system_metrics.prev_uptime_sec);
+	Serial.print(F(" prev_heap="));
+	Serial.print(system_metrics.prev_free_heap);
+	Serial.print(F(" last_section_id="));
+	Serial.print(system_metrics.last_section_id);
+	Serial.print(F(" last_section="));
+	Serial.println(system_metrics.last_section);
 #endif
 }

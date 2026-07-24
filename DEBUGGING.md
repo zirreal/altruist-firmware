@@ -135,15 +135,26 @@ Project log lines are prefixed with a level:
 
 Each line also contains a millisecond timestamp in square brackets (time since boot). See the Quick Start section above for example output.
 
+Every boot emits one stable UART boot snapshot before Wi-Fi and sensor startup:
+
+```text
+[BOOT] reset_reason=power_on_reset reset_code=1 boot=4 crash_valid=0 prev_uptime=0 prev_heap=0 last_section_id=0 last_section=Idle/MainLoop heap=219584
+```
+
+This line is intended for automated testers. It is printed directly to Serial
+and does not depend on the saved runtime project log level.
+
 Builds with `ALTRUIST_HEALTH_TELEMETRY` emit a stable UART health snapshot once
 per minute:
 
 ```text
-[HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0 wifi=1 wifi_errors=0 sensor_errors=0 sd_errors=0
+[HEALTH] uptime=3600 boot=4 heap=219584 rssi=-62 tx=12 errors=0 wifi=1 wifi_errors=0 sensor_errors=0 sd_errors=0 reset_reason=power_on_reset reset_code=1 crash_valid=0 prev_uptime=0 prev_heap=0 last_section_id=0 last_section=Idle/MainLoop
 ```
 
 The initial fields are kept stable for simple parsers. The trailing fields add
-the Wi-Fi link state and per-subsystem error counters for diagnostics.
+the Wi-Fi link state, per-subsystem error counters, and the boot/reset context
+captured at startup. This lets automated testers recover reset diagnostics even
+when they start after the one-time `[BOOT]` line has already been printed.
 
 At boot, firmware reports the effective project and framework levels after the
 saved configuration has been loaded:
@@ -231,6 +242,17 @@ Examples of important SD‑logged messages:
   - `[SDCardLogger]` messages when the card is inserted/removed or when write errors happen. Card type is logged only when it changes or on error, to avoid log spam.
 
 ### 5. Crash and reset diagnostics (boot logs)
+
+On UART, each boot starts with a compact machine-readable `[BOOT]` line:
+
+```text
+[BOOT] reset_reason=task_watchdog_timeout reset_code=6 boot=12 crash_valid=1 prev_uptime=86370 prev_heap=218400 last_section_id=2 last_section=RobonomicsDatalog heap=219584
+```
+
+The UART line lets a tester detect resets and watchdog/brownout/panic recovery
+without reading the SD card. `reset_reason` is a lowercase token, `reset_code`
+is the ESP reset reason code, and `crash_valid=1` means the previous run left
+NVS breadcrumbs.
 
 On every boot the firmware writes a short report to `/exceptions/boot_*.txt` that includes:
 
