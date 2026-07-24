@@ -423,20 +423,20 @@ void initESPTemperatureSensor() {
 			
 			esp_err_t ret = temperature_sensor_install(&temp_sensor_config, &temp_sensor_handle);
 			if (ret != ESP_OK) {
-				Serial.printf("[URBAN][Temp] Failed to install temperature sensor: %s\n", esp_err_to_name(ret));
+				Serial.printf("[ESP][Temp] Failed to install temperature sensor: %s\n", esp_err_to_name(ret));
 				return;
 			}
 			
 			ret = temperature_sensor_enable(temp_sensor_handle);
 			if (ret != ESP_OK) {
-				Serial.printf("[URBAN][Temp] Failed to enable temperature sensor: %s\n", esp_err_to_name(ret));
+				Serial.printf("[ESP][Temp] Failed to enable temperature sensor: %s\n", esp_err_to_name(ret));
 				temperature_sensor_uninstall(temp_sensor_handle);
 				temp_sensor_handle = NULL;
 				return;
 			}
 			
 			temp_sensor_initialized = true;
-			Serial.println(F("[URBAN][Temp] ESP32-C6 temperature sensor initialized"));
+			Serial.println(F("[ESP][Temp] ESP32-C6 temperature sensor initialized"));
 		#endif
 	#endif
 }
