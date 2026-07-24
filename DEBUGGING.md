@@ -117,8 +117,9 @@ The firmware has three independent logging layers:
 1. **Project logs** use `debug_outln_error`, `debug_outln_info`, and
    `debug_outln_verbose` from `utils.cpp`. `ALTRUIST_DEFAULT_LOG_LEVEL` initializes
    `cfg::debug`, while `ALTRUIST_FORCE_LOG_LEVEL` sets its minimum effective value.
+   Testing release builds force level 3 for tester-oriented info/error logs.
    Debug builds force level 4, so an older saved configuration cannot suppress
-   project diagnostics.
+   verbose project diagnostics.
 2. **Arduino core logs** are controlled at compile time by `CORE_DEBUG_LEVEL`.
    Debug builds set it to 4 and route diagnostics to `Serial` through
    `DEBUG_ESP_PORT`. Precompiled ESP-IDF library logs remain limited by the
@@ -638,8 +639,10 @@ pio run -e esp32c3_urban_ru_debug -t upload
 1. **Логи проекта** используют `debug_outln_error`, `debug_outln_info` и
    `debug_outln_verbose` из `utils.cpp`. `ALTRUIST_DEFAULT_LOG_LEVEL` задает
    начальное значение `cfg::debug`, а `ALTRUIST_FORCE_LOG_LEVEL` — минимальный
-   эффективный уровень. В Debug-сборках уровень 4 принудителен, поэтому старое
-   сохраненное значение не может отключить диагностические сообщения.
+   эффективный уровень. Testing release-сборки принудительно держат уровень 3
+   для info/error логов тестера. В Debug-сборках уровень 4 принудителен,
+   поэтому старое сохраненное значение не может отключить подробные
+   диагностические сообщения.
 2. **Логи Arduino core** управляются compile-time флагом `CORE_DEBUG_LEVEL`.
    Debug-сборки задают уровень 4 и направляют вывод в `Serial` через
    `DEBUG_ESP_PORT`. Логи precompiled ESP-IDF библиотек остаются ограничены

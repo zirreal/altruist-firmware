@@ -115,6 +115,11 @@ Stable unless `ALTRUIST_CHANNEL_TESTING=1` is set explicitly. The build output
 prints the resolved branch, channel, profile, telemetry state, and commit before
 compilation.
 
+Testing release builds also force the project log floor to info level
+(`ALTRUIST_FORCE_LOG_LEVEL=3`). This keeps tester-oriented release logs visible
+even if the device has an older saved `cfg::debug` value, without enabling
+verbose Debug-only diagnostics.
+
 CI sets `ALTRUIST_CHANNEL_TESTING`, `ALTRUIST_HEALTH_TELEMETRY`, and
 `ALTRUIST_BUILD_COMMIT` explicitly, so published builds do not depend on local
 Git state. These variables can also override the automatic local defaults.
