@@ -30,8 +30,8 @@ String valueCryptoEncryptCpsForOwner(const String &plain, const char *sender_sk_
 String valueCryptoEncryptValue(const String &plain);
 
 /**
- * Самопроверка derive_shared_secret: 5 кортежей (private, public, shared) в Serial.
- * Сверка с libcps — CPS_TEST_VECTORS.md.
+ * Самопроверка: ECDH + encrypt vectors в Serial.
+ * Эталонные векторы: libcps docs/TEST_VECTORS.md (см. contrib/libcps_TEST_VECTORS.md).
  */
 bool valueCryptoSelfTest();
 

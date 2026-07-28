@@ -379,17 +379,131 @@ static bool runEcdhCase(const EcdhTestCase &tc, uint8_t case_id) {
 	return true;
 }
 
+struct EncryptTestCase {
+	SeedFillFn sender_seed;
+	SeedFillFn receiver_seed;
+	const char *expected_aes_key_hex;
+	const char *expected_ciphertext_hex;  // ciphertext || tag, hex
+	const char *expected_from_ss58;
+};
+
+static bool hexEqN(const uint8_t *bytes, size_t len, const char *hex) {
+	if (!hex || strlen(hex) != len * 2) {
+		return false;
+	}
+	for (size_t i = 0; i < len; i++) {
+		char a = hex[i * 2];
+		char b = hex[i * 2 + 1];
+		auto nib = [](char c) -> int {
+			if (c >= '0' && c <= '9') return c - '0';
+			if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+			if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+			return -1;
+		};
+		const int hi = nib(a);
+		const int lo = nib(b);
+		if (hi < 0 || lo < 0) {
+			return false;
+		}
+		if (bytes[i] != static_cast<uint8_t>((hi << 4) | lo)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool runEncryptCase(const EncryptTestCase &tc, uint8_t case_id) {
+	const char *plain = "850";
+	const uint8_t fixed_nonce[GCM_NONCE_LEN] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+	uint8_t sender_sk[KEY_LEN];
+	uint8_t receiver_sk[KEY_LEN];
+	uint8_t receiver_pk[KEY_LEN];
+	tc.sender_seed(sender_sk);
+	tc.receiver_seed(receiver_sk);
+	Ed25519::derivePublicKey(receiver_pk, receiver_sk);
+
+	uint8_t shared[KEY_LEN];
+	if (!deriveSharedSecretEd25519(sender_sk, receiver_pk, shared)) {
+		debug_outln_info(String(F("[CPS][enc] case ")) + String(case_id) + F(" ECDH failed"));
+		return false;
+	}
+
+	uint8_t aes_key[KEY_LEN];
+	if (!hkdfAesGcmKey(shared, aes_key)) {
+		debug_outln_info(String(F("[CPS][enc] case ")) + String(case_id) + F(" HKDF failed"));
+		return false;
+	}
+
+	uint8_t nonce[GCM_NONCE_LEN];
+	uint8_t *cipher = nullptr;
+	size_t cipher_len = 0;
+	if (!aesGcmEncrypt(aes_key, reinterpret_cast<const uint8_t *>(plain), strlen(plain), nonce, &cipher,
+			   &cipher_len, fixed_nonce)) {
+		debug_outln_info(String(F("[CPS][enc] case ")) + String(case_id) + F(" AES-GCM failed"));
+		return false;
+	}
+
+	uint8_t *recovered = nullptr;
+	size_t recovered_len = 0;
+	const bool ok_dec =
+		aesGcmDecrypt(aes_key, cipher, cipher_len, nonce, &recovered, &recovered_len) &&
+		recovered_len == strlen(plain) && memcmp(recovered, plain, recovered_len) == 0;
+	free(recovered);
+	if (!ok_dec) {
+		free(cipher);
+		debug_outln_info(String(F("[CPS][enc] case ")) + String(case_id) + F(" decrypt roundtrip failed"));
+		return false;
+	}
+
+	const String priv_hex = bytesToHex(sender_sk, KEY_LEN);
+	const String pub_hex = bytesToHex(receiver_pk, KEY_LEN);
+	const String aes_hex = bytesToHex(aes_key, KEY_LEN);
+	const String ct_hex = bytesToHex(cipher, cipher_len);
+	const String from_ss58 = encodeSenderSs58(sender_sk);
+
+	debug_outln_info(String(F("[CPS][enc] (\"")) + priv_hex + F("\",\"") + pub_hex + F("\",\"") + plain +
+			 F("\",\"000102030405060708090a0b\",\"") + aes_hex + F("\",\"") + ct_hex + F("\",\"") +
+			 from_ss58 + F("\")"));
+
+	if (tc.expected_aes_key_hex && !hexEq32(aes_key, tc.expected_aes_key_hex)) {
+		debug_outln_info(String(F("[CPS][enc] case ")) + String(case_id) + F(" aes_key mismatch"));
+		free(cipher);
+		return false;
+	}
+	if (tc.expected_ciphertext_hex && !hexEqN(cipher, cipher_len, tc.expected_ciphertext_hex)) {
+		debug_outln_info(String(F("[CPS][enc] case ")) + String(case_id) + F(" ciphertext mismatch"));
+		free(cipher);
+		return false;
+	}
+	if (tc.expected_from_ss58 && from_ss58 != tc.expected_from_ss58) {
+		debug_outln_info(String(F("[CPS][enc] case ")) + String(case_id) + F(" from_ss58 mismatch"));
+		free(cipher);
+		return false;
+	}
+	free(cipher);
+	return true;
+}
+
 /**
- * derive_shared_secret vectors (libcps cipher.rs L155).
- * Logs (private, public, shared) tuples for libcps — see CPS_TEST_VECTORS.md.
+ * derive_shared_secret + encrypt vectors — libcps docs/TEST_VECTORS.md
  */
 bool valueCryptoSelfTest() {
 	static const EcdhTestCase kCases[] = {
-	    {fillSeed01, fillSeed01, nullptr},
+	    {fillSeed01, fillSeed01, "4150985bdebdc58f3e3c59cc2274570ea847a9812089b835593aeb0f1829d621"},
 	    {fillSeed01, fillSeed02, "4181d7302557342bdb6d061c4b1eebea828ecb625c3368b7111680793307220b"},
 	    {fillSeed02, fillSeed01, "4181d7302557342bdb6d061c4b1eebea828ecb625c3368b7111680793307220b"},
-	    {fillSeedAa, fillTestSeedMixed, nullptr},
-	    {fillTestSeedMixed, fillSeedAa, nullptr},
+	    {fillSeedAa, fillTestSeedMixed, "190ae9b11a0d48ca394f52330f904f5ab91e25f995c3c5d40ed1ebfa671cdf64"},
+	    {fillTestSeedMixed, fillSeedAa, "190ae9b11a0d48ca394f52330f904f5ab91e25f995c3c5d40ed1ebfa671cdf64"},
+	};
+
+	static const EncryptTestCase kEncCases[] = {
+	    {fillSeed01, fillSeed01, nullptr, nullptr, nullptr},
+	    {fillSeed01, fillSeed02, "3786d7e58731b989f86ec993f684e52187473ace7ca0a97a39a56dd26d82fbf5",
+	     "31ffdff4407a99a4fb8c85cc5be4111280e6fb", "4FKkYaWDUkairCj7PniuyCsrVWBk6SFDRjMTHmEwBz2UBqc9"},
+	    {fillSeed02, fillSeed01, nullptr, nullptr, nullptr},
+	    {fillSeedAa, fillTestSeedMixed, nullptr, nullptr, nullptr},
+	    {fillTestSeedMixed, fillSeedAa, nullptr, nullptr, nullptr},
 	};
 
 	debug_outln_info(F("[CPS][ecdh] === derive_shared_secret: [(private, public, shared)] ==="));
@@ -399,6 +513,15 @@ bool valueCryptoSelfTest() {
 		}
 	}
 	debug_outln_info(F("[CPS][ecdh] ALL OK"));
+
+	debug_outln_info(F("[CPS][enc] === encrypt: [(private, public, plaintext, nonce, aes_key, ciphertext, from_ss58)] ==="));
+	debug_outln_info(F("[CPS][enc] plaintext=850 nonce=000102030405060708090a0b HKDF salt=robonomics-network info=aesgcm256"));
+	for (size_t i = 0; i < sizeof(kEncCases) / sizeof(kEncCases[0]); i++) {
+		if (!runEncryptCase(kEncCases[i], static_cast<uint8_t>(i + 1))) {
+			return false;
+		}
+	}
+	debug_outln_info(F("[CPS][enc] ALL OK"));
 	return true;
 }
 
