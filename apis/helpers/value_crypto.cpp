@@ -29,18 +29,22 @@
  *      private owner + public устройства (поле "from" в JSON).
  */
 
-namespace {
+namespace cps {
 
 constexpr size_t GCM_NONCE_LEN = 12;  // случайный nonce на каждое шифрование (IV)
 constexpr size_t GCM_TAG_LEN = 16;    // кусочек, по которому видно, что данные не меняли
 constexpr size_t KEY_LEN = 32;        // 32 байта = 256 бит (ed25519 seed / AES-256 ключ)
 
-// Строки HKDF должны совпадать с картой, иначе не расшифруется.
+/*
+ * HKDF — как в libcps cipher.rs:
+ *   const HKDF_SALT = b"robonomics-network";
+ *   Hkdf::new(Some(HKDF_SALT), &shared_secret);  // salt, IKM
+ *   hkdf.expand(algorithm.info_string(), ...);   // info = "aesgcm256"
+ * mbedtls_hkdf(md, salt, salt_len, ikm, ikm_len, info, info_len, okm, okm_len)
+ * — тот же порядок: salt → IKM(shared) → info → OKM(AES key).
+ */
 constexpr const char *HKDF_SALT = "robonomics-network";
 constexpr const char *HKDF_INFO_AESGCM256 = "aesgcm256";
-
-const char *const BS58_ALPHABET =
-	"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 /** Байты → обычная base64-строка (для nonce/ciphertext/всего JSON). */
 String base64Encode(const uint8_t *data, size_t len) {
@@ -93,31 +97,27 @@ bool parseHex32(const char *hex, uint8_t out[KEY_LEN]) {
 }
 
 /**
- * Публичный ключ устройства кладём в JSON как base58
+ * Public key устройства в JSON "from" — SS58 (prefix 32), не raw base58.
+ * SS58 = network prefix + pubkey + blake2b checksum, потом base58
  */
-String encodeBase58(const uint8_t *bytes, size_t len) {
-	uint8_t digits[64] = {0};
-	int digitslen = 1;
-	for (size_t i = 0; i < len; i++) {
-		unsigned int carry = bytes[i];
-		for (int j = 0; j < digitslen; j++) {
-			carry += static_cast<unsigned int>(digits[j]) << 8;
-			digits[j] = static_cast<uint8_t>(carry % 58);
-			carry /= 58;
-		}
-		while (carry > 0 && digitslen < static_cast<int>(sizeof(digits))) {
-			digits[digitslen++] = static_cast<uint8_t>(carry % 58);
-			carry /= 58;
-		}
+String encodeSenderSs58(const uint8_t sender_sk[KEY_LEN]) {
+	char *addr = getAddrFromPrivateKey(const_cast<uint8_t *>(sender_sk), ROBONOMICS_PREFIX);
+	if (!addr) {
+		return String();
 	}
+	String out(addr);
+	delete[] addr;
+	return out;
+}
+
+static String bytesToHex(const uint8_t *data, size_t len) {
 	String out;
-	size_t leading = 0;
-	while (leading < len && bytes[leading] == 0) {
-		out += '1';
-		leading++;
-	}
-	for (int i = digitslen - 1; i >= 0; i--) {
-		out += BS58_ALPHABET[digits[i]];
+	out.reserve(len * 2);
+	for (size_t i = 0; i < len; i++) {
+		if (data[i] < 0x10) {
+			out += '0';
+		}
+		out += String(data[i], HEX);
 	}
 	return out;
 }
@@ -223,8 +223,7 @@ bool deriveSharedSecretEd25519(const uint8_t sender_sk[32], const uint8_t receiv
 }
 
 /**
- * Из «сырого» общего секрета делаем готовый AES-ключ.
- * HKDF = «перемешали секрет с нашими метками salt/info → ровно 32 байта для AES».
+ * HKDF-SHA256 → 32-byte AES key (libcps order: salt, IKM=shared, info).
  */
 bool hkdfAesGcmKey(const uint8_t shared[32], uint8_t out_key[32]) {
 	const mbedtls_md_info_t *md = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
@@ -237,22 +236,27 @@ bool hkdfAesGcmKey(const uint8_t shared[32], uint8_t out_key[32]) {
 }
 
 /**
- * AES-256-GCM: прячет данные + добавляет tag (если байты подменят — decrypt на карте упадёт).
- * На выходе: ciphertext || tag. Nonce каждый раз новый (случайный).
+ * AES-256-GCM: ciphertext || tag.
+ * Если fixed_nonce == nullptr — генерим случайный nonce в nonce[].
+ * Если fixed_nonce задан — копируем его (для тест-векторов).
  */
 bool aesGcmEncrypt(const uint8_t key[32], const uint8_t *plain, size_t plain_len, uint8_t nonce[GCM_NONCE_LEN],
-		   uint8_t **cipher_out, size_t *cipher_len) {
+		   uint8_t **cipher_out, size_t *cipher_len, const uint8_t *fixed_nonce = nullptr) {
 	const size_t out_len = plain_len + GCM_TAG_LEN;
 	uint8_t *out = static_cast<uint8_t *>(malloc(out_len));
 	if (!out) {
 		return false;
 	}
-	for (size_t i = 0; i < GCM_NONCE_LEN; i += 4) {
-		const uint32_t r = esp_random();
-		nonce[i + 0] = static_cast<uint8_t>(r & 0xFF);
-		nonce[i + 1] = static_cast<uint8_t>((r >> 8) & 0xFF);
-		nonce[i + 2] = static_cast<uint8_t>((r >> 16) & 0xFF);
-		nonce[i + 3] = static_cast<uint8_t>((r >> 24) & 0xFF);
+	if (fixed_nonce) {
+		memcpy(nonce, fixed_nonce, GCM_NONCE_LEN);
+	} else {
+		for (size_t i = 0; i < GCM_NONCE_LEN; i += 4) {
+			const uint32_t r = esp_random();
+			nonce[i + 0] = static_cast<uint8_t>(r & 0xFF);
+			nonce[i + 1] = static_cast<uint8_t>((r >> 8) & 0xFF);
+			nonce[i + 2] = static_cast<uint8_t>((r >> 16) & 0xFF);
+			nonce[i + 3] = static_cast<uint8_t>((r >> 24) & 0xFF);
+		}
 	}
 
 	mbedtls_gcm_context gcm;
@@ -269,6 +273,34 @@ bool aesGcmEncrypt(const uint8_t key[32], const uint8_t *plain, size_t plain_len
 	}
 	*cipher_out = out;
 	*cipher_len = out_len;
+	return true;
+}
+
+bool aesGcmDecrypt(const uint8_t key[32], const uint8_t *cipher, size_t cipher_len, const uint8_t nonce[GCM_NONCE_LEN],
+		   uint8_t **plain_out, size_t *plain_len) {
+	if (!cipher || cipher_len <= GCM_TAG_LEN) {
+		return false;
+	}
+	const size_t ct_len = cipher_len - GCM_TAG_LEN;
+	uint8_t *out = static_cast<uint8_t *>(malloc(ct_len + 1));
+	if (!out) {
+		return false;
+	}
+	mbedtls_gcm_context gcm;
+	mbedtls_gcm_init(&gcm);
+	int rc = mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, key, 256);
+	if (rc == 0) {
+		rc = mbedtls_gcm_auth_decrypt(&gcm, ct_len, nonce, GCM_NONCE_LEN, nullptr, 0, cipher + ct_len, GCM_TAG_LEN,
+					     cipher, out);
+	}
+	mbedtls_gcm_free(&gcm);
+	if (rc != 0) {
+		free(out);
+		return false;
+	}
+	out[ct_len] = '\0';
+	*plain_out = out;
+	*plain_len = ct_len;
 	return true;
 }
 
@@ -293,14 +325,88 @@ bool resolveReceiverPublic(const char *receiver_ss58, const uint8_t sender_pk[32
 	return true;
 }
 
-}  // namespace
+static void fillTestSeed(uint8_t out[KEY_LEN], uint8_t pattern) {
+	memset(out, pattern, KEY_LEN);
+}
+
+static void fillTestSeedMixed(uint8_t out[KEY_LEN]) {
+	memset(out, 0x11, 16);
+	memset(out + 16, 0x22, 16);
+}
+
+typedef void (*SeedFillFn)(uint8_t out[KEY_LEN]);
+
+struct EcdhTestCase {
+	SeedFillFn sender_seed;
+	SeedFillFn receiver_seed;  // peer Ed25519 public is derived from this seed
+	const char *expected_shared_hex;
+};
+
+static void fillSeed01(uint8_t out[KEY_LEN]) { fillTestSeed(out, 0x01); }
+static void fillSeed02(uint8_t out[KEY_LEN]) { fillTestSeed(out, 0x02); }
+static void fillSeedAa(uint8_t out[KEY_LEN]) { fillTestSeed(out, 0xaa); }
+
+static bool hexEq32(const uint8_t *bytes, const char *hex) {
+	uint8_t expected[KEY_LEN];
+	return hex && parseHex32(hex, expected) && memcmp(bytes, expected, KEY_LEN) == 0;
+}
+
+static bool runEcdhCase(const EcdhTestCase &tc, uint8_t case_id) {
+	uint8_t sender_sk[KEY_LEN];
+	uint8_t receiver_sk[KEY_LEN];
+	uint8_t receiver_pk[KEY_LEN];
+	tc.sender_seed(sender_sk);
+	tc.receiver_seed(receiver_sk);
+	Ed25519::derivePublicKey(receiver_pk, receiver_sk);
+
+	uint8_t shared[KEY_LEN];
+	if (!deriveSharedSecretEd25519(sender_sk, receiver_pk, shared)) {
+		debug_outln_info(String(F("[CPS][ecdh] case ")) + String(case_id) + F(" derive failed"));
+		return false;
+	}
+
+	const String priv_hex = bytesToHex(sender_sk, KEY_LEN);
+	const String pub_hex = bytesToHex(receiver_pk, KEY_LEN);
+	const String shared_hex = bytesToHex(shared, KEY_LEN);
+	debug_outln_info(String(F("[CPS][ecdh] (\"")) + priv_hex + F("\",\"") + pub_hex + F("\",\"") + shared_hex +
+			 F("\")"));
+
+	if (tc.expected_shared_hex && !hexEq32(shared, tc.expected_shared_hex)) {
+		debug_outln_info(String(F("[CPS][ecdh] case ")) + String(case_id) + F(" shared mismatch, expected=") +
+				 String(tc.expected_shared_hex));
+		return false;
+	}
+	return true;
+}
+
+/**
+ * derive_shared_secret vectors (libcps cipher.rs L155).
+ * Logs (private, public, shared) tuples for libcps — see CPS_TEST_VECTORS.md.
+ */
+bool valueCryptoSelfTest() {
+	static const EcdhTestCase kCases[] = {
+	    {fillSeed01, fillSeed01, nullptr},
+	    {fillSeed01, fillSeed02, "4181d7302557342bdb6d061c4b1eebea828ecb625c3368b7111680793307220b"},
+	    {fillSeed02, fillSeed01, "4181d7302557342bdb6d061c4b1eebea828ecb625c3368b7111680793307220b"},
+	    {fillSeedAa, fillTestSeedMixed, nullptr},
+	    {fillTestSeedMixed, fillSeedAa, nullptr},
+	};
+
+	debug_outln_info(F("[CPS][ecdh] === derive_shared_secret: [(private, public, shared)] ==="));
+	for (size_t i = 0; i < sizeof(kCases) / sizeof(kCases[0]); i++) {
+		if (!runEcdhCase(kCases[i], static_cast<uint8_t>(i + 1))) {
+			return false;
+		}
+	}
+	debug_outln_info(F("[CPS][ecdh] ALL OK"));
+	return true;
+}
 
 /**
  * Главная функция CPS-шифрования одного значения (например "850").
  * Возвращает: e.<base64(json)>  или пустую строку при ошибке.
  */
-String valueCryptoEncryptCpsForOwner(const String &plain, const char *sender_sk_hex,
-				     const char *receiver_ss58) {
+String encryptCpsForOwner(const String &plain, const char *sender_sk_hex, const char *receiver_ss58) {
 	if (plain.isEmpty() || !sender_sk_hex) {
 		return String();
 	}
@@ -346,20 +452,20 @@ String valueCryptoEncryptCpsForOwner(const String &plain, const char *sender_sk_
 		return String();
 	}
 
-	// 7) собираем самоописывающий JSON 
-	const String from_b58 = encodeBase58(sender_pk, KEY_LEN);
+	// 7) JSON: from = SS58 адреса устройства (checksum!), не raw base58 pubkey
+	const String from_ss58 = encodeSenderSs58(sender_sk);
 	const String nonce_b64 = base64Encode(nonce, GCM_NONCE_LEN);
 	const String ct_b64 = base64Encode(cipher, cipher_len);
 	free(cipher);
 
-	if (from_b58.isEmpty() || nonce_b64.isEmpty() || ct_b64.isEmpty()) {
+	if (from_ss58.isEmpty() || nonce_b64.isEmpty() || ct_b64.isEmpty()) {
 		return String();
 	}
 
 	String json;
-	json.reserve(96 + from_b58.length() + nonce_b64.length() + ct_b64.length());
+	json.reserve(96 + from_ss58.length() + nonce_b64.length() + ct_b64.length());
 	json += F("{\"version\":1,\"algorithm\":\"aesgcm256\",\"from\":\"");
-	json += from_b58;
+	json += from_ss58;
 	json += F("\",\"nonce\":\"");
 	json += nonce_b64;
 	json += F("\",\"ciphertext\":\"");
@@ -379,7 +485,7 @@ String valueCryptoEncryptCpsForOwner(const String &plain, const char *sender_sk_
  * берёт cfg::private_key + cfg::rws_owner и шифрует значение.
  * Если ключей нет / ошибка — возвращает исходный plaintext (лучше открыто, чем битый пакет).
  */
-String valueCryptoEncryptValue(const String &plain) {
+String encryptValue(const String &plain) {
 	if (plain.isEmpty()) {
 		return plain;
 	}
@@ -388,10 +494,24 @@ String valueCryptoEncryptValue(const String &plain) {
 		debug_outln_error(F("[CPS] Device private key not set; cannot encrypt"));
 		return plain;
 	}
-	const String cps = valueCryptoEncryptCpsForOwner(plain, sk, cfg::rws_owner);
+	const String cps = encryptCpsForOwner(plain, sk, cfg::rws_owner);
 	if (!cps.isEmpty()) {
 		return cps;
 	}
 	debug_outln_error(F("[CPS] Encrypt failed; sending plain value"));
 	return plain;
+}
+
+}  // namespace cps
+
+String valueCryptoEncryptCpsForOwner(const String &plain, const char *sender_sk_hex, const char *receiver_ss58) {
+	return cps::encryptCpsForOwner(plain, sender_sk_hex, receiver_ss58);
+}
+
+String valueCryptoEncryptValue(const String &plain) {
+	return cps::encryptValue(plain);
+}
+
+bool valueCryptoSelfTest() {
+	return cps::valueCryptoSelfTest();
 }

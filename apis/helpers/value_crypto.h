@@ -12,7 +12,8 @@ constexpr const char *VALUE_CRYPTO_CPS_PREFIX = "e.";
 
 /**
  * Зашифровать одно значение для owner (схема Robonomics CPS / libcps):
- *
+ * ECDH → HKDF(salt=robonomics-network, info=aesgcm256) → AES-256-GCM → e.<base64(json)>.
+ * Поле "from" — SS58 адрес отправителя (prefix 32), не raw base58 pubkey.
  *
  * @param plain текст числа, например "850"
  * @param sender_sk_hex private key устройства (64 hex из cfg::private_key)
@@ -27,5 +28,11 @@ String valueCryptoEncryptCpsForOwner(const String &plain, const char *sender_sk_
  * При ошибке возвращает исходный plain.
  */
 String valueCryptoEncryptValue(const String &plain);
+
+/**
+ * Самопроверка derive_shared_secret: 5 кортежей (private, public, shared) в Serial.
+ * Сверка с libcps — CPS_TEST_VECTORS.md.
+ */
+bool valueCryptoSelfTest();
 
 #endif // __VALUE_CRYPTO_H__
