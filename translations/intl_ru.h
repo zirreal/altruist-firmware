@@ -208,6 +208,14 @@ const char INTL_GROUP_STATUS_DEVICES_SYNCED[] PROGMEM = "Устройства с
 const char INTL_GROUP_STATUS_JOINED[] PROGMEM = "Группа подключена";
 const char INTL_GROUP_STATUS_MANUAL[] PROGMEM = "Manual owner настроен";
 const char INTL_GROUP_SAVE_OK[] PROGMEM = "Настройки группы сохранены.";
+const char INTL_GROUP_OWNER_ACCESS_TITLE[] PROGMEM = "Доступ для карты (self-owner)";
+const char INTL_GROUP_OWNER_ACCESS_HINT[] PROGMEM =
+	"Это устройство — само себе owner. После Save один раз скачивается секретный JSON — импортируйте его на Login sensors.map. Храните файл приватно (локальный HTTP не шифруется).";
+const char INTL_GROUP_OWNER_ACCESS_SAVED_NOTICE[] PROGMEM =
+	"Скачивание JSON доступа owner началось. Сохраните файл и импортируйте его на sensors.map.";
+const char INTL_GROUP_OWNER_ACCESS_DOWNLOAD_AGAIN[] PROGMEM = "Скачать ещё раз…";
+const char INTL_GROUP_OWNER_ACCESS_REDOWNLOAD_CONFIRM[] PROGMEM =
+	"Скачать секретный JSON доступа owner ещё раз? У кого есть этот файл, тот может расшифровать ваши закрытые метрики.";
 const char INTL_GROUP_SAVE_FAILED[] PROGMEM = "Не удалось сохранить настройки группы.";
 const char INTL_GROUP_SAVE_CONFIG_FAILED[] PROGMEM = "Не удалось записать конфигурацию в память устройства.";
 const char INTL_GROUP_ERROR_INVALID_MASTER[] PROGMEM = "Укажите корректный Robonomics-адрес master.";
@@ -250,7 +258,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_DATA_SHARING_DISCLAIMER "По умолчанию все данные датчиков отправляются на публичную карту. Вы можете выбрать, какие данные передавать. Остальные данные будут отображаться на экране устройства и доступны локально."
 #define INTL_DATA_SHARING_ADDITIONAL "Доп. датчики (опционально)"
 #define INTL_PANEL_TITLE_DATA_ENCRYPT "Шифровать значения на карте"
-#define INTL_DATA_ENCRYPT_DISCLAIMER "По желанию. Выбранные показатели отправляются зашифрованными (AES-256). Импортируйте ключ устройства в sensors.map, чтобы видеть их. Стирание flash создаёт новый ключ."
+#define INTL_DATA_ENCRYPT_DISCLAIMER "По желанию. Выбранные показатели отправляются зашифрованными для владельца устройства (CPS / AES-256-GCM). Войдите как owner на sensors.map, чтобы видеть их."
 #define INTL_DATA_ENCRYPT_KEY_LABEL "Ключ шифрования устройства"
 #define INTL_DATA_ENCRYPT_KEY_SHOW "Показать ключ"
 #define INTL_DATA_ENCRYPT_KEY_HIDE "Скрыть ключ"

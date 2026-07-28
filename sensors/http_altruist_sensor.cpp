@@ -191,6 +191,9 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
     http_urban_prev_sta_up = true;
 
     debug_outln_verbose(F("fetch HTTP Altruist"));
+    // Client before HTTPClient: ~HTTPClient may call _client->stop() even after end()
+    // when TCP was already closed (Arduino leaves dangling _client).
+    WiFiClient client;
     HTTPClient http;
     JsonArray addresses = data["service_data"].createNestedArray("altruist_addresses");
     for (const auto& ip_address : sensor_addresses) {
@@ -242,18 +245,20 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
         http_urban_last_sta_ip = chosen_address;
     }
 
-    _fetch_one_sensor(data, http, chosen_address);
+    // WiFiClient `client` (declared above) must outlive `http`.
+    _fetch_one_sensor(data, http, client, chosen_address);
+    http.end();
     // sensor_name = HTTP_ALTRUIST_SENSOR_NAME;
 }
 
-void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http, const String &ip_address) {
+void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http, WiFiClient& client,
+					   const String &ip_address) {
     String target_ip = ip_address;
     httpUrbanTrimIp(target_ip);
     debug_outln_verbose(F("fetch HTTP Altruist "), target_ip);
 
     IPAddress urban_ip;
     const bool have_ip = urban_ip.fromString(target_ip);
-    WiFiClient client;
 
     // One TCP probe: separates "LAN block" from HTTPClient quirks. Phone OK + TCP fail => router path.
     {

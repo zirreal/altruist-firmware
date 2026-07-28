@@ -2,12 +2,12 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
-## [R_2026-07](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-07) — 2026-07-...
+## [R_2026-07](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-07) — 2026-07–2026-08
 
 ### Features
 
-- **Optional map-value encryption** — Per-metric AES-256-CBC encryption for data published to sensors.social (off by default). Selected metrics are sent as `e.<base64(IV+ciphertext)>` in the Robonomics CSV; import the device key on the map to decrypt locally. Config toggles under **Encrypt map values** (climate = temperature + humidity together); key is created in NVS on first use.
-- **Device encryption key UI** — Show/hide + copy for `altruist-aes1:<key>`; QR on Social → Data sharing encodes a short local URL (`/aes-key.json`) so a phone on the same Wi‑Fi can download the key file.
+- **Owner-value encryption (CPS / AES-256-GCM)** — Optional per-metric encryption for sensors.map (off by default). Selected values are encrypted for the device **owner** via ECDH (device private key + owner public key) → HKDF (`robonomics-network` / `aesgcm256`) → AES-256-GCM. Wire format: `e.<base64(json)>` with `from` (device ed25519 public key, base58), `nonce`, and `ciphertext`. Decrypt on sensors.map after owner login (mnemonic) or self-owner JSON import. Config toggles under **Encrypt map values** (climate = temperature + humidity together). When `rws_owner` is unset, the device encrypts to itself (self-owner).
+- **Self-owner map access JSON** — Authenticated download at `/owner-access.json` (`format: altruist-owner1`, ed25519 `seed` + `address`) for Standalone/Master devices. **Device group** page auto-downloads the file once after Save; **Download again…** re-fetches with a confirm dialog. Import on sensors.map Login to decrypt without a mnemonic.
 - **Guest setup device info** — After Wi‑Fi connects, the success screen shows **IP** and **Robonomics address** with copy buttons, plus **Save device info** / **Copy as text** for a JSON backup (`ip`, `sensor`, encryption `export`). Share sheet on phones (Save to Files / Downloads); clipboard fallback when the captive-portal browser cannot download. Does not navigate away from the setup flow.
 - **Guest Finish setup** — On the post-setup success screen (Urban Wi‑Fi OK, Insight standalone, or after Urban pairing), a **Finish setup** button restarts immediately instead of waiting out the full pause; auto-restart still runs after ~45 s if the button is not used.
 - **Unique LAN / mDNS hostname** — Default device name is `altruist-insight-<id>` / `altruist-urban-<id>` (last 4 hex digits of the MAC) for DHCP/router listing and `http://altruist-…-<id>.local/`. The web UI sidebar, browser tab, and footer keep the stable **`altruist.local`** label. Legacy plain names migrate on config load; user-chosen hostnames are kept.
@@ -22,6 +22,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Improvements
 
+- **On-chain datalog encryption (bulk blob)** — Map/connectivity keep **per-field** `e....` values. On-chain datalog uses a **single** CPS blob for the whole CSV when any encrypt flag is enabled (`formatRobonomicsDatalogString()`), so encrypted Insight/Urban payloads fit the parachain **512-byte** record limit. Skips send (no plaintext fallback) if bulk encrypt fails or the record would exceed the limit.
 - **Guest success pause** — After Wi‑Fi / pairing success, the device stays available **~45 s** (was 15 s on Urban) with a countdown so there is time to copy IP / save device info; the pause is non-blocking so **Finish setup** and other portal requests still work.
 - **Guest connecting screen** — Connecting / failed states use the same centered guest card layout as the rest of setup (no full-width sparse strip), with short status hints (EN/RU).
 - **LED schedule labels (Insight)** — Off/on hours labeled as local-hour turn-off / turn-back-on, with a hint about dimming and same-hour = stay on overnight.
@@ -38,6 +39,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Bug Fixes
 
+- **Map POST with encrypted metrics** — Connectivity verifies the raw signed message. Encrypted `e....` values push the payload past the Substrate 256-byte Blake2b signing path in `ESPRobonomicsClient`; Map/custom HTTP now sign raw Ed25519 bytes (`signMessageRaw`) so encrypted payloads no longer fail verification (HTTP 500).
 - **STA hostname on routers** — DHCP/router device name is set from the local hostname (not the setup AP `fs_ssid`) and applied even when STA is already up (captive portal / reconnect), so devices show as `altruist-…` instead of the ESP-IDF default `esp32c6-…`.
 - **LED brightness range** — Brightness input is limited to **0–100%**; negative and out-of-range form values are rejected / clamped on save and config load. Hour fields use **0–23**.
 - **Leaflet map init** — GPS map script only runs when `#map` is present (no more `Map container not found` on hub pages without a map).

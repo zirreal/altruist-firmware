@@ -26,9 +26,11 @@ void RobonomicsDatalogAPI::_send(JsonDocument &data) {
         rws_owner = String(robonomics->getSs58Address());
     }
     String datalog_data;
-    formatRobonomicsString(data, datalog_data);
+    formatRobonomicsDatalogString(data, datalog_data);
     if (datalog_data.length() == 0) {
-        debug_outln_error(F("[Datalog] WARNING: data string is empty (all sharing disabled or no sensor data?)"));
+        debug_outln_error(F("[Datalog] WARNING: data string is empty (no sensor data, encrypt failed, or record too large)"));
+        is_ok = false;
+        return;
     }
     debug_outln_verbose(F("[Datalog] Sending: "), datalog_data);
     debug_outln_verbose(F("[Datalog] RWS owner: "), rws_owner);

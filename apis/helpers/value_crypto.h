@@ -3,28 +3,29 @@
 
 #include <Arduino.h>
 
-/** Wire prefix for QR / paste payloads: altruist-aes1:<base64key> */
-constexpr const char *VALUE_CRYPTO_QR_PREFIX = "altruist-aes1:";
-
-/** Ensure AES-256 key exists in NVS (create on first use). */
-bool valueCryptoEnsureKey();
-
-/** Base64 of the 32-byte AES key for UI export. Empty on failure. */
-String valueCryptoKeyBase64();
-
-/** Full export payload for clipboard (prefix + base64 key). */
-String valueCryptoExportPayload();
+/**
+ * Префикс зашифрованного значения в CSV/datalog.
+ * Connectivity видит "e...." и не пытается сделать float() — просто передаёт строку.
+ * Внутри после base64 лежит CPS JSON.
+ */
+constexpr const char *VALUE_CRYPTO_CPS_PREFIX = "e.";
 
 /**
- * Append an SVG QR code for `payload` (typically a short http:// URL) into `out`.
- * Returns false if QR generation failed.
+ * Зашифровать одно значение для owner (схема Robonomics CPS / libcps):
+ *
+ *
+ * @param plain текст числа, например "850"
+ * @param sender_sk_hex private key устройства (64 hex из cfg::private_key)
+ * @param receiver_ss58 адрес owner (cfg::rws_owner); пусто/Not Set = шифр себе
+ * @return e.<...> или пустая строка при ошибке
  */
-bool valueCryptoAppendKeyQrSvg(String &out, const char *payload, uint8_t module_px = 6);
+String valueCryptoEncryptCpsForOwner(const String &plain, const char *sender_sk_hex,
+				     const char *receiver_ss58);
 
 /**
- * Encrypt a numeric string value with AES-256-CBC + PKCS7.
- * Returns "e." + base64(IV[16] + ciphertext), or the original plain on failure.
+ * Шифрование из конфига устройства (private_key + rws_owner).
+ * При ошибке возвращает исходный plain.
  */
-String valueCryptoEncryptEPrefix(const String &plain);
+String valueCryptoEncryptValue(const String &plain);
 
 #endif // __VALUE_CRYPTO_H__

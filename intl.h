@@ -363,6 +363,24 @@
 #ifndef INTL_GROUP_SAVE_OK
 #define INTL_GROUP_SAVE_OK "Group settings saved."
 #endif
+#ifndef INTL_GROUP_OWNER_ACCESS_TITLE
+#define INTL_GROUP_OWNER_ACCESS_TITLE "Map access (self-owner)"
+#endif
+#ifndef INTL_GROUP_OWNER_ACCESS_HINT
+#define INTL_GROUP_OWNER_ACCESS_HINT "This device is its own owner. After Save we download a secret JSON once — import it on sensors.map Login to decrypt encrypted metrics. Keep the file private (local HTTP is not encrypted)."
+#endif
+#ifndef INTL_GROUP_OWNER_ACCESS_SAVED_NOTICE
+#define INTL_GROUP_OWNER_ACCESS_SAVED_NOTICE "Owner access JSON download started. Store it safely, then import it on sensors.map."
+#endif
+#ifndef INTL_GROUP_OWNER_ACCESS_DOWNLOAD_AGAIN
+#define INTL_GROUP_OWNER_ACCESS_DOWNLOAD_AGAIN "Download again…"
+#endif
+#ifndef INTL_GROUP_OWNER_ACCESS_REDOWNLOAD_CONFIRM
+#define INTL_GROUP_OWNER_ACCESS_REDOWNLOAD_CONFIRM "Download the secret owner access JSON again? Anyone with this file can decrypt your encrypted metrics."
+#endif
+#ifndef INTL_GROUP_OWNER_ACCESS_DOWNLOAD
+#define INTL_GROUP_OWNER_ACCESS_DOWNLOAD "Download owner access JSON"
+#endif
 #ifndef INTL_GROUP_SAVE_FAILED
 #define INTL_GROUP_SAVE_FAILED "Could not save group settings."
 #endif

@@ -65,9 +65,8 @@ private:
     void _webserver_metrics_endpoint();
     void _webserver_favicon();
     void _webserver_favicon_dark();
-    void _webserver_aes_key_qr();
-    void _webserver_aes_key_json();
     void _webserver_device_info_json();
+    void _webserver_owner_access_json();
     void _webserver_static();
     void _webserver_not_found();
     void _webserver_ota();

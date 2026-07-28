@@ -68,6 +68,7 @@ int RobonomicsHTTPAPI::chooseRobonomicsServerFromPool(const String& pool) {
 	for (int i = 0; i < host_count; i++) {
 		if (WiFi.status() != WL_CONNECTED) break;
 		const String& s_Host = hosts[i];
+		_http.setReuse(false);
 		if (_http.begin(*_client, s_Host, PORT_ROBONOMICS, s_url)) {
 			const char * headerKeys[] = {"sensors-count", "on-server"} ;
 			const size_t numberOfHeaders = 2;
@@ -256,6 +257,9 @@ int RobonomicsHTTPAPI::chooseRobonomicsServer(bool onlyGlobal) {
 		String s_Host = FPSTR(HOST_ROBONOMICS[i][0]);
 		debug_outln_verbose(String(F("[Map#")) + String(map_send_seq_active) + F("] trying GET ") + s_Host + ":" + String(PORT_ROBONOMICS));
 
+		// Must not reuse TCP across different hosts — end() can keep the socket open
+		// ("tcp keep open for reuse") and the next begin() then talks to the wrong server.
+		_http.setReuse(false);
 		if (_http.begin(*_client, s_Host, PORT_ROBONOMICS, s_url)) {
 			const char * headerKeys[] = {"sensors-count", "on-server"} ;
 			const size_t numberOfHeaders = 2;

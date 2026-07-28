@@ -208,6 +208,14 @@ const char INTL_GROUP_STATUS_DEVICES_SYNCED[] PROGMEM = "Devices synced on-chain
 const char INTL_GROUP_STATUS_JOINED[] PROGMEM = "Joined group";
 const char INTL_GROUP_STATUS_MANUAL[] PROGMEM = "Manual owner configured";
 const char INTL_GROUP_SAVE_OK[] PROGMEM = "Group settings saved.";
+const char INTL_GROUP_OWNER_ACCESS_TITLE[] PROGMEM = "Map access (self-owner)";
+const char INTL_GROUP_OWNER_ACCESS_HINT[] PROGMEM =
+	"This device is its own owner. After Save we download a secret JSON once — import it on sensors.map Login to decrypt encrypted metrics. Keep the file private (local HTTP is not encrypted).";
+const char INTL_GROUP_OWNER_ACCESS_SAVED_NOTICE[] PROGMEM =
+	"Owner access JSON download started. Store it safely, then import it on sensors.map.";
+const char INTL_GROUP_OWNER_ACCESS_DOWNLOAD_AGAIN[] PROGMEM = "Download again…";
+const char INTL_GROUP_OWNER_ACCESS_REDOWNLOAD_CONFIRM[] PROGMEM =
+	"Download the secret owner access JSON again? Anyone with this file can decrypt your encrypted metrics.";
 const char INTL_GROUP_SAVE_FAILED[] PROGMEM = "Could not save group settings.";
 const char INTL_GROUP_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configuration to storage.";
 const char INTL_GROUP_ERROR_INVALID_MASTER[] PROGMEM = "Enter a valid master Robonomics address.";
@@ -250,7 +258,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_DATA_SHARING_DISCLAIMER "By default, all sensor data is shared to the public sensors map. You can choose which data types to share below. Unshared data will still be displayed on your device screen and available locally."
 #define INTL_DATA_SHARING_ADDITIONAL "Additional sensors (optional)"
 #define INTL_PANEL_TITLE_DATA_ENCRYPT "Encrypt map values"
-#define INTL_DATA_ENCRYPT_DISCLAIMER "Optional. Selected metrics are sent encrypted (AES-256). Import this device key in sensors.map to view them. Erasing flash creates a new key."
+#define INTL_DATA_ENCRYPT_DISCLAIMER "Optional. Selected metrics are sent encrypted for the device owner (CPS / AES-256-GCM). Log in as owner on sensors.map to view them."
 #define INTL_DATA_ENCRYPT_KEY_LABEL "Device encryption key"
 #define INTL_DATA_ENCRYPT_KEY_SHOW "Show key"
 #define INTL_DATA_ENCRYPT_KEY_HIDE "Hide key"

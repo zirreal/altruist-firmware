@@ -17,7 +17,6 @@
 #include "web-header-logo-select.h"
 #include "favicon.h"
 #include "nav-icons.h"
-#include "../apis/helpers/value_crypto.h"
 
 extern Robonomics robonomics;
 
@@ -127,9 +126,8 @@ void SensorWebServer::setup() {
 	server.on(F("/data.json"), std::bind(&SensorWebServer::_webserver_data_json, this)); // x
 	server.on(F("/favicon.ico"), std::bind(&SensorWebServer::_webserver_favicon, this)); // x
 	server.on(F("/favicon-dark.ico"), std::bind(&SensorWebServer::_webserver_favicon_dark, this)); // x
-	server.on(F("/aes-key-qr.svg"), std::bind(&SensorWebServer::_webserver_aes_key_qr, this));
-	server.on(F("/aes-key.json"), std::bind(&SensorWebServer::_webserver_aes_key_json, this));
 	server.on(F("/device-info.json"), std::bind(&SensorWebServer::_webserver_device_info_json, this));
+	server.on(F("/owner-access.json"), std::bind(&SensorWebServer::_webserver_owner_access_json, this));
 	server.on(F(STATIC_PREFIX), std::bind(&SensorWebServer::_webserver_static, this)); // x
 	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
 	server.on(F("/finish_setup"), std::bind(&SensorWebServer::_webserver_finish_setup, this));
@@ -259,51 +257,6 @@ void SensorWebServer::_webserver_favicon_dark() {
 	server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_FAVICON_DARK_PNG, WEB_FAVICON_DARK_PNG_SIZE);
 }
 
-void SensorWebServer::_webserver_aes_key_qr() {
-	if (!webserver_request_auth()) {
-		return;
-	}
-	const String qr_url = buildAesKeyDownloadUrl();
-	String svg;
-	svg.reserve(8192);
-	if (!valueCryptoAppendKeyQrSvg(svg, qr_url.c_str(), 8)) {
-		server.send(503, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("QR unavailable"));
-		return;
-	}
-	server.sendHeader(F("Cache-Control"), F("no-store"));
-	server.send(200, FPSTR(TXT_CONTENT_TYPE_IMAGE_SVG), svg);
-}
-
-void SensorWebServer::_webserver_aes_key_json() {
-	if (!webserver_request_auth()) {
-		return;
-	}
-	if (!valueCryptoEnsureKey()) {
-		server.send(503, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("Key unavailable"));
-		return;
-	}
-	const String key_b64 = valueCryptoKeyBase64();
-	const String export_payload = valueCryptoExportPayload();
-	if (key_b64.isEmpty() || export_payload.isEmpty()) {
-		server.send(503, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("Key unavailable"));
-		return;
-	}
-
-	DynamicJsonDocument doc(768);
-	doc["format"] = "altruist-aes1";
-	doc["key"] = key_b64;
-	doc["export"] = export_payload;
-	if (robonomics_address.length() > 0 && strcasecmp(robonomics_address.c_str(), "Not Set") != 0) {
-		doc["sensor"] = robonomics_address;
-	}
-
-	String body;
-	serializeJson(doc, body);
-	server.sendHeader(F("Content-Disposition"), F("attachment; filename=\"altruist-aes-key.json\""));
-	server.sendHeader(F("Cache-Control"), F("no-store"));
-	server.send(200, FPSTR(TXT_CONTENT_TYPE_JSON), body);
-}
-
 void SensorWebServer::_webserver_device_info_json() {
 	if (!webserver_request_auth()) {
 		return;
@@ -318,22 +271,42 @@ void SensorWebServer::_webserver_device_info_json() {
 	if (robonomics_address.length() > 0 && strcasecmp(robonomics_address.c_str(), "Not Set") != 0) {
 		doc["sensor"] = robonomics_address;
 	}
-	if (valueCryptoEnsureKey()) {
-		const String key_b64 = valueCryptoKeyBase64();
-		const String export_payload = valueCryptoExportPayload();
-		if (!key_b64.isEmpty()) {
-			doc["key"] = key_b64;
-		}
-		if (!export_payload.isEmpty()) {
-			doc["export"] = export_payload;
-		}
-	}
 
 	String body;
 	serializeJson(doc, body);
 	server.sendHeader(F("Content-Disposition"), F("attachment; filename=\"altruist-device-info.json\""));
 	server.sendHeader(F("Cache-Control"), F("no-store"));
 	// octet-stream so browsers download instead of opening JSON in the tab
+	server.send(200, F("application/octet-stream"), body);
+}
+
+void SensorWebServer::_webserver_owner_access_json() {
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	const char *sk = cfg::private_key;
+	if (!sk || strcasecmp(sk, "Not Set") == 0 || strlen(sk) < 64) {
+		server.send(503, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("Device private key unavailable"));
+		return;
+	}
+	if (robonomics_address.length() == 0 || strcasecmp(robonomics_address.c_str(), "Not Set") == 0) {
+		server.send(503, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("Device address unavailable"));
+		return;
+	}
+
+	DynamicJsonDocument doc(768);
+	doc["format"] = "altruist-owner1";
+	doc["type"] = "ed25519";
+	doc["address"] = robonomics_address;
+	doc["seed"] = sk;
+	doc["sensor"] = robonomics_address;
+	doc["hint"] = "Import this file on sensors.map Login to decrypt self-owner encrypted metrics";
+
+	String body;
+	serializeJson(doc, body);
+	server.sendHeader(F("Content-Disposition"), F("attachment; filename=\"altruist-owner-access.json\""));
+	server.sendHeader(F("Cache-Control"), F("no-store"));
 	server.send(200, F("application/octet-stream"), body);
 }
 

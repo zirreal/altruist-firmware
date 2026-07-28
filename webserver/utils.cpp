@@ -3,7 +3,7 @@
 #include "../utils.h"
 #include "../intl.h"
 #include "../defines.h"
-#include "../apis/helpers/value_crypto.h"
+#include "../config_manager/config_helpers.h"
 #include <ArduinoJson.h>
 #include <string.h>
 
@@ -448,13 +448,6 @@ String buildDeviceAccessHost() {
 	return host;
 }
 
-String buildAesKeyDownloadUrl() {
-	String url = F("http://");
-	url += buildDeviceAccessHost();
-	url += F("/aes-key.json");
-	return url;
-}
-
 String buildGuestDeviceInfoJson(const String& ip, const String& sensor_ss58) {
 	DynamicJsonDocument doc(1024);
 	doc["format"] = "altruist-device1";
@@ -464,16 +457,6 @@ String buildGuestDeviceInfoJson(const String& ip, const String& sensor_ss58) {
 	}
 	if (sensor_ss58.length() > 0 && strcasecmp(sensor_ss58.c_str(), "Not Set") != 0) {
 		doc["sensor"] = sensor_ss58;
-	}
-	if (valueCryptoEnsureKey()) {
-		const String key_b64 = valueCryptoKeyBase64();
-		const String export_payload = valueCryptoExportPayload();
-		if (!key_b64.isEmpty()) {
-			doc["key"] = key_b64;
-		}
-		if (!export_payload.isEmpty()) {
-			doc["export"] = export_payload;
-		}
 	}
 	String body;
 	serializeJson(doc, body);

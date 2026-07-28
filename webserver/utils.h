@@ -46,8 +46,6 @@ void add_form_input(String& page_content, const ConfigShapeId cfgid, const __Fla
 String buildLocalAccessLabel();
 /** Real device hostname for mDNS/URLs (may include model + short id). */
 String buildDeviceAccessHost();
-/** Short http:// URL encoded in the AES-key QR (downloads JSON on scan). */
-String buildAesKeyDownloadUrl();
 /**
  * Guest setup success: show IP + sensor address inline, plus a download button
  * that saves JSON without navigating away from the page.
