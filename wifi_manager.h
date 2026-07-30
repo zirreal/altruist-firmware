@@ -3,6 +3,15 @@
 
 #include "webserver/webserver.h"
 
+/** Scan Wi‑Fi networks into caller buffer (stack-safe; deletes scan results). */
+uint8_t wifiScanInto(struct_wifiInfo* out, uint8_t max_out);
+
+/** Captive-portal cache (static RAM — safe for /wifi handler stack). */
+uint8_t wifiPortalRescan(void);
+/** Refresh cache from the portal main loop (follow-up scans after AP is up). */
+void wifiPortalMaybeRescan(void);
+struct_wifiInfo* wifiPortalScanCache(uint8_t* out_count);
+
 bool connectWifi(SensorWebServer &webserver, bool station_join_already_started = false);
 void wifiConfig(SensorWebServer &webserver);
 

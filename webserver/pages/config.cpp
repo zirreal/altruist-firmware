@@ -3,6 +3,7 @@
 #include "../../utils.h"
 #include "../html-content.h"
 #include "../utils.h"
+#include <strings.h>
 
 #ifdef ALTRUIST_INSIGHT
 /** Parse "H:MM" or "HH:MM" (24h) into minutes since midnight [0..1439]. */
@@ -476,6 +477,20 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 	add_form_checkbox_grid(Config_encrypt_epa_aqi, FPSTR(INTL_ENCRYPT_EPA_AQI), cfg::share_epa_aqi);
 #endif
 	page_content += F("</div>");
+
+	{
+		const bool has_owner_key =
+		    cfg::private_key[0] != '\0' && strcasecmp(cfg::private_key, "Not Set") != 0;
+		if (has_owner_key) {
+			page_content += F("<div class='encrypt-backup-hint'>"
+				"<p class='form-hint'>");
+			page_content += FPSTR(INTL_DATA_ENCRYPT_BACKUP_HINT);
+			page_content += F("</p>"
+				"<a class='encrypt-key-btn encrypt-key-btn--ghost' href='/advanced#backup'>");
+			page_content += FPSTR(INTL_DATA_ENCRYPT_BACKUP_LINK);
+			page_content += F("</a></div>");
+		}
+	}
 
 	page_content += F("</div></section>");
 

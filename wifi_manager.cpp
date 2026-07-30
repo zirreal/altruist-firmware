@@ -10,6 +10,8 @@
 #include <ESPmDNS.h>
 #endif
 #include <DNSServer.h>
+#include <algorithm>
+#include <new>
 #include "defines.h"
 #include "utils.h"
 #include "config_manager/config_helpers.h"
@@ -29,6 +31,125 @@ esp_netif_t *get_esp_interface_netif(esp_interface_t interface);
 bool wificonfig_loop;
 struct struct_wifiInfo *wifiInfo = nullptr;
 uint8_t count_wifiInfo;
+
+static struct_wifiInfo s_portal_wifi_cache[WIFI_SCAN_LIST_MAX];
+static uint8_t s_portal_wifi_count = 0;
+static unsigned long s_last_portal_wifi_scan_ms = 0;
+static unsigned long s_portal_loop_started_ms = 0;
+static uint8_t s_portal_followup_scans = 0;
+
+static void wifiReadNetworkInfo(uint8_t scan_index, struct_wifiInfo& out) {
+	String SSID;
+	uint8_t* BSSID = nullptr;
+	memset(&out, 0, sizeof(out));
+#if defined(ESP8266)
+	WiFi.getNetworkInfo(scan_index, SSID, out.encryptionType, out.RSSI, BSSID, out.channel, out.isHidden);
+#else
+	WiFi.getNetworkInfo(scan_index, SSID, out.encryptionType, out.RSSI, BSSID, (int32_t&)out.channel);
+#endif
+	SSID.toCharArray(out.ssid, sizeof(out.ssid));
+}
+
+static void wifiInsertTopNetwork(struct_wifiInfo* top, uint8_t& top_count, uint8_t top_max, const struct_wifiInfo& candidate) {
+	if (top_count < top_max) {
+		top[top_count++] = candidate;
+		return;
+	}
+	uint8_t weakest = 0;
+	for (uint8_t i = 1; i < top_count; ++i) {
+		if (top[i].RSSI < top[weakest].RSSI) {
+			weakest = i;
+		}
+	}
+	if (candidate.RSSI > top[weakest].RSSI) {
+		top[weakest] = candidate;
+	}
+}
+
+static void wifiPortalSortAndDedup(void) {
+	if (s_portal_wifi_count <= 1) {
+		return;
+	}
+	for (uint8_t i = 0; i + 1 < s_portal_wifi_count; ++i) {
+		for (uint8_t j = i + 1; j < s_portal_wifi_count; ++j) {
+			if (s_portal_wifi_cache[j].RSSI > s_portal_wifi_cache[i].RSSI) {
+				std::swap(s_portal_wifi_cache[i], s_portal_wifi_cache[j]);
+			}
+		}
+	}
+	uint8_t unique = 0;
+	for (uint8_t i = 0; i < s_portal_wifi_count; ++i) {
+#if defined(ESP8266)
+		if (s_portal_wifi_cache[i].isHidden) {
+			continue;
+		}
+#endif
+		bool duplicate = false;
+		for (uint8_t j = 0; j < unique; ++j) {
+			if (strncmp(s_portal_wifi_cache[i].ssid, s_portal_wifi_cache[j].ssid,
+			            sizeof(s_portal_wifi_cache[0].ssid)) == 0) {
+				duplicate = true;
+				break;
+			}
+		}
+		if (duplicate) {
+			continue;
+		}
+		if (unique != i) {
+			s_portal_wifi_cache[unique] = s_portal_wifi_cache[i];
+		}
+		++unique;
+	}
+	s_portal_wifi_count = unique;
+}
+
+uint8_t wifiScanInto(struct_wifiInfo* out, uint8_t max_out) {
+	if (out == nullptr || max_out == 0) {
+		return 0;
+	}
+	const int8_t scanReturnCode = WiFi.scanNetworks(false /* sync */, true /* hidden */);
+	if (scanReturnCode < 0) {
+		debug_outln_error(F("WiFi scan failed"));
+		return 0;
+	}
+	uint8_t count = 0;
+	for (int8_t i = 0; i < scanReturnCode; ++i) {
+		struct_wifiInfo entry;
+		wifiReadNetworkInfo(static_cast<uint8_t>(i), entry);
+		wifiInsertTopNetwork(out, count, max_out, entry);
+	}
+	WiFi.scanDelete();
+	return count;
+}
+
+uint8_t wifiPortalRescan(void) {
+	s_portal_wifi_count = wifiScanInto(s_portal_wifi_cache, WIFI_SCAN_LIST_MAX);
+	wifiPortalSortAndDedup();
+	s_last_portal_wifi_scan_ms = millis();
+	return s_portal_wifi_count;
+}
+
+void wifiPortalMaybeRescan(void) {
+	if (s_portal_loop_started_ms == 0) {
+		return;
+	}
+	if (s_portal_followup_scans == 0 && msSince(s_portal_loop_started_ms) >= 2500UL) {
+		wifiPortalRescan();
+		s_portal_followup_scans = 1;
+		return;
+	}
+	if (s_portal_followup_scans == 1 && msSince(s_portal_loop_started_ms) >= 6000UL) {
+		wifiPortalRescan();
+		s_portal_followup_scans = 2;
+	}
+}
+
+struct_wifiInfo* wifiPortalScanCache(uint8_t* out_count) {
+	if (out_count != nullptr) {
+		*out_count = s_portal_wifi_count;
+	}
+	return s_portal_wifi_cache;
+}
 
 static volatile bool s_portal_exit_requested = false;
 
@@ -398,36 +519,6 @@ void wifiConfig(SensorWebServer &webserver) {
 	webserver.setWifiConfigLoop(true);
 
 	WiFi.disconnect(true);
-	debug_outln_info(F("scan for wifi networks..."));
-	int8_t scanReturnCode = WiFi.scanNetworks(false /* scan async */, true /* show hidden networks */);
-	if (scanReturnCode < 0) {
-		debug_outln_error(F("WiFi scan failed. Treating as empty. "));
-		count_wifiInfo = 0;
-	}
-	else {
-		count_wifiInfo = (uint8_t) scanReturnCode;
-	}
-
-	delete [] wifiInfo;
-	wifiInfo = new struct_wifiInfo[std::max(count_wifiInfo, (uint8_t) 1)];
-
-	for (unsigned i = 0; i < count_wifiInfo; i++) {
-		String SSID;
-		uint8_t* BSSID;
-
-		memset(&wifiInfo[i], 0, sizeof(struct_wifiInfo));
-#if defined(ESP8266)
-		WiFi.getNetworkInfo(i, SSID, wifiInfo[i].encryptionType,
-			wifiInfo[i].RSSI, BSSID, wifiInfo[i].channel,
-			wifiInfo[i].isHidden);
-#else
-		WiFi.getNetworkInfo(i, SSID, wifiInfo[i].encryptionType,
-			wifiInfo[i].RSSI, BSSID, (int32_t&)wifiInfo[i].channel);
-#endif
-		SSID.toCharArray(wifiInfo[i].ssid, sizeof(wifiInfo[0].ssid));
-	}
-
-    webserver.setWifiInfo(wifiInfo, count_wifiInfo);
 
 	// Apply hostname before AP_STA so the STA netif is created with altruist-* (not esp32c6-*).
 	wifiApplyStaHostname();
@@ -435,7 +526,19 @@ void wifiConfig(SensorWebServer &webserver) {
 	wifiApplyStaHostname();
 	const IPAddress apIP(192, 168, 4, 1);
 	WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+
+	debug_outln_info(F("scan for wifi networks..."));
+	wifiPortalRescan();
+	count_wifiInfo = s_portal_wifi_count;
+	wifiInfo = wifiPortalScanCache(nullptr);
+
 	WiFi.softAP(cfg::fs_ssid, cfg::fs_pwd, selectChannelForAp());
+	delay(150);
+	yield();
+	wifiPortalRescan();
+	count_wifiInfo = s_portal_wifi_count;
+	wifiInfo = wifiPortalScanCache(nullptr);
+	webserver.setWifiInfo(wifiInfo, count_wifiInfo);
 	// WiFi.softAP(cfg::fs_ssid);
 	// In case we create a unique password at first start
 	debug_outln_info(F("AP Password is: "), cfg::fs_pwd);
@@ -448,6 +551,9 @@ void wifiConfig(SensorWebServer &webserver) {
 
 	webserver.setup();
 
+	s_portal_loop_started_ms = millis();
+	s_portal_followup_scans = 0;
+
 #ifdef ALTRUIST_INSIGHT
 	// Full e-ink refresh is slow; defer until AP + DNS + webserver are ready so phones can associate sooner (closer to Urban).
 	displayManager.setScreen(ScreenPage::SETUP);
@@ -459,6 +565,7 @@ void wifiConfig(SensorWebServer &webserver) {
 	unsigned long start_setup_time = millis();
 	while (true) {
 		dnsServer.processNextRequest();
+		wifiPortalMaybeRescan();
 		webserver.handleClient();
 		improv_serial_loop();
 		guestSuccessProcessPendingRestart();

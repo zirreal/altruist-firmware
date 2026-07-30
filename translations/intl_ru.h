@@ -143,7 +143,7 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без св�
 #define INTL_GUEST_CONNECTING_HINT "Обычно это занимает несколько секунд. Не закрывайте страницу."
 #define INTL_GUEST_CONNECT_FAILED "Не удалось подключиться"
 #define INTL_GUEST_CONNECT_FAILED_HINT "Проверьте имя сети и пароль, затем попробуйте снова."
-#define INTL_GUEST_CONNECT_FAILED_INSIGHT "Перезагрузка в режим настройки Wi‑Fi… Можно закрыть страницу и попробовать снова."
+#define INTL_GUEST_CONNECT_FAILED_INSIGHT "Проверьте имя сети и пароль и попробуйте снова на странице настройки."
 #define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi подключён"
 #define INTL_GUEST_SETUP_STEP_1_LABEL "Шаг 1 из 2"
 #define INTL_GUEST_SETUP_STEP_2_LABEL "Шаг 2 из 2"
@@ -208,6 +208,31 @@ const char INTL_GROUP_STATUS_DEVICES_SYNCED[] PROGMEM = "Устройства с
 const char INTL_GROUP_STATUS_JOINED[] PROGMEM = "Группа подключена";
 const char INTL_GROUP_STATUS_MANUAL[] PROGMEM = "Manual owner настроен";
 const char INTL_GROUP_SAVE_OK[] PROGMEM = "Настройки группы сохранены.";
+const char INTL_GROUP_BACKUP_TITLE[] PROGMEM = "Резервная копия устройства";
+const char INTL_GROUP_BACKUP_HINT[] PROGMEM =
+	"Это устройство — само себе owner. После Save один раз скачивается backup — импортируйте его на Login sensors.map или восстановите на другом устройстве. Храните файл приватно (локальный HTTP не шифруется).";
+const char INTL_GROUP_BACKUP_SAVED_NOTICE[] PROGMEM =
+	"Скачивание backup началось. Сохраните файл и импортируйте его на sensors.map или восстановите в разделе Обслуживание.";
+const char INTL_GROUP_BACKUP_DOWNLOAD_AGAIN[] PROGMEM = "Скачать backup ещё раз…";
+const char INTL_GROUP_BACKUP_REDOWNLOAD_CONFIRM[] PROGMEM =
+	"Скачать backup устройства ещё раз? У кого есть этот файл, тот может расшифровать ваши метрики и восстановить настройки.";
+const char INTL_DEVICE_BACKUP_TITLE[] PROGMEM = "Backup и восстановление";
+const char INTL_DEVICE_BACKUP_HINT[] PROGMEM =
+	"Скачайте полный backup (настройки + ключ owner). Его можно восстановить здесь или импортировать на Login sensors.map.";
+const char INTL_DEVICE_BACKUP_DOWNLOAD[] PROGMEM = "Скачать backup";
+const char INTL_DEVICE_BACKUP_RESTORE[] PROGMEM = "Восстановить из backup";
+const char INTL_DEVICE_BACKUP_FILE_LABEL[] PROGMEM = "Файл backup";
+const char INTL_DEVICE_BACKUP_FILE_CHOOSE[] PROGMEM = "Выбрать файл…";
+const char INTL_DEVICE_BACKUP_FILE_EMPTY[] PROGMEM = "Файл не выбран";
+const char INTL_DEVICE_BACKUP_FILE_REQUIRED[] PROGMEM = "Сначала выберите JSON-файл backup.";
+const char INTL_DEVICE_BACKUP_RESTORE_HINT[] PROGMEM =
+	"Восстановление заменит все настройки на этом устройстве и перезапустит его.";
+const char INTL_DEVICE_BACKUP_RESTORE_CONFIRM[] PROGMEM =
+	"Восстановить настройки из этого backup? Текущая конфигурация будет заменена.";
+const char INTL_DEVICE_BACKUP_RESTORE_OK[] PROGMEM = "Backup восстановлен. Перезапуск…";
+const char INTL_DEVICE_BACKUP_RESTORE_FAILED[] PROGMEM = "Не удалось восстановить backup. Проверьте формат файла.";
+const char INTL_GUEST_RESTORE_HINT[] PROGMEM =
+	"Есть backup до сброса? Восстановите его здесь — вернутся Wi‑Fi, ключ owner и настройки, затем устройство перезапустится.";
 const char INTL_GROUP_OWNER_ACCESS_TITLE[] PROGMEM = "Доступ для карты (self-owner)";
 const char INTL_GROUP_OWNER_ACCESS_HINT[] PROGMEM =
 	"Это устройство — само себе owner. После Save один раз скачивается секретный JSON — импортируйте его на Login sensors.map. Храните файл приватно (локальный HTTP не шифруется).";
@@ -259,6 +284,9 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_DATA_SHARING_ADDITIONAL "Доп. датчики (опционально)"
 #define INTL_PANEL_TITLE_DATA_ENCRYPT "Шифровать значения на карте"
 #define INTL_DATA_ENCRYPT_DISCLAIMER "По желанию. Выбранные показатели отправляются зашифрованными для владельца устройства (CPS / AES-256-GCM). Войдите как owner на sensors.map, чтобы видеть их."
+const char INTL_DATA_ENCRYPT_BACKUP_HINT[] PROGMEM =
+	"Нет seed phrase Robonomics для входа на sensors.map? Импортируйте backup устройства:";
+const char INTL_DATA_ENCRYPT_BACKUP_LINK[] PROGMEM = "Открыть Backup и восстановление";
 #define INTL_DATA_ENCRYPT_KEY_LABEL "Ключ шифрования устройства"
 #define INTL_DATA_ENCRYPT_KEY_SHOW "Показать ключ"
 #define INTL_DATA_ENCRYPT_KEY_HIDE "Скрыть ключ"

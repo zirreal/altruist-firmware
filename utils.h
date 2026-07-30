@@ -120,7 +120,6 @@ const char* get_reset_reason_text();
 /** Feed the main-loop stall watchdog during long HTTP or e-ink work. */
 void markMainLoopAlive();
 
-String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);
 String delayToString(unsigned time_ms);
 
 void sensor_restart();

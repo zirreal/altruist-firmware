@@ -67,21 +67,14 @@ static void appendModeRadio(String& page, unsigned mode, const __FlashStringHelp
 	page += F("</span></label>");
 }
 
-static void appendSaveFeedback(String& page_content, RwsGroupApplyResult save_result,
-			       bool self_owner_download) {
+static void appendSaveFeedback(String& page_content, RwsGroupApplyResult save_result) {
 	if (save_result == RwsGroupApply_None) {
 		return;
 	}
 	if (save_result == RwsGroupApply_Ok) {
 		page_content += F("<div class='ui-notice ui-notice--ok'><strong>");
 		page_content += FPSTR(INTL_GROUP_SAVE_OK);
-		page_content += F("</strong>");
-		if (self_owner_download) {
-			page_content += F("<p class='form-hint' style='margin:8px 0 0;'>");
-			page_content += FPSTR(INTL_GROUP_OWNER_ACCESS_SAVED_NOTICE);
-			page_content += F("</p>");
-		}
-		page_content += F("</div>");
+		page_content += F("</strong></div>");
 		return;
 	}
 	const __FlashStringHelper* message = FPSTR(INTL_GROUP_SAVE_FAILED);
@@ -163,15 +156,6 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 	const unsigned mode = cfg::rws_group_mode;
 	const String self_display =
 	    (self_ss58.length() > 0 && self_ss58 != F("Not Set")) ? self_ss58 : String(F("-"));
-	const bool self_owner_mode =
-	    mode == RWS_GROUP_STANDALONE || mode == RWS_GROUP_MASTER;
-	const bool has_owner_key =
-	    cfg::private_key[0] != '\0' && strcasecmp(cfg::private_key, "Not Set") != 0;
-	const bool has_owner_addr =
-	    self_ss58.length() > 0 && self_ss58 != F("Not Set") && self_ss58 != F("-");
-	const bool can_owner_access = self_owner_mode && has_owner_key && has_owner_addr;
-	const bool auto_download_owner_access =
-	    save_result == RwsGroupApply_Ok && can_owner_access;
 
 	String current_devices = rwsBuildExpectedDeviceFingerprint(robonomics);
 	if (current_devices.length() == 0) {
@@ -192,7 +176,7 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 		append_app_page_body_start(page_content, FPSTR(INTL_GROUP_INTRO));
 	}
 
-	appendSaveFeedback(page_content, save_result, auto_download_owner_access);
+	appendSaveFeedback(page_content, save_result);
 
 	appendGroupOverview(page_content, mode, robonomics, self_ss58, self_display, group_id_display, current_devices);
 
@@ -214,27 +198,6 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 	page_content += F("</h2><div class='config-section__body'><code class='code-mono'>");
 	page_content += self_display;
 	page_content += F("</code></div></section>");
-
-	{
-		if (can_owner_access) {
-			page_content += F("<section class='config-section'><h2 class='config-section__title'>");
-			page_content += FPSTR(INTL_GROUP_OWNER_ACCESS_TITLE);
-			page_content += F("</h2><div class='config-section__body'><p class='form-hint'>");
-			page_content += FPSTR(INTL_GROUP_OWNER_ACCESS_HINT);
-			page_content += F("</p><p><button type='button' class='encrypt-key-btn encrypt-key-btn--ghost' id='owner-access-redownload' data-confirm='");
-			// Escape single quotes in confirm text for HTML attribute
-			{
-				String confirm = FPSTR(INTL_GROUP_OWNER_ACCESS_REDOWNLOAD_CONFIRM);
-				confirm.replace("&", "&amp;");
-				confirm.replace("\"", "&quot;");
-				confirm.replace("'", "&#39;");
-				page_content += confirm;
-			}
-			page_content += F("'>");
-			page_content += FPSTR(INTL_GROUP_OWNER_ACCESS_DOWNLOAD_AGAIN);
-			page_content += F("</button></p></div></section>");
-		}
-	}
 
 	if (group_id_seed.length() > 0) {
 		page_content += F("<input type='hidden' id='rws_group_id_seed' name='rws_group_id_seed' value='");
@@ -321,26 +284,7 @@ void webserver_group_page(String& page_content, const String& self_ss58, Robonom
 		"document.querySelectorAll('input[name=rws_group_mode]').forEach(function(el){"
 		"el.addEventListener('change',groupPanels);});"
 		"groupPanels();"
-		"function downloadOwnerAccessJson(){"
-		"var a=document.createElement('a');"
-		"a.href='/owner-access.json';"
-		"a.setAttribute('download','altruist-owner-access.json');"
-		"document.body.appendChild(a);"
-		"a.click();"
-		"document.body.removeChild(a);"
-		"}"
-		"var redownload=document.getElementById('owner-access-redownload');"
-		"if(redownload){"
-		"redownload.addEventListener('click',function(){"
-		"var msg=redownload.getAttribute('data-confirm')||'Download again?';"
-		"if(!window.confirm(msg))return;"
-		"downloadOwnerAccessJson();"
-		"});"
-		"}");
-	if (auto_download_owner_access) {
-		page_content += F("setTimeout(downloadOwnerAccessJson,250);");
-	}
-	page_content += F("</script>");
+		"</script>");
 
 	if (!hub_embed) {
 		append_app_page_body_end(page_content);

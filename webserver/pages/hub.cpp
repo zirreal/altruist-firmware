@@ -58,8 +58,36 @@ void append_hub_remove_config_section(String& page_content) {
 	page_content += FPSTR(INTL_CONFIGURATION_DELETE_CONFIRM);
 	page_content += F("</button>"
 		"<button type='button' class='confirm-btn confirm-btn--cancel js-delete-cancel'>");
-	page_content += FPSTR(INTL_CANCEL);
+		page_content += FPSTR(INTL_CANCEL);
 	page_content += F("</button></div></div></form></div>");
+}
+
+void append_hub_backup_section(String& page_content) {
+	page_content += F("<div class='hub-backup'>"
+		"<section class='hub-backup__panel'>"
+		"<h3 class='hub-backup__title'>");
+	page_content += FPSTR(INTL_DEVICE_BACKUP_DOWNLOAD);
+	page_content += F("</h3>"
+		"<p class='form-hint'>");
+	page_content += FPSTR(INTL_DEVICE_BACKUP_HINT);
+	page_content += F("</p>"
+		"<button type='button' class='encrypt-key-btn encrypt-key-btn--ghost' id='device-backup-download'>");
+	page_content += FPSTR(INTL_DEVICE_BACKUP_DOWNLOAD);
+	page_content += F("</button>"
+		"</section>");
+	append_device_backup_restore_form(page_content);
+	page_content += F("</div>"
+		"<script>"
+		"(function(){"
+		"var btn=document.getElementById('device-backup-download');"
+		"if(btn){btn.addEventListener('click',function(){"
+		"var a=document.createElement('a');"
+		"a.href='/backup.json';"
+		"a.setAttribute('download','altruist-backup.json');"
+		"document.body.appendChild(a);a.click();document.body.removeChild(a);"
+		"});}"
+		"})();"
+		"</script>");
 }
 
 void append_hub_ota_section(String& page_content, device_status_t& deviceStatus) {
@@ -243,6 +271,10 @@ void webserver_hub_advanced(String& page_content, WebServer& server, bool wifico
 	append_hub_settings_cards(server, page_content, wificonfig_loop, empty_data, "/advanced", kAdvancedSettingsOrder,
 	                         sizeof(kAdvancedSettingsOrder) / sizeof(kAdvancedSettingsOrder[0]));
 	web_page_flush_chunk(page_content, &server);
+
+	append_hub_section_start(page_content, FPSTR(INTL_DEVICE_BACKUP_TITLE), "backup");
+	append_hub_backup_section(page_content);
+	append_hub_section_end(page_content);
 
 	append_hub_section_start(page_content, FPSTR(INTL_RESTART_SENSOR), "restart");
 	append_hub_restart_section(page_content);

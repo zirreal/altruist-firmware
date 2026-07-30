@@ -9,7 +9,8 @@
 class SensorWebServer {
 
 public:
-    SensorWebServer(JsonDocument &_data, device_status_t &_deviceStatus, SemaphoreHandle_t _mutex) : server(80), sensors_data(_data), deviceStatus(_deviceStatus), mutex{_mutex} {}
+    SensorWebServer(JsonDocument &_data, device_status_t &_deviceStatus, SemaphoreHandle_t _mutex)
+        : server(80), sensors_data(_data), deviceStatus(_deviceStatus), mutex{_mutex}, wifiInfo(nullptr), wifiInfoCount(0) {}
     void setup();
     /** After STA gets a usable IP again (post-outage); re-open listen socket — some lwIP stacks keep a dead listener. */
     void notifyStaIpRestored();
@@ -32,6 +33,10 @@ private:
     bool wificonfig_loop = false;
     String robonomics_address;
     String esp_chipid;
+
+    String backup_upload_body;
+    size_t backup_upload_size = 0;
+    bool backup_upload_overflow = false;
 
     struct_wifiInfo* wifiInfo;
     uint8_t wifiInfoCount;
@@ -67,6 +72,9 @@ private:
     void _webserver_favicon_dark();
     void _webserver_device_info_json();
     void _webserver_owner_access_json();
+    void _webserver_backup_json();
+    void _webserver_restore_backup_post();
+    void _webserver_restore_backup_upload();
     void _webserver_static();
     void _webserver_not_found();
     void _webserver_ota();

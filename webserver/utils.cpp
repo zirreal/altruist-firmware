@@ -5,6 +5,7 @@
 #include "../defines.h"
 #include "../config_manager/config_helpers.h"
 #include <ArduinoJson.h>
+#include <WiFi.h>
 #include <string.h>
 
 namespace {
@@ -209,19 +210,22 @@ int32_t calcWiFiSignalQuality(int32_t rssi) {
 	return (rssi + 100) * 2;
 }
 
-String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi) {
-	String s = F(	"<tr>"
-					"<td>"
-					"<a href='#wlanpwd' onclick='setSSID(this)' class='wifi'>{n}</a>&nbsp;{e}"
-					"</td>"
-					"<td style='vertical-align:middle;'>"
-					"{v}%"
-					"</td>"
-					"</tr>");
-	s.replace("{n}", ssid);
-	s.replace("{e}", encryption);
-	s.replace("{v}", String(calcWiFiSignalQuality(rssi)));
-	return s;
+void append_wlan_ssid_table_row(String& page_content, const char* ssid, uint8_t encryptionType, int32_t rssi) {
+	if (ssid == nullptr) {
+		ssid = "";
+	}
+	page_content += F("<tr><td><a href='#wlanpwd' onclick='setSSID(this)' class='wifi'>");
+	page_content += ssid;
+	page_content += F("</a>&nbsp;");
+	if (encryptionType == WIFI_AUTH_OPEN) {
+		page_content += ' ';
+	} else {
+		// HTML entity — renders as lock icon in the browser.
+		page_content += F("&#128274;");
+	}
+	page_content += F("</td><td style='vertical-align:middle;'>");
+	page_content += calcWiFiSignalQuality(rssi);
+	page_content += F("%</td></tr>");
 }
 
 String add_sensor_type(const String& sensor_text) {
@@ -589,6 +593,106 @@ void append_guest_success_restart_ui(String& page_content) {
 		"tick();var iv=setInterval(tick,1000);})();</script>");
 }
 
+void append_device_backup_restore_form(String& page_content, const __FlashStringHelper* hint, bool guest_mode) {
+	String action = F("/restore-backup");
+	if (guest_mode) {
+		action = F("/guest-restore");
+	}
+
+	page_content += F("<section class='hub-backup__panel hub-backup__panel--restore'>"
+		"<h3 class='hub-backup__title'>");
+	page_content += FPSTR(INTL_DEVICE_BACKUP_RESTORE);
+	page_content += F("</h3>"
+		"<p class='form-hint'>");
+	page_content += hint ? hint : FPSTR(INTL_DEVICE_BACKUP_RESTORE_HINT);
+	page_content += F("</p>"
+		"<form method='POST' action='");
+	page_content += action;
+	page_content += F("' enctype='multipart/form-data' class='hub-backup__form' data-backup-restore-form='1'>");
+	page_content += F("<div class='hub-backup__file-field'>"
+		"<label class='hub-backup__file-label' for='device-backup-file'>");
+	page_content += FPSTR(INTL_DEVICE_BACKUP_FILE_LABEL);
+	page_content += F("</label>");
+
+	if (guest_mode) {
+		// Visible native picker — hidden inputs often fail to attach files on iOS Safari.
+		page_content += F("<input type='file' class='hub-backup__file-input hub-backup__file-input--visible' "
+			"id='device-backup-file' name='backup' accept='.json,application/json,text/json'>");
+	} else {
+		static uint8_t restore_form_seq = 0;
+		const uint8_t form_id = ++restore_form_seq;
+		const String file_input_id = String(F("device-backup-file-")) + form_id;
+		const String file_name_id = String(F("device-backup-file-name-")) + form_id;
+
+		page_content += F("<div class='hub-backup__file-picker'>"
+			"<input type='file' class='hub-backup__file-input' id='");
+		page_content += file_input_id;
+		page_content += F("' name='backup' accept='.json,application/json'>"
+			"<label for='");
+		page_content += file_input_id;
+		page_content += F("' class='hub-backup__file-btn'>");
+		page_content += FPSTR(INTL_DEVICE_BACKUP_FILE_CHOOSE);
+		page_content += F("</label>"
+			"<span class='hub-backup__file-name' id='");
+		page_content += file_name_id;
+		page_content += F("' data-empty='");
+		{
+			String empty = FPSTR(INTL_DEVICE_BACKUP_FILE_EMPTY);
+			empty.replace("&", "&amp;");
+			empty.replace("\"", "&quot;");
+			empty.replace("'", "&#39;");
+			page_content += empty;
+		}
+		page_content += F("'>");
+		page_content += FPSTR(INTL_DEVICE_BACKUP_FILE_EMPTY);
+		page_content += F("</span></div>"
+			"<script>"
+			"(function(){"
+			"var fileInput=document.getElementById('");
+		page_content += file_input_id;
+		page_content += F("');"
+			"var fileName=document.getElementById('");
+		page_content += file_name_id;
+		page_content += F("');"
+			"if(fileInput&&fileName){"
+			"fileInput.addEventListener('change',function(){"
+			"var f=fileInput.files&&fileInput.files[0];"
+			"fileName.textContent=f?f.name:(fileName.getAttribute('data-empty')||'');"
+			"});}"
+			"})();"
+			"</script>");
+	}
+
+	page_content += F("</div>"
+		"<div class='confirm-action__buttons'>"
+		"<button type='submit' class='confirm-btn confirm-btn--danger' data-backup-restore='1'>");
+	page_content += FPSTR(INTL_DEVICE_BACKUP_RESTORE);
+	page_content += F("</button></div></form></section>");
+
+	if (guest_mode) {
+		page_content += F("<script>"
+			"(function(){"
+			"var form=document.querySelector('[data-backup-restore-form]');"
+			"if(!form)return;"
+			"var msg='");
+		{
+			String required = FPSTR(INTL_DEVICE_BACKUP_FILE_REQUIRED);
+			required.replace("\\", "\\\\");
+			required.replace("'", "\\'");
+			page_content += required;
+		}
+		page_content += F("';"
+			"form.addEventListener('submit',function(ev){"
+			"var fi=form.querySelector('input[type=file]');"
+			"if(!fi||!fi.files||!fi.files.length){ev.preventDefault();alert(msg);return;}"
+			"var btn=form.querySelector('[data-backup-restore]');"
+			"if(btn){btn.disabled=true;btn.classList.add('is-loading');}"
+			"});"
+			"})();"
+			"</script>");
+	}
+}
+
 void append_app_sidebar(String& page_content) {
 	const String local_host = buildLocalAccessLabel();
 
@@ -662,6 +766,9 @@ void append_app_sidebar(String& page_content) {
 	page_content += F("</span>"
 		"<a class='app-sidebar__subitem' href='/advanced#debug'>");
 	page_content += FPSTR(INTL_DEBUG_LEVEL);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/advanced#backup'>");
+	page_content += FPSTR(INTL_DEVICE_BACKUP_TITLE);
 	page_content += F("</a>"
 		"<a class='app-sidebar__subitem' href='/advanced#restart'>");
 	page_content += FPSTR(INTL_RESTART_SENSOR);

@@ -80,10 +80,18 @@ void webserver_guest_create_body_get_part2(String& page_content, bool wificonfig
 	page_content += F("<div class='guest-form-footer'>");
 	page_content += form_submit(FPSTR(INTL_SAVE_AND_RESTART));
 	page_content += F("</div></form></div></div>");
-	page_content += FPSTR(BR_TAG);
-	page_content += FPSTR(WEB_BR_FORM);
+
+	page_content += F("<div class='guest-page guest-page--backup'><div class='guest-card'>"
+		"<div class='guest__setup-header'>"
+		"<h2 class='guest__step-title'>");
+	page_content += FPSTR(INTL_DEVICE_BACKUP_TITLE);
+	page_content += F("</h2></div>"
+		"<div class='hub-backup'>");
+	append_device_backup_restore_form(page_content, FPSTR(INTL_GUEST_RESTORE_HINT), true);
+	page_content += F("</div></div></div>");
+
 	if (wificonfig_loop) {
-		page_content += F("<script>window.setTimeout(load_wifi_list,1000);</script>");
+		page_content += F("<script>window.setTimeout(load_wifi_list,300);window.setTimeout(load_wifi_list,3500);</script>");
 	}
 	page_content += FPSTR(WEB_GUEST_WIZARD_SUBMIT_JS);
 }

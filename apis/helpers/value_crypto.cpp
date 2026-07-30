@@ -17,36 +17,36 @@
 #include <address.h>
 
 /*
- * Шифрование метрик «как в Robonomics CPS / libcps», коротко:
+ * Metric encryption aligned with Robonomics CPS / libcps, in short:
  *
- * 1) Устройство и owner считают один общий секрет (ECDH):
- *      private устройства + public owner
- * 2) Из секрета делают AES-ключ (HKDF).
- * 3) Число шифруют AES-256-GCM.
- * 4) В сеть уходит строка: e.<base64(JSON)>.
+ * 1) Device and owner derive a shared secret (ECDH):
+ *      device private + owner public
+ * 2) Derive an AES key from the secret (HKDF).
+ * 3) Encrypt the number with AES-256-GCM.
+ * 4) On the wire: e.<base64(JSON)>.
  *
- * Карта потом открывает так же, но наоборот:
- *      private owner + public устройства (поле "from" в JSON).
+ * sensors.map decrypts the same way, but reversed:
+ *      owner private + device public (the "from" field in JSON).
  */
 
 namespace cps {
 
-constexpr size_t GCM_NONCE_LEN = 12;  // случайный nonce на каждое шифрование (IV)
-constexpr size_t GCM_TAG_LEN = 16;    // кусочек, по которому видно, что данные не меняли
-constexpr size_t KEY_LEN = 32;        // 32 байта = 256 бит (ed25519 seed / AES-256 ключ)
+constexpr size_t GCM_NONCE_LEN = 12;  // random nonce per encryption (IV)
+constexpr size_t GCM_TAG_LEN = 16;    // authentication tag (tamper detection)
+constexpr size_t KEY_LEN = 32;        // 32 bytes = 256 bits (ed25519 seed / AES-256 key)
 
 /*
- * HKDF — как в libcps cipher.rs:
+ * HKDF — as in libcps cipher.rs:
  *   const HKDF_SALT = b"robonomics-network";
  *   Hkdf::new(Some(HKDF_SALT), &shared_secret);  // salt, IKM
  *   hkdf.expand(algorithm.info_string(), ...);   // info = "aesgcm256"
  * mbedtls_hkdf(md, salt, salt_len, ikm, ikm_len, info, info_len, okm, okm_len)
- * — тот же порядок: salt → IKM(shared) → info → OKM(AES key).
+ * — same order: salt → IKM(shared) → info → OKM(AES key).
  */
 constexpr const char *HKDF_SALT = "robonomics-network";
 constexpr const char *HKDF_INFO_AESGCM256 = "aesgcm256";
 
-/** Байты → обычная base64-строка (для nonce/ciphertext/всего JSON). */
+/** Bytes → standard base64 string (for nonce/ciphertext/full JSON). */
 String base64Encode(const uint8_t *data, size_t len) {
 	size_t outLen = 0;
 	mbedtls_base64_encode(nullptr, 0, &outLen, data, len);
@@ -64,7 +64,7 @@ String base64Encode(const uint8_t *data, size_t len) {
 	return out;
 }
 
-/** Hex-строка из 64 символов (private_key в конфиге) → 32 байта. */
+/** 64-char hex string (private_key in config) → 32 bytes. */
 bool parseHex32(const char *hex, uint8_t out[KEY_LEN]) {
 	if (!hex) {
 		return false;
@@ -97,8 +97,8 @@ bool parseHex32(const char *hex, uint8_t out[KEY_LEN]) {
 }
 
 /**
- * Public key устройства в JSON "from" — SS58 (prefix 32), не raw base58.
- * SS58 = network prefix + pubkey + blake2b checksum, потом base58
+ * Device public key in JSON "from" — SS58 (prefix 32), not raw base58.
+ * SS58 = network prefix + pubkey + blake2b checksum, then base58
  */
 String encodeSenderSs58(const uint8_t sender_sk[KEY_LEN]) {
 	char *addr = getAddrFromPrivateKey(const_cast<uint8_t *>(sender_sk), ROBONOMICS_PREFIX);
@@ -122,7 +122,7 @@ static String bytesToHex(const uint8_t *data, size_t len) {
 	return out;
 }
 
-// mbedtls большие числа ждёт big-endian; наши ключи — little-endian.
+// mbedtls bignum expects big-endian; our keys are little-endian.
 bool mpiFromLe32(mbedtls_mpi *X, const uint8_t le[32]) {
 	uint8_t be[32];
 	for (int i = 0; i < 32; i++) {
@@ -143,12 +143,12 @@ bool mpiToLe32(const mbedtls_mpi *X, uint8_t le[32]) {
 }
 
 /**
- * Ed25519 public key → ключ для X25519 (ECDH).
+ * Ed25519 public key → X25519 key (for ECDH).
  */
 bool ed25519PublicToX25519(const uint8_t ed_pk[32], uint8_t x_pk[32]) {
 	uint8_t y_le[32];
 	memcpy(y_le, ed_pk, 32);
-	y_le[31] &= 0x7f;  // убираем sign bit из сжатого ed25519 ключа
+	y_le[31] &= 0x7f;  // clear sign bit from compressed ed25519 key
 
 	mbedtls_mpi y, one, num, den, inv, u, p;
 	mbedtls_mpi_init(&y);
@@ -161,14 +161,14 @@ bool ed25519PublicToX25519(const uint8_t ed_pk[32], uint8_t x_pk[32]) {
 
 	bool ok = false;
 	do {
-		// p = 2^255 - 19 (простое число кривой)
+		// p = 2^255 - 19 (curve prime)
 		if (mbedtls_mpi_lset(&one, 1) != 0) break;
 		if (mbedtls_mpi_lset(&p, 1) != 0) break;
 		if (mbedtls_mpi_shift_l(&p, 255) != 0) break;
 		if (mbedtls_mpi_sub_int(&p, &p, 19) != 0) break;
 		if (!mpiFromLe32(&y, y_le)) break;
 
-		// u = (1+y) / (1-y)  mod p   ← стандартная формула перехода
+		// u = (1+y) / (1-y)  mod p   ← standard Montgomery u-coordinate map
 		if (mbedtls_mpi_add_mpi(&num, &one, &y) != 0) break;
 		if (mbedtls_mpi_sub_mpi(&den, &one, &y) != 0) break;
 		if (mbedtls_mpi_mod_mpi(&num, &num, &p) != 0) break;
@@ -191,12 +191,12 @@ bool ed25519PublicToX25519(const uint8_t ed_pk[32], uint8_t x_pk[32]) {
 }
 
 /**
- * Общий секрет = ECDH(наш private, чужой public).
+ * Shared secret = ECDH(our private, peer public).
  *
- * Шаги как в libcps:
- * 1) из ed25519 seed делаем «правильный» X25519 scalar (SHA-512 + clamp битов)
- * 2) чужой ed25519 public → X25519
- * 3) Curve25519 scalarmult → 32 байта shared secret
+ * Steps as in libcps:
+ * 1) derive proper X25519 scalar from ed25519 seed (SHA-512 + bit clamp)
+ * 2) peer ed25519 public → X25519
+ * 3) Curve25519 scalarmult → 32-byte shared secret
  */
 bool deriveSharedSecretEd25519(const uint8_t sender_sk[32], const uint8_t receiver_ed_pk[32],
 			       uint8_t shared_out[32]) {
@@ -206,7 +206,7 @@ bool deriveSharedSecretEd25519(const uint8_t sender_sk[32], const uint8_t receiv
 	}
 	uint8_t scalar[32];
 	memcpy(scalar, hash, 32);
-	// clamp — обязательная часть X25519, иначе кривая «ломается»
+	// clamp — required for X25519; omitting it breaks the curve
 	scalar[0] &= 248;
 	scalar[31] &= 127;
 	scalar[31] |= 64;
@@ -237,8 +237,8 @@ bool hkdfAesGcmKey(const uint8_t shared[32], uint8_t out_key[32]) {
 
 /**
  * AES-256-GCM: ciphertext || tag.
- * Если fixed_nonce == nullptr — генерим случайный nonce в nonce[].
- * Если fixed_nonce задан — копируем его (для тест-векторов).
+ * If fixed_nonce == nullptr — generate a random nonce in nonce[].
+ * If fixed_nonce is set — copy it (for test vectors).
  */
 bool aesGcmEncrypt(const uint8_t key[32], const uint8_t *plain, size_t plain_len, uint8_t nonce[GCM_NONCE_LEN],
 		   uint8_t **cipher_out, size_t *cipher_len, const uint8_t *fixed_nonce = nullptr) {
@@ -305,9 +305,9 @@ bool aesGcmDecrypt(const uint8_t key[32], const uint8_t *cipher, size_t cipher_l
 }
 
 /**
- * Кому шифруем?
- * - если rws_owner задан → public key этого адреса
- * - если owner пустой / Not Set → шифруем себе (self-owner): берём свой public
+ * Who do we encrypt for?
+ * - if rws_owner is set → public key of that address
+ * - if owner is empty / Not Set → self-owner: use our own public key
  */
 bool resolveReceiverPublic(const char *receiver_ss58, const uint8_t sender_pk[32], uint8_t receiver_pk[32]) {
 	const bool missing = !receiver_ss58 || receiver_ss58[0] == '\0' ||
@@ -486,7 +486,7 @@ static bool runEncryptCase(const EncryptTestCase &tc, uint8_t case_id) {
 }
 
 /**
- * derive_shared_secret + encrypt vectors — libcps docs/TEST_VECTORS.md
+ * derive_shared_secret + encrypt vectors — libcps_TEST_VECTORS.md
  */
 bool valueCryptoSelfTest() {
 	static const EcdhTestCase kCases[] = {
@@ -526,46 +526,46 @@ bool valueCryptoSelfTest() {
 }
 
 /**
- * Главная функция CPS-шифрования одного значения (например "850").
- * Возвращает: e.<base64(json)>  или пустую строку при ошибке.
+ * Main CPS encryption for a single value (e.g. "850").
+ * Returns: e.<base64(json)> or empty string on error.
  */
 String encryptCpsForOwner(const String &plain, const char *sender_sk_hex, const char *receiver_ss58) {
 	if (plain.isEmpty() || !sender_sk_hex) {
 		return String();
 	}
 
-	// 1) private key устройства из hex в конфиге
+	// 1) device private key from hex in config
 	uint8_t sender_sk[KEY_LEN];
 	if (!parseHex32(sender_sk_hex, sender_sk)) {
 		debug_outln_error(F("[CPS] Invalid device private key hex"));
 		return String();
 	}
 
-	// 2) public key устройства (пойдёт в JSON как "from")
+	// 2) device public key (goes into JSON as "from")
 	uint8_t sender_pk[KEY_LEN];
 	Ed25519::derivePublicKey(sender_pk, sender_sk);
 
-	// 3) public key получателя (owner или мы сами)
+	// 3) receiver public key (owner or ourselves)
 	uint8_t receiver_pk[KEY_LEN];
 	if (!resolveReceiverPublic(receiver_ss58, sender_pk, receiver_pk)) {
 		return String();
 	}
 
-	// 4) общий секрет с owner
+	// 4) shared secret with owner
 	uint8_t shared[KEY_LEN];
 	if (!deriveSharedSecretEd25519(sender_sk, receiver_pk, shared)) {
 		debug_outln_error(F("[CPS] ECDH shared secret failed"));
 		return String();
 	}
 
-	// 5) AES-ключ из общего секрета
+	// 5) AES key from shared secret
 	uint8_t enc_key[KEY_LEN];
 	if (!hkdfAesGcmKey(shared, enc_key)) {
 		debug_outln_error(F("[CPS] HKDF failed"));
 		return String();
 	}
 
-	// 6) шифруем plaintext (строка числа)
+	// 6) encrypt plaintext (numeric string)
 	uint8_t nonce[GCM_NONCE_LEN];
 	uint8_t *cipher = nullptr;
 	size_t cipher_len = 0;
@@ -575,7 +575,7 @@ String encryptCpsForOwner(const String &plain, const char *sender_sk_hex, const 
 		return String();
 	}
 
-	// 7) JSON: from = SS58 адреса устройства (checksum!), не raw base58 pubkey
+	// 7) JSON: from = device SS58 address (with checksum!), not raw base58 pubkey
 	const String from_ss58 = encodeSenderSs58(sender_sk);
 	const String nonce_b64 = base64Encode(nonce, GCM_NONCE_LEN);
 	const String ct_b64 = base64Encode(cipher, cipher_len);
@@ -595,7 +595,7 @@ String encryptCpsForOwner(const String &plain, const char *sender_sk_hex, const 
 	json += ct_b64;
 	json += F("\"}");
 
-	// 8) JSON → base64, спереди префикс e. (чтобы connectivity не делал float)
+	// 8) JSON → base64, prefix with e. (so connectivity does not parse as float)
 	const String wrapped = base64Encode(reinterpret_cast<const uint8_t *>(json.c_str()), json.length());
 	if (wrapped.isEmpty()) {
 		return String();
@@ -604,9 +604,9 @@ String encryptCpsForOwner(const String &plain, const char *sender_sk_hex, const 
 }
 
 /**
- * Удобная обёртка для formatter'а:
- * берёт cfg::private_key + cfg::rws_owner и шифрует значение.
- * Если ключей нет / ошибка — возвращает исходный plaintext (лучше открыто, чем битый пакет).
+ * Convenience wrapper for the formatter:
+ * uses cfg::private_key + cfg::rws_owner to encrypt a value.
+ * If keys are missing / on error — returns original plaintext (better plain than a broken packet).
  */
 String encryptValue(const String &plain) {
 	if (plain.isEmpty()) {

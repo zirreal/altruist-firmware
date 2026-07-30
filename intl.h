@@ -175,7 +175,7 @@
 #define INTL_GUEST_CONNECT_FAILED_HINT "Check the network name and password, then try again."
 #endif
 #ifndef INTL_GUEST_CONNECT_FAILED_INSIGHT
-#define INTL_GUEST_CONNECT_FAILED_INSIGHT "Rebooting to Wi‑Fi setup… You can close this page and try again."
+#define INTL_GUEST_CONNECT_FAILED_INSIGHT "Check the network name and password, then try again from the setup page."
 #endif
 #ifndef INTL_GUEST_WIFI_STEP_TITLE
 #define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi connected"
@@ -363,23 +363,77 @@
 #ifndef INTL_GROUP_SAVE_OK
 #define INTL_GROUP_SAVE_OK "Group settings saved."
 #endif
+#ifndef INTL_GROUP_BACKUP_TITLE
+#define INTL_GROUP_BACKUP_TITLE "Device backup"
+#endif
+#ifndef INTL_GROUP_BACKUP_HINT
+#define INTL_GROUP_BACKUP_HINT "This device is its own owner. After Save we download a backup once — import it on sensors.map Login to decrypt encrypted metrics, or restore it on another device. Keep the file private (local HTTP is not encrypted)."
+#endif
+#ifndef INTL_GROUP_BACKUP_SAVED_NOTICE
+#define INTL_GROUP_BACKUP_SAVED_NOTICE "Device backup download started. Store it safely, then import it on sensors.map or restore it from Maintenance."
+#endif
+#ifndef INTL_GROUP_BACKUP_DOWNLOAD_AGAIN
+#define INTL_GROUP_BACKUP_DOWNLOAD_AGAIN "Download backup again…"
+#endif
+#ifndef INTL_GROUP_BACKUP_REDOWNLOAD_CONFIRM
+#define INTL_GROUP_BACKUP_REDOWNLOAD_CONFIRM "Download the device backup again? Anyone with this file can decrypt your encrypted metrics and restore your settings."
+#endif
+#ifndef INTL_DEVICE_BACKUP_TITLE
+#define INTL_DEVICE_BACKUP_TITLE "Backup & restore"
+#endif
+#ifndef INTL_DEVICE_BACKUP_HINT
+#define INTL_DEVICE_BACKUP_HINT "Download a full backup (settings + owner key). You can restore it here or import the same file on sensors.map Login."
+#endif
+#ifndef INTL_DEVICE_BACKUP_DOWNLOAD
+#define INTL_DEVICE_BACKUP_DOWNLOAD "Download backup"
+#endif
+#ifndef INTL_DEVICE_BACKUP_RESTORE
+#define INTL_DEVICE_BACKUP_RESTORE "Restore from backup"
+#endif
+#ifndef INTL_DEVICE_BACKUP_FILE_LABEL
+#define INTL_DEVICE_BACKUP_FILE_LABEL "Backup file"
+#endif
+#ifndef INTL_DEVICE_BACKUP_FILE_CHOOSE
+#define INTL_DEVICE_BACKUP_FILE_CHOOSE "Choose file…"
+#endif
+#ifndef INTL_DEVICE_BACKUP_FILE_EMPTY
+#define INTL_DEVICE_BACKUP_FILE_EMPTY "No file selected"
+#endif
+#ifndef INTL_DEVICE_BACKUP_FILE_REQUIRED
+#define INTL_DEVICE_BACKUP_FILE_REQUIRED "Please choose a backup JSON file first."
+#endif
+#ifndef INTL_DEVICE_BACKUP_RESTORE_HINT
+#define INTL_DEVICE_BACKUP_RESTORE_HINT "Restoring replaces all settings on this device and restarts it."
+#endif
+#ifndef INTL_DEVICE_BACKUP_RESTORE_CONFIRM
+#define INTL_DEVICE_BACKUP_RESTORE_CONFIRM "Restore settings from this backup? Current configuration will be replaced."
+#endif
+#ifndef INTL_DEVICE_BACKUP_RESTORE_OK
+#define INTL_DEVICE_BACKUP_RESTORE_OK "Backup restored. Restarting…"
+#endif
+#ifndef INTL_DEVICE_BACKUP_RESTORE_FAILED
+#define INTL_DEVICE_BACKUP_RESTORE_FAILED "Could not restore backup. Check the file format."
+#endif
+#ifndef INTL_GUEST_RESTORE_HINT
+#define INTL_GUEST_RESTORE_HINT "Have a backup from before the reset? Restore it here to bring back Wi‑Fi, owner key, and settings — then the device restarts."
+#endif
 #ifndef INTL_GROUP_OWNER_ACCESS_TITLE
-#define INTL_GROUP_OWNER_ACCESS_TITLE "Map access (self-owner)"
+#define INTL_GROUP_OWNER_ACCESS_TITLE INTL_GROUP_BACKUP_TITLE
 #endif
 #ifndef INTL_GROUP_OWNER_ACCESS_HINT
-#define INTL_GROUP_OWNER_ACCESS_HINT "This device is its own owner. After Save we download a secret JSON once — import it on sensors.map Login to decrypt encrypted metrics. Keep the file private (local HTTP is not encrypted)."
+#define INTL_GROUP_OWNER_ACCESS_HINT INTL_GROUP_BACKUP_HINT
 #endif
 #ifndef INTL_GROUP_OWNER_ACCESS_SAVED_NOTICE
-#define INTL_GROUP_OWNER_ACCESS_SAVED_NOTICE "Owner access JSON download started. Store it safely, then import it on sensors.map."
+#define INTL_GROUP_OWNER_ACCESS_SAVED_NOTICE INTL_GROUP_BACKUP_SAVED_NOTICE
 #endif
 #ifndef INTL_GROUP_OWNER_ACCESS_DOWNLOAD_AGAIN
-#define INTL_GROUP_OWNER_ACCESS_DOWNLOAD_AGAIN "Download again…"
+#define INTL_GROUP_OWNER_ACCESS_DOWNLOAD_AGAIN INTL_GROUP_BACKUP_DOWNLOAD_AGAIN
 #endif
 #ifndef INTL_GROUP_OWNER_ACCESS_REDOWNLOAD_CONFIRM
-#define INTL_GROUP_OWNER_ACCESS_REDOWNLOAD_CONFIRM "Download the secret owner access JSON again? Anyone with this file can decrypt your encrypted metrics."
+#define INTL_GROUP_OWNER_ACCESS_REDOWNLOAD_CONFIRM INTL_GROUP_BACKUP_REDOWNLOAD_CONFIRM
 #endif
 #ifndef INTL_GROUP_OWNER_ACCESS_DOWNLOAD
-#define INTL_GROUP_OWNER_ACCESS_DOWNLOAD "Download owner access JSON"
+#define INTL_GROUP_OWNER_ACCESS_DOWNLOAD INTL_DEVICE_BACKUP_DOWNLOAD
 #endif
 #ifndef INTL_GROUP_SAVE_FAILED
 #define INTL_GROUP_SAVE_FAILED "Could not save group settings."
@@ -725,6 +779,12 @@
 #endif
 #ifndef INTL_DATA_ENCRYPT_DISCLAIMER
 #define INTL_DATA_ENCRYPT_DISCLAIMER "Optional. Selected metrics are sent encrypted (AES-256). Import this device key in sensors.map to view them. Erasing flash creates a new key."
+#endif
+#ifndef INTL_DATA_ENCRYPT_BACKUP_HINT
+#define INTL_DATA_ENCRYPT_BACKUP_HINT "No Robonomics seed phrase for sensors.map login? Import a device backup instead:"
+#endif
+#ifndef INTL_DATA_ENCRYPT_BACKUP_LINK
+#define INTL_DATA_ENCRYPT_BACKUP_LINK "Open Backup & restore"
 #endif
 #ifndef INTL_DATA_ENCRYPT_KEY_LABEL
 #define INTL_DATA_ENCRYPT_KEY_LABEL "Device encryption key"

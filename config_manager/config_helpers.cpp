@@ -1,10 +1,54 @@
 #include "config_helpers.h"
+#include "device_backup.h"
 #include "utils.h"
 #include "../apis/rws_group.h"
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 #include <strings.h>
 #include <time.h>
+#if defined(ESP32) || defined(ESP8266)
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#endif
+
+namespace {
+
+#if defined(ESP32) || defined(ESP8266)
+SemaphoreHandle_t g_config_fs_mutex = nullptr;
+
+void ensureConfigFsMutex() {
+	if (g_config_fs_mutex == nullptr) {
+		g_config_fs_mutex = xSemaphoreCreateRecursiveMutex();
+	}
+}
+
+class ConfigFsLockGuard {
+public:
+	explicit ConfigFsLockGuard(uint32_t timeout_ms = portMAX_DELAY) : locked_(false) {
+		ensureConfigFsMutex();
+		if (g_config_fs_mutex) {
+			locked_ = xSemaphoreTakeRecursive(g_config_fs_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
+		}
+	}
+	~ConfigFsLockGuard() {
+		if (locked_ && g_config_fs_mutex) {
+			xSemaphoreGiveRecursive(g_config_fs_mutex);
+		}
+	}
+	bool ok() const { return locked_; }
+
+private:
+	bool locked_;
+};
+#else
+class ConfigFsLockGuard {
+public:
+	explicit ConfigFsLockGuard(uint32_t = 0) {}
+	bool ok() const { return true; }
+};
+#endif
+
+}  // namespace
 
 #if defined(ALTRUIST_INSIGHT)
 #include "../sensors/sensor_names.h"
@@ -179,26 +223,18 @@ bool writeConfig() {
 		cfg::analytics_sleep_add_urban = false;
 	}
 #endif
+	ConfigFsLockGuard lock(10000);
+	if (!lock.ok()) {
+		debug_outln_error(F("Config write skipped: filesystem lock busy"));
+		return false;
+	}
+
 	DynamicJsonDocument json(JSON_BUFFER_SIZE);
 	debug_outln_info(F("Saving config..."));
-	json["SOFTWARE_VERSION"] = SOFTWARE_VERSION_STR;
-
-	for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {
-		ConfigShapeEntry c;
-		memcpy_P(&c, &configShape[e], sizeof(ConfigShapeEntry));
-		switch (c.cfg_type) {
-		case Config_Type_Bool:
-			json[c.cfg_key()].set(*c.cfg_val.as_bool);
-			break;
-		case Config_Type_UInt:
-		case Config_Type_Time:
-			json[c.cfg_key()].set(*c.cfg_val.as_uint);
-			break;
-		case Config_Type_Password:
-		case Config_Type_String:
-			json[c.cfg_key()].set(c.cfg_val.as_str);
-			break;
-		};
+	// Must use to<JsonObject>() — as<JsonObject>() on an empty doc is null and writes nowhere.
+	if (!serializeConfigToJson(json.to<JsonObject>())) {
+		debug_outln_error(F("Config JSON overflow while saving; increase JSON_BUFFER_SIZE"));
+		return false;
 	}
 
 	if (json.overflowed()) {
@@ -209,19 +245,25 @@ bool writeConfig() {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored  "-Wdeprecated-declarations"
 
-	SPIFFS.remove(F("/config.json.old"));
-	SPIFFS.rename(F("/config.json"), F("/config.json.old"));
-
-	File configFile = SPIFFS.open(F("/config.json"), "w");
-	if (configFile) {
-		serializeJson(json, configFile);
-		configFile.close();
-		debug_outln_info(F("Config written successfully."));
-	} else {
+	SPIFFS.remove(F("/config.json.new"));
+	File configFile = SPIFFS.open(F("/config.json.new"), "w");
+	if (!configFile) {
 		debug_outln_error(F("failed to open config file for writing"));
 		return false;
 	}
+	serializeJson(json, configFile);
 	configFile.close();
+
+	SPIFFS.remove(F("/config.json.old"));
+	if (SPIFFS.exists(F("/config.json"))) {
+		SPIFFS.rename(F("/config.json"), F("/config.json.old"));
+	}
+	if (!SPIFFS.rename(F("/config.json.new"), F("/config.json"))) {
+		debug_outln_error(F("failed to finalize config file write"));
+		SPIFFS.remove(F("/config.json.new"));
+		return false;
+	}
+	debug_outln_info(F("Config written successfully."));
 
 #pragma GCC diagnostic pop
 
@@ -317,6 +359,12 @@ static bool cfgMigrateLegacyLocalHostname() {
 }
 
 void readConfig(bool oldconfig) {
+	ConfigFsLockGuard lock(10000);
+	if (!lock.ok()) {
+		debug_outln_error(F("Config read skipped: filesystem lock busy"));
+		return;
+	}
+
 	bool rewriteConfig = false;
 
 	String cfgName(F("/config.json"));

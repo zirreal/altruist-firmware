@@ -143,7 +143,7 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 #define INTL_GUEST_CONNECTING_HINT "This usually takes a few seconds. Keep this page open."
 #define INTL_GUEST_CONNECT_FAILED "Connection failed"
 #define INTL_GUEST_CONNECT_FAILED_HINT "Check the network name and password, then try again."
-#define INTL_GUEST_CONNECT_FAILED_INSIGHT "Rebooting to Wi‑Fi setup… You can close this page and try again."
+#define INTL_GUEST_CONNECT_FAILED_INSIGHT "Check the network name and password, then try again from the setup page."
 #define INTL_GUEST_WIFI_STEP_TITLE "Wi-Fi connected"
 #define INTL_GUEST_SETUP_STEP_1_LABEL "Step 1 of 2"
 #define INTL_GUEST_SETUP_STEP_2_LABEL "Step 2 of 2"
@@ -208,6 +208,31 @@ const char INTL_GROUP_STATUS_DEVICES_SYNCED[] PROGMEM = "Devices synced on-chain
 const char INTL_GROUP_STATUS_JOINED[] PROGMEM = "Joined group";
 const char INTL_GROUP_STATUS_MANUAL[] PROGMEM = "Manual owner configured";
 const char INTL_GROUP_SAVE_OK[] PROGMEM = "Group settings saved.";
+const char INTL_GROUP_BACKUP_TITLE[] PROGMEM = "Device backup";
+const char INTL_GROUP_BACKUP_HINT[] PROGMEM =
+	"This device is its own owner. After Save we download a backup once — import it on sensors.map Login to decrypt encrypted metrics, or restore it on another device. Keep the file private (local HTTP is not encrypted).";
+const char INTL_GROUP_BACKUP_SAVED_NOTICE[] PROGMEM =
+	"Device backup download started. Store it safely, then import it on sensors.map or restore it from Maintenance.";
+const char INTL_GROUP_BACKUP_DOWNLOAD_AGAIN[] PROGMEM = "Download backup again…";
+const char INTL_GROUP_BACKUP_REDOWNLOAD_CONFIRM[] PROGMEM =
+	"Download the device backup again? Anyone with this file can decrypt your encrypted metrics and restore your settings.";
+const char INTL_DEVICE_BACKUP_TITLE[] PROGMEM = "Backup & restore";
+const char INTL_DEVICE_BACKUP_HINT[] PROGMEM =
+	"Download a full backup (settings + owner key). You can restore it here or import the same file on sensors.map Login.";
+const char INTL_DEVICE_BACKUP_DOWNLOAD[] PROGMEM = "Download backup";
+const char INTL_DEVICE_BACKUP_RESTORE[] PROGMEM = "Restore from backup";
+const char INTL_DEVICE_BACKUP_FILE_LABEL[] PROGMEM = "Backup file";
+const char INTL_DEVICE_BACKUP_FILE_CHOOSE[] PROGMEM = "Choose file…";
+const char INTL_DEVICE_BACKUP_FILE_EMPTY[] PROGMEM = "No file selected";
+const char INTL_DEVICE_BACKUP_FILE_REQUIRED[] PROGMEM = "Please choose a backup JSON file first.";
+const char INTL_DEVICE_BACKUP_RESTORE_HINT[] PROGMEM =
+	"Restoring replaces all settings on this device and restarts it.";
+const char INTL_DEVICE_BACKUP_RESTORE_CONFIRM[] PROGMEM =
+	"Restore settings from this backup? Current configuration will be replaced.";
+const char INTL_DEVICE_BACKUP_RESTORE_OK[] PROGMEM = "Backup restored. Restarting…";
+const char INTL_DEVICE_BACKUP_RESTORE_FAILED[] PROGMEM = "Could not restore backup. Check the file format.";
+const char INTL_GUEST_RESTORE_HINT[] PROGMEM =
+	"Have a backup from before the reset? Restore it here to bring back Wi‑Fi, owner key, and settings — then the device restarts.";
 const char INTL_GROUP_OWNER_ACCESS_TITLE[] PROGMEM = "Map access (self-owner)";
 const char INTL_GROUP_OWNER_ACCESS_HINT[] PROGMEM =
 	"This device is its own owner. After Save we download a secret JSON once — import it on sensors.map Login to decrypt encrypted metrics. Keep the file private (local HTTP is not encrypted).";
@@ -259,6 +284,9 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_DATA_SHARING_ADDITIONAL "Additional sensors (optional)"
 #define INTL_PANEL_TITLE_DATA_ENCRYPT "Encrypt map values"
 #define INTL_DATA_ENCRYPT_DISCLAIMER "Optional. Selected metrics are sent encrypted for the device owner (CPS / AES-256-GCM). Log in as owner on sensors.map to view them."
+const char INTL_DATA_ENCRYPT_BACKUP_HINT[] PROGMEM =
+	"No Robonomics seed phrase for sensors.map login? Import a device backup instead:";
+const char INTL_DATA_ENCRYPT_BACKUP_LINK[] PROGMEM = "Open Backup & restore";
 #define INTL_DATA_ENCRYPT_KEY_LABEL "Device encryption key"
 #define INTL_DATA_ENCRYPT_KEY_SHOW "Show key"
 #define INTL_DATA_ENCRYPT_KEY_HIDE "Hide key"

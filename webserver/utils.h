@@ -33,6 +33,8 @@ void add_reading_metric_card(String& page_content, const String& label, const St
 void add_data_block_intro(String& page_content, const __FlashStringHelper* intro);
 
 int32_t calcWiFiSignalQuality(int32_t rssi);
+/** Append one Wi‑Fi row to page_content (no returned String — safe on small HTTP-handler stack). */
+void append_wlan_ssid_table_row(String& page_content, const char* ssid, uint8_t encryptionType, int32_t rssi);
 String add_sensor_type(const String& sensor_text);
 String form_checkbox(const ConfigShapeId cfgid, const String& info, const bool linebreak, bool enabled = true);
 String form_submit(const String& value);
@@ -53,6 +55,8 @@ String buildDeviceAccessHost();
 void append_guest_device_access(String& page_content, const String& ip, const String& sensor_ss58);
 /** Countdown hint + Finish setup button (POST /finish_setup) for guest success pages. */
 void append_guest_success_restart_ui(String& page_content);
+/** Restore-from-backup form (Advanced + guest Wi‑Fi setup). guest_mode uses a visible file input (iOS-safe). */
+void append_device_backup_restore_form(String& page_content, const __FlashStringHelper* hint = nullptr, bool guest_mode = false);
 void append_app_sidebar(String& page_content);
 void append_app_page_body_start(String& page_content, const __FlashStringHelper* lead = nullptr);
 void append_app_page_body_end(String& page_content);

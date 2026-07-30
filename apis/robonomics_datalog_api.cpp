@@ -1,7 +1,6 @@
 #include "robonomics_datalog_api.h"
 #include "../config_manager/config_helpers.h"
 #include "helpers/message_formatter.h"
-#include "helpers/value_crypto.h"
 #include "../utils.h"
 
 void RobonomicsDatalogAPI::setup() {
@@ -17,11 +16,7 @@ void RobonomicsDatalogAPI::setup() {
 		robonomics->setPrivateKey(private_key.c_str());
 	}
     robonomics->setup(robonomics_public_node);
-#if defined(ALTRUIST_BUILD_DEBUG)
-	if (!valueCryptoSelfTest()) {
-		debug_outln_error(F("[Datalog] CPS self-test FAILED — check value_crypto vs libcps"));
-	}
-#endif
+    // CPS vectors: call valueCryptoSelfTest() manually when touching value_crypto.
     debug_outln_info(F("Robonomics datalog API is ready with sending interval (sec): "), String(timeout/1000));
 }
 

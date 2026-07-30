@@ -9,6 +9,7 @@
 #endif
 #include "utils.h"
 #include "../config_manager/config_helpers.h"
+#include "../config_manager/device_backup.h"
 #include "../apis/rws_group.h"
 #include "../defines.h"
 #include "../utils.h"
@@ -106,7 +107,10 @@ void SensorWebServer::setup() {
     uint64_t chipid_num;
 	esp_chipid = get_chipid();
 
-	server.on("/guest", std::bind(&SensorWebServer::_webserver_guest, this)); // x
+	server.on("/guest", HTTP_GET, std::bind(&SensorWebServer::_webserver_guest, this));
+	server.on("/guest", HTTP_POST, std::bind(&SensorWebServer::_webserver_guest, this));
+	server.on(F("/guest-restore"), HTTP_POST, std::bind(&SensorWebServer::_webserver_restore_backup_post, this),
+	         std::bind(&SensorWebServer::_webserver_restore_backup_upload, this));
 	server.on("/", std::bind(&SensorWebServer::_webserver_hub_local, this)); // x
 	server.on(F("/local"), std::bind(&SensorWebServer::_webserver_hub_local, this));
 	server.on(F("/social"), std::bind(&SensorWebServer::_webserver_hub_social, this));
@@ -128,6 +132,9 @@ void SensorWebServer::setup() {
 	server.on(F("/favicon-dark.ico"), std::bind(&SensorWebServer::_webserver_favicon_dark, this)); // x
 	server.on(F("/device-info.json"), std::bind(&SensorWebServer::_webserver_device_info_json, this));
 	server.on(F("/owner-access.json"), std::bind(&SensorWebServer::_webserver_owner_access_json, this));
+	server.on(F("/backup.json"), std::bind(&SensorWebServer::_webserver_backup_json, this));
+	server.on(F("/restore-backup"), HTTP_POST, std::bind(&SensorWebServer::_webserver_restore_backup_post, this),
+	         std::bind(&SensorWebServer::_webserver_restore_backup_upload, this));
 	server.on(F(STATIC_PREFIX), std::bind(&SensorWebServer::_webserver_static, this)); // x
 	server.on(F("/ota"), std::bind(&SensorWebServer::_webserver_ota, this));
 	server.on(F("/finish_setup"), std::bind(&SensorWebServer::_webserver_finish_setup, this));
@@ -143,7 +150,14 @@ void SensorWebServer::setup() {
 #endif
 	server.onNotFound(std::bind(&SensorWebServer::_webserver_not_found, this)); // x
 
-	debug_outln_info(F("Starting Webserver... "), WiFi.localIP().toString());
+	String listen_ip = WiFi.localIP().toString();
+	if (listen_ip == F("0.0.0.0")) {
+		const IPAddress ap_ip = WiFi.softAPIP();
+		if (ap_ip[0] != 0) {
+			listen_ip = ap_ip.toString();
+		}
+	}
+	debug_outln_info(F("Starting Webserver... "), listen_ip);
 	server.begin();
 }
 
@@ -194,7 +208,7 @@ void SensorWebServer::_webserver_data_json() {
 }
 
 void SensorWebServer::_webserver_not_found() {
-	debug_outln_info(F("ws: not found ..."));
+	debug_outln_info(F("ws: not found: "), server.uri());
 	if (WiFi.status() != WL_CONNECTED) {
 		if ((server.uri().indexOf(F("success.html")) != -1) || (server.uri().indexOf(F("detect.html")) != -1)) {
 			server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), FPSTR(WEB_IOS_REDIRECT));
@@ -310,6 +324,143 @@ void SensorWebServer::_webserver_owner_access_json() {
 	server.send(200, F("application/octet-stream"), body);
 }
 
+void SensorWebServer::_webserver_backup_json() {
+	if (!webserver_request_auth()) {
+		return;
+	}
+
+	const bool include_owner =
+	    cfg::private_key[0] != '\0' && strcasecmp(cfg::private_key, "Not Set") != 0 && strlen(cfg::private_key) >= 64 &&
+	    robonomics_address.length() > 0 && strcasecmp(robonomics_address.c_str(), "Not Set") != 0;
+
+	String body;
+	if (!buildDeviceBackupJson(body, robonomics_address, buildDeviceAccessHost(), include_owner)) {
+		server.send(507, FPSTR(TXT_CONTENT_TYPE_TEXT_PLAIN), F("Backup too large; contact support"));
+		return;
+	}
+
+	server.sendHeader(F("Content-Disposition"), F("attachment; filename=\"altruist-backup.json\""));
+	server.sendHeader(F("Cache-Control"), F("no-store"));
+	server.send(200, F("application/octet-stream"), body);
+}
+
+void SensorWebServer::_webserver_restore_backup_upload() {
+	HTTPUpload& upload = server.upload();
+	const char* const field_name = upload.name.c_str();
+	if (field_name == nullptr) {
+		return;
+	}
+	if (upload.status == UPLOAD_FILE_START) {
+		if (strcmp(field_name, "backup") != 0) {
+			return;
+		}
+		debug_outln_info(F("ws: restore-backup upload start: "), upload.filename);
+		backup_upload_body = "";
+		backup_upload_size = 0;
+		backup_upload_overflow = false;
+	} else if (upload.status == UPLOAD_FILE_WRITE) {
+		if (strcmp(field_name, "backup") != 0 || backup_upload_overflow) {
+			return;
+		}
+		if (backup_upload_size + upload.currentSize > JSON_BUFFER_SIZE) {
+			debug_outln_error(F("ws: restore-backup upload too large"));
+			backup_upload_overflow = true;
+			return;
+		}
+		backup_upload_body.concat(reinterpret_cast<const char*>(upload.buf), upload.currentSize);
+		backup_upload_size += upload.currentSize;
+	} else if (upload.status == UPLOAD_FILE_END) {
+		if (strcmp(field_name, "backup") != 0) {
+			return;
+		}
+		debug_outln_info(F("ws: restore-backup upload end, bytes: "), String(backup_upload_size));
+	} else if (upload.status == UPLOAD_FILE_ABORTED) {
+		debug_outln_error(F("ws: restore-backup upload aborted"));
+		backup_upload_body = "";
+		backup_upload_size = 0;
+		backup_upload_overflow = true;
+	}
+}
+
+void SensorWebServer::_webserver_restore_backup_post() {
+	debug_outln_info(F("ws: restore-backup POST ..."));
+	if (!webserver_request_auth()) {
+		backup_upload_body = "";
+		backup_upload_size = 0;
+		backup_upload_overflow = false;
+		return;
+	}
+
+	const bool guest_setup = wificonfig_loop;
+	RESERVE_STRING(page_content, LARGE_STR);
+
+	if (guest_setup) {
+		start_html_page(page_content, FPSTR(INTL_DEVICE_BACKUP_TITLE), true);
+		page_content += F("<div class='guest-page'><div class='guest-card'>");
+	} else {
+		start_html_page(page_content, FPSTR(INTL_DEVICE_BACKUP_TITLE), false, "settings");
+		append_app_page_body_start(page_content, FPSTR(INTL_DEVICE_BACKUP_RESTORE_HINT));
+	}
+
+	bool ok = false;
+	if (backup_upload_overflow || backup_upload_size == 0 || backup_upload_size > JSON_BUFFER_SIZE) {
+		debug_outln_error(F("ws: restore-backup empty/overflow upload"));
+		ok = false;
+	} else {
+		DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+		const DeserializationError err = deserializeJson(doc, backup_upload_body);
+		if (err) {
+			debug_outln_error(F("ws: restore-backup JSON parse failed"));
+			debug_outln_info(F("ws: restore-backup parse: "), String(err.c_str()));
+		} else {
+			const DeviceBackupRestoreResult result = restoreDeviceBackupFromJson(doc);
+			ok = (result == DeviceBackupRestoreResult::Ok);
+			if (!ok) {
+				debug_outln_error(F("ws: restore-backup apply failed"));
+				debug_outln_info(F("ws: restore-backup result: "), String(static_cast<uint8_t>(result)));
+			}
+		}
+	}
+
+	backup_upload_body = "";
+	backup_upload_size = 0;
+	backup_upload_overflow = false;
+
+	if (ok) {
+		page_content += F("<div class='ui-notice ui-notice--ok'><strong>");
+		page_content += FPSTR(INTL_DEVICE_BACKUP_RESTORE_OK);
+		page_content += F("</strong></div>");
+		if (guest_setup) {
+			page_content += F("<p class='form-hint'>");
+			page_content += FPSTR(INTL_DEVICE_BACKUP_RESTORE_OK);
+			page_content += F("</p>");
+		}
+	} else {
+		page_content += F("<div class='ui-notice ui-notice--err'><strong>");
+		page_content += FPSTR(INTL_DEVICE_BACKUP_RESTORE_FAILED);
+		page_content += F("</strong></div>");
+		if (guest_setup) {
+			page_content += F("<p class='form-hint'><a href='/guest'>" INTL_BACK_TO_HOME "</a></p>");
+		}
+	}
+
+	if (guest_setup) {
+		page_content += F("</div></div>");
+		end_html_page_guest(page_content);
+	} else {
+		append_app_page_body_end(page_content);
+		end_html_page_app(page_content);
+	}
+
+	if (ok) {
+		debug_outln_info(F("ws: restore-backup OK, restarting"));
+		Serial.flush();
+		delay(400);
+		set_restart_reason(RESTART_REASON_USER);
+		sensor_restart();
+	}
+}
+
 void SensorWebServer::_webserver_restart() {
     if (!webserver_request_auth())
 	{ return; }
@@ -362,9 +513,22 @@ void SensorWebServer::_webserver_serial() {
 }
 
 void SensorWebServer::_webserver_wifi() {
-    String page_content;
-    webserver_wifi(wifiInfo, wifiInfoCount, page_content);
-    server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), page_content);
+	String page_content;
+#if defined(ESP32) || defined(ESP8266)
+	if (wificonfig_loop) {
+		uint8_t count = 0;
+		struct_wifiInfo* cached = wifiPortalScanCache(&count);
+		webserver_wifi(cached, count, page_content);
+		server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), page_content);
+		return;
+	}
+#endif
+	if (wifiInfo == nullptr || wifiInfoCount == 0) {
+		webserver_wifi(nullptr, 0, page_content);
+	} else {
+		webserver_wifi(wifiInfo, wifiInfoCount, page_content);
+	}
+	server.send(200, FPSTR(TXT_CONTENT_TYPE_TEXT_HTML), page_content);
 }
 
 void SensorWebServer::_webserver_debug_level() {
@@ -461,6 +625,9 @@ void SensorWebServer::_webserver_guest() {
     server.sendHeader(F("Expires"), F("0"));
 
 	if (server.method() == HTTP_POST) {
+		backup_upload_body = "";
+		backup_upload_size = 0;
+		backup_upload_overflow = false;
 		debug_outln_info(F("ws: guest POST ..."));
 		webserver_config_send_body_post(server);
 
@@ -481,13 +648,11 @@ void SensorWebServer::_webserver_guest() {
 
 		int counter = 0;
 		while (!wifiGuestPortalStaReady()) {
-			// Fail-fast: don't keep user stuck on "Connecting..." for too long.
-			// 40 * 500ms = ~20s.
-			if (counter > 40) {
+			if (counter >= 80) {
 				break;
 			}
 			yield();
-			delay(500);
+			delay(counter < 30 ? 100 : 250);
 			counter++;
 		}
 
@@ -564,18 +729,15 @@ void SensorWebServer::_webserver_guest() {
 		page_content += cfg::wlanssid;
 		page_content += F("</p>");
 #ifdef ALTRUIST_INSIDE
-		page_content += F("<p class='form-hint'>" INTL_GUEST_CONNECT_FAILED_INSIGHT "</p>");
+		page_content += F("<p class='form-hint'>" INTL_GUEST_CONNECT_FAILED_INSIGHT "</p>"
+			"<p class='form-hint'><a href='/guest'>" INTL_BACK_TO_HOME "</a></p>");
 #else
 		page_content += F("<p class='form-hint'>" INTL_GUEST_CONNECT_FAILED_HINT "</p>");
 #endif
 		page_content += F("</div></div></div>");
 		end_html_page_guest(page_content);
-#ifdef ALTRUIST_INSIDE
-		if (writeConfig()) {
-			set_restart_reason(RESTART_REASON_CONFIG);
-			sensor_restart();
-		}
-#endif
+		// Keep credentials in SPIFFS but stay in the captive portal so the user can retry.
+		writeConfig();
 		return;
 	}
 
@@ -958,10 +1120,13 @@ void SensorWebServer::_webserver_config() {
 		end_html_page_app(page_content);
 
 		if (server.method() == HTTP_POST) {
-
 			if (writeConfig()) {
-				set_restart_reason(RESTART_REASON_CONFIG);
-				sensor_restart();
+				if (wificonfig_loop) {
+					debug_outln_info(F("ws: config saved during captive portal (no restart)"));
+				} else {
+					set_restart_reason(RESTART_REASON_CONFIG);
+					sensor_restart();
+				}
 			}
 		}
 	}
@@ -1013,8 +1178,12 @@ void SensorWebServer::_webserver_hub_local() {
 		web_page_flush_chunk(page_content, &server);
 		end_html_page_app(page_content);
 		if (writeConfig()) {
-			set_restart_reason(RESTART_REASON_CONFIG);
-			sensor_restart();
+			if (wificonfig_loop) {
+				debug_outln_info(F("ws: hub local saved during captive portal (no restart)"));
+			} else {
+				set_restart_reason(RESTART_REASON_CONFIG);
+				sensor_restart();
+			}
 		}
 		return;
 	}
