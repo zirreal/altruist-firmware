@@ -285,7 +285,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_PANEL_TITLE_DATA_ENCRYPT "Шифровать значения на карте"
 #define INTL_DATA_ENCRYPT_DISCLAIMER "По желанию. Выбранные показатели отправляются зашифрованными для владельца устройства (CPS / AES-256-GCM). Войдите как owner на sensors.map, чтобы видеть их."
 const char INTL_DATA_ENCRYPT_BACKUP_HINT[] PROGMEM =
-	"Нет seed phrase Robonomics для входа на sensors.map? Импортируйте backup устройства:";
+	"Нет seed phrase Robonomics для входа на sensors.map? Импортируйте backup устройства (работает только с self-owner):";
 const char INTL_DATA_ENCRYPT_BACKUP_LINK[] PROGMEM = "Открыть Backup и восстановление";
 #define INTL_DATA_ENCRYPT_KEY_LABEL "Ключ шифрования устройства"
 #define INTL_DATA_ENCRYPT_KEY_SHOW "Показать ключ"

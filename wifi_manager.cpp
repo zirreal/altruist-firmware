@@ -573,7 +573,7 @@ void wifiConfig(SensorWebServer &webserver) {
 		insightGuestProcessPendingFinish();
 		static unsigned long last_portal_display_ms = 0;
 		const unsigned long portal_now = millis();
-		if (portal_now - last_portal_display_ms >= 2000UL) {
+		if (portal_now - last_portal_display_ms >= 500UL) {
 			last_portal_display_ms = portal_now;
 			displayManager.process(btn_press);
 		}

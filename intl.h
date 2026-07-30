@@ -781,7 +781,7 @@
 #define INTL_DATA_ENCRYPT_DISCLAIMER "Optional. Selected metrics are sent encrypted (AES-256). Import this device key in sensors.map to view them. Erasing flash creates a new key."
 #endif
 #ifndef INTL_DATA_ENCRYPT_BACKUP_HINT
-#define INTL_DATA_ENCRYPT_BACKUP_HINT "No Robonomics seed phrase for sensors.map login? Import a device backup instead:"
+#define INTL_DATA_ENCRYPT_BACKUP_HINT "No Robonomics seed phrase for sensors.map login? Import a device backup instead (only works with self-owner) :"
 #endif
 #ifndef INTL_DATA_ENCRYPT_BACKUP_LINK
 #define INTL_DATA_ENCRYPT_BACKUP_LINK "Open Backup & restore"

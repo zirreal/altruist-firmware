@@ -1345,7 +1345,11 @@ void setup(void) {
 		"ButtonWorker",   // name
 		2048,                // stack size
 		NULL,                // parameters
+#if defined(ALTRUIST_INSIGHT)
+		3,                   // above sensor/API worker (2)
+#else
 		1,                   // priority (>=1 to not be preempted too much)
+#endif
 		NULL,                // task handle (optional)
 		0                    // core 0 (ESP32-C3/C6 is single-core anyway)
 	);
@@ -1556,7 +1560,8 @@ void setup(void) {
 
 #if defined(ALTRUIST_INSIGHT)
 void firmwareBlockingYieldHook(void) {
-	// EPD updates block loop() for seconds; service HTTP while the panel is busy.
+	// EPD busy-wait / SD waits only: keep HTTP alive. Do NOT call displayManager.process()
+	// here — painting from nested web/SD stacks can stick s_epd_draw_depth and freeze the UI.
 	if (!wifiIsConfigPortalRunning()) {
 		webserver.handleClient();
 	}
@@ -1566,6 +1571,11 @@ void firmwareBlockingYieldHook(void) {
 #endif
 
 void loop(void) {
+#if defined(ALTRUIST_INSIGHT)
+	markCrashSection(CRASH_SECTION_DISPLAY_UPDATE);
+	displayManager.process(btn_press);
+	markCrashSection(CRASH_SECTION_IDLE);
+#endif
 	// During captive portal setup we run a dedicated HTTP loop inside wifiConfig().
 	// Avoid calling WebServer from multiple tasks (can crash in NetworkClient).
 	if (!wifiIsConfigPortalRunning()) {

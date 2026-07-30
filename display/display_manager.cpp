@@ -29,6 +29,16 @@ extern SDCard sdCardLogger;
 #endif
 
 static SemaphoreHandle_t epd_draw_mutex = nullptr;
+/** Nested process() must not start another paint while EPD/SD work is in progress. */
+static uint8_t s_epd_draw_depth = 0;
+
+static void delayWithYield(unsigned long ms) {
+    const unsigned long deadline = millis() + ms;
+    while ((int32_t)(deadline - millis()) > 0) {
+        firmwareBlockingYieldHook();
+        delay(10);
+    }
+}
 
 // Sensor map Urban ID waiting policy:
 // If Urban ID is not yet known, we will perform up to 3 checks,
@@ -143,6 +153,18 @@ void DisplayManager::setScreen(ScreenPage pageID) {
 }
 
 void DisplayManager::process(button_pressed_t &btn_press) {
+    // Do not nest a second paint while one is in progress. If depth is stuck
+    // after an aborted nested call, recover when the draw mutex is free.
+    if (s_epd_draw_depth > 0) {
+        if (epd_draw_mutex && xSemaphoreTake(epd_draw_mutex, 0) == pdTRUE) {
+            xSemaphoreGive(epd_draw_mutex);
+            debug_outln_info(F("[EPD] Recovered stuck draw depth"), String(s_epd_draw_depth));
+            s_epd_draw_depth = 0;
+        } else {
+            return;
+        }
+    }
+
     if (wifi_clear_confirm_pending) {
         wifi_clear_confirm_pending = false;
         debug_outln_info(F("[EPD] WiFi credentials cleared — showing confirm screen"));
@@ -154,16 +176,18 @@ void DisplayManager::process(button_pressed_t &btn_press) {
         if (epd_draw_mutex) {
             xSemaphoreTake(epd_draw_mutex, portMAX_DELAY);
         }
+        s_epd_draw_depth++;
         Paint_SelectImage(BlackImage);
         Paint_Clear(WHITE);
         showLogoPage();
         epdResetPeriodPosition();
         epdDisplay(DisplayMode::FULL, BlackImage);
         last_refresh_time = millis();
+        s_epd_draw_depth--;
         if (epd_draw_mutex) {
             xSemaphoreGive(epd_draw_mutex);
         }
-        DEV_Delay_ms(5000);
+        delayWithYield(5000);
         set_restart_reason(RESTART_REASON_CONFIG);
         esp_restart();
     }
@@ -192,7 +216,9 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             // Draw and display loading screen immediately to avoid white screen flash
             Paint_SelectImage(BlackImage);
             showLoadingPage(BlackImage);
+            s_epd_draw_depth++;
             epdDisplay(DisplayMode::FULL, BlackImage);
+            s_epd_draw_depth--;
             
             return;
         }
@@ -210,18 +236,20 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                 Paint_DrawString_Display_Center(INTL_DISP_GOING_TO_SLEEP, &Font24, &font_24_cyrillic, &font_24_ascii, WHITE, BLACK);
                 // Full cycle: init (FULL) -> display -> clear -> sleep.
                 epdInit(DisplayMode::FULL);
-                DEV_Delay_ms(200);
+                delayWithYield(200);
+                s_epd_draw_depth++;
                 epdDisplay(DisplayMode::FULL, BlackImage);
                 // Also count full clear as additional update.
-                DEV_Delay_ms(700);
+                delayWithYield(700);
                 debug_outln_info(F("[EPD] Clear screen before sleep"));
                 EPD_4IN2_V2_Clear();
                 epdIncrementUpdateCount();
-                DEV_Delay_ms(300);
+                delayWithYield(300);
                 // Turn off LEDs during sleep
                 leds_controller_insight.setSleepMode(true);
                 epdSleep();
-                DEV_Delay_ms(100);
+                s_epd_draw_depth--;
+                delayWithYield(100);
                 display_sleeping = true;
                 return;
             }
@@ -232,12 +260,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     }
                 }
             } 
@@ -253,12 +281,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     }
                 }
                 if (btn_press.press_type == PressType::LONG) {
@@ -266,24 +294,24 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     }
                 } else if (btn_press.press_type == PressType::SHORT) {
                     if (btn_press.button_num == ButtonNum::UP) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     }
                 }
             }
@@ -307,12 +335,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     }
                 } else {
                     // Graphs available - normal behavior
@@ -321,12 +349,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                             ScreenPage target = getPrevScreen(currentScreenID);
                             epdIncrementScreenCounter(target);
                             setScreen(target);
-                            return;
+
                         } else if (btn_press.button_num == ButtonNum::SET) {
                             ScreenPage target = getNextScreen(currentScreenID);
                             epdIncrementScreenCounter(target);
                             setScreen(target);
-                            return;
+
                         }
                     } else if (btn_press.press_type == PressType::SHORT) {
                         if (btn_press.button_num == ButtonNum::UP) {
@@ -335,24 +363,22 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                                 ScreenPage target = getPrevScreen(currentScreenID);
                                 epdIncrementScreenCounter(target);
                                 setScreen(target);
-                                return;
+                            } else {
+                                graphMarkValueSwitch();
+                                epdIncrementScreenCounter(ScreenPage::GRAPHS);
+                                refresh_now = true;
                             }
-                            graphMarkValueSwitch();
-                            epdIncrementScreenCounter(ScreenPage::GRAPHS);
-                            refresh_now = true;
-                            return;
                         } else if (btn_press.button_num == ButtonNum::SET) {
                             // If at last graph, switch to next screen instead of looping
                             if (setNextGraphValue()) {
                                 ScreenPage target = getNextScreen(currentScreenID);
                                 epdIncrementScreenCounter(target);
                                 setScreen(target);
-                                return;
+                            } else {
+                                graphMarkValueSwitch();
+                                epdIncrementScreenCounter(ScreenPage::GRAPHS);
+                                refresh_now = true;
                             }
-                            graphMarkValueSwitch();
-                            epdIncrementScreenCounter(ScreenPage::GRAPHS);
-                            refresh_now = true;
-                            return;
                         }
                     }
                 }
@@ -363,12 +389,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     }
                 }
             }
@@ -378,12 +404,12 @@ void DisplayManager::process(button_pressed_t &btn_press) {
                         ScreenPage target = getPrevScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     } else if (btn_press.button_num == ButtonNum::SET) {
                         ScreenPage target = getNextScreen(currentScreenID);
                         epdIncrementScreenCounter(target);
                         setScreen(target);
-                        return;
+
                     }
                 }
             }
@@ -543,6 +569,7 @@ void DisplayManager::process(button_pressed_t &btn_press) {
             refresh_now = true;
             return;
         }
+        s_epd_draw_depth++;
         debug_outln_verbose(F("[Display] Starting refresh cycle for screen "), String((int)currentScreenID));
         refresh_now = false;
         Paint_SelectImage(BlackImage);
@@ -765,6 +792,7 @@ draw_complete:
             debug_outln_verbose(F("[EPD] FAST/partial refresh pushed for screen "), String((int)currentScreenID));
             showImageFast(BlackImage, currentScreenID);
         }
+        s_epd_draw_depth--;
         if (epd_draw_mutex) {
             xSemaphoreGive(epd_draw_mutex);
         }

@@ -285,7 +285,7 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_PANEL_TITLE_DATA_ENCRYPT "Encrypt map values"
 #define INTL_DATA_ENCRYPT_DISCLAIMER "Optional. Selected metrics are sent encrypted for the device owner (CPS / AES-256-GCM). Log in as owner on sensors.map to view them."
 const char INTL_DATA_ENCRYPT_BACKUP_HINT[] PROGMEM =
-	"No Robonomics seed phrase for sensors.map login? Import a device backup instead:";
+	"No Robonomics seed phrase for sensors.map login? Import a device backup instead (only works with self-owner):";
 const char INTL_DATA_ENCRYPT_BACKUP_LINK[] PROGMEM = "Open Backup & restore";
 #define INTL_DATA_ENCRYPT_KEY_LABEL "Device encryption key"
 #define INTL_DATA_ENCRYPT_KEY_SHOW "Show key"
