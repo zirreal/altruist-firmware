@@ -124,9 +124,10 @@ The firmware has three independent logging layers:
    Debug builds set it to 4 and route diagnostics to `Serial` through
    `DEBUG_ESP_PORT`. Precompiled ESP-IDF library logs remain limited by the
    SDK configuration bundled with the Arduino package.
-3. **Health telemetry** is controlled by `ALTRUIST_HEALTH_TELEMETRY`. It is a
-   stable machine-readable snapshot for the tester and does not depend on either
-   project or framework log levels.
+3. **Tester UART contract** uses stable tagged lines such as `[BOOT]`, `[BUILD]`,
+   `[LOG]`, `[HEALTH]`, `[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]`, and
+   `[SUBSYSTEM]`. These lines are printed directly to `Serial` and do not depend
+   on `cfg::debug`, `ALTRUIST_FORCE_LOG_LEVEL`, or framework log levels.
 
 Project log lines are prefixed with a level:
 
@@ -217,15 +218,16 @@ lines:
 [SUBSYSTEM] event subsystem=wifi reason=sta_recovery mode=deep status=6 ip=0.0.0.0
 ```
 
-These lines are printed directly to Serial and are intended for acceptance
-testing. They cover critical storage, sensor payload, Wi-Fi recovery, display,
-configuration, and OTA failures without requiring a `_debug` build.
+Stable tester contract lines are printed directly to Serial and are intended for
+acceptance testing. They cover boot/build identity, health telemetry, payload
+metadata, upload results, and critical storage, sensor payload, Wi-Fi recovery,
+display, configuration, and OTA failures without requiring a `_debug` build.
 
 Release/tester logs should stay small and machine-readable. Keep raw JSON
 snapshots, full HTTP response bodies, signing internals, sensor internals, and
 memory traces behind verbose/debug logging unless they are promoted to a stable
-tagged contract such as `[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]`,
-`[SUBSYSTEM]`, `[BOOT]`, or `[HEALTH]`.
+tagged contract such as `[BOOT]`, `[BUILD]`, `[LOG]`, `[HEALTH]`, `[PAYLOAD]`,
+`[DATALOG]`, `[CONNECTIVITY]`, or `[SUBSYSTEM]`.
 
 Some signing/extrinsic lines such as `Signature size: ...` can still be emitted
 directly by `ESPRobonomicsClient`. They are library diagnostics, not part of the
@@ -672,9 +674,10 @@ pio run -e esp32c3_urban_ru_debug -t upload
    Debug-сборки задают уровень 4 и направляют вывод в `Serial` через
    `DEBUG_ESP_PORT`. Логи precompiled ESP-IDF библиотек остаются ограничены
    SDK-конфигурацией, поставляемой вместе с Arduino package.
-3. **Health telemetry** управляется `ALTRUIST_HEALTH_TELEMETRY`. Это стабильная,
-   машиночитаемая строка для тестера, не зависящая от уровней логов проекта и
-   фреймворка.
+3. **UART-контракт тестера** использует стабильные tagged-строки: `[BOOT]`,
+   `[BUILD]`, `[LOG]`, `[HEALTH]`, `[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]` и
+   `[SUBSYSTEM]`. Эти строки печатаются напрямую в `Serial` и не зависят от
+   `cfg::debug`, `ALTRUIST_FORCE_LOG_LEVEL` или уровней логов фреймворка.
 
 Строки логов проекта имеют префикс уровня:
 
@@ -704,15 +707,17 @@ release-level формате:
 [SUBSYSTEM] event subsystem=wifi reason=sta_recovery mode=deep status=6 ip=0.0.0.0
 ```
 
-Эти строки печатаются напрямую в Serial и предназначены для приемочного тестера.
-Они покрывают критичные ошибки SD/config, sensor payload, Wi-Fi recovery,
-display и OTA без необходимости собирать `_debug` прошивку.
+Стабильные строки контракта тестера печатаются напрямую в Serial и предназначены
+для приемочного тестера. Они покрывают boot/build identity, health telemetry,
+payload metadata, результаты отправки и критичные ошибки SD/config, sensor
+payload, Wi-Fi recovery, display и OTA без необходимости собирать `_debug`
+прошивку.
 
 Release/tester логи должны оставаться короткими и машинно-читаемыми. Сырые JSON
 snapshots, полные HTTP response bodies, детали подписи, sensor internals и memory
 traces нужно держать за verbose/debug логированием, если они не оформлены как
-стабильный tagged-контракт: `[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]`,
-`[SUBSYSTEM]`, `[BOOT]` или `[HEALTH]`.
+стабильный tagged-контракт: `[BOOT]`, `[BUILD]`, `[LOG]`, `[HEALTH]`,
+`[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]` или `[SUBSYSTEM]`.
 
 После загрузки сохраненной конфигурации прошивка сообщает фактически применяемые
 уровни:
