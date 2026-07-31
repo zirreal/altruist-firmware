@@ -71,12 +71,9 @@ else:
 
 firmware_channel = "testing" if testing_channel else "stable"
 env["ALTRUIST_ARTIFACT_CHANNEL"] = "testing" if testing_channel else "stable"
-testing_release_log_level = testing_channel and build_profile == "release"
 
 if testing_channel:
     defines.append("ALTRUIST_CHANNEL_TESTING")
-if testing_release_log_level:
-    defines.append(("ALTRUIST_FORCE_LOG_LEVEL", 3))
 
 configured_health_telemetry = _read_optional_boolean_env(
     "ALTRUIST_HEALTH_TELEMETRY"
@@ -111,9 +108,5 @@ print(f"  branch: {git_branch or 'detached/unknown'}")
 print(f"  firmware channel: {firmware_channel}")
 print(f"  profile: {build_profile}")
 print(f"  health telemetry: {'enabled' if health_telemetry else 'disabled'}")
-print(
-    "  testing release log floor: "
-    f"{'ALTRUIST_FORCE_LOG_LEVEL=3' if testing_release_log_level else 'not applied'}"
-)
 print(f"  commit: {build_commit[:7].lower() if build_commit else 'unknown'}")
 print(f"  commit source: {commit_source}")

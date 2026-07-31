@@ -117,7 +117,7 @@ The firmware has three independent logging layers:
 1. **Project logs** use `debug_outln_error`, `debug_outln_info`, and
    `debug_outln_verbose` from `utils.cpp`. `ALTRUIST_DEFAULT_LOG_LEVEL` initializes
    `cfg::debug`, while `ALTRUIST_FORCE_LOG_LEVEL` sets its minimum effective value.
-   Testing release builds force level 3 for tester-oriented info/error logs.
+   Stable and Testing release builds use the same runtime logging behavior.
    Debug builds force level 4, so an older saved configuration cannot suppress
    verbose project diagnostics.
 2. **Arduino core logs** are controlled at compile time by `CORE_DEBUG_LEVEL`.
@@ -658,8 +658,8 @@ pio run -e esp32c3_urban_ru_debug -t upload
 1. **Логи проекта** используют `debug_outln_error`, `debug_outln_info` и
    `debug_outln_verbose` из `utils.cpp`. `ALTRUIST_DEFAULT_LOG_LEVEL` задает
    начальное значение `cfg::debug`, а `ALTRUIST_FORCE_LOG_LEVEL` — минимальный
-   эффективный уровень. Testing release-сборки принудительно держат уровень 3
-   для info/error логов тестера. В Debug-сборках уровень 4 принудителен,
+   эффективный уровень. Stable и Testing release-сборки используют одинаковое
+   runtime-поведение логирования. В Debug-сборках уровень 4 принудителен,
    поэтому старое сохраненное значение не может отключить подробные
    диагностические сообщения.
 2. **Логи Arduino core** управляются compile-time флагом `CORE_DEBUG_LEVEL`.
