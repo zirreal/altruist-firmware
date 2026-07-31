@@ -25,7 +25,7 @@ void CustomHTTPAPI::_send(JsonDocument &data) {
 		return;
 	}
 	formatDataToSend(data_to_send, data);
-    debug_outln_info(F("custom api data: "), data_to_send);
+    debug_outln_verbose(F("custom api data: "), data_to_send);
 	is_ok = false;
     is_ok = POSTRequest(data_to_send);
 }
@@ -75,10 +75,10 @@ bool CustomHTTPAPI::POSTRequest(const String& data) {
 			return true;
 		} else if (result >= HTTP_CODE_BAD_REQUEST) {
 			debug_outln_info(F("Request failed with error: "), String(result));
-			debug_outln_info(F("Details:"), _http.getString());
+			debug_outln_verbose(F("Details:"), _http.getString());
 		} else {
 			debug_outln_info(F("Request failed with error: "), String(result));
-			debug_outln_info(F("Details:"), HTTPClient::errorToString(result));
+			debug_outln_verbose(F("Details:"), HTTPClient::errorToString(result));
 		}
         _http.end();
     } else {

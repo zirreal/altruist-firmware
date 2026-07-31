@@ -215,6 +215,12 @@ These lines are printed directly to Serial and are intended for acceptance
 testing. They cover critical storage, sensor payload, Wi-Fi recovery, display,
 configuration, and OTA failures without requiring a `_debug` build.
 
+Release/tester logs should stay small and machine-readable. Keep raw JSON
+snapshots, full HTTP response bodies, signing internals, sensor internals, and
+memory traces behind verbose/debug logging unless they are promoted to a stable
+tagged contract such as `[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]`,
+`[SUBSYSTEM]`, `[BOOT]`, or `[HEALTH]`.
+
 Some signing/extrinsic lines such as `Signature size: ...` can still be emitted
 directly by `ESPRobonomicsClient`. They are library diagnostics, not part of the
 stable tester contract.
@@ -695,6 +701,12 @@ release-level формате:
 Эти строки печатаются напрямую в Serial и предназначены для приемочного тестера.
 Они покрывают критичные ошибки SD/config, sensor payload, Wi-Fi recovery,
 display и OTA без необходимости собирать `_debug` прошивку.
+
+Release/tester логи должны оставаться короткими и машинно-читаемыми. Сырые JSON
+snapshots, полные HTTP response bodies, детали подписи, sensor internals и memory
+traces нужно держать за verbose/debug логированием, если они не оформлены как
+стабильный tagged-контракт: `[PAYLOAD]`, `[DATALOG]`, `[CONNECTIVITY]`,
+`[SUBSYSTEM]`, `[BOOT]` или `[HEALTH]`.
 
 После загрузки сохраненной конфигурации прошивка сообщает фактически применяемые
 уровни:
