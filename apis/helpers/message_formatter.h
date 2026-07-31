@@ -5,7 +5,10 @@
 #include <ArduinoJson.h>
 #include <Robonomics.h>
 
-/** Map / connectivity: per-field CPS encrypt where configured. */
+/**
+ * Map / connectivity: per-field CPS encrypt where configured and emit the
+ * stable UART payload metadata. Returns false on encryption failure.
+ */
 bool formatRobonomicsString(
 	JsonDocument &data,
 	String &datalog_data,

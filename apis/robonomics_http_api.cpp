@@ -264,7 +264,7 @@ bool RobonomicsHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &dat
 		debug_outln_verbose(F("[Map] GPS lat="), String(last_value_GPS_lat, 6));
 		debug_outln_verbose(F("[Map] GPS lon="), String(last_value_GPS_lon, 6));
 	}
-	if (!formatRobonomicsString(data, datalog_data, F("connectivity")))
+	if (!formatRobonomicsString(data, datalog_data, F("sensors-connectivity")))
 	{
 		data_to_send = "";
 		return false;

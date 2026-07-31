@@ -161,6 +161,7 @@ At boot, firmware reports the effective project and framework levels after the
 saved configuration has been loaded:
 
 ```text
+[BUILD] version=R-INS_2026-06.1-testing+abcdef0 channel=testing commit=abcdef0 model=insight target=esp32c6 language=en profile=release
 [LOG] runtime=4 configured=1 forced=4 core=4
 ```
 
@@ -171,18 +172,23 @@ Sensor upload payloads emit a shared machine-readable snapshot before they are
 signed and sent:
 
 ```text
-[PAYLOAD] channel=datalog data=h:65.15,t:25.84,p:99860.91,nm:75,na:75
-[PAYLOAD] channel=connectivity data=h:65.15,t:25.84,p:99860.91,nm:75,na:75
+[PAYLOAD] channel=datalog encoding=plain encrypted=0 payload_len=49 sample_available=1 sample=h:65.15,t:25.84,p:99860.91
+[PAYLOAD] channel=datalog encoding=cps encrypted=1 payload_len=324 sample_available=0
+[PAYLOAD] channel=sensors-connectivity encoding=mixed encrypted=1 payload_len=280 sample_available=0
 ```
 
-The payload line is useful for tester-side sensor value parsing. It does not
-mean that a network upload has succeeded.
+`payload_len` describes the transport payload. `sample`, when present, is the
+local plaintext measurement snapshot and is not necessarily identical to the
+transport bytes. Release builds expose `sample` only for plain payloads. Debug
+builds may expose `sample` for encrypted payloads too. The payload line does not
+mean that a network or on-chain upload has succeeded.
 
 On-chain Robonomics datalog sends emit stable machine-readable UART events:
 
 ```text
-[DATALOG] attempt payload_len=68 payload_empty=0 owner_self_fallback=0
+[DATALOG] attempt payload_len=68 encoding=plain owner_self_fallback=0
 [DATALOG] success response_len=66
+[DATALOG] failed reason=encryption_failed
 [DATALOG] failed reason=rpc_error code=1010 message=invalid_transaction response_len=111
 ```
 
@@ -199,8 +205,8 @@ Sensors Connectivity uploads emit their own stable machine-readable UART events:
 ```
 
 The `[CONNECTIVITY]` lines describe the HTTP upload attempt and final result.
-Legacy `[Map#...]` lines are verbose diagnostics for host selection and HTTP
-details, not the primary parser contract for automated tests.
+`[Map#...]` lines are verbose diagnostics for host selection and HTTP details,
+not part of the automated tester contract.
 
 Important subsystem failures and recovery events emit stable release-level
 lines:
@@ -712,11 +718,25 @@ traces нужно держать за verbose/debug логированием, е
 уровни:
 
 ```text
+[BUILD] version=R-INS_2026-06.1-testing+abcdef0 channel=testing commit=abcdef0 model=insight target=esp32c6 language=ru profile=release
 [LOG] runtime=4 configured=1 forced=4 core=4
 ```
 
 `configured` — сохраненный `cfg::debug`, `forced` — compile-time минимум, а
 `runtime` — эффективный уровень логов проекта.
+
+Payload выводится в структурированном формате:
+
+```text
+[PAYLOAD] channel=datalog encoding=plain encrypted=0 payload_len=49 sample_available=1 sample=h:65.15,t:25.84,p:99860.91
+[PAYLOAD] channel=datalog encoding=cps encrypted=1 payload_len=324 sample_available=0
+[PAYLOAD] channel=sensors-connectivity encoding=mixed encrypted=1 payload_len=280 sample_available=0
+```
+
+`payload_len` относится к отправляемому payload. Поле `sample` содержит локальный
+plaintext-снимок измерений. Release-сборки выводят `sample` только для plain
+payload. Debug-сборки могут выводить `sample` и для encrypted payload. Наличие
+`[PAYLOAD]` не подтверждает успешную сетевую или on-chain отправку.
 
 Для просмотра логов в реальном времени:
 
