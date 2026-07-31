@@ -510,6 +510,30 @@
 #define INTL_PANEL_TITLE_LEDS "LEDs"
 #endif
 
+#ifndef INTL_ANALYTICS_MORNING_AUTOSWITCH
+#define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
+#endif
+#ifndef INTL_ANALYTICS_NIGHT_START_TIME
+#define INTL_ANALYTICS_NIGHT_START_TIME "Sleep analytics night start (local, HH:MM)"
+#endif
+#ifndef INTL_ANALYTICS_NIGHT_END_TIME
+#define INTL_ANALYTICS_NIGHT_END_TIME "Sleep analytics night end (local, HH:MM)"
+#endif
+#ifndef INTL_ANALYTICS_NIGHT_END_HINT
+#define INTL_ANALYTICS_NIGHT_END_HINT "End is exclusive for hourly buckets (e.g. 07:00 uses hours through 06:xx)."
+#endif
+#ifndef INTL_ANALYTICS_MORNING_END_TIME
+#define INTL_ANALYTICS_MORNING_END_TIME "Morning display until (local, HH:MM)"
+#endif
+#ifndef INTL_ANALYTICS_MORNING_END_HINT
+#define INTL_ANALYTICS_MORNING_END_HINT "After this time the display returns to the main screen. End time is exclusive (10:00 means until 09:59)."
+#endif
+#ifndef INTL_ANALYTICS_SLEEP_ADD_URBAN
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN "Add Urban data to sleep analytics (PM2.5 & noise)"
+#endif
+#ifndef INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT "Disable Insight standalone in the Firmware section to pair with Urban and use outdoor PM2.5/noise in sleep analytics."
+#endif
 #ifndef INTL_PANEL_TITLE_SLEEP_ANALYTICS
 #define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Sleep analytics"
 #endif

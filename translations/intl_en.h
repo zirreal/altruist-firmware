@@ -258,6 +258,14 @@ const char INTL_SCREEN_SAVE_CONFIG_FAILED[] PROGMEM = "Could not write configura
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Robonomics Public Node";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "Robonomics Map Host (connectivity)";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "Robonomics Map Hosts pool (one per line)";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_AUTO[] PROGMEM = "Default pool (auto)";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_PRESET[] PROGMEM = "Pinned (preset)";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_CUSTOM[] PROGMEM = "Custom host";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_POOL[] PROGMEM = "Custom pool";
+const char INTL_ROBONOMICS_CONNECTIVITY_PRESET_LABEL[] PROGMEM = "Pinned host (preset)";
+const char INTL_ROBONOMICS_CONNECTIVITY_CUSTOM_LABEL[] PROGMEM = "Custom host";
+const char INTL_ROBONOMICS_PUBLIC_NODE_CUSTOM[] PROGMEM = "Custom Robonomics Public Node";
+const char INTL_GUEST_CONNECTED_SENSORS[] PROGMEM = "Connected Sensors";
 const char INTL_COORD_LAT[] PROGMEM = "Latitude";
 const char INTL_COORD_LON[] PROGMEM = "Longtitude";
 const char INTL_COORDS[] PROGMEM = "GPS: Latitude, Longtitude";
@@ -272,8 +280,13 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_PANEL_TITLE_LEDS "LEDs"
 #define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Sleep analytics"
 #define INTL_ANALYTICS_MORNING_AUTOSWITCH "Open sleep analytics on the display each morning (06:00–end)"
+#define INTL_ANALYTICS_NIGHT_START_TIME "Sleep analytics night start (local, HH:MM)"
+#define INTL_ANALYTICS_NIGHT_END_TIME "Sleep analytics night end (local, HH:MM)"
+#define INTL_ANALYTICS_NIGHT_END_HINT "End is exclusive for hourly buckets (e.g. 07:00 uses hours through 06:xx)."
 #define INTL_ANALYTICS_MORNING_END_TIME "Morning display until (local, HH:MM)"
 #define INTL_ANALYTICS_MORNING_END_HINT "After this time the display returns to the main screen. End time is exclusive (10:00 means until 09:59)."
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN "Add Urban data to sleep analytics (PM2.5 & noise)"
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT "Disable Insight standalone in the Firmware section to pair with Urban and use outdoor PM2.5/noise in sleep analytics."
 #define INTL_PANEL_TITLE_FIRMWARE "Firmware Version"
 #define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi in Configuration Mode"
 #define INTL_PANEL_TITLE_CSV "CSV"
@@ -284,9 +297,8 @@ const char INTL_BASICAUTH[] PROGMEM = "Authentication";
 #define INTL_DATA_SHARING_ADDITIONAL "Additional sensors (optional)"
 #define INTL_PANEL_TITLE_DATA_ENCRYPT "Encrypt map values"
 #define INTL_DATA_ENCRYPT_DISCLAIMER "Optional. Selected metrics are sent encrypted for the device owner (CPS / AES-256-GCM). Log in as owner on sensors.map to view them."
-const char INTL_DATA_ENCRYPT_BACKUP_HINT[] PROGMEM =
-	"No Robonomics seed phrase for sensors.map login? Import a device backup instead (only works with self-owner):";
-const char INTL_DATA_ENCRYPT_BACKUP_LINK[] PROGMEM = "Open Backup & restore";
+#define INTL_DATA_ENCRYPT_BACKUP_HINT "No Robonomics seed phrase for sensors.map login? Import a device backup instead (only works with self-owner):"
+#define INTL_DATA_ENCRYPT_BACKUP_LINK "Open Backup & restore"
 #define INTL_DATA_ENCRYPT_KEY_LABEL "Device encryption key"
 #define INTL_DATA_ENCRYPT_KEY_SHOW "Show key"
 #define INTL_DATA_ENCRYPT_KEY_HIDE "Hide key"

@@ -316,7 +316,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 				"</div>");
 
 		page_content += F("<div class='form-group' id='robonomics_public_node_custom_wrap'>"
-				"<label for='robonomics_public_node_custom'>Custom Robonomics Public Node</label>"
+				"<label for='robonomics_public_node_custom'>");
+		page_content += FPSTR(INTL_ROBONOMICS_PUBLIC_NODE_CUSTOM);
+		page_content += F("</label>"
 				"<input type='text' id='robonomics_public_node_custom' name='robonomics_public_node_custom' "
 				"placeholder='custom.rpc.example' maxlength='");
 		page_content += String(LEN_ROBONOMICS_PUBLIC_NODE - 1);
@@ -350,21 +352,31 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 			"<select id='robonomics_connectivity_mode' name='robonomics_connectivity_mode'>"
 				"<option value='auto'");
 		if (is_auto) page_content += F(" selected='selected'");
-		page_content += F(">Default pool (auto)</option>"
+		page_content += F(">");
+		page_content += FPSTR(INTL_ROBONOMICS_CONNECTIVITY_MODE_AUTO);
+		page_content += F("</option>"
 				"<option value='preset'");
 		if (is_preset) page_content += F(" selected='selected'");
-		page_content += F(">Pinned (preset)</option>"
+		page_content += F(">");
+		page_content += FPSTR(INTL_ROBONOMICS_CONNECTIVITY_MODE_PRESET);
+		page_content += F("</option>"
 				"<option value='custom'");
 		if (is_custom) page_content += F(" selected='selected'");
-		page_content += F(">Custom host</option>"
+		page_content += F(">");
+		page_content += FPSTR(INTL_ROBONOMICS_CONNECTIVITY_MODE_CUSTOM);
+		page_content += F("</option>"
 				"<option value='pool'");
 		if (is_pool) page_content += F(" selected='selected'");
-		page_content += F(">Custom pool</option>"
+		page_content += F(">");
+		page_content += FPSTR(INTL_ROBONOMICS_CONNECTIVITY_MODE_POOL);
+		page_content += F("</option>"
 			"</select>"
 			"</div>");
 
 		page_content += F("<div class='form-group' id='robonomics_connectivity_preset_wrap'>"
-			"<label for='robonomics_connectivity_preset'>Pinned host (preset)</label>"
+			"<label for='robonomics_connectivity_preset'>");
+		page_content += FPSTR(INTL_ROBONOMICS_CONNECTIVITY_PRESET_LABEL);
+		page_content += F("</label>"
 			"<select id='robonomics_connectivity_preset' name='robonomics_connectivity_preset'>"
 				"<option value='connectivity.robonomics.network'");
 		if (is_default0) page_content += F(" selected='selected'");
@@ -379,7 +391,9 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 			"</div>");
 
 		page_content += F("<div class='form-group' id='robonomics_connectivity_host_wrap'>"
-			"<label for='robonomics_connectivity_host'>Custom host</label>"
+			"<label for='robonomics_connectivity_host'>");
+		page_content += FPSTR(INTL_ROBONOMICS_CONNECTIVITY_CUSTOM_LABEL);
+		page_content += F("</label>"
 			"<input type='text' id='robonomics_connectivity_host' name='robonomics_connectivity_host' "
 			"placeholder='custom.connectivity.example' maxlength='");
 		page_content += String(LEN_ROBONOMICS_CONNECTIVITY_HOST - 1);
@@ -592,15 +606,21 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_start_hour, 22u * 60u));
 		const String end_v =
 		    altruistFormatHHMM(altruistNightCfgRawToMinutes(cfg::analytics_night_end_hour, 7u * 60u));
-		page_content += F("<div class='form-group'><label for='analytics_night_start_time'>Sleep analytics night start (local, HH:MM)</label>"
+		page_content += F("<div class='form-group'><label for='analytics_night_start_time'>");
+		page_content += FPSTR(INTL_ANALYTICS_NIGHT_START_TIME);
+		page_content += F("</label>"
 			"<input type='text' id='analytics_night_start_time' name='analytics_night_start_time' "
 			"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='22:00' value='");
 		page_content += start_v;
-		page_content += F("'/></div><div class='form-group'><label for='analytics_night_end_time'>Sleep analytics night end (local, HH:MM)</label>"
+		page_content += F("'/></div><div class='form-group'><label for='analytics_night_end_time'>");
+		page_content += FPSTR(INTL_ANALYTICS_NIGHT_END_TIME);
+		page_content += F("</label>"
 			"<input type='text' id='analytics_night_end_time' name='analytics_night_end_time' "
 			"inputmode='numeric' pattern='^([01]?[0-9]|2[0-3]):[0-5][0-9]$' maxlength='5' placeholder='07:00' value='");
 		page_content += end_v;
-		page_content += F("'/></div><p class='form-hint'>End is exclusive for hourly buckets (e.g. 07:00 uses hours through 06:xx).</p>");
+		page_content += F("'/></div><p class='form-hint'>");
+		page_content += FPSTR(INTL_ANALYTICS_NIGHT_END_HINT);
+		page_content += F("</p>");
 		add_form_checkbox(Config_analytics_morning_autoswitch, FPSTR(INTL_ANALYTICS_MORNING_AUTOSWITCH), true);
 		{
 			const String morning_end_v =
@@ -616,11 +636,12 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 			page_content += F("</p></div>");
 		}
 		add_form_checkbox(Config_analytics_sleep_add_urban,
-		                  F("Add Urban data to sleep analytics (PM2.5 & noise)"),
+		                  FPSTR(INTL_ANALYTICS_SLEEP_ADD_URBAN),
 		                  !cfg::standalone);
 		if (cfg::standalone) {
-			page_content += F("<p class='form-hint'>"
-			                  "Disable Insight standalone in the Firmware section to pair with Urban and use outdoor PM2.5/noise in sleep analytics.</p>");
+			page_content += F("<p class='form-hint'>");
+			page_content += FPSTR(INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT);
+			page_content += F("</p>");
 		}
 	}
 	page_content += F("</div></section>");

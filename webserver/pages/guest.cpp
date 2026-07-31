@@ -38,7 +38,7 @@ void webserver_guest_create_body_get_part1(String& page_content, bool wificonfig
 	page_content += F("</div></section>");
 
 	page_content += F("<section class='config-section'><h2 class='config-section__title'>");
-	page_content += F("Connected Sensors");
+	page_content += FPSTR(INTL_GUEST_CONNECTED_SENSORS);
 	page_content += F("</h2><div class='config-section__body'><ul class='guest-sensor-list'>");
 
 	for (const auto &sensor : deviceStatus.sensor_names) {

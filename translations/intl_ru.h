@@ -24,7 +24,7 @@ const char INTL_CONFIGURATION[] PROGMEM = "Конфигурация";
 #define INTL_DASH_DEVICE_HEALTH "Состояние устройства"
 #define INTL_DASH_WIFI_OK "WiFi подключён"
 #define INTL_DASH_WIFI_OFF "WiFi отключён"
-#define INTL_DASH_DATALOG_OK "Datalog OK"
+#define INTL_DASH_DATALOG_OK "Datalog в порядке"
 #define INTL_DASH_DATALOG_ERR "Проблема Datalog"
 #define INTL_DASH_MAP_OK "Карта OK"
 #define INTL_DASH_MAP_ERR "Проблема карты"
@@ -60,12 +60,12 @@ const char INTL_CONFIGURATION[] PROGMEM = "Конфигурация";
 #define INTL_DASH_GROUP_LOCAL_INTRO "Показания, настройки и обслуживание в вашей домашней сети."
 #define INTL_DASH_GROUP_SOCIAL_TITLE "sensors.social"
 #define INTL_DASH_GROUP_SOCIAL_INTRO "Публичная карта, сеть Robonomics и публикация данных."
-#define INTL_DASH_GROUP_CUSTOM_TITLE "Своё"
+#define INTL_DASH_GROUP_CUSTOM_TITLE "Custom"
 #define INTL_DASH_GROUP_CUSTOM_INTRO "Home Assistant, свой API, InfluxDB и экспорт CSV."
 #define INTL_DASH_CAT_DATA "Данные"
 #define INTL_DASH_CAT_SETTINGS "Настройки"
 #define INTL_DASH_CAT_MAINTENANCE "Обслуживание"
-#define INTL_DASH_CAT_MAP "Публичная карта"
+#define INTL_DASH_CAT_MAP "sensors.social"
 #define INTL_DASH_CAT_NETWORK "Robonomics"
 #define INTL_DASH_CAT_INTEGRATIONS "Интеграции"
 #define INTL_DASH_CONFIG_MAP_DESC "Какие измерения показывать на публичной карте."
@@ -179,85 +179,83 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone (без св�
 
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
 const char INTL_RWS_OWNER[] PROGMEM = "Адрес владельца подписки";
-const char INTL_GROUP_MENU[] PROGMEM = "Группа устройств (RWS)";
-const char INTL_GROUP_INTRO[] PROGMEM = "Выберите режим участия в Robonomics Web Services (owner и on-chain список устройств).";
-const char INTL_GROUP_MODE_TITLE[] PROGMEM = "Режим работы";
-const char INTL_GROUP_MODE_STANDALONE[] PROGMEM = "Standalone — устройство само себе master (setDevices только с собой)";
-const char INTL_GROUP_MODE_MASTER[] PROGMEM = "Создать группу — это устройство master группы";
-const char INTL_GROUP_MODE_FOLLOWER[] PROGMEM = "Войти в группу — указать адрес master ниже";
-const char INTL_GROUP_MODE_MANUAL[] PROGMEM = "Manual owner — legacy: только owner, без автоматического setDevices";
-const char INTL_GROUP_SELF_ADDRESS[] PROGMEM = "Robonomics-адрес этого устройства (скопируйте на master при входе в группу)";
-const char INTL_GROUP_MASTER_PANEL[] PROGMEM = "Master группы";
-const char INTL_GROUP_FOLLOWER_PANEL[] PROGMEM = "Вход в группу";
-const char INTL_GROUP_MANUAL_PANEL[] PROGMEM = "Manual owner";
-const char INTL_GROUP_ID_LABEL[] PROGMEM = "ID группы";
-const char INTL_GROUP_MASTER_ADDRESS[] PROGMEM = "Robonomics-адрес master";
-const char INTL_GROUP_MASTER_INCLUDED[] PROGMEM = "Master (добавляется в setDevices автоматически)";
-const char INTL_GROUP_KNOWN_DEVICES[] PROGMEM = "Дополнительные устройства — followers (SS58, по одному в строке)";
-const char INTL_GROUP_KNOWN_DEVICES_HINT[] PROGMEM = "Адрес этого устройства выше всегда включён как master. Добавьте SS58 follower-ов сюда и нажмите Save.";
-const char INTL_GROUP_FOLLOWER_HINT[] PROGMEM = "Скопируйте свой адрес выше в список на master, введите адрес master здесь и нажмите Save.";
-const char INTL_GROUP_MANUAL_HINT[] PROGMEM = "Datalog использует этот owner. setDevices не вызывается автоматически.";
-const char INTL_GROUP_STATUS_GROUP_CREATING[] PROGMEM = "Группа создана — синхронизация on-chain";
-const char INTL_GROUP_STATUS_LIST_UPDATED[] PROGMEM = "Список устройств обновлён — синхронизация on-chain";
-const char INTL_GROUP_STATUS_LIST_SYNCED[] PROGMEM = "Список устройств синхронизирован on-chain";
-const char INTL_GROUP_STATUS_LABEL[] PROGMEM = "Статус";
-const char INTL_GROUP_STATUS_CREATED[] PROGMEM = "Группа создана, устройства синхронизированы";
-const char INTL_GROUP_CURRENT_DEVICES[] PROGMEM = "Текущий список устройств";
-const char INTL_GROUP_STATUS_PENDING[] PROGMEM = "Ожидание синхронизации";
-const char INTL_GROUP_STATUS_DEVICES_SYNCED[] PROGMEM = "Устройства синхронизированы on-chain";
-const char INTL_GROUP_STATUS_JOINED[] PROGMEM = "Группа подключена";
-const char INTL_GROUP_STATUS_MANUAL[] PROGMEM = "Manual owner настроен";
-const char INTL_GROUP_SAVE_OK[] PROGMEM = "Настройки группы сохранены.";
-const char INTL_GROUP_BACKUP_TITLE[] PROGMEM = "Резервная копия устройства";
-const char INTL_GROUP_BACKUP_HINT[] PROGMEM =
-	"Это устройство — само себе owner. После Save один раз скачивается backup — импортируйте его на Login sensors.map или восстановите на другом устройстве. Храните файл приватно (локальный HTTP не шифруется).";
-const char INTL_GROUP_BACKUP_SAVED_NOTICE[] PROGMEM =
-	"Скачивание backup началось. Сохраните файл и импортируйте его на sensors.map или восстановите в разделе Обслуживание.";
-const char INTL_GROUP_BACKUP_DOWNLOAD_AGAIN[] PROGMEM = "Скачать backup ещё раз…";
-const char INTL_GROUP_BACKUP_REDOWNLOAD_CONFIRM[] PROGMEM =
-	"Скачать backup устройства ещё раз? У кого есть этот файл, тот может расшифровать ваши метрики и восстановить настройки.";
-const char INTL_DEVICE_BACKUP_TITLE[] PROGMEM = "Backup и восстановление";
-const char INTL_DEVICE_BACKUP_HINT[] PROGMEM =
-	"Скачайте полный backup (настройки + ключ owner). Его можно восстановить здесь или импортировать на Login sensors.map.";
-const char INTL_DEVICE_BACKUP_DOWNLOAD[] PROGMEM = "Скачать backup";
-const char INTL_DEVICE_BACKUP_RESTORE[] PROGMEM = "Восстановить из backup";
-const char INTL_DEVICE_BACKUP_FILE_LABEL[] PROGMEM = "Файл backup";
-const char INTL_DEVICE_BACKUP_FILE_CHOOSE[] PROGMEM = "Выбрать файл…";
-const char INTL_DEVICE_BACKUP_FILE_EMPTY[] PROGMEM = "Файл не выбран";
-const char INTL_DEVICE_BACKUP_FILE_REQUIRED[] PROGMEM = "Сначала выберите JSON-файл backup.";
-const char INTL_DEVICE_BACKUP_RESTORE_HINT[] PROGMEM =
-	"Восстановление заменит все настройки на этом устройстве и перезапустит его.";
-const char INTL_DEVICE_BACKUP_RESTORE_CONFIRM[] PROGMEM =
-	"Восстановить настройки из этого backup? Текущая конфигурация будет заменена.";
-const char INTL_DEVICE_BACKUP_RESTORE_OK[] PROGMEM = "Backup восстановлен. Перезапуск…";
-const char INTL_DEVICE_BACKUP_RESTORE_FAILED[] PROGMEM = "Не удалось восстановить backup. Проверьте формат файла.";
-const char INTL_GUEST_RESTORE_HINT[] PROGMEM =
-	"Есть backup до сброса? Восстановите его здесь — вернутся Wi‑Fi, ключ owner и настройки, затем устройство перезапустится.";
-const char INTL_GROUP_OWNER_ACCESS_TITLE[] PROGMEM = "Доступ для карты (self-owner)";
-const char INTL_GROUP_OWNER_ACCESS_HINT[] PROGMEM =
-	"Это устройство — само себе owner. После Save один раз скачивается секретный JSON — импортируйте его на Login sensors.map. Храните файл приватно (локальный HTTP не шифруется).";
-const char INTL_GROUP_OWNER_ACCESS_SAVED_NOTICE[] PROGMEM =
-	"Скачивание JSON доступа owner началось. Сохраните файл и импортируйте его на sensors.map.";
-const char INTL_GROUP_OWNER_ACCESS_DOWNLOAD_AGAIN[] PROGMEM = "Скачать ещё раз…";
-const char INTL_GROUP_OWNER_ACCESS_REDOWNLOAD_CONFIRM[] PROGMEM =
-	"Скачать секретный JSON доступа owner ещё раз? У кого есть этот файл, тот может расшифровать ваши закрытые метрики.";
-const char INTL_GROUP_SAVE_FAILED[] PROGMEM = "Не удалось сохранить настройки группы.";
-const char INTL_GROUP_SAVE_CONFIG_FAILED[] PROGMEM = "Не удалось записать конфигурацию в память устройства.";
-const char INTL_GROUP_ERROR_INVALID_MASTER[] PROGMEM = "Укажите корректный Robonomics-адрес master.";
-const char INTL_GROUP_ERROR_INVALID_MANUAL_OWNER[] PROGMEM = "Укажите корректный Robonomics-адрес owner.";
-const char INTL_SCREEN_MENU[] PROGMEM = "Режим экрана";
-const char INTL_SCREEN_INTRO[] PROGMEM = "Выберите способ обновления e-paper дисплея. Разные партии панелей по-разному реагируют на partial refresh.";
-const char INTL_SCREEN_MODE_SAFE[] PROGMEM = "Safe (безопасный)";
-const char INTL_SCREEN_MODE_SAFE_HINT[] PROGMEM = "Только полное обновление экрана. Рекомендуется для всех устройств. Предотвращает артефакты на дисплее.";
-const char INTL_SCREEN_MODE_EXPERIMENTAL[] PROGMEM = "Experimental partial refresh";
-const char INTL_SCREEN_MODE_EXPERIMENTAL_HINT[] PROGMEM = "Быстрые частичные обновления. Меньше мерцания, но возможны ghosting и битая картинка на некоторых панелях.";
-const char INTL_SCREEN_SAVE_OK[] PROGMEM = "Режим экрана сохранён.";
-const char INTL_SCREEN_SAVE_FAILED[] PROGMEM = "Не удалось сохранить режим экрана.";
-const char INTL_SCREEN_SAVE_INVALID_MODE[] PROGMEM = "Выбран недопустимый режим экрана.";
-const char INTL_SCREEN_SAVE_CONFIG_FAILED[] PROGMEM = "Не удалось записать конфигурацию в память устройства.";
+#define INTL_GROUP_MENU "Группа устройств (RWS)"
+#define INTL_GROUP_INTRO "Выберите режим участия в Robonomics Web Services (owner и on-chain список устройств)."
+#define INTL_GROUP_MODE_TITLE "Режим работы"
+#define INTL_GROUP_MODE_STANDALONE "Standalone — устройство само себе master (setDevices только с собой)"
+#define INTL_GROUP_MODE_MASTER "Создать группу — это устройство master группы"
+#define INTL_GROUP_MODE_FOLLOWER "Войти в группу — указать адрес master ниже"
+#define INTL_GROUP_MODE_MANUAL "Manual owner — legacy: только owner, без автоматического setDevices"
+#define INTL_GROUP_SELF_ADDRESS "Robonomics-адрес этого устройства (скопируйте на master при входе в группу)"
+#define INTL_GROUP_MASTER_PANEL "Master группы"
+#define INTL_GROUP_FOLLOWER_PANEL "Вход в группу"
+#define INTL_GROUP_MANUAL_PANEL "Manual owner"
+#define INTL_GROUP_ID_LABEL "ID группы"
+#define INTL_GROUP_MASTER_ADDRESS "Robonomics-адрес master"
+#define INTL_GROUP_MASTER_INCLUDED "Master (добавляется в setDevices автоматически)"
+#define INTL_GROUP_KNOWN_DEVICES "Дополнительные устройства — followers (SS58, по одному в строке)"
+#define INTL_GROUP_KNOWN_DEVICES_HINT "Адрес этого устройства выше всегда включён как master. Добавьте SS58 follower-ов сюда и нажмите Save."
+#define INTL_GROUP_FOLLOWER_HINT "Скопируйте свой адрес выше в список на master, введите адрес master здесь и нажмите Save."
+#define INTL_GROUP_MANUAL_HINT "Datalog использует этот owner. setDevices не вызывается автоматически."
+#define INTL_GROUP_STATUS_GROUP_CREATING "Группа создана — синхронизация on-chain"
+#define INTL_GROUP_STATUS_LIST_UPDATED "Список устройств обновлён — синхронизация on-chain"
+#define INTL_GROUP_STATUS_LIST_SYNCED "Список устройств синхронизирован on-chain"
+#define INTL_GROUP_STATUS_LABEL "Статус"
+#define INTL_GROUP_STATUS_CREATED "Группа создана, устройства синхронизированы"
+#define INTL_GROUP_CURRENT_DEVICES "Текущий список устройств"
+#define INTL_GROUP_STATUS_PENDING "Ожидание синхронизации"
+#define INTL_GROUP_STATUS_DEVICES_SYNCED "Устройства синхронизированы on-chain"
+#define INTL_GROUP_STATUS_JOINED "Группа подключена"
+#define INTL_GROUP_STATUS_MANUAL "Manual owner настроен"
+#define INTL_GROUP_SAVE_OK "Настройки группы сохранены."
+#define INTL_GROUP_BACKUP_TITLE "Резервная копия устройства"
+#define INTL_GROUP_BACKUP_HINT "Это устройство — само себе владелец. После Save один раз скачивается резервная копия — импортируйте её при входе на sensors.map или восстановите на другом устройстве. Храните файл приватно (локальный HTTP не шифруется)."
+#define INTL_GROUP_BACKUP_SAVED_NOTICE "Скачивание резервной копии началось. Сохраните файл и импортируйте его на sensors.map или восстановите в разделе Обслуживание."
+#define INTL_GROUP_BACKUP_DOWNLOAD_AGAIN "Скачать резервную копию ещё раз…"
+#define INTL_GROUP_BACKUP_REDOWNLOAD_CONFIRM "Скачать резервную копию устройства ещё раз? У кого есть этот файл, тот может расшифровать ваши метрики и восстановить настройки."
+#define INTL_DEVICE_BACKUP_TITLE "Резервная копия и восстановление"
+#define INTL_DEVICE_BACKUP_HINT "Скачайте полную резервную копию (настройки + ключ владельца). Её можно восстановить здесь или импортировать при входе на sensors.map."
+#define INTL_DEVICE_BACKUP_DOWNLOAD "Скачать резервную копию"
+#define INTL_DEVICE_BACKUP_RESTORE "Восстановить из резервной копии"
+#define INTL_DEVICE_BACKUP_FILE_LABEL "Файл резервной копии"
+#define INTL_DEVICE_BACKUP_FILE_CHOOSE "Выбрать файл…"
+#define INTL_DEVICE_BACKUP_FILE_EMPTY "Файл не выбран"
+#define INTL_DEVICE_BACKUP_FILE_REQUIRED "Сначала выберите JSON-файл резервной копии."
+#define INTL_DEVICE_BACKUP_RESTORE_HINT "Восстановление заменит все настройки на этом устройстве и перезапустит его."
+#define INTL_DEVICE_BACKUP_RESTORE_CONFIRM "Восстановить настройки из этой резервной копии? Текущая конфигурация будет заменена."
+#define INTL_DEVICE_BACKUP_RESTORE_OK "Резервная копия восстановлена. Перезапуск…"
+#define INTL_DEVICE_BACKUP_RESTORE_FAILED "Не удалось восстановить резервную копию. Проверьте формат файла."
+#define INTL_GUEST_RESTORE_HINT "Есть резервная копия до сброса? Восстановите её здесь — вернутся Wi‑Fi, ключ владельца и настройки, затем устройство перезапустится."
+#define INTL_GROUP_OWNER_ACCESS_TITLE "Доступ для карты (self-owner)"
+#define INTL_GROUP_OWNER_ACCESS_HINT "Это устройство — само себе владелец. После Save один раз скачивается секретный JSON — импортируйте его при входе на sensors.map. Храните файл приватно (локальный HTTP не шифруется)."
+#define INTL_GROUP_OWNER_ACCESS_SAVED_NOTICE "Скачивание JSON доступа владельца началось. Сохраните файл и импортируйте его на sensors.map."
+#define INTL_GROUP_OWNER_ACCESS_DOWNLOAD_AGAIN "Скачать ещё раз…"
+#define INTL_GROUP_OWNER_ACCESS_REDOWNLOAD_CONFIRM "Скачать секретный JSON доступа владельца ещё раз? У кого есть этот файл, тот может расшифровать ваши закрытые метрики."
+#define INTL_GROUP_SAVE_FAILED "Не удалось сохранить настройки группы."
+#define INTL_GROUP_SAVE_CONFIG_FAILED "Не удалось записать конфигурацию в память устройства."
+#define INTL_GROUP_ERROR_INVALID_MASTER "Укажите корректный Robonomics-адрес master."
+#define INTL_GROUP_ERROR_INVALID_MANUAL_OWNER "Укажите корректный Robonomics-адрес owner."
+#define INTL_SCREEN_MENU "Режим экрана"
+#define INTL_SCREEN_INTRO "Выберите способ обновления e-paper дисплея. Разные партии панелей по-разному реагируют на partial refresh."
+#define INTL_SCREEN_MODE_SAFE "Safe (безопасный)"
+#define INTL_SCREEN_MODE_SAFE_HINT "Только полное обновление экрана. Рекомендуется для всех устройств. Предотвращает артефакты на дисплее."
+#define INTL_SCREEN_MODE_EXPERIMENTAL "Экспериментальный partial refresh"
+#define INTL_SCREEN_MODE_EXPERIMENTAL_HINT "Быстрые частичные обновления. Меньше мерцания, но возможны ghosting и битая картинка на некоторых панелях."
+#define INTL_SCREEN_SAVE_OK "Режим экрана сохранён."
+#define INTL_SCREEN_SAVE_FAILED "Не удалось сохранить режим экрана."
+#define INTL_SCREEN_SAVE_INVALID_MODE "Выбран недопустимый режим экрана."
+#define INTL_SCREEN_SAVE_CONFIG_FAILED "Не удалось записать конфигурацию в память устройства."
 const char INTL_ROBONOMICS_PUBLIC_NODE[] PROGMEM = "Адрес публичной ноды Робономики";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOST[] PROGMEM = "Хост Robonomics Map (connectivity)";
 const char INTL_ROBONOMICS_CONNECTIVITY_HOSTS[] PROGMEM = "Пул хостов Robonomics Map (по одному в строке)";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_AUTO[] PROGMEM = "Пул по умолчанию (авто)";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_PRESET[] PROGMEM = "Закреплённый хост";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_CUSTOM[] PROGMEM = "Свой хост";
+const char INTL_ROBONOMICS_CONNECTIVITY_MODE_POOL[] PROGMEM = "Свой пул";
+const char INTL_ROBONOMICS_CONNECTIVITY_PRESET_LABEL[] PROGMEM = "Закреплённый хост";
+const char INTL_ROBONOMICS_CONNECTIVITY_CUSTOM_LABEL[] PROGMEM = "Свой хост";
+const char INTL_ROBONOMICS_PUBLIC_NODE_CUSTOM[] PROGMEM = "Своя публичная нода Robonomics";
+const char INTL_GUEST_CONNECTED_SENSORS[] PROGMEM = "Подключённые датчики";
 const char INTL_COORD_LAT[] PROGMEM = "Широта";
 const char INTL_COORD_LON[] PROGMEM = "Долгота";
 const char INTL_COORDS[] PROGMEM = "GPS: Широта, Долгота";
@@ -272,21 +270,25 @@ const char INTL_BASICAUTH[] PROGMEM = "Активировать аутентиф
 #define INTL_PANEL_TITLE_LEDS "Светодиоды"
 #define INTL_PANEL_TITLE_SLEEP_ANALYTICS "Аналитика сна"
 #define INTL_ANALYTICS_MORNING_AUTOSWITCH "Показывать аналитику сна на экране по утрам (06:00–конец)"
+#define INTL_ANALYTICS_NIGHT_START_TIME "Начало ночи для аналитики сна (местное, ЧЧ:ММ)"
+#define INTL_ANALYTICS_NIGHT_END_TIME "Конец ночи для аналитики сна (местное, ЧЧ:ММ)"
+#define INTL_ANALYTICS_NIGHT_END_HINT "Конец не включается в почасовые интервалы (например, 07:00 означает часы до 06:xx)."
 #define INTL_ANALYTICS_MORNING_END_TIME "Показывать до (местное, ЧЧ:ММ)"
 #define INTL_ANALYTICS_MORNING_END_HINT "После этого времени экран вернётся на главный. Конец не включается (10:00 — до 09:59)."
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN "Добавлять данные Urban в аналитику сна (PM2.5 и шум)"
+#define INTL_ANALYTICS_SLEEP_ADD_URBAN_STANDALONE_HINT "Отключите режим standalone Insight в разделе Firmware, чтобы связать Urban и использовать уличные PM2.5/шум в аналитике сна."
 #define INTL_PANEL_TITLE_FIRMWARE "Версия Прошивки"
 #define INTL_PANEL_TITLE_WIFI_CONFIG "WiFi в режиме настройки"
 #define INTL_PANEL_TITLE_CSV "CSV"
 #define INTL_PANEL_TITLE_CUSTOMAPI "Пользовательский API"
-#define INTL_PANEL_TITLE_INFLUX "Ifnlux DB"
+#define INTL_PANEL_TITLE_INFLUX "InfluxDB"
 #define INTL_PANEL_TITLE_DATA_SHARING "Публикация на карту"
 #define INTL_DATA_SHARING_DISCLAIMER "По умолчанию все данные датчиков отправляются на публичную карту. Вы можете выбрать, какие данные передавать. Остальные данные будут отображаться на экране устройства и доступны локально."
 #define INTL_DATA_SHARING_ADDITIONAL "Доп. датчики (опционально)"
 #define INTL_PANEL_TITLE_DATA_ENCRYPT "Шифровать значения на карте"
-#define INTL_DATA_ENCRYPT_DISCLAIMER "По желанию. Выбранные показатели отправляются зашифрованными для владельца устройства (CPS / AES-256-GCM). Войдите как owner на sensors.map, чтобы видеть их."
-const char INTL_DATA_ENCRYPT_BACKUP_HINT[] PROGMEM =
-	"Нет seed phrase Robonomics для входа на sensors.map? Импортируйте backup устройства (работает только с self-owner):";
-const char INTL_DATA_ENCRYPT_BACKUP_LINK[] PROGMEM = "Открыть Backup и восстановление";
+#define INTL_DATA_ENCRYPT_DISCLAIMER "По желанию. Выбранные показатели отправляются зашифрованными для владельца устройства (CPS / AES-256-GCM). Войдите как владелец на sensors.map, чтобы видеть их."
+#define INTL_DATA_ENCRYPT_BACKUP_HINT "Нет seed-фразы Robonomics для входа на sensors.map? Импортируйте резервную копию устройства (работает только с self-owner):"
+#define INTL_DATA_ENCRYPT_BACKUP_LINK "Открыть резервную копию и восстановление"
 #define INTL_DATA_ENCRYPT_KEY_LABEL "Ключ шифрования устройства"
 #define INTL_DATA_ENCRYPT_KEY_SHOW "Показать ключ"
 #define INTL_DATA_ENCRYPT_KEY_HIDE "Скрыть ключ"
@@ -351,7 +353,7 @@ const char INTL_PORT[] PROGMEM = "Порт";
 const char INTL_USER[] PROGMEM = "Пользователь";
 const char INTL_PASSWORD[] PROGMEM = "Пароль";
 const char INTL_LOCAL_HOSTNAME[] PROGMEM = "Локальный домен (Измените его, если у вас больше одного альтруиста в одной сети)";
-const char INTL_MEASUREMENT[] PROGMEM = "Measurement";
+const char INTL_MEASUREMENT[] PROGMEM = "Измерение";
 const char INTL_SEND_TO[] PROGMEM = "Отправлять в {v}";
 const char INTL_READ_FROM[] PROGMEM = "Считывать с {v}";
 const char INTL_SENSOR_IS_REBOOTING[] PROGMEM = "Устройство перезапускается...";
