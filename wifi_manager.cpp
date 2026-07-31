@@ -3,10 +3,15 @@
 #include "improv/improv_serial.h"
 #include "utils.h"
 #include <WiFi.h>
+#if defined(ESP32)
+#include <esp_netif.h>
+#endif
 #if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 #include <ESPmDNS.h>
 #endif
 #include <DNSServer.h>
+#include <algorithm>
+#include <new>
 #include "defines.h"
 #include "utils.h"
 #include "config_manager/config_helpers.h"
@@ -18,13 +23,164 @@ extern DisplayManager displayManager;
 extern button_pressed_t btn_press;
 #endif
 
+#if defined(ESP32)
+// Declared in Arduino-ESP32 WiFiGeneric.cpp; used to update hostname after STA is already up.
+esp_netif_t *get_esp_interface_netif(esp_interface_t interface);
+#endif
+
 bool wificonfig_loop;
 struct struct_wifiInfo *wifiInfo = nullptr;
 uint8_t count_wifiInfo;
 
+static struct_wifiInfo s_portal_wifi_cache[WIFI_SCAN_LIST_MAX];
+static uint8_t s_portal_wifi_count = 0;
+static unsigned long s_last_portal_wifi_scan_ms = 0;
+static unsigned long s_portal_loop_started_ms = 0;
+static uint8_t s_portal_followup_scans = 0;
+
+static void wifiReadNetworkInfo(uint8_t scan_index, struct_wifiInfo& out) {
+	String SSID;
+	uint8_t* BSSID = nullptr;
+	memset(&out, 0, sizeof(out));
+#if defined(ESP8266)
+	WiFi.getNetworkInfo(scan_index, SSID, out.encryptionType, out.RSSI, BSSID, out.channel, out.isHidden);
+#else
+	WiFi.getNetworkInfo(scan_index, SSID, out.encryptionType, out.RSSI, BSSID, (int32_t&)out.channel);
+#endif
+	SSID.toCharArray(out.ssid, sizeof(out.ssid));
+}
+
+static void wifiInsertTopNetwork(struct_wifiInfo* top, uint8_t& top_count, uint8_t top_max, const struct_wifiInfo& candidate) {
+	if (top_count < top_max) {
+		top[top_count++] = candidate;
+		return;
+	}
+	uint8_t weakest = 0;
+	for (uint8_t i = 1; i < top_count; ++i) {
+		if (top[i].RSSI < top[weakest].RSSI) {
+			weakest = i;
+		}
+	}
+	if (candidate.RSSI > top[weakest].RSSI) {
+		top[weakest] = candidate;
+	}
+}
+
+static void wifiPortalSortAndDedup(void) {
+	if (s_portal_wifi_count <= 1) {
+		return;
+	}
+	for (uint8_t i = 0; i + 1 < s_portal_wifi_count; ++i) {
+		for (uint8_t j = i + 1; j < s_portal_wifi_count; ++j) {
+			if (s_portal_wifi_cache[j].RSSI > s_portal_wifi_cache[i].RSSI) {
+				std::swap(s_portal_wifi_cache[i], s_portal_wifi_cache[j]);
+			}
+		}
+	}
+	uint8_t unique = 0;
+	for (uint8_t i = 0; i < s_portal_wifi_count; ++i) {
+#if defined(ESP8266)
+		if (s_portal_wifi_cache[i].isHidden) {
+			continue;
+		}
+#endif
+		bool duplicate = false;
+		for (uint8_t j = 0; j < unique; ++j) {
+			if (strncmp(s_portal_wifi_cache[i].ssid, s_portal_wifi_cache[j].ssid,
+			            sizeof(s_portal_wifi_cache[0].ssid)) == 0) {
+				duplicate = true;
+				break;
+			}
+		}
+		if (duplicate) {
+			continue;
+		}
+		if (unique != i) {
+			s_portal_wifi_cache[unique] = s_portal_wifi_cache[i];
+		}
+		++unique;
+	}
+	s_portal_wifi_count = unique;
+}
+
+uint8_t wifiScanInto(struct_wifiInfo* out, uint8_t max_out) {
+	if (out == nullptr || max_out == 0) {
+		return 0;
+	}
+	const int8_t scanReturnCode = WiFi.scanNetworks(false /* sync */, true /* hidden */);
+	if (scanReturnCode < 0) {
+		debug_outln_error(F("WiFi scan failed"));
+		return 0;
+	}
+	uint8_t count = 0;
+	for (int8_t i = 0; i < scanReturnCode; ++i) {
+		struct_wifiInfo entry;
+		wifiReadNetworkInfo(static_cast<uint8_t>(i), entry);
+		wifiInsertTopNetwork(out, count, max_out, entry);
+	}
+	WiFi.scanDelete();
+	return count;
+}
+
+uint8_t wifiPortalRescan(void) {
+	s_portal_wifi_count = wifiScanInto(s_portal_wifi_cache, WIFI_SCAN_LIST_MAX);
+	wifiPortalSortAndDedup();
+	s_last_portal_wifi_scan_ms = millis();
+	return s_portal_wifi_count;
+}
+
+void wifiPortalMaybeRescan(void) {
+	if (s_portal_loop_started_ms == 0) {
+		return;
+	}
+	if (s_portal_followup_scans == 0 && msSince(s_portal_loop_started_ms) >= 2500UL) {
+		wifiPortalRescan();
+		s_portal_followup_scans = 1;
+		return;
+	}
+	if (s_portal_followup_scans == 1 && msSince(s_portal_loop_started_ms) >= 6000UL) {
+		wifiPortalRescan();
+		s_portal_followup_scans = 2;
+	}
+}
+
+struct_wifiInfo* wifiPortalScanCache(uint8_t* out_count) {
+	if (out_count != nullptr) {
+		*out_count = s_portal_wifi_count;
+	}
+	return s_portal_wifi_cache;
+}
+
 static volatile bool s_portal_exit_requested = false;
 
 static volatile bool s_user_portal_request = false;
+
+static unsigned long s_guest_success_restart_deadline_ms = 0;
+
+void guestSuccessMarkRestartPending(void) {
+	s_guest_success_restart_deadline_ms = millis() + GUEST_SUCCESS_PAGE_DELAY_MS;
+}
+
+void guestSuccessClearRestartPending(void) {
+	s_guest_success_restart_deadline_ms = 0;
+}
+
+void guestSuccessRestartNow(void) {
+	s_guest_success_restart_deadline_ms = 0;
+	wifiCaptivePortalRestartAfterSuccess();
+}
+
+void guestSuccessProcessPendingRestart(void) {
+	if (s_guest_success_restart_deadline_ms == 0) {
+		return;
+	}
+	if ((long)(millis() - s_guest_success_restart_deadline_ms) < 0) {
+		return;
+	}
+	s_guest_success_restart_deadline_ms = 0;
+	debug_outln_info(F("[WiFi] Guest success: auto-restart after pause"));
+	wifiCaptivePortalRestartAfterSuccess();
+}
 
 #if defined(ESP32)
 static volatile bool s_sta_disconnect_pending = false;
@@ -142,8 +298,10 @@ bool wifiStaRuntimeRecovery(bool deep_radio_off) {
 		delay(650);
 		WiFi.mode(WIFI_OFF);
 		delay(1200);
+		wifiApplyStaHostname();
 		WiFi.mode(WIFI_STA);
 		WiFi.setSleep(false);
+		wifiApplyStaHostname();
 
 		if (cfg::wlannopwd) {
 			WiFi.begin(cfg::wlanssid);
@@ -153,6 +311,7 @@ bool wifiStaRuntimeRecovery(bool deep_radio_off) {
 	} else {
 		// Soft recovery: avoid WiFi.begin() while STA may still be connecting (can trigger ESP_ERR_WIFI_STATE).
 		// Rely on Arduino-ESP32 auto reconnect + reconnect() kick.
+		wifiApplyStaHostname();
 		WiFi.mode(WIFI_STA);
 		WiFi.setSleep(false);
 		WiFi.reconnect();
@@ -213,11 +372,67 @@ bool wifiGuestPortalStaReady(void) {
 	return true;
 }
 
+void wifiApplyStaHostname(void) {
+	char host[32];
+	char fallback[32];
+	const char* src = cfg::local_hostname;
+	if (src == nullptr || src[0] == '\0') {
+		cfg::formatDefaultLocalHostname(fallback, sizeof(fallback), get_chipid().c_str());
+		src = fallback;
+	}
+
+	size_t out = 0;
+	for (size_t i = 0; src[i] != '\0' && out + 1 < sizeof(host); ++i) {
+		char c = src[i];
+		if (c >= 'A' && c <= 'Z') {
+			c = static_cast<char>(c - 'A' + 'a');
+		}
+		const bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-';
+		if (ok) {
+			host[out++] = c;
+		} else if ((c == '.' || c == '_' || c == ' ') && out > 0 && host[out - 1] != '-') {
+			host[out++] = '-';
+		}
+	}
+	while (out > 0 && host[out - 1] == '-') {
+		--out;
+	}
+	host[out] = '\0';
+	if (out == 0) {
+		cfg::formatDefaultLocalHostname(host, sizeof(host), get_chipid().c_str());
+	}
+
+#if defined(ESP32)
+	// NetworkManager copies into its own buffer (default is esp32c6-XXXXXX until we override).
+	WiFi.setHostname(host);
+
+	// Arduino only pushes NetworkManager hostname into esp_netif when STA is first enabled.
+	// Captive portal / recovery often already have STA up (AP_STA), so apply directly too.
+	esp_netif_t *netif = get_esp_interface_netif(ESP_IF_WIFI_STA);
+	if (!netif) {
+		netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+	}
+	if (netif) {
+		const esp_err_t err = esp_netif_set_hostname(netif, host);
+		if (err != ESP_OK) {
+			debug_outln_error(F("[WiFi] esp_netif_set_hostname failed"));
+			debug_outln_info(F("[WiFi] esp_netif_set_hostname err="), String((int)err));
+		}
+	}
+
+	const char *applied = WiFi.getHostname();
+	debug_outln_info(F("[WiFi] STA hostname"), String(applied ? applied : host));
+#elif defined(ESP8266)
+	WiFi.hostname(host);
+	debug_outln_info(F("[WiFi] STA hostname"), String(host));
+#endif
+}
+
 void wifiGuestPortalPrepareStaJoin(void) {
 #if defined(ESP32) || defined(ESP8266)
 	debug_outln_info(F("[WiFi] Guest portal: preparing STA join"));
 	WiFi.disconnect(true, false);
-	const unsigned long deadline = millis() + 3000UL;
+	const unsigned long deadline = millis() + 1200UL;
 	while (millis() < deadline) {
 		yield();
 		delay(50);
@@ -225,7 +440,7 @@ void wifiGuestPortalPrepareStaJoin(void) {
 			break;
 		}
 	}
-	delay(150);
+	delay(80);
 	if (WiFi.getMode() != WIFI_AP_STA) {
 		WiFi.mode(WIFI_AP_STA);
 	}
@@ -300,44 +515,30 @@ void wifiConfig(SensorWebServer &webserver) {
 	// Track portal state in the wifi module too (used by LED policy).
 	wificonfig_loop = true;
 	s_portal_exit_requested = false;
+	guestSuccessClearRestartPending();
 	webserver.setWifiConfigLoop(true);
 
 	WiFi.disconnect(true);
-	debug_outln_info(F("scan for wifi networks..."));
-	int8_t scanReturnCode = WiFi.scanNetworks(false /* scan async */, true /* show hidden networks */);
-	if (scanReturnCode < 0) {
-		debug_outln_error(F("WiFi scan failed. Treating as empty. "));
-		count_wifiInfo = 0;
-	}
-	else {
-		count_wifiInfo = (uint8_t) scanReturnCode;
-	}
 
-	delete [] wifiInfo;
-	wifiInfo = new struct_wifiInfo[std::max(count_wifiInfo, (uint8_t) 1)];
-
-	for (unsigned i = 0; i < count_wifiInfo; i++) {
-		String SSID;
-		uint8_t* BSSID;
-
-		memset(&wifiInfo[i], 0, sizeof(struct_wifiInfo));
-#if defined(ESP8266)
-		WiFi.getNetworkInfo(i, SSID, wifiInfo[i].encryptionType,
-			wifiInfo[i].RSSI, BSSID, wifiInfo[i].channel,
-			wifiInfo[i].isHidden);
-#else
-		WiFi.getNetworkInfo(i, SSID, wifiInfo[i].encryptionType,
-			wifiInfo[i].RSSI, BSSID, (int32_t&)wifiInfo[i].channel);
-#endif
-		SSID.toCharArray(wifiInfo[i].ssid, sizeof(wifiInfo[0].ssid));
-	}
-
-    webserver.setWifiInfo(wifiInfo, count_wifiInfo);
-
+	// Apply hostname before AP_STA so the STA netif is created with altruist-* (not esp32c6-*).
+	wifiApplyStaHostname();
 	WiFi.mode(WIFI_AP_STA);
+	wifiApplyStaHostname();
 	const IPAddress apIP(192, 168, 4, 1);
 	WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+
+	debug_outln_info(F("scan for wifi networks..."));
+	wifiPortalRescan();
+	count_wifiInfo = s_portal_wifi_count;
+	wifiInfo = wifiPortalScanCache(nullptr);
+
 	WiFi.softAP(cfg::fs_ssid, cfg::fs_pwd, selectChannelForAp());
+	delay(150);
+	yield();
+	wifiPortalRescan();
+	count_wifiInfo = s_portal_wifi_count;
+	wifiInfo = wifiPortalScanCache(nullptr);
+	webserver.setWifiInfo(wifiInfo, count_wifiInfo);
 	// WiFi.softAP(cfg::fs_ssid);
 	// In case we create a unique password at first start
 	debug_outln_info(F("AP Password is: "), cfg::fs_pwd);
@@ -350,6 +551,9 @@ void wifiConfig(SensorWebServer &webserver) {
 
 	webserver.setup();
 
+	s_portal_loop_started_ms = millis();
+	s_portal_followup_scans = 0;
+
 #ifdef ALTRUIST_INSIGHT
 	// Full e-ink refresh is slow; defer until AP + DNS + webserver are ready so phones can associate sooner (closer to Urban).
 	displayManager.setScreen(ScreenPage::SETUP);
@@ -361,12 +565,18 @@ void wifiConfig(SensorWebServer &webserver) {
 	unsigned long start_setup_time = millis();
 	while (true) {
 		dnsServer.processNextRequest();
+		wifiPortalMaybeRescan();
 		webserver.handleClient();
 		improv_serial_loop();
+		guestSuccessProcessPendingRestart();
 #ifdef ALTRUIST_INSIGHT
 		insightGuestProcessPendingFinish();
-		// Process display manager to handle button presses (e.g., sleep mode) even during WiFi config
-		displayManager.process(btn_press);
+		static unsigned long last_portal_display_ms = 0;
+		const unsigned long portal_now = millis();
+		if (portal_now - last_portal_display_ms >= 500UL) {
+			last_portal_display_ms = portal_now;
+			displayManager.process(btn_press);
+		}
 #endif
 		if (millis() - start_setup_time > 15 * 60 * 1000) {
 			debug_outln_error(F("WiFi config timeout, restarting..."));
@@ -384,13 +594,16 @@ void wifiConfig(SensorWebServer &webserver) {
 	}
 
 	WiFi.softAPdisconnect(true);
-	WiFi.mode(WIFI_STA);
-
 	dnsServer.stop();
 	delay(100);
 
 	debug_outln_info(FPSTR(DBG_TXT_CONNECTING_TO), cfg::wlanssid);
 
+	WiFi.mode(WIFI_OFF);
+	delay(80);
+	wifiApplyStaHostname();
+	WiFi.mode(WIFI_STA);
+	wifiApplyStaHostname();
 	if (cfg::wlannopwd) {
 		debug_outln_info(F("No password"));
 		WiFi.begin(cfg::wlanssid);
@@ -460,18 +673,18 @@ static void wifiApplyStaJoinStart(void) {
 	wifi_set_country(&wifi);
 #endif
 
-#if defined(ESP32)
-	WiFi.setHostname(cfg::fs_ssid);
-#endif
-
+	// Must run before enabling STA: Arduino applies NetworkManager hostname only on STA enable.
+	const wifi_mode_t cm = WiFi.getMode();
+	if (cm != WIFI_OFF) {
+		WiFi.mode(WIFI_OFF);
+		delay(80);
+	}
+	wifiApplyStaHostname();
 	WiFi.mode(WIFI_STA);
 #if defined(ESP32)
 	// Avoid modem sleep during association; some routers/APs otherwise look "slow" or flaky after outages.
 	WiFi.setSleep(false);
-#endif
-
-#if defined(ESP8266)
-	WiFi.hostname(cfg::fs_ssid);
+	wifiApplyStaHostname();
 #endif
 
 	if (cfg::wlannopwd) {
@@ -535,7 +748,11 @@ bool wifiApplyImprovCredentials(const String& ssid, const String& password) {
 
 	WiFi.disconnect(true, false);
 	delay(150);
+	WiFi.mode(WIFI_OFF);
+	delay(80);
+	wifiApplyStaHostname();
 	WiFi.mode(WIFI_STA);
+	wifiApplyStaHostname();
 	WiFi.setSleep(false);
 	if (cfg::wlannopwd) {
 		WiFi.begin(cfg::wlanssid);

@@ -1,10 +1,54 @@
 #include "config_helpers.h"
+#include "device_backup.h"
 #include "utils.h"
 #include "../apis/rws_group.h"
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 #include <strings.h>
 #include <time.h>
+#if defined(ESP32) || defined(ESP8266)
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#endif
+
+namespace {
+
+#if defined(ESP32) || defined(ESP8266)
+SemaphoreHandle_t g_config_fs_mutex = nullptr;
+
+void ensureConfigFsMutex() {
+	if (g_config_fs_mutex == nullptr) {
+		g_config_fs_mutex = xSemaphoreCreateRecursiveMutex();
+	}
+}
+
+class ConfigFsLockGuard {
+public:
+	explicit ConfigFsLockGuard(uint32_t timeout_ms = portMAX_DELAY) : locked_(false) {
+		ensureConfigFsMutex();
+		if (g_config_fs_mutex) {
+			locked_ = xSemaphoreTakeRecursive(g_config_fs_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
+		}
+	}
+	~ConfigFsLockGuard() {
+		if (locked_ && g_config_fs_mutex) {
+			xSemaphoreGiveRecursive(g_config_fs_mutex);
+		}
+	}
+	bool ok() const { return locked_; }
+
+private:
+	bool locked_;
+};
+#else
+class ConfigFsLockGuard {
+public:
+	explicit ConfigFsLockGuard(uint32_t = 0) {}
+	bool ok() const { return true; }
+};
+#endif
+
+}  // namespace
 
 #if defined(ALTRUIST_INSIGHT)
 #include "../sensors/sensor_names.h"
@@ -23,6 +67,30 @@ void cfgOnStandaloneModeDisabled() {
 		cfg::analytics_sleep_add_urban = true;
 		debug_outln_info(F("Paired mode: enabled Urban night analytics"));
 	}
+}
+
+unsigned cfgMinutesOfDay(unsigned raw, unsigned fallback_minutes) {
+	if (raw <= 23u) {
+		return raw * 60u;
+	}
+	if (raw <= 1439u) {
+		return raw;
+	}
+	return fallback_minutes;
+}
+
+bool cfgInAnalyticsMorningWindow(const struct tm& timeinfo) {
+	if (!cfg::analytics_morning_autoswitch) {
+		return false;
+	}
+	const unsigned now_minutes =
+	    static_cast<unsigned>(timeinfo.tm_hour) * 60u + static_cast<unsigned>(timeinfo.tm_min);
+	constexpr unsigned kMorningStartMinutes = 6u * 60u;
+	const unsigned end_minutes = cfgMinutesOfDay(cfg::analytics_morning_end_hour, 12u * 60u);
+	if (end_minutes <= kMorningStartMinutes) {
+		return false;
+	}
+	return now_minutes >= kMorningStartMinutes && now_minutes < end_minutes;
 }
 
 void clearUrbanPairingTelemetry(JsonDocument &data) {
@@ -155,26 +223,18 @@ bool writeConfig() {
 		cfg::analytics_sleep_add_urban = false;
 	}
 #endif
+	ConfigFsLockGuard lock(10000);
+	if (!lock.ok()) {
+		debug_outln_error(F("Config write skipped: filesystem lock busy"));
+		return false;
+	}
+
 	DynamicJsonDocument json(JSON_BUFFER_SIZE);
 	debug_outln_info(F("Saving config..."));
-	json["SOFTWARE_VERSION"] = SOFTWARE_VERSION_STR;
-
-	for (unsigned e = 0; e < sizeof(configShape)/sizeof(configShape[0]); ++e) {
-		ConfigShapeEntry c;
-		memcpy_P(&c, &configShape[e], sizeof(ConfigShapeEntry));
-		switch (c.cfg_type) {
-		case Config_Type_Bool:
-			json[c.cfg_key()].set(*c.cfg_val.as_bool);
-			break;
-		case Config_Type_UInt:
-		case Config_Type_Time:
-			json[c.cfg_key()].set(*c.cfg_val.as_uint);
-			break;
-		case Config_Type_Password:
-		case Config_Type_String:
-			json[c.cfg_key()].set(c.cfg_val.as_str);
-			break;
-		};
+	// Must use to<JsonObject>() — as<JsonObject>() on an empty doc is null and writes nowhere.
+	if (!serializeConfigToJson(json.to<JsonObject>())) {
+		debug_outln_error(F("Config JSON overflow while saving; increase JSON_BUFFER_SIZE"));
+		return false;
 	}
 
 	if (json.overflowed()) {
@@ -185,19 +245,25 @@ bool writeConfig() {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored  "-Wdeprecated-declarations"
 
-	SPIFFS.remove(F("/config.json.old"));
-	SPIFFS.rename(F("/config.json"), F("/config.json.old"));
-
-	File configFile = SPIFFS.open(F("/config.json"), "w");
-	if (configFile) {
-		serializeJson(json, configFile);
-		configFile.close();
-		debug_outln_info(F("Config written successfully."));
-	} else {
+	SPIFFS.remove(F("/config.json.new"));
+	File configFile = SPIFFS.open(F("/config.json.new"), "w");
+	if (!configFile) {
 		debug_outln_error(F("failed to open config file for writing"));
 		return false;
 	}
+	serializeJson(json, configFile);
 	configFile.close();
+
+	SPIFFS.remove(F("/config.json.old"));
+	if (SPIFFS.exists(F("/config.json"))) {
+		SPIFFS.rename(F("/config.json"), F("/config.json.old"));
+	}
+	if (!SPIFFS.rename(F("/config.json.new"), F("/config.json"))) {
+		debug_outln_error(F("failed to finalize config file write"));
+		SPIFFS.remove(F("/config.json.new"));
+		return false;
+	}
+	debug_outln_info(F("Config written successfully."));
 
 #pragma GCC diagnostic pop
 
@@ -268,7 +334,37 @@ static bool cfgMigrateLegacyFsSsid() {
 	return true;
 }
 
+/** OTA-safe: plain altruist / altruist-insight / altruist-urban → altruist-<model>-<id>; keep custom names. */
+static bool cfgMigrateLegacyLocalHostname() {
+	const bool legacy =
+		cfg::local_hostname[0] == '\0' ||
+		strcmp(cfg::local_hostname, "altruist") == 0 ||
+		strcmp(cfg::local_hostname, "altruist-insight") == 0 ||
+		strcmp(cfg::local_hostname, "altruist-urban") == 0 ||
+		strcmp(cfg::local_hostname, LOCAL_HOSTNAME) == 0;
+	if (!legacy) {
+		return false;
+	}
+	const String chip_id = get_chipid();
+	char target[LEN_LOCAL_HOSTNAME];
+	cfg::formatDefaultLocalHostname(target, sizeof(target), chip_id.c_str());
+	if (strcmp(cfg::local_hostname, target) == 0) {
+		return false;
+	}
+	debug_outln_info(F("[Config] Migrating local_hostname from: "), String(cfg::local_hostname));
+	strncpy(cfg::local_hostname, target, LEN_LOCAL_HOSTNAME - 1);
+	cfg::local_hostname[LEN_LOCAL_HOSTNAME - 1] = '\0';
+	debug_outln_info(F("[Config] Migrated local_hostname to: "), String(cfg::local_hostname));
+	return true;
+}
+
 void readConfig(bool oldconfig) {
+	ConfigFsLockGuard lock(10000);
+	if (!lock.ok()) {
+		debug_outln_error(F("Config read skipped: filesystem lock busy"));
+		return;
+	}
+
 	bool rewriteConfig = false;
 
 	String cfgName(F("/config.json"));
@@ -353,12 +449,26 @@ void readConfig(bool oldconfig) {
 		if (cfgMigrateLegacyFsSsid()) {
 			rewriteConfig = true;
 		}
+		if (cfgMigrateLegacyLocalHostname()) {
+			rewriteConfig = true;
+		}
 #if defined(ALTRUIST_INSIGHT)
 		if (cfg::standalone && cfg::analytics_sleep_add_urban) {
 			cfgApplyStandaloneModeEnabled();
 			rewriteConfig = true;
 		}
 #endif
+		// Climate (temp + humidity) is one map chart — keep encrypt flags paired.
+		if (cfg::encrypt_temperature != cfg::encrypt_humidity) {
+			const bool climate = cfg::encrypt_temperature || cfg::encrypt_humidity;
+			cfg::encrypt_temperature = climate;
+			cfg::encrypt_humidity = climate;
+			rewriteConfig = true;
+		}
+		if (cfg::leds_brightness > 100) {
+			cfg::leds_brightness = 100;
+			rewriteConfig = true;
+		}
 	} else {
 		debug_outln_error(F("failed to load json config"));
 
@@ -416,7 +526,7 @@ String buildSensorsSocialMapUrl(const char* sensor_ss58, const char* map_type) {
 
 	char date[11] = "1970-01-01";
 	struct tm timeinfo;
-	if (getLocalTime(&timeinfo)) {
+	if (getLocalTime(&timeinfo, 0)) {
 		strftime(date, sizeof(date), "%Y-%m-%d", &timeinfo);
 	}
 

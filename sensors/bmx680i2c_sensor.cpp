@@ -30,7 +30,11 @@ BME680Sensor::~BME680Sensor() {
 
 bool BME680Sensor::begin() {
     debug_outln_info(F("Begin BME680Sensor"));
-    i2c_master_init();
+    I2cBusLock bus;
+    if (!bus.ok()) {
+        debug_outln_error(F("BME680 I2C bus lock failed"));
+        return false;
+    }
 
     for (uint8_t addr : {0x77, 0x76}) {
         auto test_bme680 = new Adafruit_BME680(I2C_NUM_0, addr);
@@ -44,8 +48,6 @@ bool BME680Sensor::begin() {
         }
         delete test_bme680; // не наш адрес
     }
-
-    deinit_i2c();
 
     if (bme680) {
         debug_outln_info(F("BME680 Sensor started at address: 0x"), String(sensor_address, HEX));
@@ -73,11 +75,14 @@ bool BME680Sensor::begin() {
 void BME680Sensor::_fetch(JsonDocument &data) {
     debug_outln_verbose(F("fetch BME680"));
 
-    i2c_master_init();
+    I2cBusLock bus;
+    if (!bus.ok()) {
+        debug_outln_error(F("BME680 I2C bus lock failed in fetch"));
+        return;
+    }
 
     if (!bme680->performReading()) {
         debug_outln_error(F("BME680 reading failed"));
-        deinit_i2c();
         return;
     }
 
@@ -163,6 +168,4 @@ void BME680Sensor::_fetch(JsonDocument &data) {
 #if defined(ALTRUIST_BUILD_DEBUG)
     serializeJson(data, Serial);
 #endif
-
-    deinit_i2c();
 }

@@ -476,12 +476,12 @@ void extractMainScreenValues(const JsonDocument &doc, main_screen_values_t &valu
     // After 5 minutes: use SCD4x
     bool use_bme680_for_temp_hum = (system_metrics.uptime_sec < 360);
     
-    // Indoor CO2 with validation (300-5000 ppm) - always from SCD4x
+    // Indoor CO2 with validation (min 150 ppm) - always from SCD4x
     if (data.containsKey("SCD4x")) {
         auto scd = data["SCD4x"];
         if (scd.containsKey("co2")) {
             float co2 = scd["co2"]["value"].as<float>();
-            values.co2 = isValidRange(co2, 300, 5000) ? co2 : -1;
+            values.co2 = (co2 >= 150.0f) ? co2 : -1;
         }
         
         // SCD4x also provides temperature and humidity - use after 5 minutes

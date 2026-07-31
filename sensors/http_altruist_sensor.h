@@ -5,6 +5,7 @@
 
 #include "sensor.h"
 #include "HTTPClient.h"
+#include <WiFiClient.h>
 
 #define JSON_DATA_PATH "/data.json"
 #define SENSOR_URL_PREFIX "http://"
@@ -19,7 +20,8 @@ public:
 private:
     bool _discoverSensors();
     void _fetch(JsonDocument &data) override;
-    void _fetch_one_sensor(JsonDocument &data, HTTPClient& http, const String &ip_address);
+    void _fetch_one_sensor(JsonDocument &data, HTTPClient& http, WiFiClient& client,
+			   const String &ip_address);
     std::vector<String> sensor_addresses;
     String chosen_address;
     unsigned long last_success_time = 0;

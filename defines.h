@@ -17,13 +17,13 @@
 
 // increment on change
 #if defined(ALTRUIST_INSIGHT)
-#define SOFTWARE_VERSION_BASE "R-INS_2026-06.1"
+#define SOFTWARE_VERSION_BASE "R-INS_2026-07-08"
 #define PM_SENSOR_NAME "Altruist Insight"
 #define DEVICE_MODEL DEVICE_MODEL_INSIGHT
 void firmwareBlockingYieldHook(void);
 #endif
 #if defined(ALTRUIST_URBAN)
-#define SOFTWARE_VERSION_BASE "R-URB_2026-06.1"
+#define SOFTWARE_VERSION_BASE "R-URB_2026-07-08"
 #define PM_SENSOR_NAME "Altruist Urban"
 #define DEVICE_MODEL DEVICE_MODEL_URBAN
 #endif
@@ -185,7 +185,7 @@ constexpr const unsigned long WIFI_STA_PERIODIC_RECONNECT_MS = 18000UL;
  */
 constexpr const unsigned long WIFI_STA_RECOVERY_GRACE_MS = 45000UL;
 /** Urban captive portal: keep setup AP up after success so the phone can read/copy STA IP. */
-constexpr const unsigned long GUEST_SUCCESS_PAGE_DELAY_MS = 15000UL;
+constexpr const unsigned long GUEST_SUCCESS_PAGE_DELAY_MS = 45000UL;
 /** Insight captive portal: auto-finish setup (standalone) if user leaves before Continue. */
 constexpr const unsigned long INSIGHT_GUEST_AUTO_FINISH_MS = 45000UL;
 /** After association, STA can report WL_CONNECTED before IPv4; do not tear down the link during this window. */
@@ -205,15 +205,21 @@ constexpr const uint8_t WIFI_STA_DEEP_FORCE_AFTER_THROTTLED_SKIPS = 5;
  */
 constexpr const unsigned long WIFI_STA_REBOOT_AFTER_MS = (30UL * 60UL * 1000UL);
 
-/** On-chain datalog send must finish within this window; otherwise reboot (stuck Robonomics client). */
-constexpr const unsigned long DATALOG_SEND_WATCHDOG_MS = 90UL * 1000UL;
+/**
+ * Recovery watchdog windows.
+ *
+ * These are *software* health checks that trigger an automatic reboot when a worker
+ * appears stuck for too long (e.g., network stall, blocked loop iteration).
+ *
+ */
+constexpr const unsigned long DATALOG_SEND_WATCHDOG_MS = 5UL * 60UL * 1000UL;
 /** loop() must complete within this window (web + Insight display); otherwise reboot. */
-constexpr const unsigned long MAIN_LOOP_STALL_WATCHDOG_MS = 90UL * 1000UL;
+constexpr const unsigned long MAIN_LOOP_STALL_WATCHDOG_MS = 5UL * 60UL * 1000UL;
 /**
  * sensorAndAPIWorker must finish one full iteration within this window (fetch + APIs + OTA check).
  * Catches Map HTTP / fetch / datalog hangs even when loop() still runs (Insight frozen UI).
  */
-constexpr const unsigned long SENSOR_WORKER_LOOP_WATCHDOG_MS = 120UL * 1000UL;
+constexpr const unsigned long SENSOR_WORKER_LOOP_WATCHDOG_MS = 5UL * 60UL * 1000UL;
 
 // ------------------------------------------------------------
 // Urban TTL constants (Insight only)
@@ -410,7 +416,13 @@ constexpr const unsigned long URBAN_REDISCOVER_INTERVAL_MS = 5UL * 60UL * 1000UL
 // Wifi config
 const char WLANSSID[] PROGMEM = "Not Set";
 const char WLANPWD[] PROGMEM = "";
+#if defined(ALTRUIST_INSIGHT)
+#define LOCAL_HOSTNAME "altruist-insight" // legacy base; runtime default is altruist-insight-<id>
+#elif defined(ALTRUIST_URBAN)
+#define LOCAL_HOSTNAME "altruist-urban" // legacy base; runtime default is altruist-urban-<id>
+#else
 #define LOCAL_HOSTNAME "altruist"
+#endif
 #define WLANNOPWD 0
 
 // BasicAuth config

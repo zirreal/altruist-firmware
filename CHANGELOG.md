@@ -2,6 +2,53 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
+## [R_2026-07–2026-08](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-07) — 2026-07–2026-08
+
+### Features
+
+- **Owner-value encryption (CPS / AES-256-GCM)** — Optional per-metric encryption for sensors.map (off by default). Selected values are encrypted for the device **owner** via ECDH (device private key + owner public key) → HKDF (`salt=robonomics-network`, `info=aesgcm256`, same order as libcps) → AES-256-GCM. Wire format: `e.<base64(json)>` with `from` as **SS58** (Robonomics prefix 32, with checksum — not raw base58), `nonce`, and `ciphertext`. Decrypt on sensors.map after owner login (mnemonic) or self-owner JSON import. Config toggles under **Encrypt map values** (climate = temperature + humidity together). When `rws_owner` is unset, the device encrypts to itself (self-owner). Debug builds run `valueCryptoSelfTest()` (ECDH/HKDF/GCM/SS58) at datalog setup.
+- **Self-owner map access JSON** — Authenticated download at `/owner-access.json` (`format: altruist-owner1`, ed25519 `seed` + `address`) for Standalone/Master devices. **Device group** page auto-downloads the file once after Save; **Download again…** re-fetches with a confirm dialog. Import on sensors.map Login to decrypt without a mnemonic.
+- **Device backup & restore** — Full settings backup (including owner key when present) via `/backup.json` on **System → Backup & restore**. Restore from JSON (`POST /restore-backup`) replaces `config.json` and restarts. Same backup file can be used on sensors.map Login. On the **guest Wi‑Fi setup** page (`/guest`), restore is available before joining home Wi‑Fi so a reset device can recover credentials, owner key, and encryption settings in one step (multipart upload posts to `/guest-restore`; Advanced keeps `/restore-backup`).
+- **Guest setup device info** — After Wi‑Fi connects, the success screen shows **IP** and **Robonomics address** with copy buttons, plus **Save device info** / **Copy as text** for a JSON backup (`ip`, `sensor`, encryption `export`). Share sheet on phones (Save to Files / Downloads); clipboard fallback when the captive-portal browser cannot download. Does not navigate away from the setup flow.
+- **Guest Finish setup** — On the post-setup success screen (Urban Wi‑Fi OK, Insight standalone, or after Urban pairing), a **Finish setup** button restarts immediately instead of waiting out the full pause; auto-restart still runs after ~45 s if the button is not used.
+- **Unique LAN / mDNS hostname** — Default device name is `altruist-insight-<id>` / `altruist-urban-<id>` (last 4 hex digits of the MAC) for DHCP/router listing and `http://altruist-…-<id>.local/`. The web UI sidebar, browser tab, and footer keep the stable **`altruist.local`** label. Legacy plain names migrate on config load; user-chosen hostnames are kept.
+- **Hub web interface** — Device pages use a mobile-first **app shell** with four hub areas: **altruist.local** (`/`, readings & device settings), **sensors.social** (`/social`, sensors.social map & Robonomics), **custom** (`/custom`, Home Assistant / API / Influx / CSV), and **system** (`/advanced`, debug / restart / delete config). Desktop sidebar + mobile bottom tabs; breadcrumbs on inner views. Guest captive portal keeps the previous layout.
+- **Local hub layout** — **Values** and **Status** first (important for Urban without a display), then Settings (Wi‑Fi, auth, LEDs, sleep, firmware, OTA), then Screen mode on Insight.
+- **Readings (`/values`)** — Sensor sections use a **metric card grid** (`reading-grid` / `reading-card`); network signal as cards with a short intro. Insight **standalone** hides the paired Urban outdoor block.
+- **Status (`/status`)** — Reordered into **Overview → Device → Technical details → Export**, with metric cards for the essentials and a muted block for build/support fields.
+- **Delete configuration** — Two-step confirm: first click shows the warning; second click (**Yes, delete permanently**) submits.
+- **Bottom navigation icons** — Local / Map / Custom / System PNGs from `display/icons/interface/`, embedded in `nav-icons.h`.
+- **Favicon** — `/favicon.ico` and `/favicon-dark.ico` (PNG, light/dark scheme) replace the previous generic tab icon.
+- **Config panels** — Sectioned settings (Wi-Fi, Robonomics, data sharing, GPS, auth, debug, LEDs, sleep analytics, integrations) with checkbox **grids** for map-sharing toggles and shared JS for conditional fields (`script-js-config-toggles.h`).
+
+### Improvements
+
+- **On-chain datalog encryption (bulk blob)** — Map/connectivity keep **per-field** `e....` values. On-chain datalog uses a **single** CPS blob for the whole CSV when any encrypt flag is enabled (`formatRobonomicsDatalogString()`), so encrypted Insight/Urban payloads fit the parachain **512-byte** record limit. Skips send (no plaintext fallback) if bulk encrypt fails or the record would exceed the limit.
+- **Guest success pause** — After Wi‑Fi / pairing success, the device stays available **~45 s** (was 15 s on Urban) with a countdown so there is time to copy IP / save device info; the pause is non-blocking so **Finish setup** and other portal requests still work.
+- **Guest connecting screen** — Connecting / failed states use the same centered guest card layout as the rest of setup (no full-width sparse strip), with short status hints (EN/RU).
+- **LED schedule labels (Insight)** — Off/on hours labeled as local-hour turn-off / turn-back-on, with a hint about dimming and same-hour = stay on overnight.
+- **Hub sidebar** — Sticky desktop sidebar; hub tabs use a black left border by default and green when active.
+- **Mobile spacing** — More padding between main content and the footer above the bottom tab bar.
+- **Web UI polish** — Hub groups with clear section cards; hostname/`altruist.local` access label; sensors.social as a plain top link on Social; Wi‑Fi credentials full-width on Local; more bottom padding above the mobile tab bar.
+- **HTTP responsiveness** — `handleClient()` retries the webserver mutex briefly and processes multiple requests per lock; `markMainLoopAlive()` is called during HTTP service and in `loop()` so long web work is less likely to trip the main-loop watchdog.
+- **`/data.json` under load** — Mutex take uses a 300 ms timeout; returns `503 {"error":"busy"}` instead of blocking the client indefinitely.
+- **Recovery watchdog timeouts** — Datalog, main-loop, and sensor-worker stall watchdogs extended from ~90–120 s to **5 minutes** (Urban and Insight).
+- **CO₂ display range** — Removed the 5000 ppm upper cap; minimum valid CO₂ lowered from 300 to **150 ppm** on Insight main screen, sleep analytics, and analytics rollup (values above sensor range still show `--` on e-paper when invalid).
+- **Insight ↔ Urban HTTP** — On failed Urban fetch: up to 3 quick retries with a TCP nudge, poll every ~1 min while failing (instead of waiting 5 min), clearer `-1` / connection-error logs, and less mDNS spam when a Urban IP is already configured.
+- **Urban LEDs** — Brightness from config is reapplied each `process()` cycle (strip and board RGB stay in sync when the slider changes).
+- **Insight guest/setup copy** — Clearer standalone vs Urban pairing hints and auto-finish wording (EN/RU).
+
+### Bug Fixes
+
+- **Config not saved after Wi‑Fi / setup** — `writeConfig()` used `json.as<JsonObject>()` on an empty document (null object), so `config.json` was never written. Devices could loop in captive-portal setup after enabling encryption or finishing guest Wi‑Fi. Fixed to `json.to<JsonObject>()`.
+- **Concurrent `writeConfig()` corrupted config.json** — Saving standalone mode from the web UI could race with `ensureRwsDevicesRegistered()` in the sensor worker (both calling `writeConfig()` without synchronization), breaking `/config.json` and `/config.json.old` and forcing a new Robonomics identity. Config reads/writes are now serialized with a recursive mutex; writes go to `/config.json.new` before atomic rename.
+- **Map POST with encrypted metrics** — Connectivity verifies the raw signed message. Encrypted `e....` values push the payload past the Substrate 256-byte Blake2b signing path in `ESPRobonomicsClient`; Map/custom HTTP now sign raw Ed25519 bytes (`signMessageRaw`) so encrypted payloads no longer fail verification (HTTP 500).
+- **STA hostname on routers** — DHCP/router device name is set from the local hostname (not the setup AP `fs_ssid`) and applied even when STA is already up (captive portal / reconnect), so devices show as `altruist-…` instead of the ESP-IDF default `esp32c6-…`.
+- **LED brightness range** — Brightness input is limited to **0–100%**; negative and out-of-range form values are rejected / clamped on save and config load. Hour fields use **0–23**.
+- **Leaflet map init** — GPS map script only runs when `#map` is present (no more `Map container not found` on hub pages without a map).
+- **Config checkbox grids** — Trailing `<br/>` after checkboxes no longer breaks the data-sharing grid layout.
+- **Status time / map date** — `getLocalTime(&timeinfo, 0)` avoids blocking the status page or sensors.social URL when SNTP has not synced yet.
+
 ## [R_2026-06.01](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-06.01) — 2026-06-22
 
 ### Features

@@ -1,34 +1,9 @@
-#ifndef _SCRIPT_JS_LITE_H
-#define _SCRIPT_JS_LITE_H
+#ifndef _SCRIPT_JS_CONFIG_TOGGLES_H
+#define _SCRIPT_JS_CONFIG_TOGGLES_H
 
-/** Config page JS: tabs, conditional fields, GPS map marker, Urban scan. */
-const char WEB_PAGE_STATIC_JS_CONFIG[] PROGMEM = R"rawliteral(
-document.addEventListener('DOMContentLoaded', function() {
-  var tabs = document.querySelectorAll('.tab');
-  var panels = document.querySelectorAll('.panel');
-  function showTab(id) {
-    panels.forEach(function(p) { p.classList.remove('active'); });
-    tabs.forEach(function(t) { t.classList.remove('active'); });
-    if (panels[id - 1]) panels[id - 1].classList.add('active');
-    if (tabs[id - 1]) tabs[id - 1].classList.add('active');
-  }
-  if (tabs.length && panels.length) {
-    tabs.forEach(function(tab) {
-      tab.addEventListener('click', function(e) {
-        showTab(parseInt(e.target.dataset.id, 10));
-      });
-    });
-    var hashTab = { integrations: 3, export: 3, advanced: 2, more: 2, map: 1, robonomics: 1 };
-    function openTabFromHash() {
-      var h = (location.hash || '').replace(/^#/, '').toLowerCase();
-      var id = hashTab[h];
-      if (id) showTab(id);
-      else showTab(1);
-    }
-    openTabFromHash();
-    window.addEventListener('hashchange', openTabFromHash);
-  }
-
+/** Appended to WEB_PAGE_STATIC_JS_CONFIG (Insight): conditional form fields, OTA, Urban scan. */
+#define WEB_PAGE_STATIC_JS_CONFIG_SUFFIX R"rawliteral(
+;(function() {
   function byId(id) { return document.getElementById(id); }
   function toggleDisplay(el, show) {
     if (el) el.style.display = show ? 'block' : 'none';
@@ -95,6 +70,50 @@ document.addEventListener('DOMContentLoaded', function() {
   if (offHour) { offHour.min = '0'; offHour.max = '23'; offHour.step = '1'; }
   if (onHour) { onHour.min = '0'; onHour.max = '23'; onHour.step = '1'; }
 
+  var morningAuto = byId('analytics_morning_autoswitch');
+  if (morningAuto) {
+    function syncMorningDisplay() {
+      toggleDisplay(byId('analytics_morning_end_wrap'), morningAuto.checked);
+      var endInput = byId('analytics_morning_end_time');
+      if (endInput) endInput.disabled = !morningAuto.checked;
+    }
+    syncMorningDisplay();
+    morningAuto.onchange = syncMorningDisplay;
+  }
+
+  var configTabs = document.querySelectorAll('.config-nav .tab');
+  function nudgeGpsMap() {
+    if (!byId('map')) return;
+    window.dispatchEvent(new Event('resize'));
+  }
+  if (byId('map')) {
+    setTimeout(nudgeGpsMap, 200);
+    setTimeout(nudgeGpsMap, 900);
+    window.addEventListener('load', function() { setTimeout(nudgeGpsMap, 100); });
+    if (window.ResizeObserver) {
+      var mapBox = document.querySelector('.map-container');
+      if (mapBox) {
+        new ResizeObserver(function() { nudgeGpsMap(); }).observe(mapBox);
+      }
+    }
+  }
+  if (configTabs.length) {
+    var hashTab = { integrations: 3, export: 3, advanced: 2, more: 2, map: 1, robonomics: 1 };
+    function openConfigTabFromHash() {
+      var h = (location.hash || '').replace(/^#/, '').toLowerCase();
+      var id = hashTab[h];
+      if (id && configTabs[id - 1]) configTabs[id - 1].click();
+      if (id === 1) setTimeout(nudgeGpsMap, 150);
+    }
+    openConfigTabFromHash();
+    window.addEventListener('hashchange', openConfigTabFromHash);
+    configTabs.forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        if (tab.dataset.id === '1') setTimeout(nudgeGpsMap, 150);
+      });
+    });
+  }
+
   var scanBtn = byId('btn_scan_urbans');
   if (scanBtn) {
     scanBtn.addEventListener('click', function() {
@@ -145,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-});
-)rawliteral";
+})();
+)rawliteral"
 
-#endif // _SCRIPT_JS_LITE_H
+#endif // _SCRIPT_JS_CONFIG_TOGGLES_H

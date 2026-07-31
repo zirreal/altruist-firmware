@@ -65,6 +65,8 @@ Bool		use_custom_urban
 Bool		standalone
 UInt		epd_refresh_mode
 Bool		analytics_sleep_add_urban
+Bool		analytics_morning_autoswitch
+UInt		analytics_morning_end_hour
 Bool		share_temperature
 Bool		share_humidity
 Bool		share_pressure
@@ -77,6 +79,18 @@ Bool		share_o3
 Bool		share_no2
 Bool		share_fast_aqi
 Bool		share_epa_aqi
+Bool		encrypt_temperature
+Bool		encrypt_humidity
+Bool		encrypt_pressure
+Bool		encrypt_co2
+Bool		encrypt_pm
+Bool		encrypt_noise
+Bool		encrypt_co
+Bool		encrypt_radiation
+Bool		encrypt_o3
+Bool		encrypt_no2
+Bool		encrypt_fast_aqi
+Bool		encrypt_epa_aqi
 """
 
 with open("airrohr-cfg.h", "w") as h:

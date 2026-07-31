@@ -93,6 +93,8 @@ enum ConfigShapeId {
 	Config_standalone,
 	Config_epd_refresh_mode,
 	Config_analytics_sleep_add_urban,
+	Config_analytics_morning_autoswitch,
+	Config_analytics_morning_end_hour,
 	Config_share_temperature,
 	Config_share_humidity,
 	Config_share_pressure,
@@ -105,6 +107,18 @@ enum ConfigShapeId {
 	Config_share_no2,
 	Config_share_fast_aqi,
 	Config_share_epa_aqi,
+	Config_encrypt_temperature,
+	Config_encrypt_humidity,
+	Config_encrypt_pressure,
+	Config_encrypt_co2,
+	Config_encrypt_pm,
+	Config_encrypt_noise,
+	Config_encrypt_co,
+	Config_encrypt_radiation,
+	Config_encrypt_o3,
+	Config_encrypt_no2,
+	Config_encrypt_fast_aqi,
+	Config_encrypt_epa_aqi,
 };
 static constexpr char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 static constexpr char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
@@ -170,6 +184,8 @@ static constexpr char CFG_KEY_USE_CUSTOM_URBAN[] PROGMEM = "use_custom_urban";
 static constexpr char CFG_KEY_STANDALONE[] PROGMEM = "standalone";
 static constexpr char CFG_KEY_EPD_REFRESH_MODE[] PROGMEM = "epd_refresh_mode";
 static constexpr char CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN[] PROGMEM = "analytics_sleep_add_urban";
+static constexpr char CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH[] PROGMEM = "analytics_morning_autoswitch";
+static constexpr char CFG_KEY_ANALYTICS_MORNING_END_HOUR[] PROGMEM = "analytics_morning_end_hour";
 static constexpr char CFG_KEY_SHARE_TEMPERATURE[] PROGMEM = "share_temperature";
 static constexpr char CFG_KEY_SHARE_HUMIDITY[] PROGMEM = "share_humidity";
 static constexpr char CFG_KEY_SHARE_PRESSURE[] PROGMEM = "share_pressure";
@@ -182,6 +198,18 @@ static constexpr char CFG_KEY_SHARE_O3[] PROGMEM = "share_o3";
 static constexpr char CFG_KEY_SHARE_NO2[] PROGMEM = "share_no2";
 static constexpr char CFG_KEY_SHARE_FAST_AQI[] PROGMEM = "share_fast_aqi";
 static constexpr char CFG_KEY_SHARE_EPA_AQI[] PROGMEM = "share_epa_aqi";
+static constexpr char CFG_KEY_ENCRYPT_TEMPERATURE[] PROGMEM = "encrypt_temperature";
+static constexpr char CFG_KEY_ENCRYPT_HUMIDITY[] PROGMEM = "encrypt_humidity";
+static constexpr char CFG_KEY_ENCRYPT_PRESSURE[] PROGMEM = "encrypt_pressure";
+static constexpr char CFG_KEY_ENCRYPT_CO2[] PROGMEM = "encrypt_co2";
+static constexpr char CFG_KEY_ENCRYPT_PM[] PROGMEM = "encrypt_pm";
+static constexpr char CFG_KEY_ENCRYPT_NOISE[] PROGMEM = "encrypt_noise";
+static constexpr char CFG_KEY_ENCRYPT_CO[] PROGMEM = "encrypt_co";
+static constexpr char CFG_KEY_ENCRYPT_RADIATION[] PROGMEM = "encrypt_radiation";
+static constexpr char CFG_KEY_ENCRYPT_O3[] PROGMEM = "encrypt_o3";
+static constexpr char CFG_KEY_ENCRYPT_NO2[] PROGMEM = "encrypt_no2";
+static constexpr char CFG_KEY_ENCRYPT_FAST_AQI[] PROGMEM = "encrypt_fast_aqi";
+static constexpr char CFG_KEY_ENCRYPT_EPA_AQI[] PROGMEM = "encrypt_epa_aqi";
 static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::current_lang)-1, CFG_KEY_CURRENT_LANG, cfg::current_lang },
 	{ Config_Type_String, sizeof(cfg::wlanssid)-1, CFG_KEY_WLANSSID, cfg::wlanssid },
@@ -247,6 +275,8 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_STANDALONE, &cfg::standalone },
 	{ Config_Type_UInt, 0, CFG_KEY_EPD_REFRESH_MODE, &cfg::epd_refresh_mode },
 	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_SLEEP_ADD_URBAN, &cfg::analytics_sleep_add_urban },
+	{ Config_Type_Bool, 0, CFG_KEY_ANALYTICS_MORNING_AUTOSWITCH, &cfg::analytics_morning_autoswitch },
+	{ Config_Type_UInt, 0, CFG_KEY_ANALYTICS_MORNING_END_HOUR, &cfg::analytics_morning_end_hour },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_TEMPERATURE, &cfg::share_temperature },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_HUMIDITY, &cfg::share_humidity },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_PRESSURE, &cfg::share_pressure },
@@ -259,6 +289,18 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_NO2, &cfg::share_no2 },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_FAST_AQI, &cfg::share_fast_aqi },
 	{ Config_Type_Bool, 0, CFG_KEY_SHARE_EPA_AQI, &cfg::share_epa_aqi },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_TEMPERATURE, &cfg::encrypt_temperature },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_HUMIDITY, &cfg::encrypt_humidity },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_PRESSURE, &cfg::encrypt_pressure },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_CO2, &cfg::encrypt_co2 },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_PM, &cfg::encrypt_pm },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_NOISE, &cfg::encrypt_noise },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_CO, &cfg::encrypt_co },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_RADIATION, &cfg::encrypt_radiation },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_O3, &cfg::encrypt_o3 },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_NO2, &cfg::encrypt_no2 },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_FAST_AQI, &cfg::encrypt_fast_aqi },
+	{ Config_Type_Bool, 0, CFG_KEY_ENCRYPT_EPA_AQI, &cfg::encrypt_epa_aqi },
 };
           
 #endif // __CONFIG_H__

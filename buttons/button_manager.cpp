@@ -83,6 +83,26 @@ button_pressed_t ButtonManager::process() {
             }
         }
     }
+
+    const bool both_set_down =
+        set_button.get_last_state() == PRESSED_STATE &&
+        down_button.get_last_state() == PRESSED_STATE;
+    if (both_set_down) {
+        if (combo_hold_start_ms == 0) {
+            combo_hold_start_ms = millis();
+        } else if (!combo_wifi_reset_fired &&
+                   msSince(combo_hold_start_ms) >= LONG_PRESS_TIMEOUT) {
+            combo_wifi_reset_fired = true;
+            res.pressed = true;
+            res.double_long = true;
+            res.press_type = PressType::LONG;
+            res.button_num = ButtonNum::SET;
+            res.second_button_num = ButtonNum::DOWN;
+        }
+    } else {
+        combo_hold_start_ms = 0;
+        combo_wifi_reset_fired = false;
+    }
 #endif
     if (res.pressed) {
         print_button_pressed(res);

@@ -110,12 +110,16 @@ enum CustomRestartReason : uint32_t {
 	RESTART_REASON_OTA = 1,
 	RESTART_REASON_CONFIG = 2,
 	RESTART_REASON_USER = 3,
+	RESTART_REASON_WATCHDOG = 4,
+	RESTART_REASON_WIFI = 5,
 };
 
 void set_restart_reason(CustomRestartReason reason);
 const char* get_reset_reason_text();
 
-String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi);
+/** Feed the main-loop stall watchdog during long HTTP or e-ink work. */
+void markMainLoopAlive();
+
 String delayToString(unsigned time_ms);
 
 void sensor_restart();
@@ -144,6 +148,7 @@ public:
 
 private:
 	QueueHandle_t m_buffer;
+	SemaphoreHandle_t m_write_mutex;
 };
 
 extern class LoggingSerial Debug;

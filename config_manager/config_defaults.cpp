@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <cstdio>
+#include <cstring>
 #include "config_defaults.h"
 
 namespace cfg {
@@ -70,7 +72,7 @@ namespace cfg {
 	char donated_by[LEN_DONATED_BY];
 
 	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
-	char local_hostname[LEN_LOCAL_HOSTNAME] = LOCAL_HOSTNAME;
+	char local_hostname[LEN_LOCAL_HOSTNAME] = "";
 	char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	char timezone[LEN_TIMEZONE] = "<+00>0";
 	char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
@@ -85,6 +87,8 @@ namespace cfg {
 	unsigned leds_on_hour = 6;  // Default on at 06:00 (local time)
 	unsigned analytics_night_start_hour = 22 * 60; // minutes from midnight (key name legacy)
 	unsigned analytics_night_end_hour = 7 * 60;    // exclusive end, minutes (07:00)
+	bool analytics_morning_autoswitch = true;
+	unsigned analytics_morning_end_hour = 12 * 60; // exclusive end (12:00 local)
 
 	// data sharing preferences (all shared by default)
 	bool share_temperature = true;
@@ -100,6 +104,38 @@ namespace cfg {
 	bool share_no2 = false;
 	bool share_fast_aqi = false;
 	bool share_epa_aqi = false;
+
+	bool encrypt_temperature = false;
+	bool encrypt_humidity = false;
+	bool encrypt_pressure = false;
+	bool encrypt_co2 = false;
+	bool encrypt_pm = false;
+	bool encrypt_noise = false;
+	bool encrypt_co = false;
+	bool encrypt_radiation = false;
+	bool encrypt_o3 = false;
+	bool encrypt_no2 = false;
+	bool encrypt_fast_aqi = false;
+	bool encrypt_epa_aqi = false;
+
+	void formatDefaultLocalHostname(char* out, size_t out_len, const char* chip_id) {
+		if (!out || out_len == 0) {
+			return;
+		}
+		char short_id[5] = {'0', '0', '0', '0', '\0'};
+		if (chip_id && chip_id[0] != '\0') {
+			const size_t n = strlen(chip_id);
+			const char* src = (n > 4) ? (chip_id + (n - 4)) : chip_id;
+			for (size_t i = 0; i < 4 && src[i] != '\0'; ++i) {
+				char c = src[i];
+				if (c >= 'A' && c <= 'Z') {
+					c = static_cast<char>(c - 'A' + 'a');
+				}
+				short_id[i] = c;
+			}
+		}
+		snprintf(out, out_len, "altruist-%s-%s", DEVICE_MODEL, short_id);
+	}
 
 	void initNonTrivials(const char* id) {
 		strcpy(cfg::current_lang, CURRENT_LANG);
@@ -117,6 +153,11 @@ namespace cfg {
 
 		if (!*fs_ssid) {
 			snprintf(fs_ssid, sizeof(fs_ssid), "Altruist-%s-%s", DEVICE_MODEL, id);
+		}
+		if (!*local_hostname ||
+		    strcmp(local_hostname, "altruist") == 0 ||
+		    strcmp(local_hostname, LOCAL_HOSTNAME) == 0) {
+			formatDefaultLocalHostname(local_hostname, sizeof(local_hostname), id);
 		}
 	}
 }

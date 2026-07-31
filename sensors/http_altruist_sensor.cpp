@@ -36,16 +36,33 @@ static void httpUrbanClearStaleIdentity(JsonDocument &data) {
     data.remove(ATRUIST_URBAN_SENSOR);
 }
 
+static void httpUrbanTrimIp(String &ip) {
+    ip.trim();
+    // Strip accidental http:// or trailing path from pasted browser URLs.
+    if (ip.startsWith(F("http://"))) {
+        ip = ip.substring(7);
+    } else if (ip.startsWith(F("https://"))) {
+        ip = ip.substring(8);
+    }
+    const int slash = ip.indexOf('/');
+    if (slash >= 0) {
+        ip = ip.substring(0, slash);
+    }
+    ip.trim();
+}
+
 static bool httpUrbanApplyConfiguredAddress(String &chosen_address) {
     if (cfg::use_custom_urban && strlen(cfg::custom_altruist_urban) > 0) {
         chosen_address = String(cfg::custom_altruist_urban);
+        httpUrbanTrimIp(chosen_address);
         debug_outln_verbose(F("HTTPAltruistSensor: using custom_altruist_urban "), chosen_address);
-        return true;
+        return chosen_address.length() > 0;
     }
     if (strlen(cfg::chosen_altruist_urban) > 0) {
         chosen_address = String(cfg::chosen_altruist_urban);
+        httpUrbanTrimIp(chosen_address);
         debug_outln_verbose(F("HTTPAltruistSensor: using chosen_altruist_urban "), chosen_address);
-        return true;
+        return chosen_address.length() > 0;
     }
     chosen_address = "";
     return false;
@@ -174,6 +191,9 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
     http_urban_prev_sta_up = true;
 
     debug_outln_verbose(F("fetch HTTP Altruist"));
+    // Client before HTTPClient: ~HTTPClient may call _client->stop() even after end()
+    // when TCP was already closed (Arduino leaves dangling _client).
+    WiFiClient client;
     HTTPClient http;
     JsonArray addresses = data["service_data"].createNestedArray("altruist_addresses");
     for (const auto& ip_address : sensor_addresses) {
@@ -225,16 +245,69 @@ void HTTPAltruistSensor::_fetch(JsonDocument &data) {
         http_urban_last_sta_ip = chosen_address;
     }
 
-    _fetch_one_sensor(data, http, chosen_address);
+    // WiFiClient `client` (declared above) must outlive `http`.
+    _fetch_one_sensor(data, http, client, chosen_address);
+    http.end();
     // sensor_name = HTTP_ALTRUIST_SENSOR_NAME;
 }
 
-void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http, const String &ip_address) {
-    debug_outln_verbose(F("fetch HTTP Altruist "), ip_address);
-    String sensor_url = SENSOR_URL_PREFIX + ip_address + JSON_DATA_PATH;
-    http.begin(sensor_url);
-    http.setTimeout(12000);
-    int httpCode = http.GET();
+void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http, WiFiClient& client,
+					   const String &ip_address) {
+    String target_ip = ip_address;
+    httpUrbanTrimIp(target_ip);
+    debug_outln_verbose(F("fetch HTTP Altruist "), target_ip);
+
+    IPAddress urban_ip;
+    const bool have_ip = urban_ip.fromString(target_ip);
+
+    // One TCP probe: separates "LAN block" from HTTPClient quirks. Phone OK + TCP fail => router path.
+    {
+        WiFiClient probe;
+        probe.setTimeout(2000);
+        bool tcp_ok = false;
+        if (have_ip) {
+            tcp_ok = probe.connect(urban_ip, 80);
+        } else {
+            tcp_ok = probe.connect(target_ip.c_str(), 80);
+        }
+        if (tcp_ok) {
+            probe.stop();
+            debug_outln_verbose(F("HTTPAltruistSensor: TCP :80 OK -> "), target_ip);
+        } else {
+            debug_outln_info(F("HTTPAltruistSensor: TCP :80 FAIL -> "), target_ip);
+            debug_outln_info(F("  Insight IP "), WiFi.localIP().toString());
+            debug_outln_info(F("  gateway "), WiFi.gatewayIP().toString());
+        }
+    }
+
+    // A few quick GETs help when the LAN path to Urban is flaky (mesh / ARP / brief isolation).
+    int httpCode = -1;
+    const int kMaxAttempts = 3;
+    for (int attempt = 0; attempt < kMaxAttempts; ++attempt) {
+        if (attempt > 0) {
+            http.end();
+            client.stop();
+            delay(400);
+            debug_outln_info(F("HTTPAltruistSensor: retry Urban GET "), String(attempt + 1));
+        }
+        http.setReuse(false);
+        http.setTimeout(12000);
+        // Prefer host/port/uri + shared client (more reliable than URL string on ESP32).
+        bool began = false;
+        if (have_ip) {
+            began = http.begin(client, target_ip, 80, JSON_DATA_PATH, false);
+        } else {
+            began = http.begin(client, SENSOR_URL_PREFIX + target_ip + JSON_DATA_PATH);
+        }
+        if (!began) {
+            httpCode = HTTPC_ERROR_CONNECTION_REFUSED;
+            continue;
+        }
+        httpCode = http.GET();
+        if (httpCode == HTTP_CODE_OK) {
+            break;
+        }
+    }
 
     if (httpCode == HTTP_CODE_OK) {
         debug_outln_verbose(F("Success request to Altruis Urban"));
@@ -270,7 +343,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
             if (ipObj.isNull()) {
                 ipObj = urbanRoot.createNestedObject("IP_address");
             }
-            ipObj[F("value")]    = ip_address;
+            ipObj[F("value")]    = target_ip;
             ipObj[F("intl_name")] = INTL_IP_ADDRESS;
             ipObj[F("units")]     = "";
         }
@@ -356,7 +429,7 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
         }
         if (!has_urban_addr) {
             HTTPClient http2;
-            String root_url = SENSOR_URL_PREFIX + ip_address + String("/");
+            String root_url = SENSOR_URL_PREFIX + target_ip + String("/");
             http2.begin(root_url);
             http2.setTimeout(12000);
             int httpCode2 = http2.GET();
@@ -396,51 +469,59 @@ void HTTPAltruistSensor::_fetch_one_sensor(JsonDocument &data, HTTPClient& http,
         // IMPORTANT: Close the HTTP connection to free resources
         http.end();
     } else {
-        debug_outln_info(F("Request to Altruist Urban failed, code: "), httpCode);
+        if (httpCode < 0) {
+            debug_outln_info(F("Request to Altruist Urban failed: "), HTTPClient::errorToString(httpCode));
+            debug_outln_info(F("  Insight cannot open LAN path to Urban (phone may still work)"));
+        } else {
+            debug_outln_info(F("Request to Altruist Urban failed, HTTP "), httpCode);
+        }
         consecutive_failures++;
+        // While failing, poll every ~1 min instead of waiting 5 min between tries.
+        timeout = HTTP_ALTRUIST_FAST_POLL_MS;
+
+        const bool have_configured_ip = httpUrbanHasConfiguredAddress();
         bool never_succeeded = (last_success_time == 0);
-        bool have_any_address = !sensor_addresses.empty() || httpUrbanHasConfiguredAddress();
+        bool have_any_address = !sensor_addresses.empty() || have_configured_ip;
 
         if (never_succeeded && !have_any_address) {
             // Limited discovery sequence while Urban is "possibly not present".
             if (discovery_attempts < URBAN_MAX_DISCOVERY_ATTEMPTS) {
-                unsigned long now = millis();
                 bool first_attempt = (discovery_attempts == 0);
                 bool interval_elapsed = msSince(last_discovery_attempt_time) >= URBAN_REDISCOVER_INTERVAL_MS;
 
                 if (first_attempt || interval_elapsed) {
                     debug_outln_info(F("HTTPAltruistSensor: scheduled rediscovery attempt "), String(discovery_attempts + 1));
                     if (_discoverSensors()) {
-                        // After rediscovery, reset failure counter; success time will be updated
-                        // once we actually fetch data successfully.
                         consecutive_failures = 0;
                     }
                 }
             } else {
                 debug_outln_info(F("HTTPAltruistSensor: reached max discovery attempts, Urban assumed absent"));
             }
-        } else {
-            // We had at least one successful communication before (or know an address);
-            // occasionally re-discover in case of IP / network changes.
+        } else if (!have_configured_ip) {
+            // No saved IP: mDNS rediscovery may find Urban after it joins Wi‑Fi.
             bool long_since_success = (last_success_time != 0 && msSince(last_success_time) > URBAN_REDISCOVER_INTERVAL_MS);
-
             if (long_since_success) {
                 debug_outln_info(F("HTTPAltruistSensor: attempting rediscovery after prolonged failures"));
                 if (_discoverSensors()) {
                     consecutive_failures = 0;
                 }
             }
-        }
-
-        // Extra robustness: if Urban is "healthy" but its IP changed (DHCP),
-        // don't wait a full URBAN_REDISCOVER_INTERVAL_MS before trying to re-bind.
-        // Throttle rediscovery attempts to avoid spamming mDNS on unstable networks.
-        const unsigned long FAST_REDISCOVER_THROTTLE_MS = 30UL * 1000UL;
-        bool fast_interval_elapsed = (last_discovery_attempt_time == 0) ||
-                                     (msSince(last_discovery_attempt_time) >= FAST_REDISCOVER_THROTTLE_MS);
-        if (fast_interval_elapsed) {
-            debug_outln_info(F("HTTPAltruistSensor: fast rediscovery after HTTP failure"));
-            _discoverSensors();
+            const unsigned long FAST_REDISCOVER_THROTTLE_MS = 30UL * 1000UL;
+            bool fast_interval_elapsed = (last_discovery_attempt_time == 0) ||
+                                         (msSince(last_discovery_attempt_time) >= FAST_REDISCOVER_THROTTLE_MS);
+            if (fast_interval_elapsed) {
+                debug_outln_info(F("HTTPAltruistSensor: fast rediscovery after HTTP failure"));
+                _discoverSensors();
+            }
+        } else if (!cfg::use_custom_urban) {
+            bool long_since_success = (last_success_time != 0 && msSince(last_success_time) > URBAN_REDISCOVER_INTERVAL_MS);
+            bool interval_elapsed = (last_discovery_attempt_time == 0) ||
+                                    (msSince(last_discovery_attempt_time) >= URBAN_REDISCOVER_INTERVAL_MS);
+            if (long_since_success && interval_elapsed) {
+                debug_outln_info(F("HTTPAltruistSensor: occasional mDNS check (saved IP still preferred)"));
+                _discoverSensors();
+            }
         }
         
         // Close the HTTP connection even on failure
