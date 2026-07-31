@@ -606,7 +606,8 @@ String encryptCpsForOwner(const String &plain, const char *sender_sk_hex, const 
 /**
  * Convenience wrapper for the formatter:
  * uses cfg::private_key + cfg::rws_owner to encrypt a value.
- * If keys are missing / on error — returns original plaintext (better plain than a broken packet).
+ * If keys are missing or encryption fails, returns an empty string so callers
+ * can fail closed instead of sending plaintext.
  */
 String encryptValue(const String &plain) {
 	if (plain.isEmpty()) {
@@ -615,14 +616,14 @@ String encryptValue(const String &plain) {
 	const char *sk = cfg::private_key;
 	if (!sk || strcasecmp(sk, "Not Set") == 0 || strlen(sk) < 64) {
 		debug_outln_error(F("[CPS] Device private key not set; cannot encrypt"));
-		return plain;
+		return String();
 	}
 	const String cps = encryptCpsForOwner(plain, sk, cfg::rws_owner);
 	if (!cps.isEmpty()) {
 		return cps;
 	}
-	debug_outln_error(F("[CPS] Encrypt failed; sending plain value"));
-	return plain;
+	debug_outln_error(F("[CPS] Encrypt failed; plaintext fallback disabled"));
+	return String();
 }
 
 }  // namespace cps

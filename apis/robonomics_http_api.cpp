@@ -201,7 +201,13 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data)
 		return;
 	}
 
-	formatDataToSend(data_to_send, data);
+	if (!formatDataToSend(data_to_send, data))
+	{
+		logConnectivityFailure(map_send_seq_active, F("encryption_failed"));
+		debug_outln_error(F("[Map] Payload encryption failed; send aborted"));
+		is_ok = false;
+		return;
+	}
 	debug_outln_verbose(F("[Map] Payload: "), data_to_send);
 	is_ok = false;
 
@@ -242,7 +248,7 @@ void RobonomicsHTTPAPI::_send(JsonDocument &data)
 	}
 }
 
-void RobonomicsHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &data)
+bool RobonomicsHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &data)
 {
 	double last_value_GPS_lat = 0.0;
 	double last_value_GPS_lon = 0.0;
@@ -258,7 +264,11 @@ void RobonomicsHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &dat
 		debug_outln_verbose(F("[Map] GPS lat="), String(last_value_GPS_lat, 6));
 		debug_outln_verbose(F("[Map] GPS lon="), String(last_value_GPS_lon, 6));
 	}
-	formatRobonomicsString(data, datalog_data, F("connectivity"));
+	if (!formatRobonomicsString(data, datalog_data, F("connectivity")))
+	{
+		data_to_send = "";
+		return false;
+	}
 	if (datalog_data.length() == 0)
 	{
 		debug_outln_error(F("[Map] WARNING: sensor data string is empty (all sharing disabled or no sensor data?)"));
@@ -286,6 +296,7 @@ void RobonomicsHTTPAPI::formatDataToSend(String &data_to_send, JsonDocument &dat
 	data_to_send += "\", \"sensordatavalues\": \"";
 	data_to_send += datalog_data;
 	data_to_send += "\"}";
+	return true;
 }
 
 void RobonomicsHTTPAPI::POSTRequest(const String &data, const String &host)

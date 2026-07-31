@@ -25,7 +25,8 @@ String valueCryptoEncryptCpsForOwner(const String &plain, const char *sender_sk_
 
 /**
  * Encrypt using device config (private_key + rws_owner).
- * On error, returns the original plain text.
+ * On error, returns an empty string. Callers must abort the send rather than
+ * fall back to plaintext.
  */
 String valueCryptoEncryptValue(const String &plain);
 

@@ -6,7 +6,7 @@
 #include <Robonomics.h>
 
 /** Map / connectivity: per-field CPS encrypt where configured. */
-void formatRobonomicsString(
+bool formatRobonomicsString(
 	JsonDocument &data,
 	String &datalog_data,
 	const __FlashStringHelper *channel = F("connectivity")
