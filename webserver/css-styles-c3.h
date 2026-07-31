@@ -190,13 +190,10 @@ body[data-page=local] .app-page-title{display:none}
 .app-shell .confirm-action .guest-option .dash-row__desc{display:block;margin-top:4px;font-weight:400}
 @media screen and (min-width:520px){.confirm-action__buttons{flex-direction:row-reverse}.confirm-action__buttons .confirm-btn{flex:1}}
 .app-bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:#fff;border-top:1px solid #e0e0e0;padding-bottom:env(safe-area-inset-bottom,0);box-shadow:0 -2px 12px rgba(0,0,0,.06)}
-.app-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:56px;min-width:44px;padding:6px 4px 5px;font-size:10px;font-weight:600;color:#777;text-align:center;background:none;margin:0;border-radius:0;box-shadow:none}
-.app-tab__icon{width:24px;height:24px;display:block;object-fit:contain;opacity:.42;flex-shrink:0;pointer-events:none}
+.app-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:56px;min-width:44px;padding:6px 4px 5px;font-size:11px;font-weight:600;color:#777;text-align:center;background:none;margin:0;border-radius:0;box-shadow:none}
 .app-tab__label{display:block;line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .app-tab:hover{color:#000;background:rgba(0,0,0,.03)}
-.app-tab:hover .app-tab__icon{opacity:.65}
 body[data-page=local] .app-tab[data-tab=local],body[data-page=social] .app-tab[data-tab=social],body[data-page=custom] .app-tab[data-tab=custom],body[data-page=advanced] .app-tab[data-tab=advanced]{color:#000;font-weight:700;border-top:2px solid #000;margin-top:-1px}
-body[data-page=local] .app-tab[data-tab=local] .app-tab__icon,body[data-page=social] .app-tab[data-tab=social] .app-tab__icon,body[data-page=custom] .app-tab[data-tab=custom] .app-tab__icon,body[data-page=advanced] .app-tab[data-tab=advanced] .app-tab__icon{opacity:1}
 .footer--app{margin-top:0}
 .footer--app .footer-polkadot{font-size:16px;height:36px;margin-top:8px}
 .app-shell.configuration .content-app.content-config{max-width:none;width:100%;margin:0;padding:16px 0 24px 20px}

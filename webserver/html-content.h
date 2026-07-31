@@ -35,10 +35,18 @@ const char WEB_PAGE_HEADER[] PROGMEM = "<!DOCTYPE html><html lang='" INTL_LANG "
 #define WEB_NAV_ICON_MAP_SRC STATIC_PREFIX "?r=nav-map&v=" SOFTWARE_VERSION_STR
 #define WEB_NAV_ICON_CUSTOM_SRC STATIC_PREFIX "?r=nav-custom&v=" SOFTWARE_VERSION_STR
 #define WEB_NAV_ICON_SYSTEM_SRC STATIC_PREFIX "?r=nav-system&v=" SOFTWARE_VERSION_STR
+#if defined(ALTRUIST_URBAN_C3_LITE)
+// C3 flash budget: text-only tabs (PNG nav icons are ~47 KB in PROGMEM).
+#define WEB_APP_TAB_LOCAL "<a class='app-tab' data-tab='local' href='/'><span class='app-tab__label'>{local}</span></a>"
+#define WEB_APP_TAB_SOCIAL "<a class='app-tab' data-tab='social' href='/social'><span class='app-tab__label'>" INTL_DASH_CAT_MAP "</span></a>"
+#define WEB_APP_TAB_CUSTOM "<a class='app-tab' data-tab='custom' href='/custom'><span class='app-tab__label'>" INTL_DASH_GROUP_CUSTOM_TITLE "</span></a>"
+#define WEB_APP_TAB_ADVANCED "<a class='app-tab' data-tab='advanced' href='/advanced'><span class='app-tab__label'>" INTL_NAV_ADVANCED "</span></a>"
+#else
 #define WEB_APP_TAB_LOCAL "<a class='app-tab' data-tab='local' href='/'><img class='app-tab__icon' src='" WEB_NAV_ICON_LOCAL_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>{local}</span></a>"
 #define WEB_APP_TAB_SOCIAL "<a class='app-tab' data-tab='social' href='/social'><img class='app-tab__icon' src='" WEB_NAV_ICON_MAP_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>" INTL_DASH_CAT_MAP "</span></a>"
 #define WEB_APP_TAB_CUSTOM "<a class='app-tab' data-tab='custom' href='/custom'><img class='app-tab__icon' src='" WEB_NAV_ICON_CUSTOM_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>" INTL_DASH_GROUP_CUSTOM_TITLE "</span></a>"
 #define WEB_APP_TAB_ADVANCED "<a class='app-tab' data-tab='advanced' href='/advanced'><img class='app-tab__icon' src='" WEB_NAV_ICON_SYSTEM_SRC "' alt='' width='24' height='24' decoding='async'/><span class='app-tab__label'>" INTL_NAV_ADVANCED "</span></a>"
+#endif
 #define WEB_APP_BREADCRUMB "<nav class='app-breadcrumb' aria-label='" INTL_BREADCRUMB_ARIA "'><a class='app-breadcrumb__link' href='/'>{home}</a><span class='app-breadcrumb__sep' aria-hidden='true'>&rsaquo;</span><span class='app-breadcrumb__current' aria-current='page'>{t}</span></nav>"
 
 #if defined(ALTRUIST_URBAN_C3_LITE)

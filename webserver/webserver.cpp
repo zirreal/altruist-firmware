@@ -17,7 +17,9 @@
 #include <Robonomics.h>
 #include "web-header-logo-select.h"
 #include "favicon.h"
+#if !defined(ALTRUIST_URBAN_C3_LITE)
 #include "nav-icons.h"
+#endif
 
 extern Robonomics robonomics;
 
@@ -228,6 +230,7 @@ void SensorWebServer::_webserver_static() {
 		return;
 	}
 	const String resource = server.arg(String('r'));
+#if !defined(ALTRUIST_URBAN_C3_LITE)
 	if (resource == F("nav-local")) {
 		server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
 		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_NAV_ICON_LOCAL_PNG, WEB_NAV_ICON_LOCAL_PNG_SIZE);
@@ -248,6 +251,7 @@ void SensorWebServer::_webserver_static() {
 		server.send_P(200, TXT_CONTENT_TYPE_IMAGE_PNG, WEB_NAV_ICON_SYSTEM_PNG, WEB_NAV_ICON_SYSTEM_PNG_SIZE);
 		return;
 	}
+#endif
 	server.sendHeader(F("Cache-Control"), F("max-age=2592000, public"));
 
 	if (server.arg(String('r')) == F("css")) {
