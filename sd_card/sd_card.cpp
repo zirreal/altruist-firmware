@@ -84,6 +84,7 @@ bool SDCard::begin() {
     SDLockGuard lock;
     if (!lock.ok()) {
         debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in begin()"));
+        logSubsystemError(F("sd"), F("mutex_timeout"), String(F("op=begin")));
         g_sd_lock_busy++;
         return false;
     }
@@ -99,12 +100,14 @@ bool SDCard::begin() {
 bool SDCard::_beginSD(SPIClass &spi) {
     if (!SD.begin(SPI_CS_PIN, spi, 40000000)) {
         debug_outln_info(F("Card Mount Failed"));
+        logSubsystemError(F("sd"), F("mount_failed"));
         return false;
     }
     uint8_t cardType = SD.cardType();
 
     if (cardType == CARD_NONE) {
         debug_outln_info(F("No SD card attached"));
+        logSubsystemError(F("sd"), F("card_missing"));
         return false;
     }
 
@@ -119,6 +122,7 @@ bool SDCard::writeTextFile(const String& fullPath, const String& content) {
     SDLockGuard lock;
     if (!lock.ok()) {
         debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in writeTextFile()"));
+        logSubsystemError(F("sd"), F("mutex_timeout"), String(F("op=write_text")));
         g_sd_lock_busy++;
         return false;
     }
@@ -128,6 +132,7 @@ bool SDCard::writeTextFile(const String& fullPath, const String& content) {
         if (!SD.exists(folder)) {
             if (!SD.mkdir(folder)) {
                 debug_outln_info(F("[SDCardLogger] Failed to create folder for text file: "), folder);
+                logSubsystemError(F("sd"), F("mkdir_failed"), String(F("op=write_text path=")) + folder);
                 return false;
             }
         }
@@ -136,12 +141,14 @@ bool SDCard::writeTextFile(const String& fullPath, const String& content) {
     File file = SD.open(fullPath, FILE_WRITE);
     if (!file) {
         debug_outln_info(F("[SDCardLogger] Failed to open text file for write: "), fullPath);
+        logSubsystemError(F("sd"), F("open_write_failed"), String(F("path=")) + fullPath);
         return false;
     }
     size_t written = file.print(content);
     file.close();
     if (written != content.length()) {
         debug_outln_info(F("[SDCardLogger] Short write when writing text file: "), fullPath);
+        logSubsystemError(F("sd"), F("short_write"), String(F("op=write_text path=")) + fullPath);
         return false;
     }
     return true;
@@ -151,6 +158,7 @@ bool SDCard::appendTextFile(const String& fullPath, const String& content) {
     SDLockGuard lock;
     if (!lock.ok()) {
         debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in appendTextFile()"));
+        logSubsystemError(F("sd"), F("mutex_timeout"), String(F("op=append_text")));
         g_sd_lock_busy++;
         return false;
     }
@@ -160,6 +168,7 @@ bool SDCard::appendTextFile(const String& fullPath, const String& content) {
         if (!SD.exists(folder)) {
             if (!SD.mkdir(folder)) {
                 debug_outln_info(F("[SDCardLogger] Failed to create folder for append: "), folder);
+                logSubsystemError(F("sd"), F("mkdir_failed"), String(F("op=append_text path=")) + folder);
                 return false;
             }
         }
@@ -168,12 +177,14 @@ bool SDCard::appendTextFile(const String& fullPath, const String& content) {
     File file = SD.open(fullPath, FILE_APPEND);
     if (!file) {
         debug_outln_info(F("[SDCardLogger] Failed to open text file for append: "), fullPath);
+        logSubsystemError(F("sd"), F("open_append_failed"), String(F("path=")) + fullPath);
         return false;
     }
     size_t written = file.print(content);
     file.close();
     if (written != content.length()) {
         debug_outln_info(F("[SDCardLogger] Short write when appending text file: "), fullPath);
+        logSubsystemError(F("sd"), F("short_write"), String(F("op=append_text path=")) + fullPath);
         return false;
     }
     return true;
@@ -183,6 +194,7 @@ void SDCard::refreshCache() {
     SDLockGuard lock;
     if (!lock.ok()) {
         debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in refreshCache()"));
+        logSubsystemError(F("sd"), F("mutex_timeout"), String(F("op=refresh_cache")));
         g_sd_lock_busy++;
         return;
     }
@@ -194,12 +206,14 @@ void SDCard::refreshCache() {
             debug_outln_verbose(F("[SDCardLogger] Root folder created"));
         } else {
             debug_outln_info("[SDCardLogger] mkdir failed");
+            logSubsystemError(F("sd"), F("mkdir_failed"), String(F("op=refresh_cache path=")) + ROOT_FOLDER);
         }
     }
 
     File root = SD.open(ROOT_FOLDER);
     if (!root || !root.isDirectory()) {
         debug_outln_info(F("[SDCardLogger] Root dir error"));
+        logSubsystemError(F("sd"), F("root_open_failed"), String(F("path=")) + ROOT_FOLDER);
         return;
     }
 
@@ -277,6 +291,7 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
     SDLockGuard lock;
     if (!lock.ok()) {
         debug_outln_info(F("[SDCardLogger] Failed to acquire SD mutex in _logCSVRow()"));
+        logSubsystemError(F("sd"), F("mutex_timeout"), String(F("op=log_csv sensor=")) + sensorName);
         g_sd_lock_busy++;
         g_sd_csv_write_fail++;
         return;
@@ -288,6 +303,7 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
             debug_outln_verbose(F("[SDCardLogger] folder created: "), folder);
         } else {
             debug_outln_info(F("[SDCardLogger] folder not created: "), folder);
+            logSubsystemError(F("sd"), F("mkdir_failed"), String(F("op=log_csv path=")) + folder + F(" sensor=") + sensorName);
             return;
         }
     }
@@ -299,6 +315,7 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
     File file = SD.open(fullPath, FILE_APPEND);
     if (!file) {
         debug_outln_info(F("[SDCardLogger] Failed to open file: "), fullPath);
+        logSubsystemError(F("sd"), F("open_append_failed"), String(F("op=log_csv path=")) + fullPath + F(" sensor=") + sensorName);
         g_sd_csv_write_fail++;
         return;
     }
@@ -313,6 +330,7 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
             debug_outln_verbose(F("[SDCardLogger] Header writed: "), header);
         } else {
             debug_outln_info(F("Can't write header "));
+            logSubsystemError(F("sd"), F("csv_header_write_failed"), String(F("path=")) + fullPath + F(" sensor=") + sensorName);
         }
     }
 
@@ -322,6 +340,7 @@ void SDCard::_logCSVRow(const String& sensorName, const String& header, const St
         g_sd_csv_write_ok++;
     } else {
         debug_outln_info(F("[SDCardLogger] Can't write data: "));
+        logSubsystemError(F("sd"), F("csv_data_write_failed"), String(F("path=")) + fullPath + F(" sensor=") + sensorName);
         incrementSDWriteError();
         g_sd_csv_write_fail++;
     }
@@ -337,6 +356,7 @@ bool readSensorDataFromCSV(LineData &result, const char* sensor_name, const char
         if (msSince(last_lock_timeout_log_ms) > 3000UL) {
             last_lock_timeout_log_ms = millis();
             debug_outln_info(F("[SD] CSV read lock timeout ms"), String(lock_timeout_ms));
+            logSubsystemError(F("sd"), F("csv_read_lock_timeout"), String(F("timeout_ms=")) + String(lock_timeout_ms));
         }
         result.count = 0;
         result.values = nullptr;

@@ -58,6 +58,7 @@
  ************************************************************************/
 #include <WString.h>
 #include <pgmspace.h>
+#include <string.h>
 
 /*****************************************************************
  * Includes                                                      *
@@ -208,6 +209,13 @@ const char* getCrashSectionName(uint8_t section) {
 	}
 }
 
+static void clearCrashContext() {
+	Preferences prefs;
+	prefs.begin("crash", false);
+	prefs.putBool("valid", false);
+	prefs.end();
+}
+
 void saveCrashContext() {
 	Preferences prefs;
 	prefs.begin("crash", false);
@@ -218,7 +226,7 @@ void saveCrashContext() {
 	prefs.end();
 }
 
-CrashContextData loadCrashContext() {
+static CrashContextData readCrashContext(bool clear_after_read) {
 	CrashContextData ctx;
 	ctx.valid = false;
 	ctx.section = 0;
@@ -235,12 +243,98 @@ CrashContextData loadCrashContext() {
 	}
 	prefs.end();
 	
-	Preferences prefs2;
-	prefs2.begin("crash", false);
-	prefs2.putBool("valid", false);
-	prefs2.end();
+	if (clear_after_read) {
+		clearCrashContext();
+	}
 	
 	return ctx;
+}
+
+CrashContextData loadCrashContext() {
+	return readCrashContext(true);
+}
+
+static CrashContextData peekCrashContext() {
+	return readCrashContext(false);
+}
+
+static String machineToken(const char* text) {
+	String token;
+	token.reserve(strlen(text));
+	bool last_separator = false;
+	for (const char* p = text; *p; ++p) {
+		char c = *p;
+		if (c >= 'A' && c <= 'Z') {
+			c = c - 'A' + 'a';
+		}
+		if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+			token += c;
+			last_separator = false;
+		} else if (!last_separator && token.length() > 0) {
+			token += '_';
+			last_separator = true;
+		}
+	}
+	if (token.endsWith("_")) {
+		token.remove(token.length() - 1);
+	}
+	return token.length() > 0 ? token : String(F("unknown"));
+}
+
+static void copyMetricText(char* destination, size_t destination_size, const String& source) {
+	if (destination_size == 0) {
+		return;
+	}
+	source.toCharArray(destination, destination_size);
+	destination[destination_size - 1] = '\0';
+}
+
+static void copyMetricText(char* destination, size_t destination_size, const char* source) {
+	if (destination_size == 0) {
+		return;
+	}
+	strncpy(destination, source, destination_size - 1);
+	destination[destination_size - 1] = '\0';
+}
+
+static void logBootStatus() {
+	const esp_reset_reason_t reason = esp_reset_reason();
+	const CrashContextData ctx = peekCrashContext();
+	const String reset_reason_token = machineToken(get_reset_reason_text());
+	const uint8_t last_section = ctx.valid ? ctx.section : CRASH_SECTION_IDLE;
+	const char* last_section_name = getCrashSectionName(last_section);
+	const uint32_t prev_uptime = ctx.valid ? ctx.uptime_sec : 0;
+	const uint32_t prev_heap = ctx.valid ? ctx.free_heap : 0;
+
+	system_metrics.reset_reason_code = static_cast<int>(reason);
+	copyMetricText(system_metrics.reset_reason, sizeof(system_metrics.reset_reason), reset_reason_token);
+	system_metrics.crash_context_valid = ctx.valid;
+	system_metrics.prev_uptime_sec = prev_uptime;
+	system_metrics.prev_free_heap = prev_heap;
+	system_metrics.last_section_id = last_section;
+	copyMetricText(system_metrics.last_section, sizeof(system_metrics.last_section), last_section_name);
+
+	Serial.print(F("[BOOT] reset_reason="));
+	Serial.print(system_metrics.reset_reason);
+	Serial.print(F(" reset_code="));
+	Serial.print(system_metrics.reset_reason_code);
+	Serial.print(F(" boot="));
+	Serial.print(system_metrics.boot_counter);
+	Serial.print(F(" crash_valid="));
+	Serial.print(system_metrics.crash_context_valid ? 1 : 0);
+	Serial.print(F(" prev_uptime="));
+	Serial.print(system_metrics.prev_uptime_sec);
+	Serial.print(F(" prev_heap="));
+	Serial.print(system_metrics.prev_free_heap);
+	Serial.print(F(" last_section_id="));
+	Serial.print(system_metrics.last_section_id);
+	Serial.print(F(" last_section="));
+	Serial.print(system_metrics.last_section);
+	Serial.print(F(" heap="));
+	Serial.println(ESP.getFreeHeap());
+#if !defined(USE_SD_CARD) || !defined(ALTRUIST_INSIGHT)
+	clearCrashContext();
+#endif
 }
 
 void markMainLoopAlive() {
@@ -691,6 +785,13 @@ bool fetchSensors() {
 						debug_outln_info(F("[Sensors] sensor: "), String(activeSensors[i]->sensor_name));
 						debug_outln_info(F("[Sensors] memory/capacity: "),
 						                 String(sensors_data.memoryUsage()) + "/" + String(sensors_data.capacity()));
+						logSubsystemError(
+							F("sensor"),
+							F("json_overflow"),
+							String(F("sensor=")) + activeSensors[i]->sensor_name +
+								F(" memory=") + String(sensors_data.memoryUsage()) +
+								F(" capacity=") + String(sensors_data.capacity())
+						);
 					}
 					xSemaphoreGive(mutex);
 				}
@@ -775,6 +876,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 					    msSince(sta_down_since_ms) >= WIFI_STA_REBOOT_AFTER_MS) {
 						debug_outln_info(F("[WiFi] STA link down too long; rebooting for recovery"));
 						set_restart_reason(RESTART_REASON_WIFI);
+						logSubsystemEvent(F("event"), F("wifi"), F("sta_recovery_reboot"), String(F("down_ms=")) + String(msSince(sta_down_since_ms)));
 						delay(100);
 						esp_restart();
 					}
@@ -848,6 +950,12 @@ void sensorAndAPIWorker(void *pvParameters) {
 					debug_outln_error(F("[API] JSON snapshot overflow; skipping send"));
 					debug_outln_info(F("[API] memory/capacity: "),
 					                 String(api_snapshot.memoryUsage()) + "/" + String(api_snapshot.capacity()));
+					logSubsystemError(
+						F("api"),
+						F("json_snapshot_overflow"),
+						String(F("memory=")) + String(api_snapshot.memoryUsage()) +
+							F(" capacity=") + String(api_snapshot.capacity())
+					);
 				}
 				xSemaphoreGive(mutex);
 			}
@@ -1253,6 +1361,7 @@ void setup(void) {
 	Serial.flush();
 	delay(10);
 	initMetrics();
+	logBootStatus();
 	#if defined(ALTRUIST_BUILD_DEBUG)
 	#if defined(ALTRUIST_INSIGHT)
 	Serial.print(F("[INSIGHT][Setup] Metrics initialized. Boot counter: "));

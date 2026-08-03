@@ -343,6 +343,37 @@ void debug_outln_info_bool(const __FlashStringHelper* text, const bool option) {
 
 #undef debug_level_check
 
+void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason) {
+	logSubsystemEvent(level, subsystem, reason, String());
+}
+
+void logSubsystemEvent(
+	const __FlashStringHelper* level,
+	const __FlashStringHelper* subsystem,
+	const __FlashStringHelper* reason,
+	const String& details
+) {
+	Serial.print(F("[SUBSYSTEM] "));
+	Serial.print(level);
+	Serial.print(F(" subsystem="));
+	Serial.print(subsystem);
+	Serial.print(F(" reason="));
+	Serial.print(reason);
+	if (details.length() > 0) {
+		Serial.print(' ');
+		Serial.print(details);
+	}
+	Serial.println();
+}
+
+void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason) {
+	logSubsystemEvent(F("error"), subsystem, reason);
+}
+
+void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details) {
+	logSubsystemEvent(F("error"), subsystem, reason, details);
+}
+
 /*****************************************************************
  * helper to see if a given string is numeric                    *
  *****************************************************************/
@@ -423,20 +454,20 @@ void initESPTemperatureSensor() {
 			
 			esp_err_t ret = temperature_sensor_install(&temp_sensor_config, &temp_sensor_handle);
 			if (ret != ESP_OK) {
-				Serial.printf("[URBAN][Temp] Failed to install temperature sensor: %s\n", esp_err_to_name(ret));
+				Serial.printf("[ESP][Temp] Failed to install temperature sensor: %s\n", esp_err_to_name(ret));
 				return;
 			}
 			
 			ret = temperature_sensor_enable(temp_sensor_handle);
 			if (ret != ESP_OK) {
-				Serial.printf("[URBAN][Temp] Failed to enable temperature sensor: %s\n", esp_err_to_name(ret));
+				Serial.printf("[ESP][Temp] Failed to enable temperature sensor: %s\n", esp_err_to_name(ret));
 				temperature_sensor_uninstall(temp_sensor_handle);
 				temp_sensor_handle = NULL;
 				return;
 			}
 			
 			temp_sensor_initialized = true;
-			Serial.println(F("[URBAN][Temp] ESP32-C6 temperature sensor initialized"));
+			Serial.println(F("[ESP][Temp] ESP32-C6 temperature sensor initialized"));
 		#endif
 	#endif
 }
@@ -519,6 +550,20 @@ void logMetrics() {
 	Serial.print(F(" sensor_errors="));
 	Serial.print(system_metrics.err_sensor);
 	Serial.print(F(" sd_errors="));
-	Serial.println(system_metrics.err_sd_write);
+	Serial.print(system_metrics.err_sd_write);
+	Serial.print(F(" reset_reason="));
+	Serial.print(system_metrics.reset_reason);
+	Serial.print(F(" reset_code="));
+	Serial.print(system_metrics.reset_reason_code);
+	Serial.print(F(" crash_valid="));
+	Serial.print(system_metrics.crash_context_valid ? 1 : 0);
+	Serial.print(F(" prev_uptime="));
+	Serial.print(system_metrics.prev_uptime_sec);
+	Serial.print(F(" prev_heap="));
+	Serial.print(system_metrics.prev_free_heap);
+	Serial.print(F(" last_section_id="));
+	Serial.print(system_metrics.last_section_id);
+	Serial.print(F(" last_section="));
+	Serial.println(system_metrics.last_section);
 #endif
 }

@@ -35,7 +35,7 @@ private:
     int chooseRobonomicsServer(bool onlyGlobal);
     int chooseRobonomicsServerFromPool(const String& pool);
     static int parseHostPool(const String& pool, String* out_hosts, int max_hosts);
-    void formatDataToSend(String &data_to_send, JsonDocument &data);
+    bool formatDataToSend(String &data_to_send, JsonDocument &data);
 };
 
 #endif  // __ROBONOMICS_API_H__

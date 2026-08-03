@@ -110,6 +110,7 @@ uint8_t wifiScanInto(struct_wifiInfo* out, uint8_t max_out) {
 	const int8_t scanReturnCode = WiFi.scanNetworks(false /* sync */, true /* hidden */);
 	if (scanReturnCode < 0) {
 		debug_outln_error(F("WiFi scan failed"));
+		logSubsystemError(F("wifi"), F("scan_failed"), String(F("code=")) + String(scanReturnCode));
 		return 0;
 	}
 	uint8_t count = 0;
@@ -291,6 +292,13 @@ bool wifiStaRuntimeRecovery(bool deep_radio_off) {
 		debug_outln_info(F("[WiFi] Periodic STA recovery (link not ready)"));
 	}
 	debug_outln_info(F("[WiFi] status="), String((int)WiFi.status()) + F(" ip=") + WiFi.localIP().toString());
+	logSubsystemEvent(
+		F("event"),
+		F("wifi"),
+		F("sta_recovery"),
+		String(F("mode=")) + (do_deep ? F("deep") : F("soft")) + F(" status=") + String((int)WiFi.status()) +
+			F(" ip=") + WiFi.localIP().toString()
+	);
 
 	if (do_deep) {
 		// Deep recovery: force a clean wifi state transition, then re-issue begin().
@@ -469,6 +477,7 @@ void wifiRequestPortalExit(void) {
 bool wifiFinishCaptivePortalSaveAndRestart(void) {
 	if (!writeConfig()) {
 		debug_outln_error(F("[WiFi] Captive portal: failed to save config.json"));
+		logSubsystemError(F("wifi"), F("portal_config_save_failed"));
 		return false;
 	}
 	wifiRequestPortalExit();
@@ -580,6 +589,7 @@ void wifiConfig(SensorWebServer &webserver) {
 #endif
 		if (millis() - start_setup_time > 15 * 60 * 1000) {
 			debug_outln_error(F("WiFi config timeout, restarting..."));
+			logSubsystemError(F("wifi"), F("config_timeout"));
 			esp_restart();
 		}
 		if (s_portal_exit_requested) {
@@ -766,7 +776,7 @@ bool wifiApplyImprovCredentials(const String& ssid, const String& password) {
 		debug_outln_info(F("[IMPROV] Connected, IP: "), WiFi.localIP().toString());
 	} else {
 		debug_outln_error(F("[IMPROV] Failed to connect"));
+		logSubsystemError(F("wifi"), F("improv_connect_failed"), String(F("status=")) + String((int)WiFi.status()));
 	}
 	return connected;
 }
-

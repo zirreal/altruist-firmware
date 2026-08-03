@@ -68,11 +68,30 @@ static bool signMessageRaw(const String &message, String &signature, Robonomics 
 	return true;
 }
 
-static String maybeEncryptValue(const String &value, bool should_encrypt) {
+static bool maybeEncryptValue(const String &value, bool should_encrypt, String &formatted) {
 	if (!should_encrypt || value.isEmpty()) {
-		return value;
+		formatted = value;
+		return true;
 	}
-	return valueCryptoEncryptValue(value);
+	formatted = valueCryptoEncryptValue(value);
+	return formatted.startsWith(VALUE_CRYPTO_CPS_PREFIX);
+}
+
+static bool appendRobonomicsValue(String &out, const __FlashStringHelper *alias, const String &value,
+				  bool should_encrypt, bool *encrypted_any) {
+	String formatted;
+	if (!maybeEncryptValue(value, should_encrypt, formatted)) {
+		out = "";
+		return false;
+	}
+	if (should_encrypt && !value.isEmpty() && encrypted_any) {
+		*encrypted_any = true;
+	}
+	out += alias;
+	out += ':';
+	out += formatted;
+	out += ',';
+	return true;
 }
 
 /** Robonomics parachain datalog pallet hard limit (see MaximumMessageSize). */
@@ -85,8 +104,12 @@ static bool anyMetricEncryptionEnabled() {
 	       cfg::encrypt_o3 || cfg::encrypt_no2 || cfg::encrypt_fast_aqi || cfg::encrypt_epa_aqi;
 }
 
-static void appendRobonomicsFields(JsonDocument &data, String &out, bool per_field_encrypt) {
+static bool appendRobonomicsFields(JsonDocument &data, String &out, bool per_field_encrypt,
+				   bool *encrypted_any = nullptr) {
 	out = "";
+	if (encrypted_any) {
+		*encrypted_any = false;
+	}
 
 	bool has_scd4x = !data[SCD4X_SENSOR_NAME].isNull();
 	bool use_bme680_for_temp_hum = !has_scd4x || (millis() / 1000 < SCD4X_WARMUP_SEC);
@@ -116,79 +139,154 @@ static void appendRobonomicsFields(JsonDocument &data, String &out, bool per_fie
 			const bool encrypt_climate = cfg::encrypt_temperature || cfg::encrypt_humidity;
 
 			if (type == "P1" && cfg::share_pm) {
-				out += "p1:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_pm) + ",";
+				if (!appendRobonomicsValue(out, F("p1"), value, per_field_encrypt && cfg::encrypt_pm, encrypted_any)) return false;
 			} else if (type == "P2" && cfg::share_pm) {
-				out += "p2:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_pm) + ",";
+				if (!appendRobonomicsValue(out, F("p2"), value, per_field_encrypt && cfg::encrypt_pm, encrypted_any)) return false;
 			} else if (type == "noiseMax" && cfg::share_noise) {
-				out += "nm:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_noise) + ",";
+				if (!appendRobonomicsValue(out, F("nm"), value, per_field_encrypt && cfg::encrypt_noise, encrypted_any)) return false;
 			} else if (type == "noiseAvg" && cfg::share_noise) {
-				out += "na:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_noise) + ",";
+				if (!appendRobonomicsValue(out, F("na"), value, per_field_encrypt && cfg::encrypt_noise, encrypted_any)) return false;
 			} else if (type == "temperature" && cfg::share_temperature && out.indexOf("t:") == -1 &&
 				   !skip_temp_hum) {
-				out += "t:" + maybeEncryptValue(value, per_field_encrypt && encrypt_climate) + ",";
+				if (!appendRobonomicsValue(out, F("t"), value, per_field_encrypt && encrypt_climate, encrypted_any)) return false;
 			} else if (type == "pressure" && cfg::share_pressure) {
-				out += "p:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_pressure) + ",";
+				if (!appendRobonomicsValue(out, F("p"), value, per_field_encrypt && cfg::encrypt_pressure, encrypted_any)) return false;
 			} else if (type == "humidity" && cfg::share_humidity && out.indexOf("h:") == -1 && !skip_temp_hum) {
-				out += "h:" + maybeEncryptValue(value, per_field_encrypt && encrypt_climate) + ",";
+				if (!appendRobonomicsValue(out, F("h"), value, per_field_encrypt && encrypt_climate, encrypted_any)) return false;
 			} else if (type == "radiation") {
-				out += "gc:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_radiation) + ",";
+				if (!appendRobonomicsValue(out, F("gc"), value, per_field_encrypt && cfg::encrypt_radiation, encrypted_any)) return false;
 			} else if (type == "co2" && cfg::share_co2) {
-				out += "co2:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_co2) + ",";
+				if (!appendRobonomicsValue(out, F("co2"), value, per_field_encrypt && cfg::encrypt_co2, encrypted_any)) return false;
 			} else if (type == "co" && cfg::share_co) {
-				out += "co:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_co) + ",";
+				if (!appendRobonomicsValue(out, F("co"), value, per_field_encrypt && cfg::encrypt_co, encrypted_any)) return false;
 			} else if (type == "o3" && cfg::share_o3) {
-				out += "o3:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_o3) + ",";
+				if (!appendRobonomicsValue(out, F("o3"), value, per_field_encrypt && cfg::encrypt_o3, encrypted_any)) return false;
 			} else if (type == "no2" && cfg::share_no2) {
-				out += "no2:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_no2) + ",";
+				if (!appendRobonomicsValue(out, F("no2"), value, per_field_encrypt && cfg::encrypt_no2, encrypted_any)) return false;
 			} else if (type == "fast_aqi" && cfg::share_fast_aqi) {
-				out += "fa:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_fast_aqi) + ",";
+				if (!appendRobonomicsValue(out, F("fa"), value, per_field_encrypt && cfg::encrypt_fast_aqi, encrypted_any)) return false;
 			} else if (type == "epa_aqi" && cfg::share_epa_aqi) {
-				out += "ea:" + maybeEncryptValue(value, per_field_encrypt && cfg::encrypt_epa_aqi) + ",";
+				if (!appendRobonomicsValue(out, F("ea"), value, per_field_encrypt && cfg::encrypt_epa_aqi, encrypted_any)) return false;
 			}
 		}
 	}
 	if (out.length() > 0) {
 		out.remove(out.length() - 1);
 	}
+	return true;
 }
 
-void formatRobonomicsString(JsonDocument &data, String &datalog_data) {
-	appendRobonomicsFields(data, datalog_data, true);
-	debug_outln_info(F("Map sensor data: "), datalog_data);
+static const String *plainSampleForLog(const String &plain, bool encrypted) {
+	if (plain.isEmpty()) {
+		return nullptr;
+	}
+#if defined(ALTRUIST_BUILD_DEBUG)
+	(void)encrypted;
+	return &plain;
+#else
+	return encrypted ? nullptr : &plain;
+#endif
 }
 
-void formatRobonomicsDatalogString(JsonDocument &data, String &datalog_data) {
+static void logPayload(const __FlashStringHelper *channel, const char *encoding, bool encrypted,
+			       size_t payload_len, const String *sample) {
+	String line;
+	line.reserve(112 + (sample ? sample->length() : 0));
+	line = F("[PAYLOAD] channel=");
+	line += channel;
+	line += F(" encoding=");
+	line += encoding;
+	line += F(" encrypted=");
+	line += encrypted ? '1' : '0';
+	line += F(" payload_len=");
+	line += String(payload_len);
+	line += F(" sample_available=");
+	line += sample ? '1' : '0';
+	if (sample) {
+		line += F(" sample=");
+		line += *sample;
+	}
+	Serial.println(line);
+}
+
+bool formatRobonomicsString(JsonDocument &data, String &datalog_data, const __FlashStringHelper *channel) {
+	bool encrypted_any = false;
+	if (!appendRobonomicsFields(data, datalog_data, true, &encrypted_any)) {
+		debug_outln_error(F("[Payload] Encryption failed; send aborted"));
+		return false;
+	}
+
+	const String *sample = datalog_data.isEmpty() ? nullptr : &datalog_data;
+#if defined(ALTRUIST_BUILD_DEBUG)
+	String plain_sample;
+	if (encrypted_any) {
+		if (!appendRobonomicsFields(data, plain_sample, false)) {
+			return false;
+		}
+		sample = plain_sample.isEmpty() ? nullptr : &plain_sample;
+	}
+#else
+	if (encrypted_any) {
+		sample = nullptr;
+	}
+#endif
+
+	logPayload(channel, encrypted_any ? "mixed" : "plain", encrypted_any, datalog_data.length(), sample);
+	debug_outln_verbose(F("[Payload] Wire data: "), datalog_data);
+	return true;
+}
+
+DatalogFormatStatus formatRobonomicsDatalogString(JsonDocument &data, String &datalog_data) {
 	String plain;
-	appendRobonomicsFields(data, plain, false);
+	if (!appendRobonomicsFields(data, plain, false)) {
+		datalog_data = "";
+		return DATALOG_FORMAT_ENCRYPTION_FAILED;
+	}
 	if (plain.isEmpty()) {
 		datalog_data = plain;
-		debug_outln_info(F("[Datalog] Plain record (empty): "), datalog_data);
-		return;
+		logPayload(F("datalog"), "plain", false, 0, nullptr);
+		debug_outln_verbose(F("[Datalog] Plain record (empty): "), datalog_data);
+		return DATALOG_FORMAT_PAYLOAD_EMPTY;
 	}
 
 	if (!anyMetricEncryptionEnabled()) {
+		if (plain.length() > DATALOG_CHAIN_SAFE_BYTES) {
+			logPayload(F("datalog"), "plain", false, plain.length(), plainSampleForLog(plain, false));
+			debug_outln_error(F("[Datalog] Plain record too large for chain limit"));
+			debug_outln_verbose(String(F("[Datalog] Record size: ")) + String(plain.length()) + F(" bytes (max ") +
+					    String(DATALOG_CHAIN_MAX_BYTES) + F(")"));
+			datalog_data = "";
+			return DATALOG_FORMAT_PAYLOAD_TOO_LARGE;
+		}
 		datalog_data = plain;
-		debug_outln_info(F("[Datalog] Plain record: "), datalog_data);
-		return;
+		logPayload(F("datalog"), "plain", false, datalog_data.length(), plainSampleForLog(plain, false));
+		debug_outln_verbose(F("[Datalog] Plain record: "), datalog_data);
+		return DATALOG_FORMAT_PLAIN;
 	}
 
 	const String encrypted = valueCryptoEncryptValue(plain);
 	if (encrypted.startsWith(VALUE_CRYPTO_CPS_PREFIX) &&
 	    encrypted.length() <= DATALOG_CHAIN_SAFE_BYTES) {
 		datalog_data = encrypted;
-		debug_outln_info(String(F("[Datalog] Bulk encrypted record (")) + String(datalog_data.length()) +
-					 F(" bytes): ") + datalog_data);
-		return;
+		logPayload(F("datalog"), "cps", true, datalog_data.length(), plainSampleForLog(plain, true));
+		debug_outln_verbose(String(F("[Datalog] Bulk encrypted record (")) + String(datalog_data.length()) +
+					    F(" bytes): ") + datalog_data);
+		return DATALOG_FORMAT_CPS;
 	}
 
 	if (encrypted.startsWith(VALUE_CRYPTO_CPS_PREFIX) && encrypted.length() > DATALOG_CHAIN_SAFE_BYTES) {
+		logPayload(F("datalog"), "cps", true, encrypted.length(), plainSampleForLog(plain, true));
 		debug_outln_error(F("[Datalog] Bulk encrypted record too large for chain limit"));
 		debug_outln_verbose(String(F("[Datalog] Record size: ")) + String(encrypted.length()) + F(" bytes (max ") +
 				    String(DATALOG_CHAIN_MAX_BYTES) + F(")"));
+		datalog_data = "";
+		return DATALOG_FORMAT_PAYLOAD_TOO_LARGE;
 	} else {
+		logPayload(F("datalog"), "cps", true, 0, plainSampleForLog(plain, true));
 		debug_outln_error(F("[Datalog] Bulk encrypt failed; not sending plaintext fallback"));
 	}
 	datalog_data = "";
+	return DATALOG_FORMAT_ENCRYPTION_FAILED;
 }
 
 void addTimeAndSign(const String &data, String &signature, Robonomics *robonomics) {
@@ -198,7 +296,7 @@ void addTimeAndSign(const String &data, String &signature, Robonomics *robonomic
     debug_outln_verbose(F("Failed to obtain time"));
     return;
   }
-  debug_outln_info(F("Local time: "), timeinfo.tm_hour);
+  debug_outln_verbose(F("Local time: "), String(timeinfo.tm_hour));
   
   // Convert local time to a Unix timestamp.
   time_t timestamp = mktime(&timeinfo);
@@ -209,12 +307,11 @@ void addTimeAndSign(const String &data, String &signature, Robonomics *robonomic
     timestampStr = timestampStr.substring(0, timestampStr.length() - 2);
   }
   
-  debug_outln_info(F("Modified Timestamp: "), timestampStr);
+  debug_outln_verbose(F("Modified Timestamp: "), timestampStr);
 
   String messageWithTimestamp = data + ",time:" + timestampStr;
 
-  debug_outln_info(F("Message to sign: "), messageWithTimestamp);
-  debug_outln_info(F("Message length: "), String(messageWithTimestamp.length()));
+  debug_outln_verbose(F("Message to sign: "), messageWithTimestamp);
 
   if (!signMessageRaw(messageWithTimestamp, signature, robonomics)) {
     signature = "";
@@ -222,5 +319,5 @@ void addTimeAndSign(const String &data, String &signature, Robonomics *robonomic
     return;
   }
 
-  debug_outln_info(F("Signature: "), signature);
+  debug_outln_verbose(F("Signature: "), signature);
 }

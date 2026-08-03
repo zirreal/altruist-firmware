@@ -94,6 +94,13 @@ struct device_status_t {
 struct metrics_t {
 	unsigned long boot_counter = 0;
 	unsigned long uptime_sec = 0;
+	int reset_reason_code = 0;
+	char reset_reason[32] = "unknown";
+	bool crash_context_valid = false;
+	unsigned long prev_uptime_sec = 0;
+	unsigned long prev_free_heap = 0;
+	unsigned int last_section_id = 0;
+	char last_section[24] = "unknown";
 	unsigned long tx_counter = 0;
 	time_t last_telemetry_timestamp = 0;
 	unsigned long err_wifi_reconnects = 0;
@@ -166,6 +173,10 @@ extern void debug_outln_info(const __FlashStringHelper* text, const String& opti
 extern void debug_outln_info(const __FlashStringHelper* text, float value);
 extern void debug_outln_verbose(const __FlashStringHelper* text, const String& option);
 extern void debug_outln_info_bool(const __FlashStringHelper* text, const bool option);
+extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
+extern void logSubsystemEvent(const __FlashStringHelper* level, const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
+extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason);
+extern void logSubsystemError(const __FlashStringHelper* subsystem, const __FlashStringHelper* reason, const String& details);
 
 
 extern bool isNumeric(const String& str);
