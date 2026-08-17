@@ -742,6 +742,10 @@ static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &d
 			const float v = urban["PCBA_noiseAvg"]["value"].as<float>();
 			if (validNoise(v)) { values.noise_avg.current = v; values.noise_avg.has_current = true; }
 		}
+		if (urban.containsKey("PCBA_noiseMax")) {
+			const float v = urban["PCBA_noiseMax"]["value"].as<float>();
+			if (validNoise(v)) { values.noise_max.current = v; values.noise_max.has_current = true; }
+		}
 	}
 
 	if (values.temp_indoor.has_current && values.hum_indoor.has_current && values.hum_indoor.current > 0.0f) {
