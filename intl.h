@@ -920,5 +920,23 @@
 #ifndef INTL_REGION_HINT
 #define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / OTA unless you change it here."
 #endif
+#ifndef INTL_MAP_SEND_CSV
+#define INTL_MAP_SEND_CSV "Send JSON/CSV to Map (current connectivity)"
+#endif
+#ifndef INTL_MAP_SEND_PROTO
+#define INTL_MAP_SEND_PROTO "Send protobuf (new protocol)"
+#endif
+#ifndef INTL_MAP_PROTO_HOST
+#define INTL_MAP_PROTO_HOST "Protobuf URL (empty = same Map host:65/)"
+#endif
+#ifndef INTL_MAP_DUAL_HINT
+#define INTL_MAP_DUAL_HINT "Both can be on at once. JSON keeps the live map. For the test connectivity paste http://128.140.46.75/v1/telemetry below. Datalog is not duplicated."
+#endif
+#ifndef INTL_LORA_UART_ENABLED
+#define INTL_LORA_UART_ENABLED "Send compact JSON to LoRa UART"
+#endif
+#ifndef INTL_LORA_UART_HINT
+#define INTL_LORA_UART_HINT "Urban C6: TX GPIO22 (CN4 pin 6), RX GPIO20 (pin 8). Meshtastic Serial Module: enabled, TEXTMSG, 115200 (baud 11), timeout 1 s. Cross TX/RX and share GND."
+#endif
 
 #endif

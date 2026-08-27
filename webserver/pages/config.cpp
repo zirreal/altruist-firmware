@@ -441,6 +441,15 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 			"Example pool:<br/>"
 			"<code>connectivity.robonomics.network<br/>1.connectivity.robonomics.network<br/>2.connectivity.robonomics.network</code>"
 			"</div>");
+#ifdef ALTRUIST_PROTO_PROTOCOL
+		page_content += F("<p class='form-hint'>");
+		page_content += FPSTR(INTL_MAP_DUAL_HINT);
+		page_content += F("</p>");
+		add_form_checkbox(Config_map_send_csv, FPSTR(INTL_MAP_SEND_CSV), true);
+		add_form_checkbox(Config_map_send_proto, FPSTR(INTL_MAP_SEND_PROTO), true);
+		add_form_input(page_content, Config_robonomics_proto_connectivity_host, FPSTR(INTL_MAP_PROTO_HOST),
+			LEN_ROBONOMICS_CONNECTIVITY_HOST - 1);
+#endif
 	}
 #endif
 	page_content += F("</div></section>");
@@ -709,6 +718,12 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 		"<div class='config-section__body'>"
 		"<div class='config-cluster'>");
 	add_form_checkbox(Config_auto_update, FPSTR(INTL_AUTO_UPDATE), true);
+#if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(ALTRUIST_URBAN)
+	add_form_checkbox(Config_lora_uart_enabled, FPSTR(INTL_LORA_UART_ENABLED), true);
+	page_content += F("<p class='form-hint'>");
+	page_content += FPSTR(INTL_LORA_UART_HINT);
+	page_content += F("</p>");
+#endif
 #ifdef ALTRUIST_INSIGHT
 	add_form_checkbox(Config_standalone, FPSTR(INTL_INSIGHT_STANDALONE), true);
 #endif

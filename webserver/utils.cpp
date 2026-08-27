@@ -617,11 +617,11 @@ void fill_app_topbar_placeholders(String& topbar, const device_status_t& deviceS
 		}
 	}
 	device_chip += F("</div>");
-	device_chip += F("<span class='app-topbar__chip-sub app-topbar__chip-sub--fw'>");
+	device_chip += F("<span class='app-topbar__chip-meta'><span class='app-topbar__chip-meta-lbl'>");
 	device_chip += FPSTR(INTL_FIRMWARE);
-	device_chip += F(" ");
+	device_chip += F("</span><span class='app-topbar__chip-sub app-topbar__chip-sub--fw'>");
 	device_chip += F(SOFTWARE_VERSION_STR);
-	device_chip += F("</span>");
+	device_chip += F("</span></span>");
 	if (ota_available) {
 		device_chip += F("<a class='app-topbar__chip-sub app-topbar__chip-sub--ota' href='/ota'>");
 		device_chip += FPSTR(INTL_TOPBAR_UPDATE);

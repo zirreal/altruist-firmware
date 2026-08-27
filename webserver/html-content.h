@@ -154,7 +154,7 @@ const char WEB_PAGE_APP_TOPBAR_BODY[] PROGMEM = "<header class='app-topbar'>\
 {send_chip}\
 <button type='button' class='app-topbar__chip app-topbar__chip--copy' data-copy='{ip}' data-copied='" INTL_COPIED "'>\
 <span class='app-topbar__chip-lbl'>" INTL_IP_ADDRESS "</span>\
-<span class='app-topbar__chip-val app-topbar__chip-val--mono'>{ip}</span>\
+<span class='app-topbar__chip-val app-topbar__chip-val--mono app-topbar__chip-val--ip'>{ip}</span>\
 <span class='app-topbar__chip-sub app-topbar__chip-sub--muted'>{host}</span>\
 <span class='app-topbar__chip-hint'>" INTL_TOPBAR_TAP_COPY "</span>\
 </button>\

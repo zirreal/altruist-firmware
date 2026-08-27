@@ -2,7 +2,7 @@
 
 All notable changes to the Altruist Firmware project will be documented in this file.
 
-## [R_2026-07–2026-08](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-07) — 2026-07–2026-08
+## [R_2026-09](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-09) — 2026-09
 
 ### Features
 
@@ -22,6 +22,8 @@ All notable changes to the Altruist Firmware project will be documented in this 
 - **Config panels** — Sectioned settings (Wi-Fi, Robonomics, data sharing, GPS, auth, debug, LEDs, sleep analytics, integrations) with checkbox **grids** for map-sharing toggles and shared JS for conditional fields (`script-js-config-toggles.h`).
 - **OTA check before install** — **Check for update** fetches the server MD5 (and optional `.version` artifact) without starting a download or reloading the page (AJAX). Shows **Latest available** vs current; a green **Update** button appears only when the remote build differs. During install the UI polls `/ota-progress.json` and shows a progress bar with the same percent as the serial log. Language switch still installs immediately.
 - **Connectivity region (RU / Global)** — Built-in sensors.social hosts are split by region: **RU** → `connectivity.robonomics.network`, **Global** → `1.` / `2.connectivity.robonomics.network`. Web UI offers only RU/Global (legacy continent ids migrate to Global). Auto-select when not set manually: map coordinates via simplified Russia polygons (geoBoundaries ADM0) → else OTA host (`updru` → RU, `upd` → Global). Default for all language builds is Global (RU firmware language does not imply Russia). Custom single host / host pool still overrides the built-in pool.
+- **Map dual-send (JSON + protobuf)** — ESP32-C6 Urban and Insight (release and debug) can POST the current JSON/CSV payload to production connectivity **and** a signed `crypto.v1.SignedEnvelope` protobuf to a separate URL. Toggles under **Publish to Map**; protobuf actually leaves the device only when **Protobuf URL** is set (empty URL must not spray binary at legacy `:65/` JSON hosts). Custom HTTP stays JSON/CSV. On-chain datalog stays CSV on release.
+- **LoRa / Meshtastic UART (Urban C6)** — Optional compact JSON Lines telemetry on CN4: **TX GPIO22** (pin 6), **RX GPIO20** (pin 8), **115200** baud. Off by default (`System → Send compact JSON to LoRa UART`). After enable, UART0 is remapped to those pins so Meshtastic sees sensor JSON only; USB CDC keeps firmware logs. Payload is one JSON line (`v`, `id`, `ts`, `p1`/`p2`, `t`/`h`/`p`, `n`/`nm`), max **220** bytes, at the measurement interval (floor 30 s). Heltec Serial Module: enabled, **TEXTMSG**, baud enum **11**, timeout **1 s**; cross TX/RX and share GND.
 
 ### Improvements
 
