@@ -50,6 +50,10 @@ const char *cfgDateStrftimeFmt();
 void cfgFormatDate(char *buf, size_t n, const struct tm *ti);
 /** Date plus ` HH:MM:SS` in the same display format. */
 void cfgFormatDateTime(char *buf, size_t n, const struct tm *ti);
+/** POSIX TZ from UTC offset + DST rule (`<+04>-4` or `<+04>-4DST,M3.5.0/2,…`). */
+const char *cfgPosixTimezone();
+/** setenv(TZ) + tzset from cfgPosixTimezone(). */
+void applyConfiguredTimezone();
 
 #if defined(ALTRUIST_INSIGHT)
 struct ExtraUrbanItem {

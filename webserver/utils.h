@@ -48,6 +48,7 @@ String form_select_altruist(JsonDocument& data);
 String form_extra_urban_pages(JsonDocument& data);
 #endif
 String form_select_timezone();
+String form_select_dst();
 String form_select_reg();
 String form_select_pressure_unit();
 String form_select_temp_unit();

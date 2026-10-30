@@ -764,6 +764,7 @@ void webserver_config_send_body_get(WebServer &server, String& page_content, boo
 #endif
 	page_content += F("</div><div class='config-cluster'>");
 	page_content += form_select_timezone();
+	page_content += form_select_dst();
 	page_content += form_select_date_format();
 	page_content += form_select_reg();
 	page_content += F("</div></div></section>");

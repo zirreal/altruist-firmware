@@ -126,6 +126,14 @@ const char INTL_PRESSURE_CORRECTION[] PROGMEM = "Коррекция давлен
 #define INTL_PRESSURE_UNIT "Единица давления"
 #define INTL_TEMP_UNIT "Единица температуры"
 #define INTL_DATE_FORMAT "Формат даты"
+#define INTL_TIMEZONE "Часовой пояс"
+#define INTL_DST "Летнее время (DST)"
+#define INTL_DST_HINT "Выкл — UTC±N без перехода. Европа / UK / США / Австралия сами переключают лето и зиму."
+#define INTL_DST_OFF "Выкл"
+#define INTL_DST_EU "Европа"
+#define INTL_DST_UK "Великобритания, Ирландия"
+#define INTL_DST_US "США, Канада"
+#define INTL_DST_AU "Австралия"
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Пользовательский адрес Altruist Urban";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Использовать пользовательский адрес Altruist Urban";
 #define INTL_MAIN_URBAN "Главный Urban (первая страница с Insight)"

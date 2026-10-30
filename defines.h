@@ -145,7 +145,13 @@ void firmwareBlockingYieldHook(void);
 #define LEN_URBAN_NAME 32
 #define MAX_EXTRA_URBANS 16
 #define LEN_EXTRA_URBANS 1024
-#define LEN_TIMEZONE 10
+#define LEN_TIMEZONE 48
+#define LEN_DST_RULE 8
+#define DST_RULE_NONE "none"
+#define DST_RULE_EU "eu"
+#define DST_RULE_UK "uk"
+#define DST_RULE_US "us"
+#define DST_RULE_AU "au"
 
 #define LEN_HOST_INFLUX 100
 #define LEN_URL_INFLUX 100

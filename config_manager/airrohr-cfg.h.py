@@ -66,6 +66,7 @@ String      date_format
 String      local_hostname
 String      chosen_altruist_urban
 String      timezone
+String      timezone_dst
 UInt		leds_brightness
 Bool        leds_on
 UInt        leds_off_hour

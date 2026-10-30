@@ -8,6 +8,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Features
 
+- **Timezone DST (#177)** — Timezone stays **UTC±N**. A second **DST** select (Off / Europe / UK / USA / Australia) turns summer/winter switching on. Off keeps the offset all year (Russia, UAE, Georgia…). Existing UTC±N settings stay Off.
 - **Sensor key API** — `POST /api/sensor-key` with JSON `{ "private_key": "<64 hex>" }` (or `hex`) installs the Robonomics seed, returns SS58 `address`, then restarts. `GET` returns the current address only. The key is not logged or echoed.
 - **Local key install** — Advanced → **Install sensor key** (`/provision`) hard-derives `MASTER_SEED//N` in the browser (ed25519, same as `cps id inspect`). The page does the hashes itself, so Chrome on `http://192.168…` works (no `crypto.subtle`). Only the 64-hex child key is POSTed. The mnemonic stays on the PC. Derive is safe; Install replaces the device key and restarts. Local LAN HTTP only (service page on the hub). Guest AP does not expose this page.
 - **Pressure offset (#165)** — Configurable **Pressure correction in hPa** next to the temperature offset (default `0.0`). Applied to Urban BME280 (hPa) and Insight BME680 (Pa, converted from the same hPa field) so map, protobuf, and display all see the corrected value.
@@ -72,6 +73,7 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Bug Fixes
 
+- **Urban PM units** — SDS011 PM10 / PM2.5 on Values / `/data.json` were labeled `ppm`; they are mass concentration, now `µg/m³`.
 - **SNTP after late Wi‑Fi (#178)** — NTP used to start only in `setup()` when STA was already up. After a power cut the router may still be down then, so time stayed unset, Map never sent, and datalog kept 1970 timestamps until a manual restart. SNTP now starts on STA connect / GOT_IP and retries every 30 s while Wi‑Fi is up and `getLocalTime()` fails. Urban LED treats missing time for >5 min as an error (same red latch as other faults).
 - **Urban protobuf pressure ×100** — After the BME280 JSON value became Pa, encode still treated it as hPa and wrote `deci_pascal` 100× too high (e.g. 100565094 instead of ~1005650). Same Pa × 10 path as Insight. Hits Meshtastic and map protobuf.
 - **Insight Urban graphs** — CSV logs **only the main Urban**. Extra Urbans stay on the display cache and are not written to the graph file. Non-numeric fields such as `IP_address` are skipped so temperature/pressure columns no longer shift (values looking like thousandths of a degree, pressure ~0 mmHg).

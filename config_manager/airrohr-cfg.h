@@ -94,6 +94,7 @@ enum ConfigShapeId {
 	Config_local_hostname,
 	Config_chosen_altruist_urban,
 	Config_timezone,
+	Config_timezone_dst,
 	Config_leds_brightness,
 	Config_leds_on,
 	Config_leds_off_hour,
@@ -198,6 +199,7 @@ static constexpr char CFG_KEY_DATE_FORMAT[] PROGMEM = "date_format";
 static constexpr char CFG_KEY_LOCAL_HOSTNAME[] PROGMEM = "local_hostname";
 static constexpr char CFG_KEY_CHOSEN_ALTRUIST_URBAN[] PROGMEM = "chosen_altruist_urban";
 static constexpr char CFG_KEY_TIMEZONE[] PROGMEM = "timezone";
+static constexpr char CFG_KEY_TIMEZONE_DST[] PROGMEM = "timezone_dst";
 static constexpr char CFG_KEY_LEDS_BRIGHTNESS[] PROGMEM = "leds_brightness";
 static constexpr char CFG_KEY_LEDS_ON[] PROGMEM = "leds_on";
 static constexpr char CFG_KEY_LEDS_OFF_HOUR[] PROGMEM = "leds_off_hour";
@@ -302,6 +304,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::local_hostname)-1, CFG_KEY_LOCAL_HOSTNAME, cfg::local_hostname },
 	{ Config_Type_String, sizeof(cfg::chosen_altruist_urban)-1, CFG_KEY_CHOSEN_ALTRUIST_URBAN, cfg::chosen_altruist_urban },
 	{ Config_Type_String, sizeof(cfg::timezone)-1, CFG_KEY_TIMEZONE, cfg::timezone },
+	{ Config_Type_String, sizeof(cfg::timezone_dst)-1, CFG_KEY_TIMEZONE_DST, cfg::timezone_dst },
 	{ Config_Type_UInt, 0, CFG_KEY_LEDS_BRIGHTNESS, &cfg::leds_brightness },
 	{ Config_Type_Bool, 0, CFG_KEY_LEDS_ON, &cfg::leds_on },
 	{ Config_Type_UInt, 0, CFG_KEY_LEDS_OFF_HOUR, &cfg::leds_off_hour },

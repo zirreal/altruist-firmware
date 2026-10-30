@@ -126,6 +126,14 @@ const char INTL_PRESSURE_CORRECTION[] PROGMEM = "Pressure correction in hPa";
 #define INTL_PRESSURE_UNIT "Pressure unit"
 #define INTL_TEMP_UNIT "Temperature unit"
 #define INTL_DATE_FORMAT "Date format"
+#define INTL_TIMEZONE "Timezone"
+#define INTL_DST "Daylight saving (DST)"
+#define INTL_DST_HINT "Off keeps UTC±N all year. Europe / UK / USA / Australia switch summer and winter automatically."
+#define INTL_DST_OFF "Off"
+#define INTL_DST_EU "Europe"
+#define INTL_DST_UK "UK, Ireland"
+#define INTL_DST_US "USA, Canada"
+#define INTL_DST_AU "Australia"
 const char INTL_CUSTOM_ALTRUIST[] PROGMEM = "Custom Altruist Urban Address";
 const char INTL_USE_CUSTOM_URBAN[] PROGMEM = "Use Custom Altruist Urban Address";
 #define INTL_MAIN_URBAN "Main Urban (first page with Insight)"

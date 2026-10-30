@@ -675,7 +675,7 @@ static void safeConfigTzTime(const char* tz, const char* server1, const char* se
 static void setupNetworkTime() {
 	// server name ptrs must be persisted after the call to configTime because internally
 	// the pointers are stored see implementation of lwip sntp_setservername()
-	debug_outln_info(F("Setup time, timezone: "), cfg::timezone);
+	debug_outln_info(F("Setup time, timezone: "), cfgPosixTimezone());
 
 	static char ntpServer1[18], ntpServer2[18];
 	strcpy_P(ntpServer1, NTP_SERVER_1);
@@ -683,9 +683,9 @@ static void setupNetworkTime() {
 
 #if defined(ESP32)
 	// Use safe SNTP init to avoid lwIP core-locking asserts on ESP32-C6.
-	safeConfigTzTime(cfg::timezone, ntpServer1, ntpServer2, "");
+	safeConfigTzTime(cfgPosixTimezone(), ntpServer1, ntpServer2, "");
 #else
-	configTzTime(cfg::timezone, ntpServer1, ntpServer2);
+	configTzTime(cfgPosixTimezone(), ntpServer1, ntpServer2);
 #endif
 }
 
@@ -1561,6 +1561,9 @@ void setup(void) {
 		}
 	}
 
+	// TZ conversion does not need Wi‑Fi; apply even if SNTP is skipped because RTC already has UTC.
+	applyConfiguredTimezone();
+	debug_outln_info(F("Timezone: "), cfgPosixTimezone());
 	// Configure SNTP only after TCP/IP + WiFi are up (C6 asserts if configTzTime runs earlier).
 	// If STA is not ready yet, sensorAndAPIWorker starts SNTP on connect / GOT_IP .
 	maybeEnsureNetworkTime(true);

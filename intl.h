@@ -1046,6 +1046,30 @@
 #ifndef INTL_DATE_FORMAT
 #define INTL_DATE_FORMAT "Date format"
 #endif
+#ifndef INTL_TIMEZONE
+#define INTL_TIMEZONE "Timezone"
+#endif
+#ifndef INTL_DST
+#define INTL_DST "Daylight saving (DST)"
+#endif
+#ifndef INTL_DST_HINT
+#define INTL_DST_HINT "Off keeps UTC±N all year. Europe / UK / USA / Australia switch summer and winter automatically."
+#endif
+#ifndef INTL_DST_OFF
+#define INTL_DST_OFF "Off"
+#endif
+#ifndef INTL_DST_EU
+#define INTL_DST_EU "Europe"
+#endif
+#ifndef INTL_DST_UK
+#define INTL_DST_UK "UK, Ireland"
+#endif
+#ifndef INTL_DST_US
+#define INTL_DST_US "USA, Canada"
+#endif
+#ifndef INTL_DST_AU
+#define INTL_DST_AU "Australia"
+#endif
 #ifndef INTL_GAS_RESISTANCE
 #define INTL_GAS_RESISTANCE "Gas resistance (raw)"
 #endif

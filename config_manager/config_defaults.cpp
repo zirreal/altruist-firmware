@@ -87,6 +87,7 @@ namespace cfg {
 	char local_hostname[LEN_LOCAL_HOSTNAME] = "";
 	char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	char timezone[LEN_TIMEZONE] = "<+00>0";
+	char timezone_dst[LEN_DST_RULE] = DST_RULE_NONE;
 	char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS] = "";
 	bool use_custom_urban = false;
 	bool standalone = false;

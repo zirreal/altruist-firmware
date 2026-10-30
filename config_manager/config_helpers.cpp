@@ -365,6 +365,8 @@ static bool cfgMigrateLegacyLocalHostname() {
 	return true;
 }
 
+static bool cfgMigrateTimezoneDst();
+
 void readConfig(bool oldconfig) {
 	ConfigFsLockGuard lock(10000);
 	if (!lock.ok()) {
@@ -560,6 +562,9 @@ void readConfig(bool oldconfig) {
 		} else if (strcmp(cfg::date_format, DATE_FORMAT_MDY) != 0) {
 			strncpy(cfg::date_format, DATE_FORMAT_MDY, sizeof(cfg::date_format) - 1);
 			cfg::date_format[sizeof(cfg::date_format) - 1] = '\0';
+			rewriteConfig = true;
+		}
+		if (cfgMigrateTimezoneDst()) {
 			rewriteConfig = true;
 		}
 		if (cfgApplyAutoRegion()) {
@@ -857,6 +862,82 @@ void extraUrbansSanitize() {
 	}
 }
 #endif
+
+static bool dstRuleIsKnown(const char *rule) {
+	return strcmp(rule, DST_RULE_NONE) == 0 ||
+	       strcmp(rule, DST_RULE_EU) == 0 ||
+	       strcmp(rule, DST_RULE_UK) == 0 ||
+	       strcmp(rule, DST_RULE_US) == 0 ||
+	       strcmp(rule, DST_RULE_AU) == 0;
+}
+
+static bool cfgMigrateTimezoneDst() {
+	bool changed = false;
+	struct LegacyTz {
+		const char *posix;
+		const char *utc;
+		const char *dst;
+	};
+	static const LegacyTz kLegacy[] = {
+		{"GMT0BST,M3.5.0/1,M10.5.0/2", "<+00>0", DST_RULE_UK},
+		{"CET-1CEST,M3.5.0/2,M10.5.0/3", "<+01>-1", DST_RULE_EU},
+		{"EET-2EEST,M3.5.0/3,M10.5.0/4", "<+02>-2", DST_RULE_EU},
+		{"AST4ADT,M3.2.0,M11.1.0", "<-04>4", DST_RULE_US},
+		{"EST5EDT,M3.2.0,M11.1.0", "<-05>5", DST_RULE_US},
+		{"CST6CDT,M3.2.0,M11.1.0", "<-06>6", DST_RULE_US},
+		{"MST7MDT,M3.2.0,M11.1.0", "<-07>7", DST_RULE_US},
+		{"PST8PDT,M3.2.0,M11.1.0", "<-08>8", DST_RULE_US},
+		{"AKST9AKDT,M3.2.0,M11.1.0", "<-09>9", DST_RULE_US},
+		{"AEST-10AEDT,M10.1.0,M4.1.0/3", "<+10>-10", DST_RULE_AU},
+	};
+	for (const auto &row : kLegacy) {
+		if (strcmp(cfg::timezone, row.posix) == 0) {
+			strncpy(cfg::timezone, row.utc, sizeof(cfg::timezone) - 1);
+			cfg::timezone[sizeof(cfg::timezone) - 1] = '\0';
+			strncpy(cfg::timezone_dst, row.dst, sizeof(cfg::timezone_dst) - 1);
+			cfg::timezone_dst[sizeof(cfg::timezone_dst) - 1] = '\0';
+			changed = true;
+			break;
+		}
+	}
+	if (!dstRuleIsKnown(cfg::timezone_dst)) {
+		strncpy(cfg::timezone_dst, DST_RULE_NONE, sizeof(cfg::timezone_dst) - 1);
+		cfg::timezone_dst[sizeof(cfg::timezone_dst) - 1] = '\0';
+		changed = true;
+	}
+	return changed;
+}
+
+const char *cfgPosixTimezone() {
+	static char tz[LEN_TIMEZONE];
+	const char *base = cfg::timezone;
+	if (base[0] == '\0') {
+		return "<+00>0";
+	}
+	if (strchr(base, ',') != nullptr) {
+		return base;
+	}
+	const char *rules = nullptr;
+	if (strcmp(cfg::timezone_dst, DST_RULE_EU) == 0) {
+		rules = "M3.5.0/2,M10.5.0/3";
+	} else if (strcmp(cfg::timezone_dst, DST_RULE_UK) == 0) {
+		rules = "M3.5.0/1,M10.5.0/2";
+	} else if (strcmp(cfg::timezone_dst, DST_RULE_US) == 0) {
+		rules = "M3.2.0,M11.1.0";
+	} else if (strcmp(cfg::timezone_dst, DST_RULE_AU) == 0) {
+		rules = "M10.1.0,M4.1.0/3";
+	}
+	if (rules == nullptr) {
+		return base;
+	}
+	snprintf(tz, sizeof(tz), "%sDST,%s", base, rules);
+	return tz;
+}
+
+void applyConfiguredTimezone() {
+	setenv("TZ", cfgPosixTimezone(), 1);
+	tzset();
+}
 
 bool cfgPressureDisplayHpa() {
 	return strcasecmp(cfg::pressure_unit, PRESSURE_UNIT_HPA) == 0;

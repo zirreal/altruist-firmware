@@ -94,6 +94,8 @@ namespace cfg {
 	extern char local_hostname[LEN_LOCAL_HOSTNAME];
 	extern char chosen_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS];
 	extern char timezone[LEN_TIMEZONE];
+	/** DST rule: `none`, `eu`, `uk`, `us`, `au`. Combined with `timezone` into POSIX TZ. */
+	extern char timezone_dst[LEN_DST_RULE];
 
 	extern char custom_altruist_urban[LEN_CHOSEN_ALTRUIS_ADDRESS];
 	extern bool use_custom_urban;
