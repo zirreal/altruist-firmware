@@ -689,6 +689,30 @@ static void setupNetworkTime() {
 #endif
 }
 
+static bool networkTimeValid() {
+	struct tm timeinfo;
+	return getLocalTime(&timeinfo, 0);
+}
+
+/** Start/retry SNTP once STA has an address. Boot used to call this only if Wi-Fi
+ *  was already up in setup(); after a power cut the router may still be down then,*/
+static void maybeEnsureNetworkTime(bool force) {
+	static unsigned long last_sntp_ensure_ms = 0;
+	if (!wifiStaLinkReady()) {
+		return;
+	}
+	if (networkTimeValid()) {
+		return;
+	}
+	const unsigned long min_gap_ms = force ? 2000UL : 30000UL;
+	if (last_sntp_ensure_ms != 0 && msSince(last_sntp_ensure_ms) < min_gap_ms) {
+		return;
+	}
+	last_sntp_ensure_ms = millis();
+	debug_outln_info(F("[Time] STA up, starting SNTP"));
+	setupNetworkTime();
+}
+
 static void extractAnalyticsRollupValuesFromSensors(const DynamicJsonDocument &doc, analytics_screen_values_t &values) {
 #if defined(ALTRUIST_INSIGHT)
 	values = analytics_screen_values_t{};
@@ -830,7 +854,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 #if defined(ALTRUIST_INSIGHT)
 	analytics_screen_values_t analytics_rollup_values;
 #endif
-	static bool prev_sta_connected = false;
+	static bool prev_sta_connected = wifiStaLinkReady();
 		for (;;) {  // infinite loop
 		sensor_worker_loop_started_ms = millis();
 		if (wifiTakeUserPortalRequest()) {
@@ -871,6 +895,7 @@ void sensorAndAPIWorker(void *pvParameters) {
 		    WiFi.localIP()[0] != 0) {
 			debug_outln_info(F("[WiFi] STA_GOT_IP -> refresh web listener"));
 			refresh_web_and_mdns();
+			maybeEnsureNetworkTime(true);
 		}
 #endif
 		// Run STA recovery before fetch/API work: slow sensors or HTTP can block for a long time and
@@ -911,12 +936,16 @@ void sensorAndAPIWorker(void *pvParameters) {
 			const bool sta_connected_now = wifiStaLinkReady();
 			if (sta_connected_now && !prev_sta_connected) {
 				refresh_web_and_mdns();
+				maybeEnsureNetworkTime(true);
 			} else if (!sta_connected_now && prev_sta_connected) {
 #if !defined(ALTRUIST_URBAN_C3_NO_MDNS)
 				MDNS.end();
 #endif
 			}
 			prev_sta_connected = sta_connected_now;
+			if (sta_connected_now) {
+				maybeEnsureNetworkTime(false);
+			}
 		}
 		// Mark that we're about to fetch sensor data
 		markCrashSection(CRASH_SECTION_FETCH_SENSORS);
@@ -1081,7 +1110,22 @@ void ledsWorker(void *pvParameters) {
 #ifdef ALTRUIST_URBAN_HW_UI
 		const bool urban_has_saved_wifi = wifiHasSavedStationCredentials();
 		const bool urban_config_mode = !urban_has_saved_wifi || wifiIsConfigPortalRunning();
-		const bool urban_error_now = urban_has_saved_wifi && (!wifiStaLinkReady() || !urban_api_status_ok);
+		static unsigned long urban_time_missing_since_ms = 0;
+		static unsigned long urban_time_check_ms = 0;
+		if (msSince(urban_time_check_ms) >= 1000UL) {
+			urban_time_check_ms = millis();
+			if (urban_has_saved_wifi && wifiStaLinkReady() && !urban_config_mode && !networkTimeValid()) {
+				if (urban_time_missing_since_ms == 0) {
+					urban_time_missing_since_ms = millis();
+				}
+			} else {
+				urban_time_missing_since_ms = 0;
+			}
+		}
+		const bool urban_time_stale = urban_time_missing_since_ms != 0 &&
+			msSince(urban_time_missing_since_ms) > 5UL * 60UL * 1000UL;
+		const bool urban_error_now = urban_has_saved_wifi &&
+			(!wifiStaLinkReady() || !urban_api_status_ok || urban_time_stale);
 		const unsigned long urban_now_ms = millis();
 		const bool urban_datalog_result_active = urban_datalog_result != 0 &&
 			(long)(urban_datalog_result_until_ms - urban_now_ms) > 0;
@@ -1517,11 +1561,9 @@ void setup(void) {
 		}
 	}
 
-	// Configure SNTP time only after TCP/IP + WiFi are up.
-	// On ESP32-C6 we observed lwIP asserts when configTzTime() runs before WiFi is connected.
-	if (wifiStaLinkReady()) {
-		setupNetworkTime();
-	}
+	// Configure SNTP only after TCP/IP + WiFi are up (C6 asserts if configTzTime runs earlier).
+	// If STA is not ready yet, sensorAndAPIWorker starts SNTP on connect / GOT_IP .
+	maybeEnsureNetworkTime(true);
 	powerOnTestSensors();
 	webserver.setup();
 	debug_outln_info(F("\nChipId: "), esp_chipid);

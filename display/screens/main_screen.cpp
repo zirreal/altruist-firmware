@@ -647,18 +647,16 @@ static bool footerShowVocPage(const main_screen_values_t &values) {
 }
 
 static String vocFooterPhraseLine(const main_screen_values_t &values) {
-    String s = INTL_VOC_ORGANIC;
-    s += ": ";
     if (values.voc_level >= 3) {
-        s += INTL_VOC_PHRASE_HIGH;
-    } else if (values.voc_level == 2) {
-        s += INTL_VOC_PHRASE_MED;
-    } else if (values.voc_level == 1) {
-        s += INTL_VOC_PHRASE_LOW;
-    } else {
-        s += INTL_VOC_PHRASE_NONE;
+        return String(INTL_DISP_VOC_PHRASE_HIGH);
     }
-    return s;
+    if (values.voc_level == 2) {
+        return String(INTL_DISP_VOC_PHRASE_MED);
+    }
+    if (values.voc_level == 1) {
+        return String(INTL_DISP_VOC_PHRASE_LOW);
+    }
+    return String(INTL_DISP_VOC_PHRASE_NONE);
 }
 
 static String vocFooterStatsLine(const main_screen_values_t &values) {
@@ -669,21 +667,7 @@ static String vocFooterStatsLine(const main_screen_values_t &values) {
     } else {
         s += '-';
     }
-    s += ' ';
-    s += INTL_DISP_VOC_SPIKES_UNIT;
-    if (values.voc_level >= 0) {
-        s += ", ";
-        s += INTL_DISP_VOC_LEVEL;
-        s += ' ';
-        s += String((unsigned)values.voc_index);
-        s += ' ';
-        s += INTL_VOC_AU;
-    }
     return s;
-}
-
-static String vocFooterScaleLine() {
-    return String(INTL_DISP_VOC_SCALE_HINT);
 }
 
 static float calculateDewPointC(float temperature_c, float humidity_percent) {
@@ -1548,7 +1532,7 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
             appendIssue(issues, String(INTL_DISP_DEW_POINT_IS) + String(dew_str) + cfgTempDisplayUnit());
         }
         const String footer_src = footerShowVocPage(values)
-            ? (vocFooterPhraseLine(values) + " " + vocFooterStatsLine(values) + " " + vocFooterScaleLine())
+            ? (vocFooterStatsLine(values) + "  " + vocFooterPhraseLine(values))
             : ((issues.length() > 0) ? issues : String(INTL_DISP_CHECK_MAP_FULL_DATA));
 
         uint16_t text_right = (DISPLAY_WIDTH > nav_sidebar_width + 1)
@@ -1891,9 +1875,8 @@ void drawMainScreen(UBYTE *BlackImage, const main_screen_values_t &values, const
     String source_lines[3];
     int source_line_count = 0;
     if (footerShowVocPage(values)) {
-        source_lines[source_line_count++] = vocFooterPhraseLine(values);
         source_lines[source_line_count++] = vocFooterStatsLine(values);
-        source_lines[source_line_count++] = vocFooterScaleLine();
+        source_lines[source_line_count++] = vocFooterPhraseLine(values);
     } else {
         if (urban_issues.length() > 0) {
             source_lines[source_line_count++] = String("Urban: ") + urban_issues;

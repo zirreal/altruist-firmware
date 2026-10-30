@@ -35,11 +35,26 @@ void append_data_block_open(String& page_content, const String& label, const cha
 
 } // namespace
 
+void web_send_content_ram(WebServer* server, const char* data, size_t len) {
+	if (!server || !data || len == 0) {
+		return;
+	}
+	constexpr size_t kChunk = 512;
+	while (len > 0) {
+		const size_t n = (len > kChunk) ? kChunk : len;
+		server->sendContent(data, n);
+		data += n;
+		len -= n;
+		markMainLoopAlive();
+		yield();
+	}
+}
+
 void web_page_flush_chunk(String& page_content, WebServer* server) {
 	if (!server || page_content.length() == 0) {
 		return;
 	}
-	server->sendContent(page_content);
+	web_send_content_ram(server, page_content.c_str(), page_content.length());
 	page_content = emptyString;
 	markMainLoopAlive();
 	yield();
@@ -59,6 +74,15 @@ void web_send_content_progmem(WebServer* server, const char* data, size_t len) {
 		markMainLoopAlive();
 		yield();
 	}
+}
+
+void web_send_static_progmem(WebServer* server, const __FlashStringHelper* type, const char* data, size_t len) {
+	if (!server) {
+		return;
+	}
+	server->setContentLength(len);
+	server->send(200, String(type), emptyString);
+	web_send_content_progmem(server, data, len);
 }
 
 void web_page_finish_chunked(WebServer* server) {
@@ -1223,6 +1247,9 @@ void append_app_sidebar(String& page_content) {
 	page_content += F("</a>"
 		"<a class='app-sidebar__subitem' href='/advanced#backup'>");
 	page_content += FPSTR(INTL_DEVICE_BACKUP_TITLE);
+	page_content += F("</a>"
+		"<a class='app-sidebar__subitem' href='/provision'>");
+	page_content += FPSTR(INTL_PROVISION_TITLE);
 	page_content += F("</a>"
 		"<a class='app-sidebar__subitem' href='/advanced#restart'>");
 	page_content += FPSTR(INTL_RESTART_SENSOR);

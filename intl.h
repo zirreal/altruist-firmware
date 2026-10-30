@@ -107,7 +107,19 @@
 #define INTL_DISP_IS_TOO "is too"
 #endif
 #ifndef INTL_DISP_VOC_TODAY
-#define INTL_DISP_VOC_TODAY "VOC today:"
+#define INTL_DISP_VOC_TODAY "VOC:"
+#endif
+#ifndef INTL_DISP_VOC_PHRASE_NONE
+#define INTL_DISP_VOC_PHRASE_NONE "not detected"
+#endif
+#ifndef INTL_DISP_VOC_PHRASE_LOW
+#define INTL_DISP_VOC_PHRASE_LOW "detected (low)"
+#endif
+#ifndef INTL_DISP_VOC_PHRASE_MED
+#define INTL_DISP_VOC_PHRASE_MED "detected (medium)"
+#endif
+#ifndef INTL_DISP_VOC_PHRASE_HIGH
+#define INTL_DISP_VOC_PHRASE_HIGH "detected (high)"
 #endif
 #ifndef INTL_DISP_VOC_NONE
 #define INTL_DISP_VOC_NONE "VOC: none"
@@ -433,6 +445,81 @@
 #endif
 #ifndef INTL_DEVICE_BACKUP_RESTORE_FAILED
 #define INTL_DEVICE_BACKUP_RESTORE_FAILED "Could not restore backup. Check the file format."
+#endif
+#ifndef INTL_PROVISION_TITLE
+#define INTL_PROVISION_TITLE "Install sensor key"
+#endif
+#ifndef INTL_PROVISION_INTRO
+#define INTL_PROVISION_INTRO "Derive MASTER_SEED//N in this browser, then write only the hex to the device. The mnemonic never leaves your computer."
+#endif
+#ifndef INTL_PROVISION_CARD_HINT
+#define INTL_PROVISION_CARD_HINT "Replace this device key from a Sensor.Social master seed (hard derivation //N)."
+#endif
+#ifndef INTL_PROVISION_OPEN
+#define INTL_PROVISION_OPEN "Open key install"
+#endif
+#ifndef INTL_PROVISION_CURRENT
+#define INTL_PROVISION_CURRENT "Current address"
+#endif
+#ifndef INTL_PROVISION_SEED
+#define INTL_PROVISION_SEED "Master seed"
+#endif
+#ifndef INTL_PROVISION_SEED_HINT
+#define INTL_PROVISION_SEED_HINT "12/24-word phrase from the box, or 64 hex of the root key. Not sent to the device."
+#endif
+#ifndef INTL_PROVISION_PASSWORD
+#define INTL_PROVISION_PASSWORD "Derivation password"
+#endif
+#ifndef INTL_PROVISION_PASSWORD_HINT
+#define INTL_PROVISION_PASSWORD_HINT "Usually empty. Only if the seed was created with a password."
+#endif
+#ifndef INTL_PROVISION_INDEX
+#define INTL_PROVISION_INDEX "Sensor index N"
+#endif
+#ifndef INTL_PROVISION_INDEX_HINT
+#define INTL_PROVISION_INDEX_HINT "0 for the first sensor, 1 for the second, and so on. Path is MASTER_SEED//N."
+#endif
+#ifndef INTL_PROVISION_DERIVE
+#define INTL_PROVISION_DERIVE "Derive locally"
+#endif
+#ifndef INTL_PROVISION_PATH
+#define INTL_PROVISION_PATH "Path"
+#endif
+#ifndef INTL_PROVISION_ADDRESS
+#define INTL_PROVISION_ADDRESS "Derived address"
+#endif
+#ifndef INTL_PROVISION_HEX
+#define INTL_PROVISION_HEX "Key (hex)"
+#endif
+#ifndef INTL_PROVISION_ACK
+#define INTL_PROVISION_ACK "I understand this replaces the key on this device"
+#endif
+#ifndef INTL_PROVISION_INSTALL
+#define INTL_PROVISION_INSTALL "Install on this device"
+#endif
+#ifndef INTL_PROVISION_ERR_MNEMONIC
+#define INTL_PROVISION_ERR_MNEMONIC "Invalid seed phrase."
+#endif
+#ifndef INTL_PROVISION_ERR_INDEX
+#define INTL_PROVISION_ERR_INDEX "Index must be 0 or a positive integer."
+#endif
+#ifndef INTL_PROVISION_ERR_CRYPTO
+#define INTL_PROVISION_ERR_CRYPTO "Could not derive the key. Check the seed and index."
+#endif
+#ifndef INTL_PROVISION_ERR_INSTALL
+#define INTL_PROVISION_ERR_INSTALL "Could not write the key to the device."
+#endif
+#ifndef INTL_PROVISION_CONFIRM
+#define INTL_PROVISION_CONFIRM "Replace the key on this device? It will restart. The current address changes unless you install the same key."
+#endif
+#ifndef INTL_PROVISION_OK
+#define INTL_PROVISION_OK "Key saved. The device is restarting…"
+#endif
+#ifndef INTL_PROVISION_MISMATCH
+#define INTL_PROVISION_MISMATCH "Device address does not match the derived address."
+#endif
+#ifndef INTL_PROVISION_NEED_BROWSER
+#define INTL_PROVISION_NEED_BROWSER "Could not derive a key in this browser. Try another browser or update Chrome."
 #endif
 #ifndef INTL_GUEST_RESTORE_HINT
 #define INTL_GUEST_RESTORE_HINT "Have a backup from before the reset? Restore it here to bring back Wi‑Fi, owner key, and settings — then the device restarts."
@@ -937,6 +1024,12 @@
 #endif
 #ifndef INTL_REGION_HINT
 #define INTL_REGION_HINT "Used for sensors.social connectivity. Auto from coordinates / OTA unless you change it here."
+#endif
+#ifndef INTL_RWS_OWNER
+#define INTL_RWS_OWNER "RWS Owner Address (legacy)"
+#endif
+#ifndef INTL_RWS_OWNER_HINT
+#define INTL_RWS_OWNER_HINT "Legacy RWS subscription for datalog and encryption. Not the device key and not the master seed (//0, //1)."
 #endif
 #ifndef INTL_NODE_ID
 #define INTL_NODE_ID "CPS node ID (0 = not set)"

@@ -4,26 +4,12 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ## [Unreleased]
 
-### Bug Fixes
-
-- **Urban protobuf pressure ×100** — After the BME280 JSON value became Pa, encode still treated it as hPa and wrote `deci_pascal` 100× too high (e.g. 100565094 instead of ~1005650). Same Pa × 10 path as Insight. Hits Meshtastic and map protobuf.
-
-### Improvements
-
-- **Protobuf private sections (connectivity-protocol v1)** — `Urban.private` / `Insight.private` are opaque bytes. Encrypted measurements are still `EncryptedUrban` / `EncryptedInsight`, then AES-256-GCM. The bytes currently carry serialized `crypto.v1.Encrypted` so the live ingest can decode them (same blob as the old nested message). libcps SCALE wrapping waits until the backend accepts it. JSON `e.…` on the legacy map path is unchanged.
-- **GPS label** — English (and copied locale strings) use **Longitude**, not “Longtitude”.
-- **Other Urbans** — The main Urban is not offered in the extra list and is dropped on save; it already has the first display page.
-- **Improv Serial** — On boot, send the AUTHORIZED packet once instead of repeating it on USB CDC.
-- **Pressure display unit** — Settings → GPS & Sensors: **mmHg** (default) or **hPa**, independent of firmware language. Values, e-ink, and graphs follow the choice. Map / `/data.json` stay in Pa/hPa. Pressure correction remains in hPa.
-- **Date format** — Local → System, next to timezone: **MM/DD/YYYY** (default), **DD.MM.YYYY**, or **YYYY-MM-DD**. E-ink headers and Status last-send times follow it. SD file names and map URLs stay ISO.
-- **Temperature display unit** — **°C** (default) or **°F** next to the temperature correction. Values, e-ink (including dew point), sleep analytics card, and graphs follow it. Map / `/data.json`, LED bands, and the correction field stay °C.
-- **BME680 VOC spikes** — Insight turns the MOX heater on (320 °C / 150 ms, every **5 min**) and logs raw `gas_resistance` (Ohm) on Values / `/data.json` / serial. A sudden drop of ≥8% vs both the last sample and a rolling baseline counts as one spike for the **local calendar day** (until 00:00, RAM + `/voc_day.json`). Not ppm and not a BSEC IAQ index. Drops while BME temperature is falling (>0.6 °C) are ignored. Extra Urban pages unchanged.
-- **BME680 VOC phrases** — Same resistance vs this device's baseline, mapped to a **0–100** level (30% drop = 100) and a live band: none (under ~27/100), low (to 49), medium (50–74), high (75+). Values / `/data.json` show the phrase, “VOC level / of 100”, and daily spikes. Main e-ink footer **carousel (3 min)**: warnings / dew-point memo, then VOC phrase + today’s spikes + level. Extra Urban pages stay warnings-only.
-
-## [R_2026-10](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-10) — 2026-10
+## [R_2026-11](https://github.com/airalab/altruist-firmware/releases/tag/v_R_2026-11) — 2026-11
 
 ### Features
 
+- **Sensor key API** — `POST /api/sensor-key` with JSON `{ "private_key": "<64 hex>" }` (or `hex`) installs the Robonomics seed, returns SS58 `address`, then restarts. `GET` returns the current address only. The key is not logged or echoed.
+- **Local key install** — Advanced → **Install sensor key** (`/provision`) hard-derives `MASTER_SEED//N` in the browser (ed25519, same as `cps id inspect`). The page does the hashes itself, so Chrome on `http://192.168…` works (no `crypto.subtle`). Only the 64-hex child key is POSTed. The mnemonic stays on the PC. Derive is safe; Install replaces the device key and restarts. Local LAN HTTP only (service page on the hub). Guest AP does not expose this page.
 - **Pressure offset (#165)** — Configurable **Pressure correction in hPa** next to the temperature offset (default `0.0`). Applied to Urban BME280 (hPa) and Insight BME680 (Pa, converted from the same hPa field) so map, protobuf, and display all see the corrected value.
 - **CPS `node_id`** — Settings field under Robonomics (default `0` = unset). Written into protobuf `Meta.node_id` for map grouping after `create_node`.
 - **Owner-value encryption (CPS / AES-256-GCM)** — Optional per-metric encryption for sensors.map (off by default). Selected values are encrypted for the device **owner** via ECDH (device private key + owner public key) → HKDF (`salt=robonomics-network`, `info=aesgcm256`, same order as libcps) → AES-256-GCM. Wire format: `e.<base64(json)>` with `from` as **SS58** (Robonomics prefix 32, with checksum — not raw base58), `nonce`, and `ciphertext`. Decrypt on sensors.map after owner login (mnemonic) or self-owner JSON import. Config toggles under **Encrypt map values** (climate = temperature + humidity together). When `rws_owner` is unset, the device encrypts to itself (self-owner). Debug builds run `valueCryptoSelfTest()` (ECDH/HKDF/GCM/SS58) at datalog setup.
@@ -47,6 +33,16 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Improvements
 
+- **RWS Owner (legacy)** — Settings label is **RWS Owner Address (legacy)**. Hint: this is the old RWS subscription for datalog/encryption, not the device key and not the master seed (`//0`, `//1`). Same hint on Device group → Manual owner.
+- **Protobuf private sections (connectivity-protocol v1)** — `Urban.private` / `Insight.private` are opaque bytes. Encrypted measurements are still `EncryptedUrban` / `EncryptedInsight`, then AES-256-GCM. The bytes currently carry serialized `crypto.v1.Encrypted` so the live ingest can decode them (same blob as the old nested message). libcps SCALE wrapping waits until the backend accepts it. JSON `e.…` on the legacy map path is unchanged.
+- **GPS label** — English (and copied locale strings) use **Longitude**, not “Longtitude”.
+- **Other Urbans** — The main Urban is not offered in the extra list and is dropped on save; it already has the first display page.
+- **Improv Serial** — On boot, send the AUTHORIZED packet once instead of repeating it on USB CDC.
+- **Pressure display unit** — Settings → GPS & Sensors: **mmHg** (default) or **hPa**, independent of firmware language. Values, e-ink, and graphs follow the choice. Map / `/data.json` stay in Pa/hPa. Pressure correction remains in hPa.
+- **Date format** — Local → System, next to timezone: **MM/DD/YYYY** (default), **DD.MM.YYYY**, or **YYYY-MM-DD**. E-ink headers and Status last-send times follow it. SD file names and map URLs stay ISO.
+- **Temperature display unit** — **°C** (default) or **°F** next to the temperature correction. Values, e-ink (including dew point), sleep analytics card, and graphs follow it. Map / `/data.json`, LED bands, and the correction field stay °C.
+- **BME680 VOC spikes** — Insight turns the MOX heater on (320 °C / 150 ms, every **5 min**) and logs raw `gas_resistance` (Ohm) on Values / `/data.json` / serial. A sudden drop of ≥8% vs both the last sample and a rolling baseline counts as one spike for the **local calendar day** (until 00:00, RAM + `/voc_day.json`). Not ppm and not a BSEC IAQ index. Drops while BME temperature is falling (>0.6 °C) are ignored. Extra Urban pages unchanged.
+- **BME680 VOC phrases** — Same resistance vs this device's baseline, mapped to a **0–100** level (30% drop = 100) and a live band: none (under ~27/100), low (to 49), medium (50–74), high (75+). Values / `/data.json` show the phrase, “VOC level / of 100”, and daily spikes. Main e-ink footer **carousel (3 min)**: warnings / dew-point memo, then two VOC lines (`VOC: <spikes today>` and `detected (low|medium|high)` / `not detected`). Extra Urban pages stay warnings-only.
 - **Insight buttons** — Long-press is **1 s** on every screen (was 3 s). Graph enter/leave no longer remounts the SD card on the button press; navigation uses the last draw cache.
 - **Insight several Urbans** — On the main screen, same as graphs: short **SET** next Urban, short **UP** previous (header `1/N`). First page is **main Urban + Insight**. Extra Urbans are their own pages (Urban data only). At the last/first page, short SET/UP leave MAIN. Long SET/UP change screens. Long DOWN still sleeps. Returning to MAIN always shows the main Urban page.
 - **Insight Other Urbans (settings)** — Local, before Sleep analytics: add extras with **Add Urban** — found list or IP, plus a screen name (kitchen, balcony…).
@@ -76,6 +72,8 @@ All notable changes to the Altruist Firmware project will be documented in this 
 
 ### Bug Fixes
 
+- **SNTP after late Wi‑Fi (#178)** — NTP used to start only in `setup()` when STA was already up. After a power cut the router may still be down then, so time stayed unset, Map never sent, and datalog kept 1970 timestamps until a manual restart. SNTP now starts on STA connect / GOT_IP and retries every 30 s while Wi‑Fi is up and `getLocalTime()` fails. Urban LED treats missing time for >5 min as an error (same red latch as other faults).
+- **Urban protobuf pressure ×100** — After the BME280 JSON value became Pa, encode still treated it as hPa and wrote `deci_pascal` 100× too high (e.g. 100565094 instead of ~1005650). Same Pa × 10 path as Insight. Hits Meshtastic and map protobuf.
 - **Insight Urban graphs** — CSV logs **only the main Urban**. Extra Urbans stay on the display cache and are not written to the graph file. Non-numeric fields such as `IP_address` are skipped so temperature/pressure columns no longer shift (values looking like thousandths of a degree, pressure ~0 mmHg).
 - **Insight analytics buttons double-advance when SD looks missing** — Short UP/SET on the analytics screen ran navigation twice if `checkInserted()` failed (Analytics→Main→Settings). Navigation no longer depends on SD there (night score uses NVS). SD mount: drop fragile 40 MHz default, try 10/4/20 MHz with `SD.end()` between attempts, and throttle remount retries to 5 s.
 - **Insight `sensors_data` JSON overflow after hours (#149)** — ArduinoJson 6 does not reclaim pool memory when strings/arrays are replaced. Long runs with SCD4x + BME680 + Urban HTTP filled the 4096-byte document (`json_overflow`). Fixed by setting `intl_name`/`units` only once, reusing `altruist_addresses` instead of recreating it every Urban fetch, and calling `garbageCollect()` when usage exceeds ~80% or overflow is detected.

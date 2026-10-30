@@ -193,7 +193,9 @@ const char INTL_INSIGHT_STANDALONE[] PROGMEM = "Insight standalone";
 #define INTL_SCAN_FAILED "Scan failed: "
 
 const char INTL_NEO6M[] PROGMEM = "GPS (NEO 6M)";
-const char INTL_RWS_OWNER[] PROGMEM = "RWS Owner Address";
+#define INTL_RWS_OWNER INTL_RWS_OWNER
+const char INTL_RWS_OWNER[] PROGMEM = "RWS Owner Address (legacy)";
+#define INTL_RWS_OWNER_HINT "Legacy RWS subscription for datalog and encryption. Not the device key and not the master seed (//0, //1)."
 #define INTL_NODE_ID INTL_NODE_ID
 const char INTL_NODE_ID[] PROGMEM = "CPS node ID (0 = not set)";
 const char INTL_GROUP_MENU[] PROGMEM = "Device group (RWS)";
@@ -583,7 +585,11 @@ const char INTL_SIGNAL_QUALITY[] PROGMEM = "signal quality";
 #define INTL_DISP_ENABLE_SD "Please enable SD card"
 #define INTL_DISP_INSIGHT_HEADER "Insight"
 #define INTL_DISP_INSIGHT_ONLY "Insight only"
-#define INTL_DISP_VOC_TODAY "VOC today:"
+#define INTL_DISP_VOC_TODAY "VOC:"
+#define INTL_DISP_VOC_PHRASE_NONE "not detected"
+#define INTL_DISP_VOC_PHRASE_LOW "detected (low)"
+#define INTL_DISP_VOC_PHRASE_MED "detected (medium)"
+#define INTL_DISP_VOC_PHRASE_HIGH "detected (high)"
 #define INTL_DISP_VOC_NONE "VOC: none"
 #define INTL_DISP_VOC_LOW "VOC: low"
 #define INTL_DISP_VOC_MED "VOC: medium"
